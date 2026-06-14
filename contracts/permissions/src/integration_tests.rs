@@ -1,0 +1,177 @@
+#![cfg(test)]
+
+use soroban_sdk::{testutils::{Address as _, Ledger}, Address, Env, Vec};
+use crate::{PermissionsContract, PermissionsContractClient};
+
+struct TestEnv {
+    env: Env,
+    admin: Address,
+    buyer: Address,
+    seller: Address,
+    agent: Address,
+    token_contract_id: Address,
+    token_admin: Address,
+    escrow_contract_id: Address,
+    permissions_contract_id: Address,
+}
+
+impl TestEnv {
+    fn setup() -> Self {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let agent = Address::generate(&env);
+
+        let token_admin = Address::generate(&env);
+        let token_contract_id = env.register_stellar_asset_contract(token_admin.clone());
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract_id);
+        token_admin_client.mint(&buyer, &10000);
+
+        let escrow_contract_id = Address::generate(&env);
+        let permissions_contract_id = env.register(PermissionsContract, ());
+
+        TestEnv {
+            env,
+            admin,
+            buyer,
+            seller,
+            agent,
+            token_contract_id,
+            token_admin,
+            escrow_contract_id,
+            permissions_contract_id,
+        }
+    }
+}
+
+#[test]
+fn test_grant_and_spend() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let per_tx_limit = 50i128;
+    let total_limit = 100i128;
+    let expiry = t.env.ledger().timestamp() + 3600;
+    let mut merchants = Vec::new(&t.env);
+    merchants.push_back(t.seller.clone());
+
+    // Grant permission
+    assert!(client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants));
+
+    // Check can spend
+    assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller));
+
+    // Spend and verify allowance decrements
+    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
+    
+    // Remaining total limit should be 60. Spending 40 again should fail
+    assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller));
+    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
+
+    // Now remaining is 20. Spending 30 should fail can_spend
+    assert!(!client.can_spend(&t.buyer, &t.agent, &30, &t.seller));
+}
+
+#[test]
+#[should_panic(expected = "Spend not authorized")]
+fn test_spend_exceeds_per_tx_limit() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let per_tx_limit = 50i128;
+    let total_limit = 100i128;
+    let expiry = t.env.ledger().timestamp() + 3600;
+    let merchants = Vec::new(&t.env);
+
+    client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants);
+    
+    // Try to spend 60 (exceeds per_tx_limit of 50)
+    client.execute_spend(&t.buyer, &t.agent, &60, &t.seller);
+}
+
+#[test]
+#[should_panic(expected = "Spend not authorized")]
+fn test_spend_exceeds_total_limit() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let per_tx_limit = 50i128;
+    let total_limit = 100i128;
+    let expiry = t.env.ledger().timestamp() + 3600;
+    let merchants = Vec::new(&t.env);
+
+    client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants);
+
+    // Spend 50 twice (reaches total limit of 100)
+    client.execute_spend(&t.buyer, &t.agent, &50, &t.seller);
+    client.execute_spend(&t.buyer, &t.agent, &50, &t.seller);
+
+    // Attempt to spend 1 more
+    client.execute_spend(&t.buyer, &t.agent, &1, &t.seller);
+}
+
+#[test]
+fn test_merchant_restriction() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let per_tx_limit = 100i128;
+    let total_limit = 1000i128;
+    let expiry = t.env.ledger().timestamp() + 3600;
+    
+    let mut merchants = Vec::new(&t.env);
+    merchants.push_back(t.seller.clone());
+
+    client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants);
+
+    // Spend at authorized merchant
+    assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+
+    // Spend at unauthorized merchant (admin)
+    let unauthorized_merchant = t.admin.clone();
+    assert!(!client.can_spend(&t.buyer, &t.agent, &50, &unauthorized_merchant));
+}
+
+#[test]
+fn test_permission_expiry() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let per_tx_limit = 100i128;
+    let total_limit = 1000i128;
+    let expiry = t.env.ledger().timestamp() + 100;
+    let merchants = Vec::new(&t.env);
+
+    client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants);
+
+    // Check can spend before expiry
+    assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+
+    // Advance ledger past expiry
+    t.env.ledger().set_timestamp(expiry + 1);
+
+    // Verify cannot spend
+    assert!(!client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+}
+
+#[test]
+fn test_revoke_prevents_spend() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let per_tx_limit = 100i128;
+    let total_limit = 1000i128;
+    let expiry = t.env.ledger().timestamp() + 3600;
+    let merchants = Vec::new(&t.env);
+
+    client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants);
+
+    // Revoke
+    assert!(client.revoke(&t.buyer, &t.agent));
+
+    // Try to spend
+    assert!(!client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+}

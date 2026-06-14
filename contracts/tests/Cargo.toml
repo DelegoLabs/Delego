@@ -1,0 +1,19 @@
+[package]
+name = "delego-cross-contract-tests"
+version = "0.0.1"
+edition = "2021"
+publish = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+delego-escrow = { path = "../escrow" }
+delego-permissions = { path = "../permissions" }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+delego-escrow = { path = "../escrow", features = ["testutils"] }
+delego-permissions = { path = "../permissions", features = ["testutils"] }
+
+[[test]]
+name = "cross_contract"
+path = "cross_contract.rs"

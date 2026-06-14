@@ -2,6 +2,7 @@
 members = [
     "escrow",
     "permissions",
+    "tests",
 ]
 resolver = "2"
 
