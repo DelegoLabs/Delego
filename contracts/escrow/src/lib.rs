@@ -28,6 +28,50 @@ pub struct EscrowRecord {
 }
 
 #[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowCreatedEvent {
+    pub escrow_id: u64,
+    pub buyer: Address,
+    pub seller: Address,
+    pub token: Address,
+    pub amount: i128,
+    pub unlock_time: u64,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowReleasedEvent {
+    pub escrow_id: u64,
+    pub seller: Address,
+    pub amount: i128,
+    pub released_by: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowRefundedEvent {
+    pub escrow_id: u64,
+    pub buyer: Address,
+    pub amount: i128,
+    pub refunded_by: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowDisputedEvent {
+    pub escrow_id: u64,
+    pub disputed_by: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowResolvedEvent {
+    pub escrow_id: u64,
+    pub release_to_seller: bool,
+    pub resolved_by: Address,
+}
+
+#[contracttype]
 pub enum DataKey {
     Admin,
     Escrow(u64),
@@ -100,6 +144,19 @@ impl EscrowContract {
         };
 
         env.storage().persistent().set(&DataKey::Escrow(last_id), &record);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("created")),
+            EscrowCreatedEvent {
+                escrow_id: last_id,
+                buyer: record.buyer.clone(),
+                seller: record.seller.clone(),
+                token: record.token.clone(),
+                amount: record.amount,
+                unlock_time: record.unlock_time,
+            },
+        );
+
         last_id
     }
 
@@ -129,6 +186,17 @@ impl EscrowContract {
 
         record.status = EscrowStatus::Released;
         env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("released")),
+            EscrowReleasedEvent {
+                escrow_id,
+                seller: record.seller.clone(),
+                amount: record.amount,
+                released_by: caller,
+            },
+        );
+
         true
     }
 
@@ -167,6 +235,17 @@ impl EscrowContract {
 
         record.status = EscrowStatus::Refunded;
         env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("refunded")),
+            EscrowRefundedEvent {
+                escrow_id,
+                buyer: record.buyer.clone(),
+                amount: record.amount,
+                refunded_by: caller,
+            },
+        );
+
         true
     }
 
@@ -187,6 +266,15 @@ impl EscrowContract {
 
         record.status = EscrowStatus::Disputed;
         env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("disputed")),
+            EscrowDisputedEvent {
+                escrow_id,
+                disputed_by: caller,
+            },
+        );
+
         true
     }
 
@@ -216,6 +304,16 @@ impl EscrowContract {
         }
 
         env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("resolved")),
+            EscrowResolvedEvent {
+                escrow_id,
+                release_to_seller,
+                resolved_by: caller,
+            },
+        );
+
         true
     }
 

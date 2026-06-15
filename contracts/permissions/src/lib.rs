@@ -16,6 +16,34 @@ pub struct PermissionInfo {
 }
 
 #[contracttype]
+#[derive(Clone, Debug)]
+pub struct PermissionGrantedEvent {
+    pub owner: Address,
+    pub delegate: Address,
+    pub per_tx_limit: i128,
+    pub total_limit: i128,
+    pub expiry_timestamp: u64,
+    pub merchant_count: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct PermissionRevokedEvent {
+    pub owner: Address,
+    pub delegate: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct SpendExecutedEvent {
+    pub owner: Address,
+    pub delegate: Address,
+    pub amount: i128,
+    pub merchant: Address,
+    pub remaining_allowance: i128,
+}
+
+#[contracttype]
 pub enum DataKey {
     Permission(Address, Address), // (owner, delegate)
 }
@@ -44,7 +72,20 @@ impl PermissionsContract {
             allowed_merchants,
         };
 
-        env.storage().persistent().set(&DataKey::Permission(owner, delegate), &info);
+        env.storage().persistent().set(&DataKey::Permission(owner.clone(), delegate.clone()), &info);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("granted")),
+            PermissionGrantedEvent {
+                owner,
+                delegate,
+                per_tx_limit: info.per_tx_limit,
+                total_limit: info.total_limit,
+                expiry_timestamp: info.expiry_timestamp,
+                merchant_count: info.allowed_merchants.len(),
+            },
+        );
+
         true
     }
 
@@ -52,9 +93,18 @@ impl PermissionsContract {
     pub fn revoke(env: Env, owner: Address, delegate: Address) -> bool {
         owner.require_auth();
 
-        let key = DataKey::Permission(owner, delegate);
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
         if env.storage().persistent().has(&key) {
             env.storage().persistent().remove(&key);
+
+            env.events().publish(
+                (symbol_short!("perm"), symbol_short!("revoked")),
+                PermissionRevokedEvent {
+                    owner,
+                    delegate,
+                },
+            );
+
             true
         } else {
             false
@@ -127,6 +177,18 @@ impl PermissionsContract {
 
         info.total_limit -= amount;
         env.storage().persistent().set(&key, &info);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("spent")),
+            SpendExecutedEvent {
+                owner,
+                delegate,
+                amount,
+                merchant,
+                remaining_allowance: info.total_limit,
+            },
+        );
+
         true
     }
 }

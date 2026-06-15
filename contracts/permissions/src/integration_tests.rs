@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use soroban_sdk::{testutils::{Address as _, Ledger}, Address, Env, Vec};
+use soroban_sdk::{testutils::{Address as _, Ledger, Events}, Address, Env, Vec, TryIntoVal};
 use crate::{PermissionsContract, PermissionsContractClient};
 
 struct TestEnv {
@@ -174,4 +174,86 @@ fn test_revoke_prevents_spend() {
 
     // Try to spend
     assert!(!client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+}
+
+#[test]
+fn test_permission_events() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let per_tx_limit = 50i128;
+    let total_limit = 100i128;
+    let expiry = t.env.ledger().timestamp() + 3600;
+    let mut merchants = Vec::new(&t.env);
+    merchants.push_back(t.seller.clone());
+
+    // 1. Test PermissionGrantedEvent
+    assert!(client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants));
+    let events = t.env.events().all();
+    let mut granted_event_found = false;
+    for event in events.iter() {
+        let (contract, topics, value) = event;
+        if contract == t.permissions_contract_id {
+            if topics.len() == 2 {
+                let topic0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&t.env).unwrap();
+                let topic1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&t.env).unwrap();
+                if topic0 == soroban_sdk::symbol_short!("perm") && topic1 == soroban_sdk::symbol_short!("granted") {
+                    let evt: crate::PermissionGrantedEvent = value.try_into_val(&t.env).unwrap();
+                    assert_eq!(evt.owner, t.buyer);
+                    assert_eq!(evt.delegate, t.agent);
+                    assert_eq!(evt.per_tx_limit, per_tx_limit);
+                    assert_eq!(evt.total_limit, total_limit);
+                    assert_eq!(evt.expiry_timestamp, expiry);
+                    assert_eq!(evt.merchant_count, 1);
+                    granted_event_found = true;
+                }
+            }
+        }
+    }
+    assert!(granted_event_found);
+
+    // 2. Test SpendExecutedEvent
+    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
+    let events = t.env.events().all();
+    let mut spent_event_found = false;
+    for event in events.iter() {
+        let (contract, topics, value) = event;
+        if contract == t.permissions_contract_id {
+            if topics.len() == 2 {
+                let topic0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&t.env).unwrap();
+                let topic1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&t.env).unwrap();
+                if topic0 == soroban_sdk::symbol_short!("perm") && topic1 == soroban_sdk::symbol_short!("spent") {
+                    let evt: crate::SpendExecutedEvent = value.try_into_val(&t.env).unwrap();
+                    assert_eq!(evt.owner, t.buyer);
+                    assert_eq!(evt.delegate, t.agent);
+                    assert_eq!(evt.amount, 40);
+                    assert_eq!(evt.merchant, t.seller);
+                    assert_eq!(evt.remaining_allowance, 60);
+                    spent_event_found = true;
+                }
+            }
+        }
+    }
+    assert!(spent_event_found);
+
+    // 3. Test PermissionRevokedEvent
+    assert!(client.revoke(&t.buyer, &t.agent));
+    let events = t.env.events().all();
+    let mut revoked_event_found = false;
+    for event in events.iter() {
+        let (contract, topics, value) = event;
+        if contract == t.permissions_contract_id {
+            if topics.len() == 2 {
+                let topic0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&t.env).unwrap();
+                let topic1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&t.env).unwrap();
+                if topic0 == soroban_sdk::symbol_short!("perm") && topic1 == soroban_sdk::symbol_short!("revoked") {
+                    let evt: crate::PermissionRevokedEvent = value.try_into_val(&t.env).unwrap();
+                    assert_eq!(evt.owner, t.buyer);
+                    assert_eq!(evt.delegate, t.agent);
+                    revoked_event_found = true;
+                }
+            }
+        }
+    }
+    assert!(revoked_event_found);
 }
