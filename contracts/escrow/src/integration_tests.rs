@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use soroban_sdk::{testutils::{Address as _, Ledger, Events}, Address, Env, TryIntoVal};
-use crate::{EscrowContract, EscrowContractClient, EscrowStatus};
+use crate::{EscrowContract, EscrowContractClient, EscrowStatus, EscrowError};
 
 struct TestEnv {
     env: Env,
@@ -210,7 +210,6 @@ fn test_deposit_insufficient_balance() {
 }
 
 #[test]
-#[should_panic(expected = "Unauthorized to release escrow")]
 fn test_release_wrong_caller() {
     let t = TestEnv::setup();
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
@@ -229,11 +228,11 @@ fn test_release_wrong_caller() {
     );
 
     // Agent tries to release (neither buyer nor admin)
-    escrow_client.release(&escrow_id, &t.agent);
+    let res = escrow_client.try_release(&escrow_id, &t.agent);
+    assert_eq!(res, Err(Ok(EscrowError::Unauthorized)));
 }
 
 #[test]
-#[should_panic(expected = "Escrow already released")]
 fn test_double_release_prevention() {
     let t = TestEnv::setup();
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
@@ -255,11 +254,11 @@ fn test_double_release_prevention() {
     assert!(escrow_client.release(&escrow_id, &t.buyer));
 
     // Release twice
-    escrow_client.release(&escrow_id, &t.buyer);
+    let res = escrow_client.try_release(&escrow_id, &t.buyer);
+    assert_eq!(res, Err(Ok(EscrowError::AlreadyReleased)));
 }
 
 #[test]
-#[should_panic(expected = "Cannot refund before timeout")]
 fn test_refund_before_timeout_fails() {
     let t = TestEnv::setup();
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
@@ -277,8 +276,9 @@ fn test_refund_before_timeout_fails() {
         &timeout,
     );
 
-    // Try to refund as buyer before timeout (should panic)
-    escrow_client.refund(&escrow_id, &t.buyer);
+    // Try to refund as buyer before timeout (should return TimeoutNotReached)
+    let res = escrow_client.try_refund(&escrow_id, &t.buyer);
+    assert_eq!(res, Err(Ok(EscrowError::TimeoutNotReached)));
 }
 
 #[test]
