@@ -1,6 +1,7 @@
 import { Queue, Worker, QueueEvents } from "bullmq";
 import { Redis } from "ioredis";
 // @ts-ignore
+import { v4 as uuidv4 } from "uuid";
 import MockRedis from "ioredis-mock";
 import { 
   Keypair, 
@@ -18,6 +19,16 @@ import { vaultService } from "../vault.js";
 import { createLogger } from "@delego/utils";
 
 const log = createLogger("wallet:queue", process.env.LOG_LEVEL ?? "info");
+
+export interface SequenceReservation {
+  account: string;
+  firstSequence: string;
+  lastSequence: string;
+  size: number;
+  leaseId: string;
+  expiresAt: string;
+}
+
 
 let redisClient: Redis;
 let txQueue: Queue | null = null;
@@ -95,58 +106,111 @@ export function getRedisConnection(): Redis {
   return redisClient;
 }
 
-// Synchronize and manage sequence numbers thread-safely per source address in Redis
-async function getNextSequenceNumber(
-  horizonServer: Horizon.Server,
-  sourceAddress: string,
+const SEQUENCE_RESERVATION_SIZE = 10;
+const SEQUENCE_RESERVATION_TTL_SECONDS = 60;
+
+async function reserveSequenceBlock(
   redis: Redis,
-  attempt: number
-): Promise<{ sequence: string; resetCache: () => Promise<void> }> {
-  const cacheKey = `seq:${sourceAddress}`;
-  
-  const resetCache = async () => {
-    await redis.del(cacheKey);
-    log.info("Cleared cached sequence number from Redis", { sourceAddress });
-  };
+  horizonServer: Horizon.Server,
+  address: string,
+  size: number
+): Promise<SequenceReservation> {
+  const reservationKey = `seq:reserve:${address}`;
+  const leaseId = uuidv4();
+  const expiresAt = new Date(Date.now() + SEQUENCE_RESERVATION_TTL_SECONDS * 1000).toISOString();
 
-  // If this is a retry attempt, clear the cached sequence number from Redis to force a fresh reload from Horizon
-  if (attempt > 1) {
-    await resetCache();
-  }
+  log.info("Attempting to reserve sequence block", { address, size });
 
-  // Load account from Horizon to get the source account details
-  log.info("Loading account details from Horizon...", { sourceAddress });
-  const sourceAccount = await horizonServer.loadAccount(sourceAddress);
+  const sourceAccount = await horizonServer.loadAccount(address);
   const ledgerSequence = BigInt(sourceAccount.sequenceNumber());
 
-  // Check Redis for cached sequence number
-  const cachedSeqStr = await redis.get(cacheKey);
-  
-  let nextSequence: bigint;
-  if (cachedSeqStr) {
-    const cachedSequence = BigInt(cachedSeqStr);
-    // Use the maximum of ledger sequence and cached sequence
-    if (cachedSequence >= ledgerSequence) {
-      nextSequence = cachedSequence + 1n;
-    } else {
-      nextSequence = ledgerSequence + 1n;
-    }
+  const firstSequence = ledgerSequence + 1n;
+  const lastSequence = firstSequence + BigInt(size) - 1n;
+
+  const reservation: SequenceReservation = {
+    account: address,
+    firstSequence: firstSequence.toString(),
+    lastSequence: lastSequence.toString(),
+    size,
+    leaseId,
+    expiresAt,
+  };
+
+  // Atomically set the reservation and the initial sequence counter.
+  // This prevents race conditions where multiple workers try to reserve simultaneously.
+  const result = await redis.multi()
+    .set(reservationKey, JSON.stringify(reservation), "EX", SEQUENCE_RESERVATION_TTL_SECONDS, "NX")
+    .set(`seq:current:${address}`, reservation.firstSequence, "EX", SEQUENCE_RESERVATION_TTL_SECONDS, "NX")
+    .exec();
+
+  if (result && result[0] && result[0][1] === 'OK') {
+    log.info("Successfully reserved new sequence block", { address, reservation });
+    return reservation;
   } else {
-    nextSequence = ledgerSequence + 1n;
+    log.warn("Failed to acquire sequence block reservation, another worker may have acquired it. Retrying.", { address });
+    // If we failed, another worker just created a reservation. We can wait and try to use it.
+    await new Promise(resolve => setTimeout(resolve, 250 + Math.random() * 250));
+    // This will cause getNextSequenceNumber to retry.
+    throw new Error("Could not acquire sequence reservation lock");
+  }
+}
+
+async function getNextSequenceNumber(
+  redis: Redis,
+  horizonServer: Horizon.Server,
+  sourceAddress: string
+): Promise<{ sequence: string; resetCache: () => Promise<void> }> {
+  const reservationKey = `seq:reserve:${sourceAddress}`;
+  const currentSeqKey = `seq:current:${sourceAddress}`;
+
+  const resetCache = async () => {
+    await redis.del(reservationKey, currentSeqKey);
+    log.info("Cleared sequence reservation from Redis", { sourceAddress });
+  };
+
+  const reservationStr = await redis.get(reservationKey);
+  if (reservationStr) {
+    const reservation: SequenceReservation = JSON.parse(reservationStr);
+    const lastReserved = BigInt(reservation.lastSequence);
+
+    // Atomically increment the current sequence number for this reservation
+    const currentSeq = await redis.incr(currentSeqKey);
+    const nextSequence = BigInt(currentSeq);
+
+    if (nextSequence <= lastReserved) {
+      log.info("Acquired sequence number from existing reservation", {
+        sourceAddress,
+        sequence: nextSequence.toString(),
+        reservation,
+      });
+      // TransactionBuilder increments the sequence, so we provide sequence - 1
+      return { sequence: (nextSequence - 1n).toString(), resetCache };
+    } else {
+      // Reservation is exhausted, clear it and retry to get a new one.
+      log.warn("Sequence reservation exhausted, clearing for re-reservation.", { sourceAddress });
+      await resetCache();
+    }
   }
 
-  // Save the new sequence number back to Redis with a TTL of 60 seconds
-  await redis.set(cacheKey, nextSequence.toString(), "EX", 60);
-  log.info("Determined sequence number", { 
-    sourceAddress, 
-    ledgerSequence: ledgerSequence.toString(), 
-    cachedSequence: cachedSeqStr ?? "none",
-    usingSequence: nextSequence.toString() 
+  // No valid reservation, so we create one.
+  // This path is also taken if the reservation was exhausted.
+  log.info("No valid sequence reservation found, creating a new one.", { sourceAddress });
+  try {
+    await reserveSequenceBlock(redis, horizonServer, sourceAddress, SEQUENCE_RESERVATION_SIZE);
+  } catch (e: any) {
+    log.error("Error reserving sequence block, will retry job.", { sourceAddress, error: e.message });
+    throw e; // Propagate to trigger job retry
+  }
+
+  // After reserving, we immediately try to get the first number from the new reservation.
+  const nextSequence = await redis.incr(currentSeqKey);
+  log.info("Acquired first sequence from new reservation", {
+    sourceAddress,
+    sequence: nextSequence.toString(),
   });
 
-  // Return the sequence number minus 1 to build with since TransactionBuilder increments it
-  const buildSequence = (nextSequence - 1n).toString();
-  return { sequence: buildSequence, resetCache };
+  // TransactionBuilder increments the sequence, so we provide sequence - 1
+  return { sequence: (BigInt(nextSequence) - 1n).toString(), resetCache };
 }
 
 async function executeTxJob(
@@ -163,11 +227,9 @@ async function executeTxJob(
   const signerKeypair = Keypair.fromSecret(secret);
 
   // 2. Thread-safe sequence number retrieval
-  const { sequence, resetCache } = await getNextSequenceNumber(
+  const { sequence, resetCache } = await getNextSequenceNumber(connection,
     horizonServer,
-    request.sourceAddress,
-    connection,
-    attempt
+    request.sourceAddress
   );
 
   // Create dummy Account object with current sequence number
@@ -369,7 +431,7 @@ export function initQueue() {
     },
     {
       connection: connection as any,
-      concurrency: 1, // Strict sequential processing
+      concurrency: parseInt(process.env.TX_QUEUE_CONCURRENCY ?? "5", 10),
     }
   );
 
