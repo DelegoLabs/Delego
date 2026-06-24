@@ -308,11 +308,10 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       args: []
     };
 
-    await assert.rejects(
-      async () => {
-        await addTransactionToQueue(request);
-      },
-      /Invalid input parameters/
-    );
+    // Expect a caught failure response rather than a hard application rejection
+    const result = await addTransactionToQueue(request);
+    
+    assert.equal(result.success, false);
+    assert.match(result.error || result.message, /Invalid input parameters/);
   });
 });
