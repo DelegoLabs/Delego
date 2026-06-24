@@ -13,6 +13,9 @@ pub enum PermissionStatus {
     Active,
     Revoked,
     Expired,
+    /// Owner-side hold on spending. No public setter exists yet; reserved so
+    /// `get_delegate_status` can report it once pause/unpause is added.
+    Paused,
 }
 
 #[contracttype]
@@ -79,6 +82,15 @@ pub struct DecrementExecutedEvent {
     pub delegate: Address,
     pub previous_limit: i128,
     pub new_limit: i128,
+}
+
+/// Compact view of whether a delegate can currently spend, and why not when blocked.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DelegateStatusView {
+    pub active: bool,
+    pub reason: Symbol,
+    pub remaining: i128,
 }
 
 #[contracttype]
@@ -252,6 +264,63 @@ impl PermissionsContract {
         let key = DataKey::Permission(owner, delegate);
         let record: PermissionRecord = env.storage().persistent().get(&key).unwrap();
         record.limit_total - record.spent
+    }
+
+    /// Compact, read-only status check for a delegate. Reports whether the
+    /// delegate can currently spend, and when blocked, the single most
+    /// relevant reason: revoked, expired, paused, or exhausted. Does not
+    /// touch spend or renewal state.
+    pub fn get_delegate_status(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> DelegateStatusView {
+        let key = DataKey::Permission(owner, delegate);
+        let record: PermissionRecord = env.storage().persistent().get(&key).unwrap();
+
+        let remaining = if record.spent >= record.limit_total {
+            0
+        } else {
+            record.limit_total - record.spent
+        };
+
+        if record.status == PermissionStatus::Revoked {
+            return DelegateStatusView {
+                active: false,
+                reason: symbol_short!("revoked"),
+                remaining,
+            };
+        }
+
+        if env.ledger().sequence() >= record.expires_at_ledger {
+            return DelegateStatusView {
+                active: false,
+                reason: symbol_short!("expired"),
+                remaining,
+            };
+        }
+
+        if record.status == PermissionStatus::Paused {
+            return DelegateStatusView {
+                active: false,
+                reason: symbol_short!("paused"),
+                remaining,
+            };
+        }
+
+        if record.spent >= record.limit_total {
+            return DelegateStatusView {
+                active: false,
+                reason: symbol_short!("exhausted"),
+                remaining,
+            };
+        }
+
+        DelegateStatusView {
+            active: true,
+            reason: symbol_short!("active"),
+            remaining,
+        }
     }
 
     pub fn decrease_allowance(
