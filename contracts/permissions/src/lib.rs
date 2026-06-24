@@ -27,6 +27,14 @@ pub struct PermissionRecord {
     pub status: PermissionStatus,
     pub expires_at_ledger: u32,
     pub created_at: u64,
+    pub last_spend_ledger: Option<u32>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionUsage {
+    pub spent: i128,
+    pub last_spend_ledger: Option<u32>,
 }
 
 /// Lightweight config for multi-merchant whitelisting and allowance tracking.
@@ -115,6 +123,7 @@ impl PermissionsContract {
             status: PermissionStatus::Active,
             expires_at_ledger,
             created_at: env.ledger().timestamp(),
+            last_spend_ledger: None,
         };
 
         env.storage().persistent().set(&DataKey::Permission(owner.clone(), delegate.clone()), &record);
@@ -217,6 +226,7 @@ impl PermissionsContract {
         let mut record: PermissionRecord = env.storage().persistent().get(&key).unwrap();
 
         record.spent += amount;
+        record.last_spend_ledger = Some(env.ledger().sequence());
         env.storage().persistent().set(&key, &record);
 
         let remaining = record.limit_total - record.spent;
@@ -252,6 +262,19 @@ impl PermissionsContract {
         let key = DataKey::Permission(owner, delegate);
         let record: PermissionRecord = env.storage().persistent().get(&key).unwrap();
         record.limit_total - record.spent
+    }
+
+    pub fn get_usage(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> PermissionUsage {
+        let key = DataKey::Permission(owner, delegate);
+        let record: PermissionRecord = env.storage().persistent().get(&key).unwrap();
+        PermissionUsage {
+            spent: record.spent,
+            last_spend_ledger: record.last_spend_ledger,
+        }
     }
 
     pub fn decrease_allowance(
