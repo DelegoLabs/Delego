@@ -72,12 +72,3 @@ jobs:
               core.warning('This PR is very large. Consider breaking it into smaller PRs.');
             }
 
-  conflict-check:
-    name: Conflict Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check for merge conflicts
-        uses: eps1lon/actions-label-merge-conflict@v3
-        with:
-          dirtyLabel: 'merge-conflict'
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
