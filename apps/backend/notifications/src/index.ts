@@ -4,6 +4,7 @@
 import { createLogger } from "@delego/utils";
 import { startHttpServer } from "@delego/utils";
 import { initWebSocketServer } from "./websocket.js";
+import { connectDb } from "./db.js";
 
 const SERVICE_NAME = "notifications";
 const DEFAULT_PORT = 3015;
@@ -14,6 +15,9 @@ const log = createLogger(SERVICE_NAME, logLevel);
 const port = Number(process.env.NOTIFICATIONS_PORT ?? DEFAULT_PORT);
 
 log.info("Starting service", { port, nodeEnv });
+
+// Connect to database first
+await connectDb();
 
 const server = startHttpServer({
   port,
