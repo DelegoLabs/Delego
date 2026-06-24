@@ -30,10 +30,7 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
   const mockSorobanData = new xdr.SorobanTransactionData({
     ext: new xdr.SorobanTransactionDataExt(0),
     resources: new xdr.SorobanResources({
-      footprint: new xdr.LedgerFootprint({
-        readOnly: [],
-        readWrite: []
-      }),
+      footprint: new xdr.LedgerFootprint({ readOnly: [], readWrite: [] }),
       instructions: 0,
       diskReadBytes: 0,
       writeBytes: 0
@@ -72,7 +69,6 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       throw new Error("getTransactionMock not set");
     };
 
-    // Initialize the background Redis processing queue explicitly
     await initQueue();
 
     try {
@@ -134,14 +130,9 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       };
     };
 
-    const request = {
-      sourceAddress: testPub,
-      contractId: testContractId,
-      method: "test_method",
-      args: [123, "test_string"]
-    };
-
+    const request = { sourceAddress: testPub, contractId: testContractId, method: "test_method", args: [123, "test_string"] };
     const result = await addTransactionToQueue(request);
+
     assert.ok(result.success);
     assert.equal(result.hash, "mockedtxhash1234567890abcdef");
     assert.equal(result.ledger, 1024);
@@ -151,10 +142,7 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
     let mockSequence = "200";
     
     loadAccountMock = async (address) => {
-      return {
-        sequenceNumber: () => mockSequence,
-        accountId: () => address
-      };
+      return { sequenceNumber: () => mockSequence, accountId: () => address };
     };
 
     simulateMock = async (tx) => {
@@ -194,10 +182,7 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
     let sendCalls = 0;
 
     loadAccountMock = async (address) => {
-      return {
-        sequenceNumber: () => mockSequence,
-        accountId: () => address
-      };
+      return { sequenceNumber: () => mockSequence, accountId: () => address };
     };
 
     simulateMock = async (tx) => {
@@ -228,12 +213,9 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
     assert.equal(result.hash, "retryhash");
   });
 
- it("should fail immediately on non-transient fatal errors", async () => {
+  it("should fail immediately on non-transient fatal errors", async () => {
     loadAccountMock = async (address) => {
-      return {
-        sequenceNumber: () => "400",
-        accountId: () => address
-      };
+      return { sequenceNumber: () => "400", accountId: () => address };
     };
 
     simulateMock = async (tx) => {
@@ -249,3 +231,4 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       assert.match(err.message, /Invalid input parameters/);
     }
   });
+});
