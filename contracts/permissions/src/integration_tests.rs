@@ -284,3 +284,42 @@ fn test_decrease_allowance_timelock_blocked() {
 
     client.execute_decrease_allowance(&t.buyer, &t.agent);
 }
+
+#[test]
+fn test_last_spend_ledger_tracking() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let limit_per_tx = 100i128;
+    let limit_total = 1000i128;
+    let ttl_ledgers = 3600u32;
+    let mut merchants = Vec::new(&t.env);
+    merchants.push_back(t.seller.clone());
+
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+
+    // Check initial usage: no spending yet
+    let usage = client.get_usage(&t.buyer, &t.agent);
+    assert_eq!(usage.spent, 0);
+    assert_eq!(usage.last_spend_ledger, None);
+
+    let initial_ledger = t.env.ledger().sequence();
+
+    // Execute first spend
+    assert!(client.execute_spend(&t.buyer, &t.agent, &50, &t.seller));
+
+    // Check usage after first spend
+    let usage = client.get_usage(&t.buyer, &t.agent);
+    assert_eq!(usage.spent, 50);
+    assert_eq!(usage.last_spend_ledger, Some(initial_ledger));
+
+    // Advance ledger and execute another spend
+    t.env.ledger().set_sequence_number(initial_ledger + 5);
+    assert!(client.execute_spend(&t.buyer, &t.agent, &30, &t.seller));
+
+    // Check usage reflects second spend
+    let usage = client.get_usage(&t.buyer, &t.agent);
+    assert_eq!(usage.spent, 80);
+    assert_eq!(usage.last_spend_ledger, Some(initial_ledger + 5));
+}
+
