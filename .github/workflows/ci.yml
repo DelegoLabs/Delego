@@ -59,8 +59,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build shared packages and services
-        run: pnpm build
+      - name: Build TypeScript packages and apps (ignore Rust contracts)
+        run: pnpm --filter "!@delego/contract-*" build
 
       - name: Run type check
         run: pnpm typecheck
@@ -87,8 +87,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build all workspace apps and packages
-        run: pnpm build
+      - name: Build TypeScript packages and apps (ignore Rust contracts)
+        run: pnpm --filter "!@delego/contract-*" build
 
       - name: Run tests
         run: pnpm test
@@ -134,7 +134,7 @@ jobs:
         with:
           path: |
             ~/.cargo/registry
-            ~/.cargo/git
+            ~/-cargo/git
             contracts/target
           key: cargo-${{ runner.os }}-${{ hashFiles('contracts/Cargo.lock') }}
           restore-keys: |
