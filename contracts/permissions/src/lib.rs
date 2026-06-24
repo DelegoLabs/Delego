@@ -29,6 +29,14 @@ pub struct PermissionRecord {
     pub created_at: u64,
 }
 
+/// Lightweight config for multi-merchant whitelisting and allowance tracking.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionConfig {
+    pub merchants: Vec<Address>,
+    pub allowance: i128,
+}
+
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct PermissionGrantedEvent {

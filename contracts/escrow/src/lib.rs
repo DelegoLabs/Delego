@@ -135,6 +135,8 @@ pub enum DataKey {
     AmountLimits,
     QuorumConfig,
     DisputeVotes(u64),
+    TokenWhitelist,
+    TokenEnabled(Address),
 }
 
 #[contracterror]
@@ -159,6 +161,8 @@ pub enum EscrowError {
     NotDisputed = 8,
     /// Invalid amount (zero or negative)
     InvalidAmount = 9,
+    /// Token is not approved for escrow deposits
+    TokenNotWhitelisted = 10,
     /// No pending admin transfer exists
     NoPendingTransfer = 13,
     /// Caller is not the pending admin
@@ -405,6 +409,70 @@ impl EscrowContract {
         env.storage().instance().get(&DataKey::FeeConfig).unwrap()
     }
 
+    /// Add a token to the escrow whitelist. Admin-only.
+    pub fn add_token(env: Env, admin: Address, token_address: Address) -> Result<bool, EscrowError> {
+        admin.require_auth();
+        if !Self::is_admin(env.clone(), admin.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+
+        if Self::is_token_allowed(env.clone(), token_address.clone()) {
+            return Ok(true);
+        }
+
+        let mut whitelist: soroban_sdk::Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenWhitelist)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+        whitelist.push_back(token_address.clone());
+        env.storage().instance().set(&DataKey::TokenWhitelist, &whitelist);
+        env.storage()
+            .instance()
+            .set(&DataKey::TokenEnabled(token_address), &true);
+
+        Ok(true)
+    }
+
+    /// Remove a token from the escrow whitelist. Admin-only.
+    pub fn remove_token(env: Env, admin: Address, token_address: Address) -> Result<bool, EscrowError> {
+        admin.require_auth();
+        if !Self::is_admin(env.clone(), admin.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+
+        let mut whitelist: soroban_sdk::Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenWhitelist)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+        if let Some(index) = whitelist.first_index_of(&token_address) {
+            whitelist.remove(index);
+            env.storage().instance().set(&DataKey::TokenWhitelist, &whitelist);
+        }
+        env.storage()
+            .instance()
+            .set(&DataKey::TokenEnabled(token_address), &false);
+
+        Ok(true)
+    }
+
+    /// Returns true when the token is approved for escrow deposits.
+    pub fn is_token_allowed(env: Env, token_address: Address) -> bool {
+        env.storage()
+            .instance()
+            .get(&DataKey::TokenEnabled(token_address))
+            .unwrap_or(false)
+    }
+
+    /// List all tokens currently approved for escrow deposits.
+    pub fn list_tokens(env: Env) -> soroban_sdk::Vec<Address> {
+        env.storage()
+            .instance()
+            .get(&DataKey::TokenWhitelist)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env))
+    }
+
     /// Deposit funds into escrow for an order.
     pub fn deposit(
         env: Env,
@@ -416,6 +484,10 @@ impl EscrowContract {
         timeout_ledgers: u32,
     ) -> Result<u64, EscrowError> {
         buyer.require_auth();
+
+        if !Self::is_token_allowed(env.clone(), token.clone()) {
+            return Err(EscrowError::TokenNotWhitelisted);
+        }
 
         if amount <= 0 {
             return Err(EscrowError::InvalidAmount);
