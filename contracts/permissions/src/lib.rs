@@ -74,9 +74,37 @@ pub struct DecrementExecutedEvent {
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Epoch {
+    Daily,
+    Weekly,
+    Monthly,
+}
+
+impl Epoch {
+    pub fn duration_secs(&self) -> u64 {
+        match self {
+            Epoch::Daily => 86_400,
+            Epoch::Weekly => 604_800,
+            Epoch::Monthly => 2_592_000,
+        }
+    }
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RenewableAllowance {
+    pub limit: i128,
+    pub spent: i128,
+    pub epoch: Epoch,
+    pub current_epoch_started_at: u64,
+}
+
+#[contracttype]
 pub enum DataKey {
     Permission(Address, Address),
     PendingDecrement(Address, Address),
+    RenewableAllowance(Address, Address),
 }
 
 #[contract]
@@ -272,6 +300,65 @@ impl PermissionsContract {
         env.storage().persistent().set(&pend_key, &pending);
 
         true
+    }
+
+    /// Set a renewable allowance for owner/delegate. Resets spent to 0.
+    /// Panics if the underlying permission is not Active or is expired.
+    pub fn set_renewable_allowance(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+        limit: i128,
+        epoch: Epoch,
+    ) -> bool {
+        owner.require_auth();
+
+        // Guard: permission must exist, be Active, and not expired
+        let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
+        let record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
+        if record.status != PermissionStatus::Active {
+            panic!("Permission is not active");
+        }
+        if env.ledger().sequence() >= record.expires_at_ledger {
+            panic!("Permission is expired");
+        }
+
+        let allowance = RenewableAllowance {
+            limit,
+            spent: 0,
+            epoch,
+            current_epoch_started_at: env.ledger().timestamp(),
+        };
+
+        env.storage().persistent().set(
+            &DataKey::RenewableAllowance(owner, delegate),
+            &allowance,
+        );
+
+        true
+    }
+
+    /// Get renewable allowance, auto-resetting spent if a new epoch has started.
+    pub fn get_renewable_allowance(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> RenewableAllowance {
+        let key = DataKey::RenewableAllowance(owner.clone(), delegate.clone());
+        let mut allowance: RenewableAllowance = env.storage().persistent().get(&key).unwrap();
+
+        let now = env.ledger().timestamp();
+        let elapsed = now - allowance.current_epoch_started_at;
+
+        if elapsed >= allowance.epoch.duration_secs() {
+            // How many full epochs have passed — align the epoch start correctly
+            let epochs_passed = elapsed / allowance.epoch.duration_secs();
+            allowance.current_epoch_started_at += epochs_passed * allowance.epoch.duration_secs();
+            allowance.spent = 0;
+            env.storage().persistent().set(&key, &allowance);
+        }
+
+        allowance
     }
 
     pub fn execute_decrease_allowance(
