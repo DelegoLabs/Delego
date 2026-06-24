@@ -5,7 +5,7 @@ import { transactionService } from "../transactions/index.js";
 import { vaultService } from "./vault.js";
 import type { StellarNetwork } from "@delego/types";
 import { Asset, Networks, Horizon, TransactionBuilder, Transaction } from "@stellar/stellar-sdk";
-import { getRedisConnection } from "./queue/txQueue.js";
+import { getRedisConnection, getJobStatus } from "./queue/txQueue.js";
 import { createLogger } from "@delego/utils";
 
 const log = createLogger("wallet:routes", process.env.LOG_LEVEL ?? "info");
@@ -310,6 +310,37 @@ export function registerRoutes(): Route[] {
         json(res, 500, {
           data: null,
           error: { code: "INTERNAL_ERROR", message: err.message }
+        });
+      }
+    }),
+
+    // Get queue job status by job ID
+    route("GET", "/api/v1/queue/jobs/:jobId", async (_req, res, params) => {
+      try {
+        const jobId = params.jobId;
+        if (!jobId) {
+          json(res, 400, {
+            data: null,
+            error: { code: "BAD_REQUEST", message: "jobId parameter is required" },
+          });
+          return;
+        }
+
+        const status = await getJobStatus(jobId);
+        if (!status) {
+          json(res, 404, {
+            data: null,
+            error: { code: "NOT_FOUND", message: `Job not found: ${jobId}` },
+          });
+          return;
+        }
+
+        json(res, 200, { data: status, error: null });
+      } catch (err: any) {
+        log.error("GET job status error", { error: err.message });
+        json(res, 500, {
+          data: null,
+          error: { code: "INTERNAL_ERROR", message: err.message },
         });
       }
     }),
