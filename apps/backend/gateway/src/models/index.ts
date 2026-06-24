@@ -5,6 +5,7 @@ import { SpendLimit } from "./SpendLimit.js";
 import { DelegationPolicy } from "./DelegationPolicy.js";
 import { PermissionLevel } from "./PermissionLevel.js";
 import { RefreshToken } from "./RefreshToken.js";
+import { OAuthAccount } from "./OAuthAccount.js";
 
 // User <-> Wallet (One-to-Many)
 User.hasMany(Wallet, { foreignKey: "userId", as: "wallets" });
@@ -21,6 +22,10 @@ SpendLimit.belongsTo(User, { foreignKey: "userId", as: "user" });
 // User <-> RefreshToken (One-to-Many)
 User.hasMany(RefreshToken, { foreignKey: "userId", as: "refreshTokens" });
 RefreshToken.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+// User <-> OAuthAccount (One-to-Many — one user, multiple social providers)
+User.hasMany(OAuthAccount, { foreignKey: "userId", as: "oauthAccounts" });
+OAuthAccount.belongsTo(User, { foreignKey: "userId", as: "user" });
 
 // Wallet <-> SpendLimit (One-to-Many)
 Wallet.hasMany(SpendLimit, { foreignKey: "walletId", as: "spendLimits" });
@@ -46,4 +51,5 @@ export {
   DelegationPolicy,
   PermissionLevel,
   RefreshToken,
+  OAuthAccount,
 };
