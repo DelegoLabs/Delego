@@ -43,6 +43,15 @@ pub struct EscrowCreatedEvent {
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowTimeoutView {
+    pub escrow_id: BytesN<32>,
+    pub timeout_ledger: u32,
+    pub current_ledger: u32,
+    pub refundable: bool,
+}
+
+#[contracttype]
 #[derive(Clone, Debug)]
 pub struct EscrowReleasedEvent {
     pub escrow_id: u64,
@@ -667,6 +676,31 @@ impl EscrowContract {
         );
 
         Ok(true)
+    }
+
+    /// Read-only getter for escrow timeout metadata.
+    pub fn get_escrow_timeout(env: Env, escrow_id: u64) -> Result<EscrowTimeoutView, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        let current_ledger = env.ledger().sequence();
+        let refundable = match record.status {
+            EscrowStatus::Funded => current_ledger >= record.timeout_ledger,
+            _ => false,
+        };
+
+        let mut escrow_id_bytes = [0u8; 32];
+        escrow_id_bytes[24..].copy_from_slice(&escrow_id.to_be_bytes());
+
+        Ok(EscrowTimeoutView {
+            escrow_id: BytesN::from_array(&env, &escrow_id_bytes),
+            timeout_ledger: record.timeout_ledger,
+            current_ledger,
+            refundable,
+        })
     }
 
     /// Read-only getter for escrow state.
