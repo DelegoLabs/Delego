@@ -7,6 +7,42 @@ import {
 
 type SimulateTransactionResponse = SorobanRpc.Api.SimulateTransactionResponse;
 
+export interface SimulationResult {
+  success: boolean;
+  minResourceFee?: string;
+  footprint?: string;
+  error?: string;
+}
+
+export function mapSimulationResult(
+  response: SimulateTransactionResponse
+): SimulationResult {
+  if (SorobanRpc.Api.isSimulationSuccess(response)) {
+    const result: SimulationResult = { success: true };
+
+    if (response.minResourceFee !== undefined) {
+      result.minResourceFee = String(response.minResourceFee);
+    }
+
+    if (response.transactionData) {
+      try {
+        const data = response.transactionData.build();
+        result.footprint = data.toXDR().toString("base64");
+      } catch {
+        // footprint extraction failed — leave unset
+      }
+    }
+
+    return result;
+  }
+
+  if (SorobanRpc.Api.isSimulationError(response)) {
+    return { success: false, error: response.error };
+  }
+
+  return { success: false, error: "Simulation returned an unexpected response" };
+}
+
 export class SorobanTransactionSimulator {
   private rpcServer: SorobanRpc.Server;
 

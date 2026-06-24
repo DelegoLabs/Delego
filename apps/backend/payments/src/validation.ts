@@ -16,6 +16,70 @@ export interface ValidationError {
   details?: Record<string, unknown>;
 }
 
+export interface IdempotencyContext {
+  key: string;
+  route: string;
+  userId?: string;
+}
+
+const IDEMPOTENCY_KEY_MIN = 8;
+const IDEMPOTENCY_KEY_MAX = 128;
+const IDEMPOTENCY_KEY_RE = /^[\x21-\x7E]+$/;
+
+export function validateIdempotencyKey(
+  headers: Record<string, string | string[] | undefined>,
+  route: string,
+  userId?: string
+): ValidationResult<IdempotencyContext> {
+  const raw = headers["idempotency-key"] ?? headers["Idempotency-Key"];
+  const key = Array.isArray(raw) ? raw[0] : raw;
+
+  if (!key) {
+    return {
+      ok: false,
+      error: {
+        code: "MISSING_IDEMPOTENCY_KEY",
+        message: "Idempotency-Key header is required for this route",
+      },
+    };
+  }
+
+  if (key.length < IDEMPOTENCY_KEY_MIN) {
+    return {
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: `Idempotency-Key must be at least ${IDEMPOTENCY_KEY_MIN} characters`,
+        details: { field: "Idempotency-Key" },
+      },
+    };
+  }
+
+  if (key.length > IDEMPOTENCY_KEY_MAX) {
+    return {
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: `Idempotency-Key must be at most ${IDEMPOTENCY_KEY_MAX} characters`,
+        details: { field: "Idempotency-Key" },
+      },
+    };
+  }
+
+  if (!IDEMPOTENCY_KEY_RE.test(key)) {
+    return {
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Idempotency-Key contains invalid characters",
+        details: { field: "Idempotency-Key" },
+      },
+    };
+  }
+
+  return { ok: true, value: { key, route, userId } };
+}
+
 export type ValidationResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: ValidationError };
