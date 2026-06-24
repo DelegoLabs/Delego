@@ -228,7 +228,7 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
     assert.equal(result.hash, "retryhash");
   });
 
-  it("should fail immediately on non-transient fatal errors", async () => {
+ it("should fail immediately on non-transient fatal errors", async () => {
     loadAccountMock = async (address) => {
       return {
         sequenceNumber: () => "400",
@@ -242,10 +242,10 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
 
     const request = { sourceAddress: testPub, contractId: testContractId, method: "fatal_method", args: [] };
 
-    // The backend queue catches the simulation error and returns a smooth failure payload
-    const result = await addTransactionToQueue(request);
-    
-    assert.equal(result.success, false);
-    assert.match(result.error || result.message || "", /Invalid input parameters/);
+    try {
+      await addTransactionToQueue(request);
+      assert.fail("Should have thrown an error for fatal panic");
+    } catch (err) {
+      assert.match(err.message, /Invalid input parameters/);
+    }
   });
-});
