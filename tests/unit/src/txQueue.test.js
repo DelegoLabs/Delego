@@ -1,4 +1,4 @@
-import { describe, it, before, after, beforeEach, afterEach } from "node:test";
+import { describe, it, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
@@ -27,7 +27,6 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
   const testSec = keypair.secret();
   const testContractId = StrKey.encodeContract(Buffer.alloc(32));
 
-  // Construct a valid minimal SorobanTransactionData base64 XDR string
   const mockSorobanData = new xdr.SorobanTransactionData({
     ext: new xdr.SorobanTransactionDataExt(0),
     resources: new xdr.SorobanResources({
@@ -44,18 +43,15 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
   const validTransactionDataStr = mockSorobanData.toXDR().toString("base64");
 
   before(async () => {
-    // Enable MockRedis mode for the queue connection
     process.env.MOCK_REDIS = "true";
     process.env.NODE_ENV = "test";
     process.env.VAULT_FILE_PATH = path.join(process.cwd(), "data", "vault_txQueue.json");
 
-    // Backup original Stellar SDK prototypes/methods
     originalLoadAccount = Horizon.Server.prototype.loadAccount;
     originalSimulate = rpc.Server.prototype.simulateTransaction;
     originalSend = rpc.Server.prototype.sendTransaction;
     originalGet = rpc.Server.prototype.getTransaction;
 
-    // Hijack Stellar SDK prototype methods/methods for mocking
     Horizon.Server.prototype.loadAccount = async function(address) {
       if (loadAccountMock) return loadAccountMock(address);
       throw new Error("loadAccountMock not set");
@@ -76,20 +72,17 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       throw new Error("getTransactionMock not set");
     };
 
-    // Seed test key in vault with verification
+    // Initialize the background Redis processing queue explicitly
+    await initQueue();
+
     try {
       await vaultService.storeKey(testPub, testSec);
-      const storedKey = await vaultService.getKey(testPub);
-      if (!storedKey) {
-        throw new Error("Key was stored but cannot be retrieved from vault");
-      }
     } catch (error) {
-      throw new Error(`Failed to initialize vault with test key: ${error.message}`);
+      throw new Error(`Failed to initialize vault: ${error.message}`);
     }
   });
 
   after(async () => {
-    // Restore original prototypes
     Horizon.Server.prototype.loadAccount = originalLoadAccount;
     rpc.Server.prototype.simulateTransaction = originalSimulate;
     rpc.Server.prototype.sendTransaction = originalSend;
@@ -97,7 +90,6 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
 
     await closeQueue();
 
-    // Clean up temporary vault file
     try {
       if (process.env.VAULT_FILE_PATH) {
         await fs.rm(process.env.VAULT_FILE_PATH, { force: true });
@@ -108,7 +100,6 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
   });
 
   beforeEach(async () => {
-    // Clear Redis cache before each test
     const redis = getRedisConnection();
     await redis.flushall();
   });
@@ -116,7 +107,6 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
   it("should successfully process transaction through the queue", async () => {
     let mockSequence = "100";
     
-    // Mock loadAccount to return sequence
     loadAccountMock = async (address) => {
       return {
         sequenceNumber: () => mockSequence,
@@ -124,29 +114,18 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       };
     };
 
-    // Mock simulateTransaction as successful
     simulateMock = async (tx) => {
       return {
         error: null,
-        results: [
-          {
-            auth: [],
-            xdr: xdr.ScVal.scvVoid().toXDR("base64")
-          }
-        ],
+        results: [{ auth: [], xdr: xdr.ScVal.scvVoid().toXDR("base64") }],
         transactionData: validTransactionDataStr
       };
     };
 
-    // Mock sendTransaction to return a transaction hash
     sendMock = async (tx) => {
-      return {
-        status: "PENDING",
-        hash: "mockedtxhash1234567890abcdef"
-      };
+      return { status: "PENDING", hash: "mockedtxhash1234567890abcdef" };
     };
 
-    // Mock getTransaction to return successful status
     getTransactionMock = async (hash) => {
       return {
         status: rpc.Api.GetTransactionStatus.SUCCESS,
@@ -163,7 +142,6 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
     };
 
     const result = await addTransactionToQueue(request);
-
     assert.ok(result.success);
     assert.equal(result.hash, "mockedtxhash1234567890abcdef");
     assert.equal(result.ledger, 1024);
@@ -171,10 +149,8 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
 
   it("should synchronize sequence numbers thread-safely per account in Redis", async () => {
     let mockSequence = "200";
-    let loadAccountCallCount = 0;
     
     loadAccountMock = async (address) => {
-      loadAccountCallCount++;
       return {
         sequenceNumber: () => mockSequence,
         accountId: () => address
@@ -184,12 +160,7 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
     simulateMock = async (tx) => {
       return {
         error: null,
-        results: [
-          {
-            auth: [],
-            xdr: xdr.ScVal.scvVoid().toXDR("base64")
-          }
-        ],
+        results: [{ auth: [], xdr: xdr.ScVal.scvVoid().toXDR("base64") }],
         transactionData: validTransactionDataStr
       };
     };
@@ -202,22 +173,9 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       return { status: rpc.Api.GetTransactionStatus.SUCCESS, ledger: 1025 };
     };
 
-    const request1 = {
-      sourceAddress: testPub,
-      contractId: testContractId,
-      method: "method_1",
-      args: []
-    };
+    const request1 = { sourceAddress: testPub, contractId: testContractId, method: "method_1", args: [] };
+    const request2 = { sourceAddress: testPub, contractId: testContractId, method: "method_2", args: [] };
 
-    const request2 = {
-      sourceAddress: testPub,
-      contractId: testContractId,
-      method: "method_2",
-      args: []
-    };
-
-    // Run two queue jobs sequentially/concurrently
-    // Due to queue concurrency of 1, they execute sequentially
     const [res1, res2] = await Promise.all([
       addTransactionToQueue(request1),
       addTransactionToQueue(request2)
@@ -226,22 +184,16 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
     assert.ok(res1.success);
     assert.ok(res2.success);
 
-    // Verify Redis has correctly tracked and incremented the sequence number
     const redis = getRedisConnection();
     const cachedSeq = await redis.get(`seq:${testPub}`);
-    // Starting ledger sequence is 200.
-    // Tx 1 increments to 201.
-    // Tx 2 increments to 202.
     assert.equal(cachedSeq, "202");
   });
 
   it("should retry transactions on transient Horizon/RPC failures", async () => {
     let mockSequence = "300";
-    let loadAccountCalls = 0;
     let sendCalls = 0;
 
     loadAccountMock = async (address) => {
-      loadAccountCalls++;
       return {
         sequenceNumber: () => mockSequence,
         accountId: () => address
@@ -251,12 +203,7 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
     simulateMock = async (tx) => {
       return {
         error: null,
-        results: [
-          {
-            auth: [],
-            xdr: xdr.ScVal.scvVoid().toXDR("base64")
-          }
-        ],
+        results: [{ auth: [], xdr: xdr.ScVal.scvVoid().toXDR("base64") }],
         transactionData: validTransactionDataStr
       };
     };
@@ -264,7 +211,6 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
     sendMock = async (tx) => {
       sendCalls++;
       if (sendCalls === 1) {
-        // First call fails with transient rate limit error (HTTP 429)
         throw new Error("Submission failed: Rate limit exceeded (429)");
       }
       return { status: "PENDING", hash: "retryhash" };
@@ -274,21 +220,15 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       return { status: rpc.Api.GetTransactionStatus.SUCCESS, ledger: 1026 };
     };
 
-    const request = {
-      sourceAddress: testPub,
-      contractId: testContractId,
-      method: "retry_method",
-      args: []
-    };
-
+    const request = { sourceAddress: testPub, contractId: testContractId, method: "retry_method", args: [] };
     const result = await addTransactionToQueue(request);
 
     assert.ok(result.success);
-    assert.equal(sendCalls, 2); // Verify it retried once and succeeded on second attempt
+    assert.equal(sendCalls, 2);
     assert.equal(result.hash, "retryhash");
   });
 
- it("should fail immediately on non-transient fatal errors", async () => {
+  it("should fail immediately on non-transient fatal errors", async () => {
     loadAccountMock = async (address) => {
       return {
         sequenceNumber: () => "400",
@@ -300,26 +240,12 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       throw new Error("Transaction simulation failed: contract panic: Invalid input parameters");
     };
 
-    const request = {
-      sourceAddress: testPub,
-      contractId: testContractId,
-      method: "fatal_method",
-      args: []
-    };
+    const request = { sourceAddress: testPub, contractId: testContractId, method: "fatal_method", args: [] };
 
-    try {
-      const result = await addTransactionToQueue(request);
-      console.log("=== TROUBLESHOOTING: SUCCESSFUL RETURN OBJECT ===");
-      console.log(JSON.stringify(result, null, 2));
-      
-      // Temporary relaxed assertion to let us see the output
-      assert.ok(result);
-    } catch (error) {
-      console.log("=== TROUBLESHOOTING: CAUGHT THROWN ERROR ===");
-      console.log(error.message);
-      console.log(error.stack);
-      
-      // Temporary relaxed assertion to let us see the output
-      assert.ok(error);
-    }
+    // The backend queue catches the simulation error and returns a smooth failure payload
+    const result = await addTransactionToQueue(request);
+    
+    assert.equal(result.success, false);
+    assert.match(result.error || result.message || "", /Invalid input parameters/);
   });
+});
