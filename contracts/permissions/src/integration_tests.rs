@@ -61,14 +61,14 @@ fn test_grant_and_spend() {
 
     assert!(client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers));
 
-    assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller));
+    assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller).unwrap());
 
-    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
+    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller).unwrap());
 
-    assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller));
-    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
+    assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller).unwrap());
+    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller).unwrap());
 
-    assert!(!client.can_spend(&t.buyer, &t.agent, &30, &t.seller));
+    assert!(!client.can_spend(&t.buyer, &t.agent, &30, &t.seller).unwrap());
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn test_spend_exceeds_per_tx_limit() {
 
     client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    client.execute_spend(&t.buyer, &t.agent, &60, &t.seller);
+    client.execute_spend(&t.buyer, &t.agent, &60, &t.seller).unwrap();
 }
 
 #[test]
@@ -100,10 +100,10 @@ fn test_spend_exceeds_total_limit() {
 
     client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    client.execute_spend(&t.buyer, &t.agent, &50, &t.seller);
-    client.execute_spend(&t.buyer, &t.agent, &50, &t.seller);
+    client.execute_spend(&t.buyer, &t.agent, &50, &t.seller).unwrap();
+    client.execute_spend(&t.buyer, &t.agent, &50, &t.seller).unwrap();
 
-    client.execute_spend(&t.buyer, &t.agent, &1, &t.seller);
+    client.execute_spend(&t.buyer, &t.agent, &1, &t.seller).unwrap();
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn test_merchant_restriction() {
 
     client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+    assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller).unwrap());
 
     let unauthorized_merchant = t.admin.clone();
     assert!(!client.can_spend(&t.buyer, &t.agent, &50, &unauthorized_merchant));
@@ -138,7 +138,7 @@ fn test_permission_expiry() {
 
     client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+    assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller).unwrap());
 
     t.env.ledger().set_sequence_number(t.env.ledger().sequence() + ttl_ledgers + 1);
 
@@ -157,9 +157,9 @@ fn test_revoke_prevents_spend() {
 
     client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    assert!(client.revoke(&t.buyer, &t.agent));
+    assert!(client.revoke(&t.buyer, &t.agent).unwrap());
 
-    assert!(!client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+    assert!(!client.can_spend(&t.buyer, &t.agent, &50, &t.seller).unwrap());
 }
 
 #[test]
@@ -197,7 +197,7 @@ fn test_permission_events() {
     }
     assert!(granted_event_found);
 
-    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
+    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller).unwrap());
     let events = t.env.events().all();
     let mut spent_event_found = false;
     for event in events.iter() {
@@ -220,7 +220,7 @@ fn test_permission_events() {
     }
     assert!(spent_event_found);
 
-    assert!(client.revoke(&t.buyer, &t.agent));
+    assert!(client.revoke(&t.buyer, &t.agent).unwrap());
     let events = t.env.events().all();
     let mut revoked_event_found = false;
     for event in events.iter() {
@@ -253,15 +253,15 @@ fn test_decrease_allowance_timelock() {
 
     client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    assert!(client.decrease_allowance(&t.buyer, &t.agent, &200));
+    assert!(client.decrease_allowance(&t.buyer, &t.agent, &200).unwrap());
 
     // Advance past the 24h timelock (86400 seconds)
     t.env.ledger().set_timestamp(t.env.ledger().timestamp() + 86401);
 
-    assert!(client.execute_decrease_allowance(&t.buyer, &t.agent));
+    assert!(client.execute_decrease_allowance(&t.buyer, &t.agent).unwrap());
 
     // Verify allowance was decreased
-    assert_eq!(client.get_remaining_allowance(&t.buyer, &t.agent), 800);
+    assert_eq!(client.get_remaining_allowance(&t.buyer, &t.agent).unwrap(), 800);
 }
 
 #[test]
@@ -277,10 +277,10 @@ fn test_decrease_allowance_timelock_blocked() {
 
     client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    assert!(client.decrease_allowance(&t.buyer, &t.agent, &200));
+    assert!(client.decrease_allowance(&t.buyer, &t.agent, &200).unwrap());
 
     // Jump time but not enough (24h = 86400 seconds)
     t.env.ledger().set_timestamp(t.env.ledger().timestamp() + 86399);
 
-    client.execute_decrease_allowance(&t.buyer, &t.agent);
+    client.execute_decrease_allowance(&t.buyer, &t.agent).unwrap();
 }
