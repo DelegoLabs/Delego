@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test {
     use soroban_sdk::{testutils::Address as _, Address, Env, Vec};
-    use crate::{PermissionsContract, PermissionsContractClient};
+    use crate::{PermissionsContract, PermissionsContractClient, PermissionsError, MAX_MERCHANTS_PER_PERMISSION};
 
     #[test]
     fn test_merchant_in_whitelist_succeeds() {
@@ -75,6 +75,43 @@ mod test {
         assert!(client.grant(&owner, &delegate, &1000, &100, &merchants, &10000));
         assert!(client.revoke(&owner, &delegate));
         assert!(!client.can_spend(&owner, &delegate, &50, &merchant));
+    }
+
+    #[test]
+    fn test_grant_rejects_too_many_merchants() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::new(&env);
+        for _ in 0..(MAX_MERCHANTS_PER_PERMISSION + 1) {
+            merchants.push_back(merchant.clone());
+        }
+
+        assert_eq!(client.try_grant(&owner, &delegate, &1000, &100, &merchants, &10000), Err(Ok(PermissionsError::MerchantListTooLarge)));
+    }
+
+    #[test]
+    fn test_grant_rejects_duplicate_merchants() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::new(&env);
+        merchants.push_back(merchant.clone());
+        merchants.push_back(merchant.clone());
+
+        assert_eq!(client.try_grant(&owner, &delegate, &1000, &100, &merchants, &10000), Err(Ok(PermissionsError::DuplicateMerchant)));
     }
 
     #[test]
