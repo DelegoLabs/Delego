@@ -2,10 +2,13 @@
 //! Spending limits, delegated authority, and time-locked allowance decrements
 
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, Symbol, Vec};
+use soroban_sdk::{contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, Symbol, Vec};
 
 const _PERM: Symbol = symbol_short!("PERM");
 const _PENDING_DEC: Symbol = symbol_short!("PEND_DEC");
+
+/// Maximum allowed merchants in a permission whitelist.
+pub const MAX_MERCHANTS_PER_PERMISSION: u32 = 25;
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -46,6 +49,14 @@ pub struct PermissionGrantedEvent {
     pub total_limit: i128,
     pub expires_at_ledger: u32,
     pub merchant_count: u32,
+}
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum PermissionsError {
+    MerchantListTooLarge = 1,
+    DuplicateMerchant = 2,
 }
 
 #[contracttype]
@@ -102,6 +113,18 @@ impl PermissionsContract {
         ttl_ledgers: u32,
     ) -> bool {
         owner.require_auth();
+
+        if allowed_merchants.len() > MAX_MERCHANTS_PER_PERMISSION {
+            panic!(PermissionsError::MerchantListTooLarge);
+        }
+
+        let mut unique_merchants: Vec<Address> = Vec::new(&env);
+        for merchant in allowed_merchants.iter() {
+            if unique_merchants.contains(&merchant) {
+                panic!(PermissionsError::DuplicateMerchant);
+            }
+            unique_merchants.push_back(merchant.clone());
+        }
 
         let expires_at_ledger = env.ledger().sequence() + ttl_ledgers;
 
