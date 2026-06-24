@@ -284,3 +284,72 @@ fn test_decrease_allowance_timelock_blocked() {
 
     client.execute_decrease_allowance(&t.buyer, &t.agent);
 }
+
+#[test]
+fn test_update_expiry_event() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let limit_per_tx = 50i128;
+    let limit_total = 100i128;
+    let ttl_ledgers = 3600u32;
+    let merchants = Vec::new(&t.env);
+
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+
+    let initial_perm = client.get_permission(&t.buyer, &t.agent);
+    let old_expiry = initial_perm.expires_at_ledger;
+
+    // Update expiry
+    let new_ttl = 7200u32;
+    assert!(client.update_expiry(&t.buyer, &t.agent, &new_ttl));
+
+    // Check event was emitted
+    let events = t.env.events().all();
+    let mut expiry_updated_event_found = false;
+    for event in events.iter() {
+        let (contract, topics, value) = event;
+        if contract == t.permissions_contract_id {
+            if topics.len() == 2 {
+                let topic0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&t.env).unwrap();
+                let topic1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&t.env).unwrap();
+                if topic0 == soroban_sdk::symbol_short!("perm") && topic1 == soroban_sdk::symbol_short!("exp_upd") {
+                    let evt: crate::PermissionExpiryUpdatedEvent = value.try_into_val(&t.env).unwrap();
+                    assert_eq!(evt.owner, t.buyer);
+                    assert_eq!(evt.delegate, t.agent);
+                    assert_eq!(evt.old_expiry, old_expiry);
+                    let expected_new_expiry = t.env.ledger().sequence() + new_ttl;
+                    assert_eq!(evt.new_expiry, expected_new_expiry);
+                    expiry_updated_event_found = true;
+                }
+            }
+        }
+    }
+    assert!(expiry_updated_event_found);
+}
+
+#[test]
+fn test_update_expiry_extends_permission() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let limit_per_tx = 100i128;
+    let limit_total = 1000i128;
+    let initial_ttl = 100u32;
+    let merchants = Vec::new(&t.env);
+
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &initial_ttl);
+
+    // Advance ledger close to expiry
+    t.env.ledger().set_sequence_number(t.env.ledger().sequence() + 90);
+
+    // Permission should still be valid
+    assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+
+    // Extend expiry before it expires
+    let new_ttl = 1000u32;
+    assert!(client.update_expiry(&t.buyer, &t.agent, &new_ttl));
+
+    // Permission should remain valid after update
+    assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+}
