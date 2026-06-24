@@ -114,6 +114,9 @@ impl PermissionsContract {
         ttl_ledgers: u32,
     ) -> bool {
         owner.require_auth();
+        if limit_total < 0 || limit_per_tx < 0 {
+            panic!("limit_total and limit_per_tx must be non-negative");
+        }
 
         let expires_at_ledger = env.ledger().sequence() + ttl_ledgers;
 
@@ -180,6 +183,10 @@ impl PermissionsContract {
         };
 
         if record.status != PermissionStatus::Active {
+            return false;
+        }
+
+        if amount <= 0 {
             return false;
         }
 
@@ -330,9 +337,15 @@ impl PermissionsContract {
         amount: i128,
     ) -> bool {
         owner.require_auth();
+        if amount <= 0 {
+            panic!("Decrease amount must be positive");
+        }
 
         let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
-        let _record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
+        let record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
+        if amount > record.limit_total {
+            panic!("Decrease amount exceeds total allowance");
+        }
 
         let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
         if env.storage().persistent().has(&pend_key) {
@@ -356,6 +369,7 @@ impl PermissionsContract {
         owner: Address,
         delegate: Address,
     ) -> bool {
+        owner.require_auth();
         let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
         let pending: PendingAllowanceDecrement = env.storage().persistent().get(&pend_key).unwrap();
 
