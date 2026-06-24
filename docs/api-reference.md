@@ -158,15 +158,15 @@ All API responses follow a consistent format:
 
 ### Error Codes
 
-| Code | Description |
-|------|-------------|
-| `VALIDATION_ERROR` | Request validation failed |
-| `AUTHENTICATION_ERROR` | Authentication failed |
-| `AUTHORIZATION_ERROR` | Authorization failed |
-| `NOT_FOUND` | Resource not found |
-| `RATE_LIMIT_EXCEEDED` | Rate limit exceeded |
-| `INTERNAL_ERROR` | Internal server error |
-| `BLOCKCHAIN_ERROR` | Blockchain operation failed |
+| Code                   | Description                 |
+| ---------------------- | --------------------------- |
+| `VALIDATION_ERROR`     | Request validation failed   |
+| `AUTHENTICATION_ERROR` | Authentication failed       |
+| `AUTHORIZATION_ERROR`  | Authorization failed        |
+| `NOT_FOUND`            | Resource not found          |
+| `RATE_LIMIT_EXCEEDED`  | Rate limit exceeded         |
+| `INTERNAL_ERROR`       | Internal server error       |
+| `BLOCKCHAIN_ERROR`     | Blockchain operation failed |
 
 ## Endpoints
 
@@ -177,6 +177,7 @@ All API responses follow a consistent format:
 Health check endpoint for monitoring.
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -189,50 +190,275 @@ Health check endpoint for monitoring.
 }
 ```
 
-### Authentication
+### Authentication Endpoints
+
+#### `POST /api/v1/auth/register`
+
+Register a new user account.
+
+**Request Body:**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "securePassword123",
+  "displayName": "John Doe"
+}
+```
+
+**Request Schema:**
+
+- `email` (string, required): User email in valid email format
+- `password` (string, required): Password with minimum 8 characters
+- `displayName` (string, optional): User's display name
+
+**Success Response (201 Created):**
+
+```json
+{
+  "data": {
+    "user": {
+      "id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      "email": "user@example.com",
+      "displayName": "John Doe"
+    },
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 900
+  },
+  "error": null
+}
+```
+
+**Set-Cookie Header:**
+
+- `refresh_token`: HttpOnly, Secure, SameSite=Strict cookie with 7-day expiration
+
+**Error Responses:**
+
+- **400 Bad Request (VALIDATION_ERROR)**: Invalid email format or password too short
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request body",
+    "details": [
+      {
+        "field": "password",
+        "message": "must be >= 8 characters"
+      }
+    ]
+  }
+}
+```
+
+- **400 Bad Request (BAD_REQUEST)**: User already exists
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "BAD_REQUEST",
+    "message": "User with this email already exists"
+  }
+}
+```
 
 #### `POST /api/v1/auth/login`
 
 Authenticate user with email and password.
 
 **Request Body:**
+
 ```json
 {
   "email": "user@example.com",
-  "password": "password"
+  "password": "securePassword123"
 }
 ```
 
-**Response:**
+**Request Schema:**
+
+- `email` (string, required): User email in valid email format
+- `password` (string, required): User password
+
+**Success Response (200 OK):**
+
 ```json
 {
   "data": {
-    "token": "jwt_token_here",
     "user": {
-      "id": "user_123",
-      "email": "user@example.com"
-    }
+      "id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      "email": "user@example.com",
+      "displayName": "John Doe"
+    },
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 900
   },
   "error": null
 }
 ```
 
-#### `POST /api/v1/auth/logout`
+**Set-Cookie Header:**
 
-Logout user and invalidate token.
+- `refresh_token`: HttpOnly, Secure, SameSite=Strict cookie with 7-day expiration
+
+**Error Responses:**
+
+- **400 Bad Request (VALIDATION_ERROR)**: Invalid email format or missing password
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request body"
+  }
+}
+```
+
+- **401 Unauthorized**: Invalid email or password
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Invalid email or password"
+  }
+}
+```
+
+#### `POST /api/v1/auth/refresh`
+
+Refresh access token using refresh token from cookies.
 
 **Headers:**
-```
-Authorization: Bearer <token>
+
+- No Authorization header required
+- Refresh token automatically sent in cookies by the browser
+
+**Request Body:**
+No request body required. Refresh token comes from HttpOnly cookie.
+
+**Success Response (200 OK):**
+
+```json
+{
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 900
+  },
+  "error": null
+}
 ```
 
-**Response:**
+**Set-Cookie Header:**
+
+- `refresh_token`: New refresh token with 7-day expiration
+
+**Error Responses:**
+
+- **401 Unauthorized**: Missing refresh token
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Refresh token missing"
+  }
+}
+```
+
+- **401 Unauthorized**: Invalid or expired refresh token
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Invalid refresh token"
+  }
+}
+```
+
+- **401 Unauthorized**: Refresh token expired
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Refresh token expired"
+  }
+}
+```
+
+- **401 Unauthorized**: Token reuse detected (security violation)
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Token reuse detected"
+  }
+}
+```
+
+#### `POST /api/v1/auth/logout`
+
+Logout user and clear refresh token.
+
+**Headers:**
+
+```
+Authorization: Bearer <access-token>
+```
+
+**Request Body:**
+No request body required.
+
+**Success Response (200 OK):**
+
 ```json
 {
   "data": {
     "success": true
   },
   "error": null
+}
+```
+
+**Set-Cookie Header:**
+
+- `refresh_token`: Cleared with past expiration date
+
+**Error Responses:**
+
+- **401 Unauthorized**: Missing Authorization header
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing Authorization header"
+  }
+}
+```
+
+- **500 Internal Server Error**: Logout operation failed
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Logout failed"
+  }
 }
 ```
 
@@ -243,6 +469,7 @@ Authorization: Bearer <token>
 Connect Stellar wallet.
 
 **Request Body:**
+
 ```json
 {
   "stellarAddress": "GABCD...",
@@ -251,6 +478,7 @@ Connect Stellar wallet.
 ```
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -267,11 +495,13 @@ Connect Stellar wallet.
 Get wallet balance.
 
 **Headers:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -289,16 +519,19 @@ Authorization: Bearer <token>
 List user delegations.
 
 **Headers:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
+
 - `status`: Filter by status (optional)
 - `limit`: Number of results (default: 50)
 - `offset`: Pagination offset (default: 0)
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -324,11 +557,13 @@ Authorization: Bearer <token>
 Create new delegation.
 
 **Headers:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Request Body:**
+
 ```json
 {
   "agentType": "buyer",
@@ -338,6 +573,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -357,11 +593,13 @@ Authorization: Bearer <token>
 Get delegation details.
 
 **Headers:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -381,11 +619,13 @@ Authorization: Bearer <token>
 Revoke delegation.
 
 **Headers:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -402,16 +642,19 @@ Authorization: Bearer <token>
 List user orders.
 
 **Headers:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
+
 - `status`: Filter by status (optional)
 - `limit`: Number of results (default: 50)
 - `offset`: Pagination offset (default: 0)
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -437,11 +680,13 @@ Authorization: Bearer <token>
 Create new order.
 
 **Headers:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Request Body:**
+
 ```json
 {
   "delegationId": "del_123",
@@ -455,6 +700,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -473,11 +719,13 @@ Authorization: Bearer <token>
 Get order details.
 
 **Headers:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -497,11 +745,13 @@ Authorization: Bearer <token>
 Approve order for execution.
 
 **Headers:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -517,11 +767,13 @@ Authorization: Bearer <token>
 Cancel order.
 
 **Headers:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -573,11 +825,11 @@ X-Delego-Signature: sha256=signature_here
 ### JavaScript/TypeScript SDK
 
 ```typescript
-import { DelegoClient } from '@delego/sdk';
+import { DelegoClient } from "@delego/sdk";
 
 const client = new DelegoClient({
-  apiKey: 'your-api-key',
-  baseURL: 'https://api.delego.dev'
+  apiKey: "your-api-key",
+  baseURL: "https://api.delego.dev",
 });
 
 // Get delegations
@@ -585,8 +837,8 @@ const delegations = await client.delegations.list();
 
 // Create delegation
 const delegation = await client.delegations.create({
-  agentType: 'buyer',
-  spendingLimit: 10000000
+  agentType: "buyer",
+  spendingLimit: 10000000,
 });
 ```
 

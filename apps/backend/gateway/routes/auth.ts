@@ -1,8 +1,20 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { json } from "@delego/utils";
-import { registerUser, loginUser, refreshAccessToken } from "../src/auth/authService.js";
-import { validateSchema, RegisterSchema, LoginSchema } from "../src/validation.js";
-import { readJsonBody, InvalidJsonError, BodyTooLargeError } from "../src/request.js";
+import {
+  registerUser,
+  loginUser,
+  refreshAccessToken,
+} from "../src/auth/authService.js";
+import {
+  validateSchema,
+  RegisterSchema,
+  LoginSchema,
+} from "../src/validation.js";
+import {
+  readJsonBody,
+  InvalidJsonError,
+  BodyTooLargeError,
+} from "../src/request.js";
 
 function parseCookies(req: IncomingMessage): Record<string, string> {
   const list: Record<string, string> = {};
@@ -22,7 +34,10 @@ function parseCookies(req: IncomingMessage): Record<string, string> {
   return list;
 }
 
-function setRefreshTokenCookie(res: ServerResponse, refreshToken: string): void {
+function setRefreshTokenCookie(
+  res: ServerResponse,
+  refreshToken: string,
+): void {
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const cookie = [
     `refresh_token=${refreshToken}`,
@@ -35,19 +50,30 @@ function setRefreshTokenCookie(res: ServerResponse, refreshToken: string): void 
   res.setHeader("Set-Cookie", cookie);
 }
 
-export async function registerHandler(req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function registerHandler(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
   try {
     const body = await readJsonBody(req);
     const validation = validateSchema(RegisterSchema, body);
     if (!validation.valid) {
       json(res, 400, {
         data: null,
-        error: { code: "VALIDATION_ERROR", message: "Invalid request body", details: validation.errors },
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid request body",
+          details: validation.errors,
+        },
       });
       return;
     }
 
-    const result = await registerUser(body.email, body.password, body.displayName);
+    const result = await registerUser(
+      body.email,
+      body.password,
+      body.displayName,
+    );
     setRefreshTokenCookie(res, result.refreshToken);
     json(res, 201, {
       data: {
@@ -72,14 +98,21 @@ export async function registerHandler(req: IncomingMessage, res: ServerResponse)
   }
 }
 
-export async function loginHandler(req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function loginHandler(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
   try {
     const body = await readJsonBody(req);
     const validation = validateSchema(LoginSchema, body);
     if (!validation.valid) {
       json(res, 400, {
         data: null,
-        error: { code: "VALIDATION_ERROR", message: "Invalid request body", details: validation.errors },
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid request body",
+          details: validation.errors,
+        },
       });
       return;
     }
@@ -109,7 +142,10 @@ export async function loginHandler(req: IncomingMessage, res: ServerResponse): P
   }
 }
 
-export async function refreshHandler(req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function refreshHandler(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
   try {
     const cookies = parseCookies(req);
     const refreshToken = cookies.refresh_token;
@@ -135,6 +171,53 @@ export async function refreshHandler(req: IncomingMessage, res: ServerResponse):
     json(res, 401, {
       data: null,
       error: { code: "UNAUTHORIZED", message: err.message },
+    });
+  }
+}
+
+function clearRefreshTokenCookie(res: ServerResponse): void {
+  const cookie = [
+    "refresh_token=",
+    "Expires=Thu, 01 Jan 1970 00:00:00 UTC",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Strict",
+    "Path=/",
+  ].join("; ");
+  res.setHeader("Set-Cookie", cookie);
+}
+
+export async function logoutHandler(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      json(res, 401, {
+        data: null,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Missing Authorization header",
+        },
+      });
+      return;
+    }
+
+    // Clear the refresh token cookie
+    clearRefreshTokenCookie(res);
+
+    json(res, 200, {
+      data: {
+        success: true,
+      },
+      error: null,
+    });
+  } catch (err: any) {
+    json(res, 500, {
+      data: null,
+      error: { code: "INTERNAL_ERROR", message: "Logout failed" },
     });
   }
 }
