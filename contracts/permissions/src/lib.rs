@@ -82,6 +82,15 @@ pub struct DecrementExecutedEvent {
 }
 
 #[contracttype]
+#[derive(Clone, Debug)]
+pub struct PermissionExpiryUpdatedEvent {
+    pub owner: Address,
+    pub delegate: Address,
+    pub old_expiry: u32,
+    pub new_expiry: u32,
+}
+
+#[contracttype]
 pub enum DataKey {
     Permission(Address, Address),
     PendingDecrement(Address, Address),
@@ -314,6 +323,45 @@ impl PermissionsContract {
                 delegate,
                 previous_limit,
                 new_limit,
+            },
+        );
+
+        true
+    }
+
+    pub fn update_expiry(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+        new_ttl_ledgers: u32,
+    ) -> bool {
+        owner.require_auth();
+
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
+        let mut record: PermissionRecord = match env.storage().persistent().get(&key) {
+            Some(r) => r,
+            None => panic!("Permission not found"),
+        };
+
+        let current_ledger = env.ledger().sequence();
+        let new_expiry = current_ledger + new_ttl_ledgers;
+
+        // Validate new expiry is not in the past
+        if new_expiry <= current_ledger {
+            panic!("New expiry must be in the future");
+        }
+
+        let old_expiry = record.expires_at_ledger;
+        record.expires_at_ledger = new_expiry;
+        env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("exp_upd")),
+            PermissionExpiryUpdatedEvent {
+                owner,
+                delegate,
+                old_expiry,
+                new_expiry,
             },
         );
 
