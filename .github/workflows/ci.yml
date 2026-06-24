@@ -60,7 +60,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build shared packages and services
-        run: pnpm --filter "./packages/*" --filter "./apps/backend/*" --filter "./apps/frontend" --filter "./agents" build
+        run: pnpm build
 
       - name: Run type check
         run: pnpm typecheck
@@ -87,8 +87,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build shared packages and services
-        run: pnpm --filter "./packages/*" --filter "./apps/backend/*" --filter "./apps/frontend" --filter "./agents" build
+      - name: Build all workspace apps and packages
+        run: pnpm build
 
       - name: Run tests
         run: pnpm test
@@ -129,7 +129,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-
 
       - uses: actions/cache@v4
         with:
