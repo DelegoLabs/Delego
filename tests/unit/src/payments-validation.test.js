@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   validateDepositRequest,
   validateEscrowContractConfig,
+  validateIdempotencyKey,
   validateInitializeRequest,
   validateRefundRequest,
   validateReleaseRequest,
@@ -89,5 +90,72 @@ describe("payments escrow validation", () => {
     const result = validateEscrowContractConfig();
     assert.equal(result.ok, true);
     assert.equal(result.value, VALID_CONTRACT);
+  });
+});
+
+describe("validateIdempotencyKey", () => {
+  it("rejects missing Idempotency-Key header", () => {
+    const result = validateIdempotencyKey({}, "/escrow/deposit");
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, "MISSING_IDEMPOTENCY_KEY");
+  });
+
+  it("rejects key shorter than minimum length (5 chars)", () => {
+    const result = validateIdempotencyKey({ "idempotency-key": "short" }, "/escrow/deposit");
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, "VALIDATION_ERROR");
+    assert.match(result.error.message, /at least/);
+  });
+
+  it("rejects key of exactly 7 characters (one below minimum)", () => {
+    const result = validateIdempotencyKey({ "idempotency-key": "a".repeat(7) }, "/escrow/deposit");
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, "VALIDATION_ERROR");
+  });
+
+  it("accepts key of exactly 8 characters (minimum boundary)", () => {
+    const result = validateIdempotencyKey({ "idempotency-key": "a".repeat(8) }, "/escrow/deposit");
+    assert.equal(result.ok, true);
+  });
+
+  it("accepts key of exactly 128 characters (maximum boundary)", () => {
+    const result = validateIdempotencyKey({ "idempotency-key": "a".repeat(128) }, "/escrow/deposit");
+    assert.equal(result.ok, true);
+  });
+
+  it("rejects key longer than maximum length (129 chars)", () => {
+    const longKey = "a".repeat(129);
+    const result = validateIdempotencyKey({ "idempotency-key": longKey }, "/escrow/deposit");
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, "VALIDATION_ERROR");
+    assert.match(result.error.message, /at most/);
+  });
+
+  it("rejects key with invalid characters", () => {
+    const result = validateIdempotencyKey({ "idempotency-key": "key with spaces" }, "/escrow/deposit");
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, "VALIDATION_ERROR");
+    assert.match(result.error.message, /invalid characters/);
+  });
+
+  it("accepts a valid Idempotency-Key and returns context", () => {
+    const result = validateIdempotencyKey(
+      { "idempotency-key": "valid-idempotency-key-12345" },
+      "/escrow/deposit",
+      "user-42"
+    );
+    assert.equal(result.ok, true);
+    assert.equal(result.value.key, "valid-idempotency-key-12345");
+    assert.equal(result.value.route, "/escrow/deposit");
+    assert.equal(result.value.userId, "user-42");
+  });
+
+  it("accepts header with uppercase name Idempotency-Key", () => {
+    const result = validateIdempotencyKey(
+      { "Idempotency-Key": "valid-key-uppercase" },
+      "/escrow/release"
+    );
+    assert.equal(result.ok, true);
+    assert.equal(result.value.key, "valid-key-uppercase");
   });
 });
