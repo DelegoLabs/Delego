@@ -11,11 +11,12 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'TODO: add eslint'",
-    "test": "echo 'No tests yet'"
+    "test": "echo 'Tests live in tests/unit — run pnpm test:unit from repo root'"
   },
   "dependencies": {
     "@delego/types": "workspace:*",
     "@delego/utils": "workspace:*",
+    "@stellar/stellar-sdk": "^15.1.0",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
     "ws": "^8.21.0"

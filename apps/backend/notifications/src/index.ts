@@ -4,6 +4,7 @@
 import { createLogger } from "@delego/utils";
 import { startHttpServer } from "@delego/utils";
 import { initWebSocketServer } from "./websocket.js";
+import { startPermissionEventListener } from "./permissionListener.js";
 
 const SERVICE_NAME = "notifications";
 const DEFAULT_PORT = 3015;
@@ -22,4 +23,13 @@ const server = startHttpServer({
 });
 
 initWebSocketServer(server);
+
+const rpcUrl = process.env.SOROBAN_RPC_URL;
+const contractId = process.env.PERMISSIONS_CONTRACT_ID;
+
+if (rpcUrl && contractId) {
+  startPermissionEventListener(rpcUrl, contractId);
+} else {
+  log.warn("SOROBAN_RPC_URL or PERMISSIONS_CONTRACT_ID not set — permission event listener disabled");
+}
 
