@@ -9,9 +9,9 @@ struct TestEnv {
     buyer: Address,
     seller: Address,
     agent: Address,
-    token_contract_id: Address,
-    token_admin: Address,
-    escrow_contract_id: Address,
+    _token_contract_id: Address,
+    _token_admin: Address,
+    _escrow_contract_id: Address,
     permissions_contract_id: Address,
 }
 
@@ -26,6 +26,7 @@ impl TestEnv {
         let agent = Address::generate(&env);
 
         let token_admin = Address::generate(&env);
+        #[allow(deprecated)]
         let token_contract_id = env.register_stellar_asset_contract(token_admin.clone());
         let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract_id);
         token_admin_client.mint(&buyer, &10000);
@@ -39,9 +40,9 @@ impl TestEnv {
             buyer,
             seller,
             agent,
-            token_contract_id,
-            token_admin,
-            escrow_contract_id,
+            _token_contract_id: token_contract_id,
+            _token_admin: token_admin,
+            _escrow_contract_id: escrow_contract_id,
             permissions_contract_id,
         }
     }
@@ -52,26 +53,21 @@ fn test_grant_and_spend() {
     let t = TestEnv::setup();
     let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
 
-    let per_tx_limit = 50i128;
-    let total_limit = 100i128;
-    let expiry = t.env.ledger().timestamp() + 3600;
+    let limit_per_tx = 50i128;
+    let limit_total = 100i128;
+    let ttl_ledgers = 3600u32;
     let mut merchants = Vec::new(&t.env);
     merchants.push_back(t.seller.clone());
 
-    // Grant permission
-    assert!(client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants));
+    assert!(client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers));
 
-    // Check can spend
     assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller));
 
-    // Spend and verify allowance decrements
     assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
-    
-    // Remaining total limit should be 60. Spending 40 again should fail
+
     assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller));
     assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
 
-    // Now remaining is 20. Spending 30 should fail can_spend
     assert!(!client.can_spend(&t.buyer, &t.agent, &30, &t.seller));
 }
 
@@ -81,14 +77,13 @@ fn test_spend_exceeds_per_tx_limit() {
     let t = TestEnv::setup();
     let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
 
-    let per_tx_limit = 50i128;
-    let total_limit = 100i128;
-    let expiry = t.env.ledger().timestamp() + 3600;
+    let limit_per_tx = 50i128;
+    let limit_total = 100i128;
+    let ttl_ledgers = 3600u32;
     let merchants = Vec::new(&t.env);
 
-    client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants);
-    
-    // Try to spend 60 (exceeds per_tx_limit of 50)
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+
     client.execute_spend(&t.buyer, &t.agent, &60, &t.seller);
 }
 
@@ -98,18 +93,16 @@ fn test_spend_exceeds_total_limit() {
     let t = TestEnv::setup();
     let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
 
-    let per_tx_limit = 50i128;
-    let total_limit = 100i128;
-    let expiry = t.env.ledger().timestamp() + 3600;
+    let limit_per_tx = 50i128;
+    let limit_total = 100i128;
+    let ttl_ledgers = 3600u32;
     let merchants = Vec::new(&t.env);
 
-    client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants);
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    // Spend 50 twice (reaches total limit of 100)
     client.execute_spend(&t.buyer, &t.agent, &50, &t.seller);
     client.execute_spend(&t.buyer, &t.agent, &50, &t.seller);
 
-    // Attempt to spend 1 more
     client.execute_spend(&t.buyer, &t.agent, &1, &t.seller);
 }
 
@@ -118,19 +111,17 @@ fn test_merchant_restriction() {
     let t = TestEnv::setup();
     let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
 
-    let per_tx_limit = 100i128;
-    let total_limit = 1000i128;
-    let expiry = t.env.ledger().timestamp() + 3600;
-    
+    let limit_per_tx = 100i128;
+    let limit_total = 1000i128;
+    let ttl_ledgers = 3600u32;
+
     let mut merchants = Vec::new(&t.env);
     merchants.push_back(t.seller.clone());
 
-    client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants);
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    // Spend at authorized merchant
     assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
 
-    // Spend at unauthorized merchant (admin)
     let unauthorized_merchant = t.admin.clone();
     assert!(!client.can_spend(&t.buyer, &t.agent, &50, &unauthorized_merchant));
 }
@@ -140,20 +131,17 @@ fn test_permission_expiry() {
     let t = TestEnv::setup();
     let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
 
-    let per_tx_limit = 100i128;
-    let total_limit = 1000i128;
-    let expiry = t.env.ledger().timestamp() + 100;
+    let limit_per_tx = 100i128;
+    let limit_total = 1000i128;
+    let ttl_ledgers = 100u32;
     let merchants = Vec::new(&t.env);
 
-    client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants);
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    // Check can spend before expiry
     assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
 
-    // Advance ledger past expiry
-    t.env.ledger().set_timestamp(expiry + 1);
+    t.env.ledger().set_sequence_number(t.env.ledger().sequence() + ttl_ledgers + 1);
 
-    // Verify cannot spend
     assert!(!client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
 }
 
@@ -162,17 +150,15 @@ fn test_revoke_prevents_spend() {
     let t = TestEnv::setup();
     let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
 
-    let per_tx_limit = 100i128;
-    let total_limit = 1000i128;
-    let expiry = t.env.ledger().timestamp() + 3600;
+    let limit_per_tx = 100i128;
+    let limit_total = 1000i128;
+    let ttl_ledgers = 3600u32;
     let merchants = Vec::new(&t.env);
 
-    client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants);
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    // Revoke
     assert!(client.revoke(&t.buyer, &t.agent));
 
-    // Try to spend
     assert!(!client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
 }
 
@@ -181,14 +167,13 @@ fn test_permission_events() {
     let t = TestEnv::setup();
     let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
 
-    let per_tx_limit = 50i128;
-    let total_limit = 100i128;
-    let expiry = t.env.ledger().timestamp() + 3600;
+    let limit_per_tx = 50i128;
+    let limit_total = 100i128;
+    let ttl_ledgers = 3600u32;
     let mut merchants = Vec::new(&t.env);
     merchants.push_back(t.seller.clone());
 
-    // 1. Test PermissionGrantedEvent
-    assert!(client.grant(&t.buyer, &t.agent, &per_tx_limit, &total_limit, &expiry, &merchants));
+    assert!(client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers));
     let events = t.env.events().all();
     let mut granted_event_found = false;
     for event in events.iter() {
@@ -201,9 +186,9 @@ fn test_permission_events() {
                     let evt: crate::PermissionGrantedEvent = value.try_into_val(&t.env).unwrap();
                     assert_eq!(evt.owner, t.buyer);
                     assert_eq!(evt.delegate, t.agent);
-                    assert_eq!(evt.per_tx_limit, per_tx_limit);
-                    assert_eq!(evt.total_limit, total_limit);
-                    assert_eq!(evt.expiry_timestamp, expiry);
+                    assert_eq!(evt.per_tx_limit, limit_per_tx);
+                    assert_eq!(evt.total_limit, limit_total);
+                    assert_eq!(evt.expires_at_ledger, t.env.ledger().sequence() + ttl_ledgers);
                     assert_eq!(evt.merchant_count, 1);
                     granted_event_found = true;
                 }
@@ -212,7 +197,6 @@ fn test_permission_events() {
     }
     assert!(granted_event_found);
 
-    // 2. Test SpendExecutedEvent
     assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
     let events = t.env.events().all();
     let mut spent_event_found = false;
@@ -236,7 +220,6 @@ fn test_permission_events() {
     }
     assert!(spent_event_found);
 
-    // 3. Test PermissionRevokedEvent
     assert!(client.revoke(&t.buyer, &t.agent));
     let events = t.env.events().all();
     let mut revoked_event_found = false;
@@ -256,4 +239,48 @@ fn test_permission_events() {
         }
     }
     assert!(revoked_event_found);
+}
+
+#[test]
+fn test_decrease_allowance_timelock() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let limit_per_tx = 100i128;
+    let limit_total = 1000i128;
+    let ttl_ledgers = 36000u32;
+    let merchants = Vec::new(&t.env);
+
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+
+    assert!(client.decrease_allowance(&t.buyer, &t.agent, &200));
+
+    // Advance past the 24h timelock (86400 seconds)
+    t.env.ledger().set_timestamp(t.env.ledger().timestamp() + 86401);
+
+    assert!(client.execute_decrease_allowance(&t.buyer, &t.agent));
+
+    // Verify allowance was decreased
+    assert_eq!(client.get_remaining_allowance(&t.buyer, &t.agent), 800);
+}
+
+#[test]
+#[should_panic(expected = "Time-lock has not elapsed yet")]
+fn test_decrease_allowance_timelock_blocked() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let limit_per_tx = 100i128;
+    let limit_total = 1000i128;
+    let ttl_ledgers = 36000u32;
+    let merchants = Vec::new(&t.env);
+
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+
+    assert!(client.decrease_allowance(&t.buyer, &t.agent, &200));
+
+    // Jump time but not enough (24h = 86400 seconds)
+    t.env.ledger().set_timestamp(t.env.ledger().timestamp() + 86399);
+
+    client.execute_decrease_allowance(&t.buyer, &t.agent);
 }

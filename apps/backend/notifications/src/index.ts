@@ -1,9 +1,9 @@
 /**
  * @delego/notifications — Entry point
- * TODO: Implement service logic
  */
 import { createLogger } from "@delego/utils";
 import { startHttpServer } from "@delego/utils";
+import { initWebSocketServer } from "./websocket.js";
 
 const SERVICE_NAME = "notifications";
 const DEFAULT_PORT = 3015;
@@ -15,10 +15,11 @@ const port = Number(process.env.NOTIFICATIONS_PORT ?? DEFAULT_PORT);
 
 log.info("Starting service", { port, nodeEnv });
 
-startHttpServer({
+const server = startHttpServer({
   port,
   serviceName: SERVICE_NAME,
   routes: [],
 });
 
-// TODO: Wire routes, database, and domain logic
+initWebSocketServer(server);
+
