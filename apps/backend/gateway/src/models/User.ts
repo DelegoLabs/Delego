@@ -7,6 +7,7 @@ export class User extends Model {
   public passwordHash!: string | null;
   public stellarAddress!: string | null;
   public displayName!: string | null;
+  public avatarUrl!: string | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -38,6 +39,11 @@ User.init(
     displayName: {
       type: DataTypes.STRING,
       allowNull: true,
+    },
+    avatarUrl: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: "avatar_url",
     },
   },
   {

@@ -11,6 +11,13 @@ export const RATE_LIMIT_RULES: Record<string, RateLimitConfig> = {
   "POST:/api/v1/auth/login":    { maxRequests: 5,   windowSeconds: 60  },
   "POST:/api/v1/auth/register": { maxRequests: 3,   windowSeconds: 300 },
 
+  // OAuth initiation — prevent redirect abuse
+  "GET:/api/v1/auth/oauth/google":          { maxRequests: 10,  windowSeconds: 60  },
+  "GET:/api/v1/auth/oauth/github":          { maxRequests: 10,  windowSeconds: 60  },
+  // OAuth callbacks — strict; codes are single-use so repeated hits = attack
+  "GET:/api/v1/auth/oauth/google/callback": { maxRequests: 10,  windowSeconds: 60  },
+  "GET:/api/v1/auth/oauth/github/callback": { maxRequests: 10,  windowSeconds: 60  },
+
   // Transaction endpoints — moderate
   "POST:/api/v1/delegations":   { maxRequests: 20,  windowSeconds: 60  },
   "POST:/api/v1/orders":        { maxRequests: 30,  windowSeconds: 60  },

@@ -5,6 +5,10 @@ import { User } from "../models/User.js";
 import { RefreshToken } from "../models/index.js";
 import { Op } from "sequelize";
 
+// Re-export the OAuth types and handler so callers only need to import from authService.ts
+export type { OAuthProviderProfile, OAuthAccountLink, OAuthCallbackResult } from "./oauthService.js";
+export { handleOAuthCallback, buildAuthorizationUrl } from "./oauthService.js";
+
 const JWT_SECRET = process.env.JWT_SECRET ?? "change-me-in-production";
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
 const REFRESH_TOKEN_EXPIRES_IN = "7d";
