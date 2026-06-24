@@ -11,6 +11,10 @@
     ]
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "email/**/*",
+    "push/**/*",
+    "templates/**/*",
+    "tests/**/*"
   ]
 }
