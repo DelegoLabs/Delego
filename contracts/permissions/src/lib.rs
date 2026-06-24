@@ -2,7 +2,7 @@
 //! Spending limits, delegated authority, and time-locked allowance decrements
 
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, Symbol, Vec};
+use soroban_sdk::{contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, Symbol, Vec};
 
 const _PERM: Symbol = symbol_short!("PERM");
 const _PENDING_DEC: Symbol = symbol_short!("PEND_DEC");
@@ -79,6 +79,13 @@ pub enum DataKey {
     PendingDecrement(Address, Address),
 }
 
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum PermissionError {
+    PermissionNotFound = 302,
+}
+
 #[contract]
 pub struct PermissionsContract;
 
@@ -126,9 +133,8 @@ impl PermissionsContract {
         true
     }
 
-    pub fn revoke(env: Env, owner: Address, delegate: Address) -> bool {
+    pub fn revoke(env: Env, owner: Address, delegate: Address) -> Result<bool, PermissionError> {
         owner.require_auth();
-
         let key = DataKey::Permission(owner.clone(), delegate.clone());
         if let Some(mut record) = env.storage().persistent().get::<DataKey, PermissionRecord>(&key) {
             record.status = PermissionStatus::Revoked;
@@ -140,9 +146,9 @@ impl PermissionsContract {
                 PermissionRevokedEvent { owner, delegate },
             );
 
-            true
+            Ok(true)
         } else {
-            false
+            Err(PermissionError::PermissionNotFound)
         }
     }
 
@@ -152,28 +158,28 @@ impl PermissionsContract {
         delegate: Address,
         amount: i128,
         merchant: Address,
-    ) -> bool {
+    ) -> Result<bool, PermissionError> {
         let key = DataKey::Permission(owner.clone(), delegate.clone());
         let record: PermissionRecord = match env.storage().persistent().get(&key) {
             Some(r) => r,
-            None => return false,
+            None => return Err(PermissionError::PermissionNotFound),
         };
 
         if record.status != PermissionStatus::Active {
-            return false;
+            return Ok(false);
         }
 
         if env.ledger().sequence() >= record.expires_at_ledger {
-            return false;
+            return Ok(false);
         }
 
         if amount > record.limit_per_tx {
-            return false;
+            return Ok(false);
         }
 
         let remaining = record.limit_total - record.spent;
         if amount > remaining {
-            return false;
+            return Ok(false);
         }
 
         if record.allowed_merchants.len() > 0 {
@@ -185,11 +191,11 @@ impl PermissionsContract {
                 }
             }
             if !allowed {
-                return false;
+                return Ok(false);
             }
         }
 
-        true
+        Ok(true)
     }
 
     pub fn execute_spend(
@@ -198,11 +204,13 @@ impl PermissionsContract {
         delegate: Address,
         amount: i128,
         merchant: Address,
-    ) -> bool {
+    ) -> Result<bool, PermissionError> {
         delegate.require_auth();
 
-        if !Self::can_spend(env.clone(), owner.clone(), delegate.clone(), amount, merchant.clone()) {
-            panic!("Spend not authorized");
+        match Self::can_spend(env.clone(), owner.clone(), delegate.clone(), amount, merchant.clone()) {
+            Err(e) => return Err(e),
+            Ok(false) => panic!("Spend not authorized"),
+            Ok(true) => {}
         }
 
         let key = DataKey::Permission(owner.clone(), delegate.clone());
@@ -224,26 +232,26 @@ impl PermissionsContract {
             },
         );
 
-        true
+        Ok(true)
     }
 
     pub fn get_permission(
         env: Env,
         owner: Address,
         delegate: Address,
-    ) -> PermissionRecord {
+    ) -> Result<PermissionRecord, PermissionError> {
         let key = DataKey::Permission(owner, delegate);
-        env.storage().persistent().get(&key).unwrap()
+        env.storage().persistent().get(&key).ok_or(PermissionError::PermissionNotFound)
     }
 
     pub fn get_remaining_allowance(
         env: Env,
         owner: Address,
         delegate: Address,
-    ) -> i128 {
+    ) -> Result<i128, PermissionError> {
         let key = DataKey::Permission(owner, delegate);
-        let record: PermissionRecord = env.storage().persistent().get(&key).unwrap();
-        record.limit_total - record.spent
+        let record: PermissionRecord = env.storage().persistent().get(&key).ok_or(PermissionError::PermissionNotFound)?;
+        Ok(record.limit_total - record.spent)
     }
 
     pub fn decrease_allowance(
@@ -251,11 +259,11 @@ impl PermissionsContract {
         owner: Address,
         delegate: Address,
         amount: i128,
-    ) -> bool {
+    ) -> Result<bool, PermissionError> {
         owner.require_auth();
 
         let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
-        let _record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
+        let _record: PermissionRecord = env.storage().persistent().get(&perm_key).ok_or(PermissionError::PermissionNotFound)?;
 
         let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
         if env.storage().persistent().has(&pend_key) {
@@ -271,14 +279,14 @@ impl PermissionsContract {
 
         env.storage().persistent().set(&pend_key, &pending);
 
-        true
+        Ok(true)
     }
 
     pub fn execute_decrease_allowance(
         env: Env,
         owner: Address,
         delegate: Address,
-    ) -> bool {
+    ) -> Result<bool, PermissionError> {
         let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
         let pending: PendingAllowanceDecrement = env.storage().persistent().get(&pend_key).unwrap();
 
@@ -287,7 +295,7 @@ impl PermissionsContract {
         }
 
         let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
-        let mut record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
+        let mut record: PermissionRecord = env.storage().persistent().get(&perm_key).ok_or(PermissionError::PermissionNotFound)?;
 
         let previous_limit = record.limit_total;
         let new_limit = record.limit_total - pending.amount;
@@ -309,7 +317,7 @@ impl PermissionsContract {
             },
         );
 
-        true
+        Ok(true)
     }
 }
 
