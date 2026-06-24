@@ -21,11 +21,13 @@
     "ioredis": "^5.11.1",
     "pg": "^8.21.0",
     "pg-hstore": "^2.3.4",
-    "sequelize": "^6.37.8"
+    "sequelize": "^6.37.8",
+    "uuid": "^14.0.1"
   },
   "devDependencies": {
     "@types/ioredis-mock": "^8.2.7",
     "@types/node": "^22.0.0",
+    "@types/uuid": "^11.0.0",
     "@types/validator": "^13.15.10",
     "ioredis-mock": "^8.13.1",
     "tsx": "^4.19.0",
