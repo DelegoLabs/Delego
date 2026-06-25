@@ -31,6 +31,16 @@ pub struct EscrowRecord {
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowSummary {
+    pub escrow_id: u64,
+    pub buyer: Address,
+    pub seller: Address,
+    pub amount: i128,
+    pub status: EscrowStatus,
+}
+
+#[contracttype]
 #[derive(Clone, Debug)]
 pub struct EscrowCreatedEvent {
     pub escrow_id: u64,
@@ -748,6 +758,22 @@ impl EscrowContract {
             .persistent()
             .get(&key)
             .expect("Escrow not found")
+    }
+
+    /// Compact read-only summary for API/indexer consumers.
+    pub fn get_escrow_summary(env: Env, escrow_id: u64) -> Result<EscrowSummary, EscrowError> {
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Escrow(escrow_id))
+            .ok_or(EscrowError::NotFound)?;
+        Ok(EscrowSummary {
+            escrow_id: record.escrow_id,
+            buyer: record.buyer,
+            seller: record.seller,
+            amount: record.amount,
+            status: record.status,
+        })
     }
 
     /// Propose a new primary admin. Must be called by current primary admin.
