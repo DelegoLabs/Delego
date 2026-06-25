@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "delegation_registry",
     "escrow",
     "permissions",
     "tests",
