@@ -16,6 +16,12 @@ export interface ValidationError {
   details?: Record<string, unknown>;
 }
 
+export interface EscrowFundingLock {
+  orderId: string;
+  lockToken: string;
+  createdAt: number;
+}
+
 export interface IdempotencyContext {
   key: string;
   route: string;
