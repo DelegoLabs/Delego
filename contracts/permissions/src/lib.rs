@@ -13,6 +13,9 @@ pub enum PermissionStatus {
     Active,
     Revoked,
     Expired,
+    /// Owner-side hold on spending. No public setter exists yet; reserved so
+    /// `get_delegate_status` can report it once pause/unpause is added.
+    Paused,
 }
 
 #[contracttype]
@@ -81,6 +84,15 @@ pub struct DecrementExecutedEvent {
     pub new_limit: i128,
 }
 
+/// Compact view of whether a delegate can currently spend, and why not when blocked.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DelegateStatusView {
+    pub active: bool,
+    pub reason: Symbol,
+    pub remaining: i128,
+}
+
 #[contracttype]
 pub enum DataKey {
     Permission(Address, Address),
@@ -102,6 +114,9 @@ impl PermissionsContract {
         ttl_ledgers: u32,
     ) -> bool {
         owner.require_auth();
+        if limit_total < 0 || limit_per_tx < 0 {
+            panic!("limit_total and limit_per_tx must be non-negative");
+        }
 
         let expires_at_ledger = env.ledger().sequence() + ttl_ledgers;
 
@@ -171,6 +186,10 @@ impl PermissionsContract {
             return false;
         }
 
+        if amount <= 0 {
+            return false;
+        }
+
         if env.ledger().sequence() >= record.expires_at_ledger {
             return false;
         }
@@ -179,8 +198,20 @@ impl PermissionsContract {
             return false;
         }
 
+        let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
+        let pending_amount = match env.storage().persistent().get::<DataKey, PendingAllowanceDecrement>(&pend_key) {
+            Some(p) => p.amount,
+            None => 0,
+        };
+
         let remaining = record.limit_total - record.spent;
-        if amount > remaining {
+        let effective_remaining = if remaining > pending_amount {
+            remaining - pending_amount
+        } else {
+            0
+        };
+
+        if amount > effective_remaining {
             return false;
         }
 
@@ -254,6 +285,80 @@ impl PermissionsContract {
         record.limit_total - record.spent
     }
 
+    /// Compact, read-only status check for a delegate. Reports whether the
+    /// delegate can currently spend, and when blocked, the single most
+    /// relevant reason: revoked, expired, paused, or exhausted. Does not
+    /// touch spend or renewal state.
+    pub fn get_delegate_status(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> DelegateStatusView {
+        let key = DataKey::Permission(owner, delegate);
+        let record: PermissionRecord = match env.storage().persistent().get(&key) {
+            Some(r) => r,
+            None => {
+                return DelegateStatusView {
+                    active: false,
+                    reason: symbol_short!("inactive"),
+                    remaining: 0,
+                };
+            }
+        };
+
+        let remaining = if record.spent >= record.limit_total {
+            0
+        } else {
+            record.limit_total - record.spent
+        };
+
+        if record.status == PermissionStatus::Revoked {
+            return DelegateStatusView {
+                active: false,
+                reason: symbol_short!("revoked"),
+                remaining,
+            };
+        }
+
+        if env.ledger().sequence() >= record.expires_at_ledger {
+            return DelegateStatusView {
+                active: false,
+                reason: symbol_short!("expired"),
+                remaining,
+            };
+        }
+
+        if record.status == PermissionStatus::Paused {
+            return DelegateStatusView {
+                active: false,
+                reason: symbol_short!("paused"),
+                remaining,
+            };
+        }
+
+        if record.limit_per_tx <= 0 {
+            return DelegateStatusView {
+                active: false,
+                reason: symbol_short!("exhausted"),
+                remaining,
+            };
+        }
+
+        if record.spent >= record.limit_total {
+            return DelegateStatusView {
+                active: false,
+                reason: symbol_short!("exhausted"),
+                remaining,
+            };
+        }
+
+        DelegateStatusView {
+            active: true,
+            reason: symbol_short!("active"),
+            remaining,
+        }
+    }
+
     pub fn decrease_allowance(
         env: Env,
         owner: Address,
@@ -261,9 +366,16 @@ impl PermissionsContract {
         amount: i128,
     ) -> bool {
         owner.require_auth();
+        if amount <= 0 {
+            panic!("Decrease amount must be positive");
+        }
 
         let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
-        let _record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
+        let record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
+        let remaining = record.limit_total - record.spent;
+        if amount > remaining {
+            panic!("Decrease amount exceeds remaining allowance");
+        }
 
         let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
         if env.storage().persistent().has(&pend_key) {
@@ -287,6 +399,7 @@ impl PermissionsContract {
         owner: Address,
         delegate: Address,
     ) -> bool {
+        owner.require_auth();
         let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
         let pending: PendingAllowanceDecrement = env.storage().persistent().get(&pend_key).unwrap();
 
@@ -295,12 +408,21 @@ impl PermissionsContract {
         }
 
         let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
-        let mut record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
+        let record_opt: Option<PermissionRecord> = env.storage().persistent().get(&perm_key);
+
+        let mut record = match record_opt {
+            Some(r) => r,
+            None => {
+                env.storage().persistent().remove(&pend_key);
+                return false;
+            }
+        };
 
         let previous_limit = record.limit_total;
         let new_limit = record.limit_total - pending.amount;
         if new_limit < record.spent {
-            panic!("Decrease would exceed current spent amount");
+            env.storage().persistent().remove(&pend_key);
+            return false;
         }
 
         record.limit_total = new_limit;

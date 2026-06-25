@@ -265,6 +265,22 @@ fn test_decrease_allowance_timelock() {
 }
 
 #[test]
+#[should_panic(expected = "Decrease amount exceeds total allowance")]
+fn test_decrease_allowance_exceeds_total() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let limit_per_tx = 100i128;
+    let limit_total = 1000i128;
+    let ttl_ledgers = 36000u32;
+    let merchants = Vec::new(&t.env);
+
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+
+    client.decrease_allowance(&t.buyer, &t.agent, &2000);
+}
+
+#[test]
 #[should_panic(expected = "Time-lock has not elapsed yet")]
 fn test_decrease_allowance_timelock_blocked() {
     let t = TestEnv::setup();
