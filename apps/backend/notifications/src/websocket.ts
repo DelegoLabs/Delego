@@ -126,7 +126,7 @@ function handleConnection(ws: WebSocket, req: IncomingMessage) {
 
   resetHeartbeat();
 
-  ws.on("message", (data) => {
+  ws.on("message", (data: import("ws").RawData) => {
     try {
       const message = JSON.parse(data.toString());
 
@@ -171,7 +171,7 @@ function handleConnection(ws: WebSocket, req: IncomingMessage) {
     connections.delete(connectionId);
   });
 
-  ws.on("error", (err) => {
+  ws.on("error", (err: Error) => {
     log.error("WebSocket connection error", {
       error: err,
       connectionId,
