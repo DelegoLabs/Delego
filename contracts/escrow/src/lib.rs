@@ -189,6 +189,8 @@ pub enum EscrowError {
     QuorumConfigNotSet = 24,
     /// Conflicting quorum outcomes
     ConflictingQuorum = 25,
+    /// Release recipient does not match the stored seller address
+    InvalidReleaseRecipient = 201,
 }
 
 #[contract]
@@ -547,7 +549,12 @@ impl EscrowContract {
     }
 
     /// Release escrowed funds to the seller. Only the buyer or admin may call.
-    pub fn release(env: Env, escrow_id: u64, caller: Address) -> Result<bool, EscrowError> {
+    pub fn release(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+        recipient: Address,
+    ) -> Result<bool, EscrowError> {
         caller.require_auth();
 
         let key = DataKey::Escrow(escrow_id);
@@ -568,6 +575,10 @@ impl EscrowContract {
             return Err(EscrowError::InvalidStatus);
         }
 
+        if recipient != record.seller {
+            return Err(EscrowError::InvalidReleaseRecipient);
+        }
+
         let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
         let fee_bps = fee_config.fee_bps as i128;
         let fee = (record.amount / 10_000i128) * fee_bps
@@ -578,7 +589,7 @@ impl EscrowContract {
         if fee > 0 {
             token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
         }
-        token_client.transfer(&env.current_contract_address(), &record.seller, &seller_amount);
+        token_client.transfer(&env.current_contract_address(), &recipient, &seller_amount);
 
         record.status = EscrowStatus::Released;
         env.storage().persistent().set(&key, &record);

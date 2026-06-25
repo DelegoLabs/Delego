@@ -28,7 +28,7 @@ impl TestEnv {
         let treasury = Address::generate(&env);
 
         let token_admin = Address::generate(&env);
-        let token_contract_id = env.register_stellar_asset_contract(token_admin.clone());
+        let token_contract_id = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
         let token_admin_client =
             soroban_sdk::token::StellarAssetClient::new(&env, &token_contract_id);
         token_admin_client.mint(&buyer, &10000);
@@ -88,7 +88,7 @@ fn test_deposit_with_non_whitelisted_token_fails() {
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
 
     let other_token_admin = Address::generate(&t.env);
-    let other_token_contract_id = t.env.register_stellar_asset_contract(other_token_admin.clone());
+    let other_token_contract_id = t.env.register_stellar_asset_contract_v2(other_token_admin.clone()).address();
 
     assert_eq!(
         escrow_client.try_deposit(
@@ -181,7 +181,7 @@ fn test_full_purchase_lifecycle() {
     assert_eq!(token_client.balance(&t.buyer), 9000);
     assert_eq!(token_client.balance(&t.escrow_contract_id), 1000);
 
-    assert!(escrow_client.release(&escrow_id, &t.buyer));
+    assert!(escrow_client.release(&escrow_id, &t.buyer, &t.seller));
 
     assert_eq!(token_client.balance(&t.seller), 1000);
     assert_eq!(token_client.balance(&t.escrow_contract_id), 0);
@@ -253,7 +253,7 @@ fn test_dispute_blocks_release_and_refund() {
     assert!(escrow_client.dispute(&escrow_id, &t.buyer));
 
     assert_eq!(
-        escrow_client.try_release(&escrow_id, &t.buyer),
+        escrow_client.try_release(&escrow_id, &t.buyer, &t.seller),
         Err(Ok(EscrowError::InvalidStatus))
     );
     assert_eq!(
@@ -277,8 +277,22 @@ fn test_release_wrong_caller() {
     let escrow_id = deposit_escrow(&t, 1000, 100);
 
     assert_eq!(
-        escrow_client.try_release(&escrow_id, &t.agent),
+        escrow_client.try_release(&escrow_id, &t.agent, &t.seller),
         Err(Ok(EscrowError::Unauthorized))
+    );
+}
+
+#[test]
+fn test_release_with_wrong_recipient_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    let wrong_recipient = Address::generate(&t.env);
+    assert_eq!(
+        escrow_client.try_release(&escrow_id, &t.buyer, &wrong_recipient),
+        Err(Ok(EscrowError::InvalidReleaseRecipient))
     );
 }
 
@@ -289,9 +303,9 @@ fn test_double_release_prevention() {
 
     let escrow_id = deposit_escrow(&t, 1000, 100);
 
-    assert!(escrow_client.release(&escrow_id, &t.buyer));
+    assert!(escrow_client.release(&escrow_id, &t.buyer, &t.seller));
     assert_eq!(
-        escrow_client.try_release(&escrow_id, &t.buyer),
+        escrow_client.try_release(&escrow_id, &t.buyer, &t.seller),
         Err(Ok(EscrowError::AlreadyReleased))
     );
 }

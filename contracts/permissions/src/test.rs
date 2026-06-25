@@ -17,7 +17,7 @@ mod test {
         let mut merchants = Vec::new(&env);
         merchants.push_back(merchant.clone());
 
-        client.grant(&owner, &delegate, &100, &1000, &10000, &merchants);
+        assert!(client.grant(&owner, &delegate, &100, &1000, &merchants, &10000));
         assert!(client.can_spend(&owner, &delegate, &50, &merchant));
     }
 
@@ -36,7 +36,7 @@ mod test {
         let mut merchants = Vec::new(&env);
         merchants.push_back(allowed_merchant.clone());
 
-        client.grant(&owner, &delegate, &100, &1000, &10000, &merchants);
+        assert!(client.grant(&owner, &delegate, &100, &1000, &merchants, &10000));
         assert!(!client.can_spend(&owner, &delegate, &50, &other_merchant));
     }
 
