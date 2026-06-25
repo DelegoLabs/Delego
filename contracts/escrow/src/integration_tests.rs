@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use soroban_sdk::{
-    testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
+    symbol_short, testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
     Address, BytesN, Env, IntoVal,
 };
 use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus};
@@ -379,4 +379,16 @@ fn test_get_escrow_returns_full_record() {
     assert_eq!(record.status, EscrowStatus::Funded);
     assert_eq!(record.order_id, t.order_id());
     assert!(record.timeout_ledger > t.env.ledger().sequence());
+}
+
+#[test]
+fn test_version_callable_without_auth() {
+    let env = Env::default();
+    // Intentionally do NOT mock all auths — version() requires no auth.
+    let contract_id = env.register(EscrowContract, ());
+    let client = EscrowContractClient::new(&env, &contract_id);
+
+    let version = client.version();
+    assert_eq!(version.name, symbol_short!("escrow"));
+    assert_eq!(version.semver, symbol_short!("0_1_0"));
 }
