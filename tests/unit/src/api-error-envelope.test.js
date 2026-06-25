@@ -16,9 +16,16 @@ const mockReq = (headers = {}) => ({ headers });
 const mockRes = () => {
   let statusCode = 0;
   let body = null;
+  const headers = {};
   return {
-    writeHead(status, headers) {
+    writeHead(status, _headers) {
       statusCode = status;
+    },
+    setHeader(name, value) {
+      headers[name.toLowerCase()] = String(value);
+    },
+    getHeader(name) {
+      return headers[name.toLowerCase()];
     },
     end(payload) {
       body = JSON.parse(payload);
