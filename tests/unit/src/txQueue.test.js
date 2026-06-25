@@ -196,7 +196,7 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
     sendMock = async (tx) => {
       sendCalls++;
       if (sendCalls === 1) {
-        throw new Error("Submission failed: Rate limit exceeded (429)");
+        return { error: "Submission failed: Rate limit exceeded (429)" };
       }
       return { status: "PENDING", hash: "retryhash" };
     };
