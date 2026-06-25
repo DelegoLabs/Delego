@@ -224,11 +224,11 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
 
     const request = { sourceAddress: testPub, contractId: testContractId, method: "fatal_method", args: [] };
 
-    try {
-      await addTransactionToQueue(request);
-      assert.fail("Should have thrown an error for fatal panic");
-    } catch (err) {
-      assert.match(err.message, /Invalid input parameters/);
-    }
+    const result = await addTransactionToQueue(request);
+
+    assert.equal(result.success, false, "Transaction should have failed");
+    assert.ok(result.error, "Result should contain an error message");
+    assert.match(result.error, /Transaction simulation failed: contract panic: Invalid input parameters/);
   });
 });
+ 
