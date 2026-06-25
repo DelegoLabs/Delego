@@ -231,4 +231,3 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       assert.match(err.message, /Invalid input parameters/);
     }
   });
-});
