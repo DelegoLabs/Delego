@@ -141,6 +141,22 @@ mod test {
     }
 
     #[test]
+    fn test_delegate_status_missing_permission_returns_inactive() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(!status.active);
+        assert_eq!(status.reason, soroban_sdk::symbol_short!("inactive"));
+        assert_eq!(status.remaining, 0);
+    }
+
+    #[test]
     fn test_delegate_status_revoked() {
         let env = Env::default();
         let owner = Address::generate(&env);

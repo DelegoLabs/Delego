@@ -198,8 +198,20 @@ impl PermissionsContract {
             return false;
         }
 
+        let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
+        let pending_amount = match env.storage().persistent().get::<DataKey, PendingAllowanceDecrement>(&pend_key) {
+            Some(p) => p.amount,
+            None => 0,
+        };
+
         let remaining = record.limit_total - record.spent;
-        if amount > remaining {
+        let effective_remaining = if remaining > pending_amount {
+            remaining - pending_amount
+        } else {
+            0
+        };
+
+        if amount > effective_remaining {
             return false;
         }
 
@@ -283,7 +295,16 @@ impl PermissionsContract {
         delegate: Address,
     ) -> DelegateStatusView {
         let key = DataKey::Permission(owner, delegate);
-        let record: PermissionRecord = env.storage().persistent().get(&key).unwrap();
+        let record: PermissionRecord = match env.storage().persistent().get(&key) {
+            Some(r) => r,
+            None => {
+                return DelegateStatusView {
+                    active: false,
+                    reason: symbol_short!("inactive"),
+                    remaining: 0,
+                };
+            }
+        };
 
         let remaining = if record.spent >= record.limit_total {
             0
@@ -322,7 +343,7 @@ impl PermissionsContract {
                 remaining,
             };
         }
-        
+
         if record.spent >= record.limit_total {
             return DelegateStatusView {
                 active: false,
@@ -351,8 +372,9 @@ impl PermissionsContract {
 
         let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
         let record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
-        if amount > record.limit_total {
-            panic!("Decrease amount exceeds total allowance");
+        let remaining = record.limit_total - record.spent;
+        if amount > remaining {
+            panic!("Decrease amount exceeds remaining allowance");
         }
 
         let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
@@ -386,12 +408,21 @@ impl PermissionsContract {
         }
 
         let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
-        let mut record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
+        let record_opt: Option<PermissionRecord> = env.storage().persistent().get(&perm_key);
+
+        let mut record = match record_opt {
+            Some(r) => r,
+            None => {
+                env.storage().persistent().remove(&pend_key);
+                return false;
+            }
+        };
 
         let previous_limit = record.limit_total;
         let new_limit = record.limit_total - pending.amount;
         if new_limit < record.spent {
-            panic!("Decrease would exceed current spent amount");
+            env.storage().persistent().remove(&pend_key);
+            return false;
         }
 
         record.limit_total = new_limit;
