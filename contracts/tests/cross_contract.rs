@@ -41,6 +41,7 @@ impl TestEnv {
         let min_amount = 100i128;
         let max_amount = 10000i128;
         escrow_client.initialize(&admin, &fee_bps, &treasury, &min_amount, &max_amount);
+        escrow_client.add_token(&admin, &token_contract_id);
 
         TestEnv {
             env,

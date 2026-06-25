@@ -4,6 +4,7 @@ import { escrowService } from "../escrow/index.js";
 import {
   validateDepositRequest,
   validateEscrowContractConfig,
+  validateIdempotencyKey,
   validateInitializeRequest,
   validateRefundRequest,
   validateReleaseRequest,
@@ -84,6 +85,11 @@ export function registerRoutes(): Route[] {
 
     route("POST", "/escrow/deposit", async (req, res) => {
       try {
+        const idempotency = validateIdempotencyKey(req.headers as Record<string, string | string[] | undefined>, "/escrow/deposit");
+        if (!idempotency.ok) {
+          sendValidationError(res, idempotency.error);
+          return;
+        }
         const body = await readJsonBody(req);
         const validated = validateDepositRequest(body);
         if (!validated.ok) {
@@ -108,6 +114,11 @@ export function registerRoutes(): Route[] {
 
     route("POST", "/escrow/:escrowId/release", async (req, res, params) => {
       try {
+        const idempotency = validateIdempotencyKey(req.headers as Record<string, string | string[] | undefined>, "/escrow/:escrowId/release");
+        if (!idempotency.ok) {
+          sendValidationError(res, idempotency.error);
+          return;
+        }
         const body = await readJsonBody(req);
         const validated = validateReleaseRequest(body, params.escrowId);
         if (!validated.ok) {
@@ -132,6 +143,11 @@ export function registerRoutes(): Route[] {
 
     route("POST", "/escrow/:escrowId/refund", async (req, res, params) => {
       try {
+        const idempotency = validateIdempotencyKey(req.headers as Record<string, string | string[] | undefined>, "/escrow/:escrowId/refund");
+        if (!idempotency.ok) {
+          sendValidationError(res, idempotency.error);
+          return;
+        }
         const body = await readJsonBody(req);
         const validated = validateRefundRequest(body, params.escrowId);
         if (!validated.ok) {
