@@ -315,6 +315,14 @@ impl PermissionsContract {
             };
         }
 
+        if record.limit_per_tx <= 0 {
+            return DelegateStatusView {
+                active: false,
+                reason: symbol_short!("exhausted"),
+                remaining,
+            };
+        }
+        
         if record.spent >= record.limit_total {
             return DelegateStatusView {
                 active: false,
