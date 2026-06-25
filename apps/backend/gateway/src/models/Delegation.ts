@@ -1,6 +1,9 @@
 import { Model, DataTypes } from "sequelize";
 import { sequelize } from "../db.js";
 
+export type DelegationStatusFilter = 'pending' | 'active' | 'paused' | 'revoked' | 'expired';
+export const DELEGATION_STATUS_FILTERS: readonly DelegationStatusFilter[] = ['pending', 'active', 'paused', 'revoked', 'expired'];
+
 export class Delegation extends Model {
   public id!: string;
   public userId!: string;

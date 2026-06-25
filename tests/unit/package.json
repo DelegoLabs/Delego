@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test",
+    "test": "node --test --experimental-test-module-mocks",
     "typecheck": "echo 'N/A'"
   },
   "dependencies": {

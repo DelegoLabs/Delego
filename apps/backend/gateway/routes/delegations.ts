@@ -4,6 +4,7 @@ import { extractAuth } from "../middleware/auth.js";
 import { validateSchema, CreateDelegationSchema, UpdateDelegationSchema } from "../src/validation.js";
 import { sequelize } from "../src/db.js";
 import { Delegation, DelegationPolicy, SpendLimit, PermissionLevel, Wallet } from "../src/models/index.js";
+import { DELEGATION_STATUS_FILTERS } from "../src/models/Delegation.js";
 import { readJsonBody, InvalidJsonError, BodyTooLargeError } from "../src/request.js";
 
 function formatDelegationResponse(delegation: Delegation, policy: DelegationPolicy, spendLimit: SpendLimit, permissionLevel: PermissionLevel): any {
@@ -143,8 +144,27 @@ export async function listDelegationsHandler(req: IncomingMessage, res: ServerRe
       return;
     }
 
+    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    const statusParam = url.searchParams.get("status");
+
+    if (statusParam !== null && !(DELEGATION_STATUS_FILTERS as readonly string[]).includes(statusParam)) {
+      json(res, 400, {
+        data: null,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `Invalid status filter. Must be one of: ${DELEGATION_STATUS_FILTERS.join(", ")}`,
+        },
+      });
+      return;
+    }
+
+    const where: Record<string, any> = { userId: auth.userId };
+    if (statusParam !== null) {
+      where.status = statusParam;
+    }
+
     const delegations = await Delegation.findAll({
-      where: { userId: auth.userId },
+      where,
       include: [
         { model: DelegationPolicy, as: "delegationPolicy" },
         { model: SpendLimit, as: "spendLimits" },
