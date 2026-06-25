@@ -5,15 +5,18 @@
 #![no_std]
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
+    Symbol,
 };
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EscrowStatus {
+    Created,
     Funded,
     Released,
     Refunded,
     Disputed,
+    Cancelled,
 }
 
 #[contracttype]
@@ -65,6 +68,14 @@ pub struct EscrowRefundedEvent {
 pub struct EscrowDisputedEvent {
     pub escrow_id: u64,
     pub disputed_by: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowCancelledEvent {
+    pub escrow_id: BytesN<32>,
+    pub cancelled_by: Address,
+    pub reason: Symbol,
 }
 
 #[contracttype]
@@ -471,6 +482,146 @@ impl EscrowContract {
             .instance()
             .get(&DataKey::TokenWhitelist)
             .unwrap_or_else(|| soroban_sdk::Vec::new(&env))
+    }
+
+    /// Create an escrow record before the funds are deposited.
+    /// Only the merchant (seller) may create a pending escrow.
+    pub fn create_escrow(
+        env: Env,
+        seller: Address,
+        buyer: Address,
+        token: Address,
+        amount: i128,
+        order_id: BytesN<32>,
+        timeout_ledgers: u32,
+    ) -> Result<u64, EscrowError> {
+        seller.require_auth();
+
+        if !Self::is_token_allowed(env.clone(), token.clone()) {
+            return Err(EscrowError::TokenNotWhitelisted);
+        }
+
+        if amount <= 0 {
+            return Err(EscrowError::InvalidAmount);
+        }
+        let limits: EscrowAmountLimits = env.storage().instance().get(&DataKey::AmountLimits).unwrap();
+        if amount < limits.min_amount {
+            return Err(EscrowError::AmountBelowMin);
+        }
+        if amount > limits.max_amount {
+            return Err(EscrowError::AmountAboveMax);
+        }
+
+        let mut last_id: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::LastEscrowId)
+            .unwrap_or(0);
+        last_id += 1;
+        env.storage()
+            .instance()
+            .set(&DataKey::LastEscrowId, &last_id);
+
+        let timeout_ledger = env.ledger().sequence() + timeout_ledgers;
+        let record = EscrowRecord {
+            escrow_id: last_id,
+            buyer: buyer.clone(),
+            seller: seller.clone(),
+            token: token.clone(),
+            amount,
+            status: EscrowStatus::Created,
+            order_id: order_id.clone(),
+            created_at: env.ledger().timestamp(),
+            timeout_ledger,
+        };
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Escrow(last_id), &record);
+
+        Ok(last_id)
+    }
+
+    /// Fund a previously-created escrow. Only the buyer may fund an escrow.
+    pub fn fund_escrow(env: Env, escrow_id: u64, buyer: Address) -> Result<bool, EscrowError> {
+        buyer.require_auth();
+
+        let key = DataKey::Escrow(escrow_id);
+        let mut record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        if record.status != EscrowStatus::Created {
+            return Err(EscrowError::InvalidStatus);
+        }
+
+        if buyer != record.buyer {
+            return Err(EscrowError::Unauthorized);
+        }
+
+        let token_client = soroban_sdk::token::Client::new(&env, &record.token);
+        token_client.transfer(&buyer, &env.current_contract_address(), &record.amount);
+
+        record.status = EscrowStatus::Funded;
+        env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("created")),
+            EscrowCreatedEvent {
+                escrow_id,
+                buyer: record.buyer.clone(),
+                seller: record.seller.clone(),
+                token: record.token.clone(),
+                amount: record.amount,
+                order_id: record.order_id.clone(),
+                timeout_ledger: record.timeout_ledger,
+            },
+        );
+
+        Ok(true)
+    }
+
+    /// Cancel an escrow before it has been funded. Only the merchant may cancel.
+    pub fn cancel_before_funding(
+        env: Env,
+        escrow_id: u64,
+        merchant: Address,
+        reason: Symbol,
+    ) -> Result<bool, EscrowError> {
+        merchant.require_auth();
+
+        let key = DataKey::Escrow(escrow_id);
+        let mut record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        if merchant != record.seller {
+            return Err(EscrowError::Unauthorized);
+        }
+
+        if record.status != EscrowStatus::Created {
+            return Err(EscrowError::InvalidStatus);
+        }
+
+        record.status = EscrowStatus::Cancelled;
+        env.storage().persistent().set(&key, &record);
+
+        let mut escrow_id_bytes = [0u8; 32];
+        escrow_id_bytes[24..].copy_from_slice(&escrow_id.to_be_bytes());
+        let escrow_id_bytesn = BytesN::from_array(&env, &escrow_id_bytes);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("cancelled")),
+            EscrowCancelledEvent {
+                escrow_id: escrow_id_bytesn,
+                cancelled_by: merchant,
+                reason,
+            },
+        );
+
+        Ok(true)
     }
 
     /// Deposit funds into escrow for an order.
