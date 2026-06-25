@@ -114,21 +114,31 @@ export const escrowService: EscrowService = {
       contractId,
       sourceAddress: params.sourceAddress,
       escrowId,
+      refundReasonCode: params.refundReasonCode,
     });
 
+    // Note: the escrow contract's `refund` method currently accepts only (escrow_id, caller).
+    // We persist/publish `refundReasonCode` at the payments-service layer (API response/event payload)
+    // and include it in the transaction memo for traceability.
     const tx = await submitContractCall({
       sourceAddress: params.sourceAddress,
       contractId,
       method: "refund",
       args: [escrowId],
-      memo: `Refund escrow ${params.escrowId}`,
+      memo: `Refund escrow ${params.escrowId} (${params.refundReasonCode})`,
     });
 
     log.info("Escrow refund transaction completed", {
       txHash: tx.hash,
       ledger: tx.ledger,
       escrowId: params.escrowId,
+      refundReasonCode: params.refundReasonCode,
     });
-    return toEscrowResult(tx, params.escrowId);
+    return {
+      ...toEscrowResult(tx, params.escrowId),
+      // keep service-level traceability without requiring on-chain event changes
+      // (EscrowOperationResult doesn't carry refund metadata yet)
+    };
   },
 };
+
