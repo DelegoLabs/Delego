@@ -59,14 +59,14 @@ fn test_grant_and_spend() {
     let mut merchants = Vec::new(&t.env);
     merchants.push_back(t.seller.clone());
 
-    assert!(client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers));
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
     assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller));
 
-    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
+    client.execute_spend(&t.buyer, &t.agent, &40, &t.seller);
 
     assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller));
-    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
+    client.execute_spend(&t.buyer, &t.agent, &40, &t.seller);
 
     assert!(!client.can_spend(&t.buyer, &t.agent, &30, &t.seller));
 }
@@ -157,7 +157,7 @@ fn test_revoke_prevents_spend() {
 
     client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
 
-    assert!(client.revoke(&t.buyer, &t.agent));
+    client.revoke(&t.buyer, &t.agent);
 
     assert!(!client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
 }
@@ -173,7 +173,7 @@ fn test_permission_events() {
     let mut merchants = Vec::new(&t.env);
     merchants.push_back(t.seller.clone());
 
-    assert!(client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers));
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
     let events = t.env.events().all();
     let mut granted_event_found = false;
     for event in events.iter() {
@@ -197,7 +197,7 @@ fn test_permission_events() {
     }
     assert!(granted_event_found);
 
-    assert!(client.execute_spend(&t.buyer, &t.agent, &40, &t.seller));
+    client.execute_spend(&t.buyer, &t.agent, &40, &t.seller);
     let events = t.env.events().all();
     let mut spent_event_found = false;
     for event in events.iter() {
@@ -220,7 +220,7 @@ fn test_permission_events() {
     }
     assert!(spent_event_found);
 
-    assert!(client.revoke(&t.buyer, &t.agent));
+    client.revoke(&t.buyer, &t.agent);
     let events = t.env.events().all();
     let mut revoked_event_found = false;
     for event in events.iter() {

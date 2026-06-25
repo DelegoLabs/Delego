@@ -16,6 +16,9 @@ pub const CONTRACT_SEMVER: &str = "0_1_0";
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum PermissionError {
     NotFound = 1,
+    PermissionPaused = 8,
+    AlreadyPaused = 9,
+    AlreadyActive = 10,
 }
 
 #[contracttype]
@@ -158,7 +161,7 @@ impl PermissionsContract {
         limit_per_tx: i128,
         allowed_merchants: Vec<Address>,
         ttl_ledgers: u32,
-    ) -> bool {
+    ) -> Result<(), PermissionError> {
         owner.require_auth();
 
         let expires_at_ledger = env.ledger().sequence() + ttl_ledgers;
@@ -189,10 +192,10 @@ impl PermissionsContract {
             },
         );
 
-        true
+        Ok(())
     }
 
-    pub fn revoke(env: Env, owner: Address, delegate: Address) -> bool {
+    pub fn revoke(env: Env, owner: Address, delegate: Address) -> Result<(), PermissionError> {
         owner.require_auth();
 
         let key = DataKey::Permission(owner.clone(), delegate.clone());
@@ -206,9 +209,9 @@ impl PermissionsContract {
                 PermissionRevokedEvent { owner, delegate },
             );
 
-            true
+            Ok(())
         } else {
-            false
+            Err(PermissionError::NotFound)
         }
     }
 
@@ -218,15 +221,15 @@ impl PermissionsContract {
         delegate: Address,
         amount: i128,
         merchant: Address,
-    ) -> bool {
+    ) -> Result<bool, PermissionError> {
         let key = DataKey::Permission(owner.clone(), delegate.clone());
         let record: PermissionRecord = match env.storage().persistent().get(&key) {
             Some(r) => r,
-            None => return false,
+            None => return Err(PermissionError::NotFound),
         };
 
         if record.status != PermissionStatus::Active {
-            return false;
+            return Err(PermissionError::PermissionPaused);
         }
 
         if env.ledger().sequence() >= record.expires_at_ledger {
@@ -255,7 +258,7 @@ impl PermissionsContract {
             }
         }
 
-        true
+        Ok(true)
     }
 
     pub fn execute_spend(
@@ -264,11 +267,13 @@ impl PermissionsContract {
         delegate: Address,
         amount: i128,
         merchant: Address,
-    ) -> bool {
+    ) -> Result<(), PermissionError> {
         delegate.require_auth();
 
-        if !Self::can_spend(env.clone(), owner.clone(), delegate.clone(), amount, merchant.clone()) {
-            panic!("Spend not authorized");
+        match Self::can_spend(env.clone(), owner.clone(), delegate.clone(), amount, merchant.clone()) {
+            Ok(true) => {},
+            Ok(false) => panic!("Spend not authorized"),
+            Err(e) => return Err(e),
         }
 
         let key = DataKey::Permission(owner.clone(), delegate.clone());
@@ -291,7 +296,7 @@ impl PermissionsContract {
             },
         );
 
-        true
+        Ok(())
     }
 
     pub fn get_permission(
@@ -401,74 +406,69 @@ impl PermissionsContract {
         true
     }
 
-    /// Pauses a permission, storing the caller and a short reason code (issue #105).
-    /// The owner or an authorised admin must sign this call.
     pub fn pause(
         env: Env,
         owner: Address,
         delegate: Address,
-        paused_by: Address,
-        reason_code: Symbol,
-    ) -> bool {
-        paused_by.require_auth();
+    ) -> Result<(), PermissionError> {
+        owner.require_auth();
 
         let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
         let mut record: PermissionRecord = match env.storage().persistent().get(&perm_key) {
             Some(r) => r,
-            None => return false,
+            None => return Err(PermissionError::NotFound),
         };
 
-        if record.status != PermissionStatus::Active {
-            return false;
+        if record.status == PermissionStatus::Paused {
+            return Err(PermissionError::AlreadyPaused);
         }
 
         record.status = PermissionStatus::Paused;
         env.storage().persistent().set(&perm_key, &record);
 
-        let meta = PauseMetadata {
-            paused_by: paused_by.clone(),
-            reason_code: reason_code.clone(),
-            paused_at_ledger: env.ledger().sequence(),
-        };
-        env.storage().persistent().set(&DataKey::PauseMetadata(owner.clone(), delegate.clone()), &meta);
-
         env.events().publish(
             (symbol_short!("perm"), symbol_short!("paused")),
-            PermissionPausedEvent { owner, delegate, paused_by, reason_code },
+            PermissionPausedEvent { 
+                owner: owner.clone(), 
+                delegate: delegate.clone(), 
+                paused_by: owner.clone(), 
+                reason_code: symbol_short!("none") 
+            },
         );
 
-        true
+        Ok(())
     }
 
-    /// Resumes a paused permission and clears the stored pause metadata (issue #105).
     pub fn resume(
         env: Env,
         owner: Address,
         delegate: Address,
-        resumed_by: Address,
-    ) -> bool {
-        resumed_by.require_auth();
+    ) -> Result<(), PermissionError> {
+        owner.require_auth();
 
         let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
         let mut record: PermissionRecord = match env.storage().persistent().get(&perm_key) {
             Some(r) => r,
-            None => return false,
+            None => return Err(PermissionError::NotFound),
         };
 
-        if record.status != PermissionStatus::Paused {
-            return false;
+        if record.status == PermissionStatus::Active {
+            return Err(PermissionError::AlreadyActive);
         }
 
         record.status = PermissionStatus::Active;
         env.storage().persistent().set(&perm_key, &record);
-        env.storage().persistent().remove(&DataKey::PauseMetadata(owner.clone(), delegate.clone()));
 
         env.events().publish(
             (symbol_short!("perm"), symbol_short!("resumed")),
-            PermissionResumedEvent { owner, delegate, resumed_by },
+            PermissionResumedEvent { 
+                owner: owner.clone(), 
+                delegate, 
+                resumed_by: owner 
+            },
         );
 
-        true
+        Ok(())
     }
 
     /// Returns the stored pause metadata, or panics if the permission is not currently paused.

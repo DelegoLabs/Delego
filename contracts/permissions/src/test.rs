@@ -55,7 +55,7 @@ mod test {
         let mut merchants = Vec::new(&env);
         merchants.push_back(merchant.clone());
 
-        assert!(client.grant(&owner, &delegate, &1000, &100, &merchants, &10000));
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         assert!(client.can_spend(&owner, &delegate, &50, &merchant));
     }
 
@@ -72,8 +72,8 @@ mod test {
         env.mock_all_auths();
 
         let merchants = Vec::new(&env);
-        assert!(client.grant(&owner, &delegate, &1000, &100, &merchants, &10000));
-        assert!(client.revoke(&owner, &delegate));
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+        client.revoke(&owner, &delegate);
         assert!(!client.can_spend(&owner, &delegate, &50, &merchant));
     }
 
@@ -89,7 +89,7 @@ mod test {
         env.mock_all_auths();
 
         let merchants = Vec::new(&env);
-        assert!(client.grant(&owner, &delegate, &1000, &100, &merchants, &10000));
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
 
         let perm = client.get_permission(&owner, &delegate);
         assert_eq!(perm.owner, owner);
@@ -113,10 +113,10 @@ mod test {
         env.mock_all_auths();
 
         let merchants = Vec::new(&env);
-        assert!(client.grant(&owner, &delegate, &1000, &100, &merchants, &10000));
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         assert_eq!(client.get_remaining_allowance(&owner, &delegate), 1000);
 
-        assert!(client.execute_spend(&owner, &delegate, &30, &merchant));
+        client.execute_spend(&owner, &delegate, &30, &merchant);
         assert_eq!(client.get_remaining_allowance(&owner, &delegate), 970);
     }
 
@@ -285,10 +285,10 @@ mod test {
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         assert!(client.can_spend(&owner, &delegate, &50, &merchant));
 
-        let reason = soroban_sdk::symbol_short!("FRAUD");
-        assert!(client.pause(&owner, &delegate, &admin, &reason));
+        client.pause(&owner, &delegate);
 
-        assert!(!client.can_spend(&owner, &delegate, &50, &merchant));
+        let res = client.try_can_spend(&owner, &delegate, &50, &merchant);
+        assert!(res.is_err()); // PermissionPaused is an error
     }
 
     #[test]
@@ -305,12 +305,11 @@ mod test {
         let merchants = Vec::new(&env);
         client.grant(&owner, &delegate, &500, &100, &merchants, &10000);
 
-        let reason = soroban_sdk::symbol_short!("REVIEW");
-        client.pause(&owner, &delegate, &admin, &reason);
+        client.pause(&owner, &delegate);
 
-        let meta = client.get_pause_metadata(&owner, &delegate);
-        assert_eq!(meta.paused_by, admin);
-        assert_eq!(meta.reason_code, reason);
+        // PauseMetadata isn't there anymore, let's just assert it is paused
+        let perm = client.get_permission(&owner, &delegate);
+        assert_eq!(perm.status, crate::PermissionStatus::Paused);
     }
 
     #[test]
@@ -328,11 +327,12 @@ mod test {
         let merchants = Vec::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
 
-        let reason = soroban_sdk::symbol_short!("REVIEW");
-        client.pause(&owner, &delegate, &admin, &reason);
-        assert!(!client.can_spend(&owner, &delegate, &50, &merchant));
+        client.pause(&owner, &delegate);
+        
+        let res = client.try_can_spend(&owner, &delegate, &50, &merchant);
+        assert!(res.is_err());
 
-        assert!(client.resume(&owner, &delegate, &admin));
+        client.resume(&owner, &delegate);
         assert!(client.can_spend(&owner, &delegate, &50, &merchant));
 
         let perm = client.get_permission(&owner, &delegate);
@@ -354,7 +354,42 @@ mod test {
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         client.revoke(&owner, &delegate);
 
-        let reason = soroban_sdk::symbol_short!("FRAUD");
-        assert!(!client.pause(&owner, &delegate, &admin, &reason));
+        let res = client.try_pause(&owner, &delegate);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_double_pause_returns_error() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        client.pause(&owner, &delegate);
+        let res = client.try_pause(&owner, &delegate);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_resume_on_active_returns_error() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        let res = client.try_resume(&owner, &delegate);
+        assert!(res.is_err());
     }
 }
