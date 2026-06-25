@@ -4,7 +4,9 @@ use soroban_sdk::{
     testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
     Address, BytesN, Env, IntoVal,
 };
-use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus};
+use crate::{
+    EscrowContract, EscrowContractClient, EscrowError, EscrowStatus, EscrowTerminalState,
+};
 
 struct TestEnv {
     env: Env,
@@ -293,6 +295,68 @@ fn test_double_release_prevention() {
     assert_eq!(
         escrow_client.try_release(&escrow_id, &t.buyer),
         Err(Ok(EscrowError::AlreadyReleased))
+    );
+}
+
+#[test]
+fn test_double_refund_prevention() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert!(escrow_client.refund(&escrow_id, &t.seller));
+    assert_eq!(
+        escrow_client.try_refund(&escrow_id, &t.seller),
+        Err(Ok(EscrowError::AlreadyRefunded))
+    );
+}
+
+#[test]
+fn test_release_on_refunded_escrow_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert!(escrow_client.refund(&escrow_id, &t.seller));
+    assert_eq!(
+        escrow_client.try_release(&escrow_id, &t.buyer),
+        Err(Ok(EscrowError::AlreadyRefunded))
+    );
+}
+
+#[test]
+fn test_refund_on_released_escrow_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert!(escrow_client.release(&escrow_id, &t.buyer));
+    assert_eq!(
+        escrow_client.try_refund(&escrow_id, &t.seller),
+        Err(Ok(EscrowError::AlreadyReleased))
+    );
+}
+
+#[test]
+fn test_terminal_state_from_status() {
+    assert_eq!(
+        EscrowTerminalState::from_status(&EscrowStatus::Released),
+        Some(EscrowTerminalState::Released)
+    );
+    assert_eq!(
+        EscrowTerminalState::from_status(&EscrowStatus::Refunded),
+        Some(EscrowTerminalState::Refunded)
+    );
+    assert_eq!(
+        EscrowTerminalState::from_status(&EscrowStatus::Funded),
+        None
+    );
+    assert_eq!(
+        EscrowTerminalState::from_status(&EscrowStatus::Disputed),
+        None
     );
 }
 
