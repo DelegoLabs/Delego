@@ -30,8 +30,8 @@ interface RefreshTokenPayload {
   secret: string;
 }
 
-function generateAccessToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
+function generateAccessToken(userId: string, email: string, roles: string[] = ["user"]): string {
+  return jwt.sign({ userId, email, roles }, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
 }
 
 async function generateRefreshToken(userId: string, familyId?: string): Promise<{ refreshToken: string; familyId: string; tokenId: string }> {
@@ -59,17 +59,17 @@ async function generateRefreshToken(userId: string, familyId?: string): Promise<
   return { refreshToken, familyId: family, tokenId };
 }
 
-export async function generateTokens(userId: string, familyId?: string): Promise<TokenPair> {
-  const accessToken = generateAccessToken(userId);
+export async function generateTokens(userId: string, email: string, familyId?: string): Promise<TokenPair> {
+  const accessToken = generateAccessToken(userId, email);
   const { refreshToken } = await generateRefreshToken(userId, familyId);
   const expiresIn = 15 * 60; // 15 minutes in seconds
   return { accessToken, refreshToken, expiresIn };
 }
 
-export function verifyToken(token: string): { userId: string } {
+export function verifyToken(token: string): { userId: string; email?: string; roles?: string[] } {
   const decoded = jwt.verify(token, JWT_SECRET);
   if (typeof decoded === "object" && decoded !== null && "userId" in decoded) {
-    return decoded as { userId: string };
+    return decoded as { userId: string; email?: string; roles?: string[] };
   }
   throw new Error("Invalid token structure");
 }
@@ -131,11 +131,12 @@ export async function refreshAccessToken(rawRefreshToken: string): Promise<Token
   }
 
   // Generate new token pair
-  return generateTokens(tokenRecord.userId, tokenRecord.familyId);
+  const user = await User.findByPk(tokenRecord.userId);
+  return generateTokens(tokenRecord.userId, user?.email ?? "", tokenRecord.familyId);
 }
 
-export function generateToken(userId: string): string {
-  return generateAccessToken(userId);
+export function generateToken(userId: string, email: string = ""): string {
+  return generateAccessToken(userId, email);
 }
 
 export interface RegisterResult {
@@ -167,7 +168,7 @@ export async function registerUser(email: string, password: string, displayName?
     displayName: displayName ?? null,
   });
 
-  const { accessToken, refreshToken, expiresIn } = await generateTokens(user.id);
+  const { accessToken, refreshToken, expiresIn } = await generateTokens(user.id, user.email);
 
   return {
     user: {
@@ -210,7 +211,7 @@ export async function loginUser(email: string, password: string): Promise<LoginR
     throw new Error("Invalid email or password");
   }
 
-  const { accessToken, refreshToken, expiresIn } = await generateTokens(user.id);
+  const { accessToken, refreshToken, expiresIn } = await generateTokens(user.id, user.email);
 
   return {
     user: {
