@@ -1,39 +1,16 @@
-/**
- * Rate limit rules — per-endpoint overrides and config lookup.
- * @see AGENTS.md — Acceptance Criteria → RATE_LIMIT_RULES
- */
-
 import type { RateLimitConfig } from "./types.js";
 
-/** Per-endpoint overrides */
 export const RATE_LIMIT_RULES: Record<string, RateLimitConfig> = {
-  // Auth endpoints — strict to prevent brute force
-  "POST:/api/v1/auth/login":    { maxRequests: 5,   windowSeconds: 60  },
-  "POST:/api/v1/auth/register": { maxRequests: 3,   windowSeconds: 300 },
-
-  // Transaction endpoints — moderate
-  "POST:/api/v1/delegations":   { maxRequests: 20,  windowSeconds: 60  },
-  "POST:/api/v1/orders":        { maxRequests: 30,  windowSeconds: 60  },
-
-  // Read endpoints — generous
-  "GET:*":                      { maxRequests: 100, windowSeconds: 60  },
-
-  // Default fallback
-  "*":                          { maxRequests: 60,  windowSeconds: 60  },
+  "POST:/api/v1/auth/login":    { maxRequests: 5,   windowMs: 60000  },
+  "POST:/api/v1/auth/register": { maxRequests: 3,   windowMs: 300000 },
+  "POST:/api/v1/delegations":   { maxRequests: 20,  windowMs: 60000  },
+  "POST:/api/v1/orders":        { maxRequests: 30,  windowMs: 60000  },
+  "GET:*":                      { maxRequests: 100, windowMs: 60000  },
+  "*":                          { maxRequests: 60,  windowMs: 60000  },
 };
 
-/** Default config used when no override is specified */
-export const DEFAULT_RATE_LIMIT: RateLimitConfig = { maxRequests: 60, windowSeconds: 60 };
+export const DEFAULT_RATE_LIMIT: RateLimitConfig = { maxRequests: 60, windowMs: 60000 };
 
-/**
- * Look up the most specific matching rate limit rule.
- *
- * Priority:
- *  1. Exact match  — e.g. "POST:/api/v1/auth/login"
- *  2. Method glob  — e.g. "GET:*"
- *  3. Global glob  — "*"
- *  4. Fallback     — DEFAULT_RATE_LIMIT
- */
 export function getRateLimitConfig(method: string, path: string): RateLimitConfig {
   const exactKey = `${method}:${path}`;
   if (RATE_LIMIT_RULES[exactKey]) {

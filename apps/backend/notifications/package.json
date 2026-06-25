@@ -11,20 +11,24 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'TODO: add eslint'",
-    "test": "echo 'No tests yet'"
+    "test": "vitest run"
   },
   "dependencies": {
     "@delego/types": "workspace:*",
     "@delego/utils": "workspace:*",
+    "@sendgrid/mail": "^8.1.4",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
+    "web-push": "^3.6.7",
     "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.0.0",
-    "@types/ws": "^8.18.1",
+    "@types/web-push": "^3.6.4",
+    "@types/ws": "^8.5.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.9"
   }
 }
