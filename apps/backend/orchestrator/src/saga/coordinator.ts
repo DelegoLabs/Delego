@@ -1,11 +1,15 @@
 import { createLogger, type Logger } from "@delego/utils";
 import { SagaConcurrencyError, type SagaRecord, type SagaStep, type SagaStore } from "./types.js";
 
+const DEFAULT_CLAIM_LEASE_MS = 30_000;
+
 export interface SagaCoordinatorOptions<TContext> {
   /** Saga steps in the order they should execute. Compensations run in reverse order. */
   steps: Array<SagaStep<TContext>>;
   store: SagaStore;
   log?: Logger;
+  /** How long a step claim is honored before another runner may safely reclaim it. */
+  claimLeaseMs?: number;
 }
 
 /**
@@ -19,6 +23,7 @@ export class SagaCoordinator<TContext extends Record<string, unknown>> {
   private readonly stepOrder: string[];
   private readonly store: SagaStore;
   private readonly log: Logger;
+  private readonly claimLeaseMs: number;
 
   constructor(options: SagaCoordinatorOptions<TContext>) {
     if (options.steps.length === 0) {
@@ -35,6 +40,7 @@ export class SagaCoordinator<TContext extends Record<string, unknown>> {
     this.stepOrder = options.steps.map((step) => step.name);
     this.store = options.store;
     this.log = options.log ?? createLogger("orchestrator:saga");
+    this.claimLeaseMs = options.claimLeaseMs ?? DEFAULT_CLAIM_LEASE_MS;
   }
 
   /** Starts a new saga, or resumes it if sagaId was already started (idempotent). */
@@ -49,6 +55,7 @@ export class SagaCoordinator<TContext extends Record<string, unknown>> {
       currentStep: this.stepOrder[0] ?? null,
       error: null,
       version: 0,
+      claimExpiresAt: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -109,14 +116,9 @@ export class SagaCoordinator<TContext extends Record<string, unknown>> {
       if (!claimed) return current;
       current = claimed;
 
+      let context: TContext;
       try {
-        const context = await step.action(current.context);
-        current = await this.save({
-          ...current,
-          context,
-          completedSteps: [...current.completedSteps, stepName],
-          updatedAt: new Date(),
-        });
+        context = await step.action(current.context);
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         this.log.error("Saga step failed, starting compensation", {
@@ -128,13 +130,24 @@ export class SagaCoordinator<TContext extends Record<string, unknown>> {
           ...current,
           status: "compensating",
           error: error.message,
+          claimExpiresAt: null,
           updatedAt: new Date(),
         });
         return this.compensate(current, error);
       }
+
+      // A failure here is a persistence problem, not a step failure — the action already
+      // succeeded, so this must bubble up for recovery/retry rather than trigger compensation.
+      current = await this.save({
+        ...current,
+        context,
+        completedSteps: [...current.completedSteps, stepName],
+        claimExpiresAt: null,
+        updatedAt: new Date(),
+      });
     }
 
-    return this.save({ ...current, status: "completed", currentStep: null, updatedAt: new Date() });
+    return this.save({ ...current, status: "completed", currentStep: null, claimExpiresAt: null, updatedAt: new Date() });
   }
 
   private async compensate(record: SagaRecord<TContext>, error: Error): Promise<SagaRecord<TContext>> {
@@ -143,20 +156,21 @@ export class SagaCoordinator<TContext extends Record<string, unknown>> {
 
     for (const stepName of toCompensate) {
       const step = this.steps.get(stepName);
-      if (!step) continue;
+      if (!step) {
+        // A completed step with no registered handler means its side effect can never be
+        // compensated — that's a saga integrity error, not something to paper over.
+        const missingStep = new Error(`Unknown saga step during compensation: ${stepName}`);
+        await this.save({ ...current, error: missingStep.message, updatedAt: new Date() });
+        throw missingStep;
+      }
 
       const claimed = await this.claimStep(current, stepName);
       if (!claimed) return current;
       current = claimed;
 
+      let context: TContext;
       try {
-        const context = await step.compensation(current.context, error);
-        current = await this.save({
-          ...current,
-          context,
-          completedSteps: current.completedSteps.filter((name) => name !== stepName),
-          updatedAt: new Date(),
-        });
+        context = await step.compensation(current.context, error);
       } catch (compErr) {
         const compensationError = compErr instanceof Error ? compErr : new Error(String(compErr));
         this.log.error("Compensation step failed — saga left in compensating state for retry", {
@@ -164,22 +178,46 @@ export class SagaCoordinator<TContext extends Record<string, unknown>> {
           step: stepName,
           error: compensationError.message,
         });
+        // Release the lease so a subsequent resume()/recoverAll() doesn't have to wait out a
+        // lease held by a runner that has already given up on this step.
+        await this.save({ ...current, claimExpiresAt: null, updatedAt: new Date() });
         throw compensationError;
       }
+
+      current = await this.save({
+        ...current,
+        context,
+        completedSteps: current.completedSteps.filter((name) => name !== stepName),
+        claimExpiresAt: null,
+        updatedAt: new Date(),
+      });
     }
 
-    return this.save({ ...current, status: "failed", currentStep: null, updatedAt: new Date() });
+    return this.save({ ...current, status: "failed", currentStep: null, claimExpiresAt: null, updatedAt: new Date() });
   }
 
   /**
    * Durably claims a step before its action/compensation runs, so the persisted record always
-   * reflects in-progress work before any side effect fires. If another runner (e.g. startup
-   * recovery racing a manual resume()) already claimed this saga, the version check in
-   * store.save() fails and we back off instead of re-running the step.
+   * reflects in-progress work before any side effect fires. The version check alone only stops
+   * two runners from claiming the *same* version simultaneously — it doesn't stop a second runner
+   * from reading the already-claimed record and re-claiming the same step at the next version. The
+   * lease (`claimExpiresAt`) closes that gap: a step already claimed by a live lease is refused.
    */
   private async claimStep(record: SagaRecord<TContext>, stepName: string): Promise<SagaRecord<TContext> | null> {
+    if (record.currentStep === stepName && record.claimExpiresAt && record.claimExpiresAt.getTime() > Date.now()) {
+      this.log.warn("Step already claimed by another runner under an active lease, backing off", {
+        sagaId: record.sagaId,
+        step: stepName,
+      });
+      return null;
+    }
     try {
-      return await this.save({ ...record, currentStep: stepName, updatedAt: new Date() });
+      return await this.save({
+        ...record,
+        currentStep: stepName,
+        claimExpiresAt: new Date(Date.now() + this.claimLeaseMs),
+        updatedAt: new Date(),
+      });
     } catch (err) {
       if (err instanceof SagaConcurrencyError) {
         this.log.warn("Saga step already claimed by another runner, backing off", {

@@ -22,6 +22,12 @@ export interface SagaRecord<TContext = Record<string, unknown>> extends SagaExec
   error: string | null;
   /** Optimistic-concurrency counter — bumped on every save() so two runners can never both win a step claim. */
   version: number;
+  /**
+   * Lease expiry for the in-progress `currentStep`. A step can only be reclaimed once this is
+   * null or in the past — without it, version-checked saves alone don't stop a second runner
+   * from re-claiming (and re-executing) a step that's already being worked on at a newer version.
+   */
+  claimExpiresAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -7,24 +7,31 @@ const log = createLogger("orchestrator:saga:store", process.env.LOG_LEVEL ?? "in
 const databaseUrl =
   process.env.DATABASE_URL ?? "postgresql://delego:delego@localhost:5432/delego";
 
+const NON_NEGATIVE_INTEGER_PATTERN = /^(0|[1-9]\d*)$/;
+
 function parsePoolSize(name: string, fallback: number): number {
   const raw = process.env[name];
   if (raw == null || raw === "") return fallback;
 
-  const value = Number.parseInt(raw, 10);
-  if (!Number.isInteger(value) || value < 0) {
+  if (!NON_NEGATIVE_INTEGER_PATTERN.test(raw)) {
     throw new Error(`${name} must be a non-negative integer`);
   }
 
-  return value;
+  return Number(raw);
+}
+
+const poolMin = parsePoolSize("DATABASE_POOL_MIN", 2);
+const poolMax = parsePoolSize("DATABASE_POOL_MAX", 10);
+if (poolMin > poolMax) {
+  throw new Error("DATABASE_POOL_MIN must be less than or equal to DATABASE_POOL_MAX");
 }
 
 export const sequelize = new Sequelize(databaseUrl, {
   dialect: "postgres",
   logging: (msg) => log.debug(msg),
   pool: {
-    min: parsePoolSize("DATABASE_POOL_MIN", 2),
-    max: parsePoolSize("DATABASE_POOL_MAX", 10),
+    min: poolMin,
+    max: poolMax,
     acquire: 30000,
     idle: 10000,
   },
@@ -43,6 +50,7 @@ interface SagaExecutionAttributes {
   currentStep: string | null;
   error: string | null;
   version: number;
+  claimExpiresAt: Date | null;
 }
 
 class SagaExecutionModel extends Model<SagaExecutionAttributes> implements SagaExecutionAttributes {
@@ -54,6 +62,7 @@ class SagaExecutionModel extends Model<SagaExecutionAttributes> implements SagaE
   declare currentStep: string | null;
   declare error: string | null;
   declare version: number;
+  declare claimExpiresAt: Date | null;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -73,6 +82,7 @@ SagaExecutionModel.init(
     currentStep: { type: DataTypes.STRING(128), allowNull: true, field: "current_step" },
     error: { type: DataTypes.TEXT, allowNull: true },
     version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    claimExpiresAt: { type: DataTypes.DATE, allowNull: true, field: "claim_expires_at" },
   },
   {
     sequelize,
@@ -91,6 +101,7 @@ function toRecord(row: SagaExecutionModel): SagaRecord {
     currentStep: row.currentStep,
     error: row.error,
     version: row.version,
+    claimExpiresAt: row.claimExpiresAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -122,6 +133,7 @@ export class PostgresSagaStore implements SagaStore {
         currentStep: record.currentStep,
         error: record.error,
         version: 0,
+        claimExpiresAt: null,
       },
     });
     return toRecord(row);
@@ -135,28 +147,27 @@ export class PostgresSagaStore implements SagaStore {
   /**
    * Conditional update keyed on `version` (optimistic locking) instead of a blind upsert, so
    * two runners racing on the same sagaId (e.g. startup recovery overlapping a manual resume())
-   * can never both win the same step claim and execute it twice.
+   * can never both win the same step claim and execute it twice. Returns the row straight from
+   * the guarded UPDATE (via `returning: true`) rather than re-reading it, since a re-read could
+   * race with — and silently return — a newer version written by another runner.
    */
   async save(record: SagaRecord): Promise<SagaRecord> {
-    const [affectedCount] = await SagaExecutionModel.update(
+    const [affectedCount, updatedRows] = await SagaExecutionModel.update(
       {
         status: record.status,
         completedSteps: record.completedSteps,
         context: record.context,
         currentStep: record.currentStep,
         error: record.error,
+        claimExpiresAt: record.claimExpiresAt,
         version: record.version + 1,
       },
-      { where: { sagaId: record.sagaId, version: record.version } }
+      { where: { sagaId: record.sagaId, version: record.version }, returning: true }
     );
-    if (affectedCount === 0) {
+    if (affectedCount === 0 || !updatedRows[0]) {
       throw new SagaConcurrencyError(record.sagaId);
     }
-    const updated = await this.get(record.sagaId);
-    if (!updated) {
-      throw new Error(`Saga disappeared during save: ${record.sagaId}`);
-    }
-    return updated;
+    return toRecord(updatedRows[0]);
   }
 
   async listIncomplete(): Promise<SagaRecord[]> {

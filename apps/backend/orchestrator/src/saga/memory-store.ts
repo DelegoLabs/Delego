@@ -5,6 +5,7 @@ function clone(record: SagaRecord): SagaRecord {
     ...record,
     completedSteps: [...record.completedSteps],
     context: structuredClone(record.context),
+    claimExpiresAt: record.claimExpiresAt ? new Date(record.claimExpiresAt) : null,
     createdAt: new Date(record.createdAt),
     updatedAt: new Date(record.updatedAt),
   };
