@@ -1,9 +1,27 @@
-import type { Order } from "@delego/types";
+/**
+ * Purchase workflow — delegates to PurchaseWorkflowMachine (issue #7).
+ *
+ * The machine persists every transition via the `onTransition` hook.
+ * Callers can restore a crashed workflow with PurchaseWorkflowMachine.fromSnapshot().
+ */
+
+import { PurchaseWorkflowMachine } from "../../state/index.js";
+import type {
+  WorkflowSnapshot,
+  TransitionHook,
+} from "../../state/index.js";
+import { generateId } from "@delego/utils";
 
 export interface PurchaseWorkflowInput {
   delegationId: string;
-  productId: string;
-  quantity: number;
+  userId: string;
+  /** Override the auto-generated workflow ID (e.g. for replay). */
+  workflowId?: string;
+}
+
+export interface PurchaseWorkflowHandle {
+  machine: PurchaseWorkflowMachine;
+  snapshot: WorkflowSnapshot;
 }
 
 export interface PurchaseWorkflowState {
@@ -83,14 +101,13 @@ export async function validateDeliveryProof(
 }
 
 /**
- * Purchase workflow orchestration.
- * TODO: Implement state machine with persistence (PostgreSQL + Redis)
+ * Restores a purchase workflow from a persisted snapshot.
+ * Use this after a service restart to resume in-progress workflows.
  */
-export async function purchaseWorkflow(
-  _input: PurchaseWorkflowInput
-): Promise<{ state: PurchaseWorkflowState; order: Order | null }> {
-  return {
-    state: { step: "init", orderId: null },
-    order: null,
-  };
+export function restorePurchaseWorkflow(
+  snapshot: WorkflowSnapshot,
+  onTransition?: TransitionHook
+): PurchaseWorkflowHandle {
+  const machine = PurchaseWorkflowMachine.fromSnapshot(snapshot, onTransition);
+  return { machine, snapshot: machine.getSnapshot() };
 }

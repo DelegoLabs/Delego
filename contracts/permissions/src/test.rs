@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test {
-    use soroban_sdk::{testutils::{Address as _, Events}, Address, Env, Vec, TryIntoVal};
     use crate::{PermissionsContract, PermissionsContractClient};
+    use soroban_sdk::{
+        testutils::{Address as _, Events},
+        Address, Env, TryIntoVal, Vec,
+    };
 
     #[test]
     fn test_merchant_in_whitelist_succeeds() {
@@ -55,7 +58,7 @@ mod test {
         let mut merchants = Vec::new(&env);
         merchants.push_back(merchant.clone());
 
-        assert!(client.grant(&owner, &delegate, &1000, &100, &merchants, &10000));
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         assert!(client.can_spend(&owner, &delegate, &50, &merchant));
     }
 
@@ -72,8 +75,8 @@ mod test {
         env.mock_all_auths();
 
         let merchants = Vec::new(&env);
-        assert!(client.grant(&owner, &delegate, &1000, &100, &merchants, &10000));
-        assert!(client.revoke(&owner, &delegate));
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+        client.revoke(&owner, &delegate);
         assert!(!client.can_spend(&owner, &delegate, &50, &merchant));
     }
 
@@ -89,7 +92,7 @@ mod test {
         env.mock_all_auths();
 
         let merchants = Vec::new(&env);
-        assert!(client.grant(&owner, &delegate, &1000, &100, &merchants, &10000));
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
 
         let perm = client.get_permission(&owner, &delegate);
         assert_eq!(perm.owner, owner);
@@ -113,10 +116,10 @@ mod test {
         env.mock_all_auths();
 
         let merchants = Vec::new(&env);
-        assert!(client.grant(&owner, &delegate, &1000, &100, &merchants, &10000));
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         assert_eq!(client.get_remaining_allowance(&owner, &delegate), 1000);
 
-        assert!(client.execute_spend(&owner, &delegate, &30, &merchant));
+        client.execute_spend(&owner, &delegate, &30, &merchant);
         assert_eq!(client.get_remaining_allowance(&owner, &delegate), 970);
     }
 
@@ -223,7 +226,8 @@ mod test {
             }
             let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
             let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
-            if t0 == soroban_sdk::symbol_short!("perm") && t1 == soroban_sdk::symbol_short!("spent") {
+            if t0 == soroban_sdk::symbol_short!("perm") && t1 == soroban_sdk::symbol_short!("spent")
+            {
                 let evt: crate::PermissionSpendEvent = value.try_into_val(&env).unwrap();
                 assert_eq!(evt.owner, owner);
                 assert_eq!(evt.delegate, delegate);
@@ -264,7 +268,10 @@ mod test {
 
         let v = client.version();
         assert_eq!(v.name, soroban_sdk::Symbol::new(&env, crate::CONTRACT_NAME));
-        assert_eq!(v.semver, soroban_sdk::Symbol::new(&env, crate::CONTRACT_SEMVER));
+        assert_eq!(
+            v.semver,
+            soroban_sdk::Symbol::new(&env, crate::CONTRACT_SEMVER)
+        );
     }
 
     // --- Issue #105: pause / resume / get_pause_metadata tests ---
@@ -276,7 +283,7 @@ mod test {
         let owner = Address::generate(&env);
         let delegate = Address::generate(&env);
         let merchant = Address::generate(&env);
-        let admin = Address::generate(&env);
+        let _admin = Address::generate(&env);
 
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
@@ -285,10 +292,10 @@ mod test {
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         assert!(client.can_spend(&owner, &delegate, &50, &merchant));
 
-        let reason = soroban_sdk::symbol_short!("FRAUD");
-        assert!(client.pause(&owner, &delegate, &admin, &reason));
+        client.pause(&owner, &delegate);
 
-        assert!(!client.can_spend(&owner, &delegate, &50, &merchant));
+        let res = client.try_can_spend(&owner, &delegate, &50, &merchant);
+        assert!(res.is_err()); // PermissionPaused is an error
     }
 
     #[test]
@@ -297,7 +304,7 @@ mod test {
         env.mock_all_auths();
         let owner = Address::generate(&env);
         let delegate = Address::generate(&env);
-        let admin = Address::generate(&env);
+        let _admin = Address::generate(&env);
 
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
@@ -305,12 +312,11 @@ mod test {
         let merchants = Vec::new(&env);
         client.grant(&owner, &delegate, &500, &100, &merchants, &10000);
 
-        let reason = soroban_sdk::symbol_short!("REVIEW");
-        client.pause(&owner, &delegate, &admin, &reason);
+        client.pause(&owner, &delegate);
 
-        let meta = client.get_pause_metadata(&owner, &delegate);
-        assert_eq!(meta.paused_by, admin);
-        assert_eq!(meta.reason_code, reason);
+        // PauseMetadata isn't there anymore, let's just assert it is paused
+        let perm = client.get_permission(&owner, &delegate);
+        assert_eq!(perm.status, crate::PermissionStatus::Paused);
     }
 
     #[test]
@@ -320,7 +326,7 @@ mod test {
         let owner = Address::generate(&env);
         let delegate = Address::generate(&env);
         let merchant = Address::generate(&env);
-        let admin = Address::generate(&env);
+        let _admin = Address::generate(&env);
 
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
@@ -328,11 +334,12 @@ mod test {
         let merchants = Vec::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
 
-        let reason = soroban_sdk::symbol_short!("REVIEW");
-        client.pause(&owner, &delegate, &admin, &reason);
-        assert!(!client.can_spend(&owner, &delegate, &50, &merchant));
+        client.pause(&owner, &delegate);
 
-        assert!(client.resume(&owner, &delegate, &admin));
+        let res = client.try_can_spend(&owner, &delegate, &50, &merchant);
+        assert!(res.is_err());
+
+        client.resume(&owner, &delegate);
         assert!(client.can_spend(&owner, &delegate, &50, &merchant));
 
         let perm = client.get_permission(&owner, &delegate);
@@ -345,7 +352,7 @@ mod test {
         env.mock_all_auths();
         let owner = Address::generate(&env);
         let delegate = Address::generate(&env);
-        let admin = Address::generate(&env);
+        let _admin = Address::generate(&env);
 
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
@@ -354,7 +361,42 @@ mod test {
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         client.revoke(&owner, &delegate);
 
-        let reason = soroban_sdk::symbol_short!("FRAUD");
-        assert!(!client.pause(&owner, &delegate, &admin, &reason));
+        let res = client.try_pause(&owner, &delegate);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_double_pause_returns_error() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        client.pause(&owner, &delegate);
+        let res = client.try_pause(&owner, &delegate);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_resume_on_active_returns_error() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        let res = client.try_resume(&owner, &delegate);
+        assert!(res.is_err());
     }
 }
