@@ -158,7 +158,7 @@ pub enum EscrowError {
     /// Escrow is not in Disputed status
     NotDisputed = 8,
     /// Invalid amount (zero or negative)
-    InvalidAmount = 9,
+    InvalidAmount = 202,
     /// No pending admin transfer exists
     NoPendingTransfer = 13,
     /// Caller is not the pending admin

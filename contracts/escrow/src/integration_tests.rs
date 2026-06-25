@@ -285,3 +285,60 @@ fn test_get_escrow_returns_full_record() {
     assert_eq!(record.order_id, t.order_id());
     assert!(record.timeout_ledger > t.env.ledger().sequence());
 }
+
+#[test]
+fn test_deposit_zero_amount() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let res = escrow_client.try_deposit(
+        &t.buyer,
+        &t.seller,
+        &t.token_contract_id,
+        &0i128,
+        &t.order_id(),
+        &100,
+    );
+    assert_eq!(res, Err(Ok(EscrowError::InvalidAmount)));
+}
+
+#[test]
+fn test_deposit_negative_amount() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let res = escrow_client.try_deposit(
+        &t.buyer,
+        &t.seller,
+        &t.token_contract_id,
+        &-100i128,
+        &t.order_id(),
+        &100,
+    );
+    assert_eq!(res, Err(Ok(EscrowError::InvalidAmount)));
+}
+
+#[test]
+fn test_deposit_valid_amount() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let amount = 1000i128;
+    let escrow_id = escrow_client.deposit(
+        &t.buyer,
+        &t.seller,
+        &t.token_contract_id,
+        &amount,
+        &t.order_id(),
+        &100,
+    );
+
+    assert!(escrow_id > 0);
+    assert_eq!(token_client.balance(&t.buyer), 9000);
+    assert_eq!(token_client.balance(&t.escrow_contract_id), 1000);
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.amount, amount);
+    assert_eq!(record.status, EscrowStatus::Funded);
+}
