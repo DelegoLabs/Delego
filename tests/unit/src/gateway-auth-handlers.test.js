@@ -1,343 +1,206 @@
-import { describe, it, beforeEach, afterEach } from "node:test";
+import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
+import { Readable } from "node:stream";
 import {
   registerHandler,
   loginHandler,
   refreshHandler,
   logoutHandler,
-} from "../../../apps/backend/gateway/dist/routes/auth.js";
+  authDependencies,
+} from "../../../apps/backend/gateway/routes/auth.ts";
 
-/**
- * Gateway Auth Handler Tests
- * Tests for register, login, refresh, and logout handlers
- * covering success paths and key failure scenarios
- */
+function createJsonRequest(body, headers = {}) {
+  const req = new Readable({
+    read() {
+      this.push(Buffer.from(JSON.stringify(body)));
+      this.push(null);
+    },
+  });
+  req.headers = { "content-type": "application/json", ...headers };
+  req.method = "POST";
+  return req;
+}
+
+function createRequest(body = null, headers = {}) {
+  const req = new Readable({
+    read() {
+      if (body !== null) {
+        this.push(Buffer.from(body));
+      }
+      this.push(null);
+    },
+  });
+  req.headers = headers;
+  req.method = "POST";
+  return req;
+}
+
+function createResponse() {
+  let body = "";
+  return {
+    statusCode: 0,
+    headers: {},
+    body: null,
+    writeHead(status, headers) {
+      this.statusCode = status;
+      this.headers = { ...this.headers, ...headers };
+    },
+    setHeader(name, value) {
+      this.headers[name] = value;
+    },
+    end(data) {
+      if (data) body += data;
+      this.body = body;
+    },
+  };
+}
 
 describe("Gateway Auth Handlers", () => {
+  const originalDependencies = { ...authDependencies };
+
+  afterEach(() => {
+    Object.assign(authDependencies, originalDependencies);
+  });
+
   describe("registerHandler", () => {
-    it("should successfully register a new user with email, password, and displayName", async () => {
-      // Mock request with valid registration data
-      const mockReq = {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        on: function (event, handler) {
-          if (event === "data") {
-            const body = JSON.stringify({
-              email: "user@example.com",
-              password: "securePassword123",
-              displayName: "John Doe",
-            });
-            handler(Buffer.from(body));
-          } else if (event === "end") {
-            handler();
-          }
+    it("should successfully register a new user and set refresh token cookie", async () => {
+      authDependencies.registerUser = async () => ({
+        user: {
+          id: "user_123",
+          email: "user@example.com",
+          displayName: "John Doe",
         },
-      };
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresIn: 900,
+      });
 
-      const statusCodes = [];
-      const responses = [];
+      const req = createJsonRequest({
+        email: "user@example.com",
+        password: "securePassword123",
+        displayName: "John Doe",
+      });
+      const res = createResponse();
 
-      const mockRes = {
-        statusCode: 0,
-        headers: {},
-        setHeader: function (name, value) {
-          this.headers[name] = value;
-        },
-        write: function (data) {
-          responses.push(JSON.parse(data));
-        },
-        end: function () {
-          // Mock end
-        },
-      };
+      await registerHandler(req, res);
 
-      // Register handler should handle the request
-      // Note: Actual test would require database setup
-      assert.ok(mockReq.method === "POST");
-      assert.ok(mockReq.headers["content-type"] === "application/json");
+      assert.equal(res.statusCode, 201);
+      const responseBody = JSON.parse(res.body);
+      assert.equal(responseBody.data.user.email, "user@example.com");
+      assert.equal(responseBody.data.accessToken, "access-token");
+      assert.equal(responseBody.error, null);
+      assert.ok(
+        res.headers["Set-Cookie"].includes("refresh_token=refresh-token"),
+      );
     });
 
     it("should return 400 VALIDATION_ERROR for invalid email format", async () => {
-      // Test case for invalid email
-      const invalidEmail = "not-an-email";
-      const password = "securePassword123";
+      const req = createJsonRequest({
+        email: "not-an-email",
+        password: "securePassword123",
+      });
+      const res = createResponse();
 
-      // The validation would catch this
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      assert.equal(emailRegex.test(invalidEmail), false);
-    });
+      await registerHandler(req, res);
 
-    it("should return 400 VALIDATION_ERROR for password too short", async () => {
-      // Test case for short password
-      const password = "short";
-
-      // Password must be at least 8 characters
-      assert.ok(password.length < 8);
-    });
-
-    it("should return 400 BAD_REQUEST if user already exists", async () => {
-      // Test case for duplicate email
-      // Would require database mock to test this path
-      const existingEmail = "existing@example.com";
-      assert.ok(typeof existingEmail === "string");
+      assert.equal(res.statusCode, 400);
+      const responseBody = JSON.parse(res.body);
+      assert.equal(responseBody.error.code, "VALIDATION_ERROR");
+      assert.ok(Array.isArray(responseBody.error.details));
     });
   });
 
   describe("loginHandler", () => {
-    it("should successfully authenticate with valid email and password", async () => {
-      // Test case for valid login
-      const email = "user@example.com";
-      const password = "securePassword123";
-
-      // Verify inputs are valid
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      assert.ok(emailRegex.test(email));
-      assert.ok(password.length > 0);
-    });
-
-    it("should return 400 VALIDATION_ERROR for missing email", async () => {
-      // Test case for missing email
-      const loginData = {
-        password: "securePassword123",
+    it("should return 401 UNAUTHORIZED for invalid credentials", async () => {
+      authDependencies.loginUser = async () => {
+        throw new Error("Invalid email or password");
       };
 
-      assert.equal(loginData.email, undefined);
-    });
+      const req = createJsonRequest({
+        email: "user@example.com",
+        password: "wrongPassword",
+      });
+      const res = createResponse();
 
-    it("should return 401 UNAUTHORIZED for invalid credentials", async () => {
-      // Test case for wrong password
-      const email = "user@example.com";
-      const wrongPassword = "wrongPassword";
+      await loginHandler(req, res);
 
-      // These would not match in the auth service
-      assert.notEqual(wrongPassword, "correctPassword");
+      assert.equal(res.statusCode, 401);
+      const responseBody = JSON.parse(res.body);
+      assert.equal(responseBody.error.code, "UNAUTHORIZED");
     });
 
     it("should return 400 VALIDATION_ERROR for invalid email format", async () => {
-      // Test case for bad email format
-      const invalidEmail = "invalid-email";
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const req = createJsonRequest({
+        email: "invalid-email",
+        password: "securePassword123",
+      });
+      const res = createResponse();
 
-      assert.equal(emailRegex.test(invalidEmail), false);
+      await loginHandler(req, res);
+
+      assert.equal(res.statusCode, 400);
+      const responseBody = JSON.parse(res.body);
+      assert.equal(responseBody.error.code, "VALIDATION_ERROR");
     });
   });
 
   describe("refreshHandler", () => {
     it("should return 401 UNAUTHORIZED if refresh token cookie is missing", async () => {
-      // Test case for missing refresh token
-      const cookieHeader = ""; // No cookies
+      const req = createRequest(null, { cookie: "" });
+      const res = createResponse();
 
-      // Should detect missing refresh_token
-      assert.equal(cookieHeader.includes("refresh_token"), false);
+      await refreshHandler(req, res);
+
+      assert.equal(res.statusCode, 401);
+      const responseBody = JSON.parse(res.body);
+      assert.equal(responseBody.error.code, "UNAUTHORIZED");
+      assert.equal(responseBody.error.message, "Refresh token missing");
     });
 
     it("should successfully refresh access token with valid refresh token", async () => {
-      // Test case for valid refresh
-      const refreshTokenCookie = "refresh_token=valid.jwt.token";
+      authDependencies.refreshAccessToken = async () => ({
+        accessToken: "new-access-token",
+        refreshToken: "new-refresh-token",
+        expiresIn: 900,
+      });
 
-      // Cookie contains refresh token
-      assert.ok(refreshTokenCookie.includes("refresh_token"));
-    });
+      const req = createRequest(null, { cookie: "refresh_token=valid-token" });
+      const res = createResponse();
 
-    it("should return 401 UNAUTHORIZED if refresh token is invalid", async () => {
-      // Test case for tampered token
-      const invalidToken = "invalid.token";
+      await refreshHandler(req, res);
 
-      // JWT should have 3 parts
-      assert.equal(invalidToken.split(".").length, 2);
-    });
-
-    it("should return 401 UNAUTHORIZED if refresh token is expired", async () => {
-      // Test case for expired token
-      const expiryDate = new Date(Date.now() - 1000); // Past date
-
-      assert.ok(expiryDate < new Date());
-    });
-
-    it("should return 401 UNAUTHORIZED if token reuse is detected", async () => {
-      // Test case for token reuse (security violation)
-      const tokenFamilyRevoked = true;
-
-      // Token family should be revoked
-      assert.ok(tokenFamilyRevoked);
+      assert.equal(res.statusCode, 200);
+      const responseBody = JSON.parse(res.body);
+      assert.equal(responseBody.data.accessToken, "new-access-token");
+      assert.ok(
+        res.headers["Set-Cookie"].includes("refresh_token=new-refresh-token"),
+      );
     });
   });
 
   describe("logoutHandler", () => {
+    it("should reject empty Bearer credentials", async () => {
+      const req = createRequest(null, { authorization: "Bearer " });
+      const res = createResponse();
+
+      await logoutHandler(req, res);
+
+      assert.equal(res.statusCode, 401);
+      const responseBody = JSON.parse(res.body);
+      assert.equal(responseBody.error.code, "UNAUTHORIZED");
+    });
+
     it("should successfully logout user with valid Authorization header", async () => {
-      // Test case for valid logout
-      const authHeader = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
+      const req = createRequest(null, { authorization: "Bearer valid-token" });
+      const res = createResponse();
 
-      assert.ok(authHeader.startsWith("Bearer "));
-    });
+      await logoutHandler(req, res);
 
-    it("should return 401 UNAUTHORIZED if Authorization header is missing", async () => {
-      // Test case for missing auth header
-      const headers = {};
-
-      assert.equal(headers.authorization, undefined);
-    });
-
-    it("should return 401 UNAUTHORIZED if Authorization header is invalid", async () => {
-      // Test case for invalid auth scheme
-      const authHeader = "Basic dXNlcjpwYXNz"; // Not Bearer
-
-      assert.equal(authHeader.startsWith("Bearer "), false);
-    });
-
-    it("should clear refresh token cookie on successful logout", async () => {
-      // Test case for cookie clearing
-      const cookieValue = "";
-      const expireDate = new Date(1970, 0, 1); // Past date
-
-      // Empty cookie with past expiration = cleared
-      assert.ok(cookieValue === "");
-      assert.ok(expireDate < new Date());
-    });
-
-    it("should return 200 OK with success: true on successful logout", async () => {
-      // Test case for successful logout response
-      const responseData = {
-        data: {
-          success: true,
-        },
-        error: null,
-      };
-
-      assert.ok(responseData.data.success === true);
-      assert.equal(responseData.error, null);
-    });
-  });
-
-  describe("Auth Error Responses", () => {
-    it("should follow consistent error response format", () => {
-      // All auth errors should follow this format
-      const errorTemplate = {
-        data: null,
-        error: {
-          code: "ERROR_CODE",
-          message: "Human readable message",
-          details: undefined, // Optional for some errors
-        },
-      };
-
-      assert.equal(errorTemplate.data, null);
-      assert.ok(errorTemplate.error.code);
-      assert.ok(errorTemplate.error.message);
-    });
-
-    it("should include validation details in VALIDATION_ERROR responses", () => {
-      // VALIDATION_ERROR should include details array
-      const validationError = {
-        data: null,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid request body",
-          details: [
-            {
-              field: "email",
-              message: "must match format email",
-              keyword: "format",
-            },
-          ],
-        },
-      };
-
-      assert.equal(validationError.error.code, "VALIDATION_ERROR");
-      assert.ok(Array.isArray(validationError.error.details));
-      assert.ok(validationError.error.details[0].field);
-    });
-
-    it("should use correct HTTP status codes", () => {
-      // Map of error codes to status codes
-      const statusCodeMap = {
-        VALIDATION_ERROR: 400,
-        BAD_REQUEST: 400,
-        UNAUTHORIZED: 401,
-        INTERNAL_ERROR: 500,
-      };
-
-      // Register/Login validation errors
-      assert.equal(statusCodeMap["VALIDATION_ERROR"], 400);
-
-      // Login auth failures
-      assert.equal(statusCodeMap["UNAUTHORIZED"], 401);
-
-      // Logout failures
-      assert.equal(statusCodeMap["INTERNAL_ERROR"], 500);
-    });
-  });
-
-  describe("Cookie Handling", () => {
-    it("should set HttpOnly, Secure, SameSite=Strict flags on refresh token cookie", () => {
-      // Set-Cookie header should include security flags
-      const cookie =
-        "refresh_token=token_value; Expires=Wed, 01 Jan 2026 00:00:00 UTC; HttpOnly; Secure; SameSite=Strict; Path=/";
-
-      assert.ok(cookie.includes("HttpOnly"));
-      assert.ok(cookie.includes("Secure"));
-      assert.ok(cookie.includes("SameSite=Strict"));
-      assert.ok(cookie.includes("Path=/"));
-    });
-
-    it("should parse cookies from request headers", () => {
-      // Cookie parsing should handle multiple cookies
-      const cookieHeader = "refresh_token=abc123; other_cookie=xyz789";
-      const cookies = {};
-
-      cookieHeader.split(";").forEach((cookie) => {
-        const parts = cookie.split("=");
-        if (parts.length >= 2) {
-          const key = parts.shift()?.trim() ?? "";
-          const value = parts.join("=").trim();
-          if (key) {
-            cookies[key] = value;
-          }
-        }
-      });
-
-      assert.ok(cookies.refresh_token === "abc123");
-      assert.ok(cookies.other_cookie === "xyz789");
-    });
-  });
-
-  describe("Response Envelope", () => {
-    it("should return success response with data and null error", () => {
-      // Success response structure
-      const successResponse = {
-        data: {
-          user: {
-            id: "uuid",
-            email: "user@example.com",
-            displayName: "User",
-          },
-          accessToken: "token",
-          expiresIn: 900,
-        },
-        error: null,
-      };
-
-      assert.ok(successResponse.data !== null);
-      assert.equal(successResponse.error, null);
-      assert.ok(successResponse.data.user);
-      assert.ok(successResponse.data.accessToken);
-    });
-
-    it("should return error response with null data and error object", () => {
-      // Error response structure
-      const errorResponse = {
-        data: null,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Invalid credentials",
-        },
-      };
-
-      assert.equal(errorResponse.data, null);
-      assert.ok(errorResponse.error);
-      assert.ok(errorResponse.error.code);
-      assert.ok(errorResponse.error.message);
+      assert.equal(res.statusCode, 200);
+      const responseBody = JSON.parse(res.body);
+      assert.equal(responseBody.data.success, true);
+      assert.equal(responseBody.error, null);
+      assert.ok(res.headers["Set-Cookie"].includes("Max-Age=0"));
     });
   });
 });

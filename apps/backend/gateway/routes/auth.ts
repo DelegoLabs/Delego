@@ -1,10 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { json } from "@delego/utils";
-import {
-  registerUser,
-  loginUser,
-  refreshAccessToken,
-} from "../src/auth/authService.js";
+import * as authService from "../src/auth/authService.js";
 import {
   validateSchema,
   RegisterSchema,
@@ -15,6 +11,12 @@ import {
   InvalidJsonError,
   BodyTooLargeError,
 } from "../src/request.js";
+
+export const authDependencies = {
+  registerUser: authService.registerUser,
+  loginUser: authService.loginUser,
+  refreshAccessToken: authService.refreshAccessToken,
+};
 
 function parseCookies(req: IncomingMessage): Record<string, string> {
   const list: Record<string, string> = {};
@@ -69,7 +71,7 @@ export async function registerHandler(
       return;
     }
 
-    const result = await registerUser(
+    const result = await authDependencies.registerUser(
       body.email,
       body.password,
       body.displayName,
@@ -117,7 +119,7 @@ export async function loginHandler(
       return;
     }
 
-    const result = await loginUser(body.email, body.password);
+    const result = await authDependencies.loginUser(body.email, body.password);
     setRefreshTokenCookie(res, result.refreshToken);
     json(res, 200, {
       data: {
@@ -158,7 +160,7 @@ export async function refreshHandler(
       return;
     }
 
-    const result = await refreshAccessToken(refreshToken);
+    const result = await authDependencies.refreshAccessToken(refreshToken);
     setRefreshTokenCookie(res, result.refreshToken);
     json(res, 200, {
       data: {
@@ -178,7 +180,8 @@ export async function refreshHandler(
 function clearRefreshTokenCookie(res: ServerResponse): void {
   const cookie = [
     "refresh_token=",
-    "Expires=Thu, 01 Jan 1970 00:00:00 UTC",
+    `Expires=${new Date(0).toUTCString()}`,
+    "Max-Age=0",
     "HttpOnly",
     "Secure",
     "SameSite=Strict",
@@ -195,6 +198,18 @@ export async function logoutHandler(
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      json(res, 401, {
+        data: null,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Missing Authorization header",
+        },
+      });
+      return;
+    }
+
+    const token = authHeader.slice("Bearer ".length).trim();
+    if (!token) {
       json(res, 401, {
         data: null,
         error: {

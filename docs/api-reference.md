@@ -158,15 +158,15 @@ All API responses follow a consistent format:
 
 ### Error Codes
 
-| Code                   | Description                 |
-| ---------------------- | --------------------------- |
-| `VALIDATION_ERROR`     | Request validation failed   |
-| `AUTHENTICATION_ERROR` | Authentication failed       |
-| `AUTHORIZATION_ERROR`  | Authorization failed        |
-| `NOT_FOUND`            | Resource not found          |
-| `RATE_LIMIT_EXCEEDED`  | Rate limit exceeded         |
-| `INTERNAL_ERROR`       | Internal server error       |
-| `BLOCKCHAIN_ERROR`     | Blockchain operation failed |
+| Code                  | Description                      |
+| --------------------- | -------------------------------- |
+| `VALIDATION_ERROR`    | Request validation failed        |
+| `BAD_REQUEST`         | Bad request or invalid operation |
+| `UNAUTHORIZED`        | Authentication failed            |
+| `NOT_FOUND`           | Resource not found               |
+| `RATE_LIMIT_EXCEEDED` | Rate limit exceeded              |
+| `INTERNAL_ERROR`      | Internal server error            |
+| `BLOCKCHAIN_ERROR`    | Blockchain operation failed      |
 
 ## Endpoints
 
@@ -414,7 +414,7 @@ Logout user and clear refresh token.
 
 **Headers:**
 
-```
+```http
 Authorization: Bearer <access-token>
 ```
 

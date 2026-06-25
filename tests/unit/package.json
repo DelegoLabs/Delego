@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test",
+    "test": "node --loader tsx --test",
     "typecheck": "echo 'N/A'"
   },
   "dependencies": {
     "@delego/utils": "workspace:*"
   },
   "devDependencies": {
-    "@stellar/stellar-sdk": "^15.1.0"
+    "@stellar/stellar-sdk": "^15.1.0",
+    "tsx": "^4.19.0"
   }
 }

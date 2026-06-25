@@ -281,6 +281,18 @@ export const logoutRouteSpec: OpenApiRouteSpec = {
           },
         },
       },
+      {
+        statusCode: 500,
+        code: "INTERNAL_ERROR",
+        description: "Logout operation failed due to server error",
+        example: {
+          data: null,
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Logout failed",
+          },
+        },
+      },
     ],
   },
 };
