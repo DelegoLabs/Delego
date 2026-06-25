@@ -207,12 +207,12 @@ fn test_permission_events() {
                 let topic0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&t.env).unwrap();
                 let topic1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&t.env).unwrap();
                 if topic0 == soroban_sdk::symbol_short!("perm") && topic1 == soroban_sdk::symbol_short!("spent") {
-                    let evt: crate::SpendExecutedEvent = value.try_into_val(&t.env).unwrap();
+                    let evt: crate::PermissionSpendEvent = value.try_into_val(&t.env).unwrap();
                     assert_eq!(evt.owner, t.buyer);
                     assert_eq!(evt.delegate, t.agent);
                     assert_eq!(evt.amount, 40);
                     assert_eq!(evt.merchant, t.seller);
-                    assert_eq!(evt.remaining_allowance, 60);
+                    assert_eq!(evt.remaining, 60);
                     spent_event_found = true;
                 }
             }
