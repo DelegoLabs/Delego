@@ -59,7 +59,7 @@ fn test_grant_and_spend() {
     let mut merchants = Vec::new(&t.env);
     merchants.push_back(t.seller.clone());
 
-    assert!(client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers));
+    assert!(client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers).is_ok());
 
     assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller));
 
@@ -82,7 +82,7 @@ fn test_spend_exceeds_per_tx_limit() {
     let ttl_ledgers = 3600u32;
     let merchants = Vec::new(&t.env);
 
-    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers).unwrap();
 
     client.execute_spend(&t.buyer, &t.agent, &60, &t.seller);
 }
@@ -98,7 +98,7 @@ fn test_spend_exceeds_total_limit() {
     let ttl_ledgers = 3600u32;
     let merchants = Vec::new(&t.env);
 
-    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers).unwrap();
 
     client.execute_spend(&t.buyer, &t.agent, &50, &t.seller);
     client.execute_spend(&t.buyer, &t.agent, &50, &t.seller);
@@ -118,7 +118,7 @@ fn test_merchant_restriction() {
     let mut merchants = Vec::new(&t.env);
     merchants.push_back(t.seller.clone());
 
-    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers).unwrap();
 
     assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
 
@@ -136,7 +136,7 @@ fn test_permission_expiry() {
     let ttl_ledgers = 100u32;
     let merchants = Vec::new(&t.env);
 
-    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers).unwrap();
 
     assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
 
@@ -155,7 +155,7 @@ fn test_revoke_prevents_spend() {
     let ttl_ledgers = 3600u32;
     let merchants = Vec::new(&t.env);
 
-    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers).unwrap();
 
     assert!(client.revoke(&t.buyer, &t.agent));
 
@@ -173,7 +173,7 @@ fn test_permission_events() {
     let mut merchants = Vec::new(&t.env);
     merchants.push_back(t.seller.clone());
 
-    assert!(client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers));
+    assert!(client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers).is_ok());
     let events = t.env.events().all();
     let mut granted_event_found = false;
     for event in events.iter() {
@@ -251,7 +251,7 @@ fn test_decrease_allowance_timelock() {
     let ttl_ledgers = 36000u32;
     let merchants = Vec::new(&t.env);
 
-    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers).unwrap();
 
     assert!(client.decrease_allowance(&t.buyer, &t.agent, &200));
 
@@ -275,7 +275,7 @@ fn test_decrease_allowance_timelock_blocked() {
     let ttl_ledgers = 36000u32;
     let merchants = Vec::new(&t.env);
 
-    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers);
+    client.grant(&t.buyer, &t.agent, &limit_total, &limit_per_tx, &merchants, &ttl_ledgers).unwrap();
 
     assert!(client.decrease_allowance(&t.buyer, &t.agent, &200));
 

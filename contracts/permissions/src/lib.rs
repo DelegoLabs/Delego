@@ -2,10 +2,17 @@
 //! Spending limits, delegated authority, and time-locked allowance decrements
 
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, Symbol, Vec};
+use soroban_sdk::{contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, Symbol, Vec};
 
 const _PERM: Symbol = symbol_short!("PERM");
 const _PENDING_DEC: Symbol = symbol_short!("PEND_DEC");
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum PermissionError {
+    ExpiryInPast = 301,
+}
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -100,10 +107,15 @@ impl PermissionsContract {
         limit_per_tx: i128,
         allowed_merchants: Vec<Address>,
         ttl_ledgers: u32,
-    ) -> bool {
+    ) -> Result<bool, PermissionError> {
         owner.require_auth();
 
-        let expires_at_ledger = env.ledger().sequence() + ttl_ledgers;
+        let current_ledger = env.ledger().sequence();
+        let expires_at_ledger = current_ledger + ttl_ledgers;
+
+        if expires_at_ledger <= current_ledger {
+            return Err(PermissionError::ExpiryInPast);
+        }
 
         let record = PermissionRecord {
             owner: owner.clone(),
@@ -131,7 +143,7 @@ impl PermissionsContract {
             },
         );
 
-        true
+        Ok(true)
     }
 
     pub fn revoke(env: Env, owner: Address, delegate: Address) -> bool {
