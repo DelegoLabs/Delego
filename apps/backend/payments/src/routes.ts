@@ -10,6 +10,12 @@ import {
   validateReleaseRequest,
   type ValidationError,
 } from "./validation.js";
+import {
+  acquireLock,
+  releaseLock,
+  LockServiceError,
+  type EscrowFundingLock,
+} from "./lock.js";
 
 async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
@@ -84,6 +90,7 @@ export function registerRoutes(): Route[] {
     }),
 
     route("POST", "/escrow/deposit", async (req, res) => {
+      let lock: EscrowFundingLock | null = null;
       try {
         const idempotency = validateIdempotencyKey(req.headers as Record<string, string | string[] | undefined>, "/escrow/deposit");
         if (!idempotency.ok) {
@@ -98,6 +105,22 @@ export function registerRoutes(): Route[] {
         }
         if (!(await ensureContractConfig(res))) return;
 
+        // Acquire a distributed lock to prevent double-funding the same order.
+        if (validated.value.orderId) {
+          lock = await acquireLock(validated.value.orderId);
+          if (lock === null) {
+            json(res, 409, {
+              data: null,
+              error: {
+                code: "ESCROW_FUNDING_CONFLICT",
+                message:
+                  "A funding request for this order is already in progress",
+              },
+            });
+            return;
+          }
+        }
+
         const result = await escrowService.deposit(validated.value);
         json(res, 200, { data: result, error: null });
       } catch (err) {
@@ -108,7 +131,22 @@ export function registerRoutes(): Route[] {
           });
           return;
         }
+        if (err instanceof LockServiceError) {
+          json(res, 503, {
+            data: null,
+            error: {
+              code: "LOCK_SERVICE_UNAVAILABLE",
+              message:
+                "Funding lock service temporarily unavailable, please retry",
+            },
+          });
+          return;
+        }
         sendOperationError(res, "ESCROW_DEPOSIT_FAILED", err);
+      } finally {
+        if (lock) {
+          await releaseLock(lock.orderId, lock.lockToken);
+        }
       }
     }),
 
