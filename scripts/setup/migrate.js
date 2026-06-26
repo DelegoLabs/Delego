@@ -18,6 +18,31 @@ async function run() {
     console.log("[delego] db:migrate — running initial schema migration...");
     await client.query(sql);
     console.log("[delego] db:migrate — schema migrated successfully.");
+
+    // Run versioned migrations from database/migrations
+    const migrationsDir = path.join(__dirname, "../../database/migrations");
+    if (fs.existsSync(migrationsDir)) {
+      const files = fs.readdirSync(migrationsDir)
+        .filter(f => f.endsWith(".sql"))
+        .sort();
+      
+      for (const file of files) {
+        console.log(`[delego] db:migrate — running migration: ${file}...`);
+        const migrationPath = path.join(migrationsDir, file);
+        const migrationSql = fs.readFileSync(migrationPath, "utf8");
+        
+        try {
+          await client.query(migrationSql);
+          console.log(`[delego] db:migrate — migration ${file} applied successfully.`);
+        } catch (err) {
+          if (err.message && err.message.includes("already exists")) {
+            console.log(`[delego] db:migrate — warning: relation or type in ${file} already exists, skipping...`);
+          } else {
+            throw err;
+          }
+        }
+      }
+    }
   } catch (err) {
     console.error("[delego] db:migrate — migration failed:", err);
     process.exit(1);

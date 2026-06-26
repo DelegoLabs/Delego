@@ -16,7 +16,10 @@
   "dependencies": {
     "@delego/types": "workspace:*",
     "@delego/utils": "workspace:*",
-    "ioredis": "^5.11.1"
+    "ioredis": "^5.11.1",
+    "pg": "^8.21.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.8"
   },
   "devDependencies": {
     "tsx": "^4.19.0",
