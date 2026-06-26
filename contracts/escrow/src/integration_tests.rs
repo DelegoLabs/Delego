@@ -383,3 +383,52 @@ fn test_get_escrow_returns_full_record() {
     assert_eq!(record.order_id, t.order_id());
     assert!(record.timeout_ledger > t.env.ledger().sequence());
 }
+
+// --- Issue #95: Enforce Non-Zero Escrow Amount ---
+
+#[test]
+fn test_deposit_zero_amount_rejected() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    assert_eq!(
+        escrow_client.try_deposit(
+            &t.buyer,
+            &t.seller,
+            &t.token_contract_id,
+            &0,
+            &t.order_id(),
+            &100,
+        ),
+        Err(Ok(EscrowError::InvalidAmount))
+    );
+}
+
+#[test]
+fn test_deposit_negative_amount_rejected() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    assert_eq!(
+        escrow_client.try_deposit(
+            &t.buyer,
+            &t.seller,
+            &t.token_contract_id,
+            &-1,
+            &t.order_id(),
+            &100,
+        ),
+        Err(Ok(EscrowError::InvalidAmount))
+    );
+}
+
+#[test]
+fn test_deposit_valid_amount_succeeds() {
+    let t = TestEnv::setup();
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert_eq!(escrow_id, 1);
+    assert_eq!(token_client.balance(&t.escrow_contract_id), 1000);
+}
