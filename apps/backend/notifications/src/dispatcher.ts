@@ -6,6 +6,7 @@ import {
   type PushSubscription,
   type PushPayload,
 } from "../push/index.js";
+import { checkAndMarkDispatched } from "./idempotency.js";
 
 const log = createLogger(
   "notifications:dispatcher",
@@ -53,32 +54,66 @@ async function getUserSubscriptions(userId: string): Promise<PushSubscription[]>
 }
 
 export async function dispatchTransactionApproval(
-  notification: TransactionApprovalNotification
+  notification: TransactionApprovalNotification,
+  eventId?: string
 ): Promise<void> {
   const tasks: Promise<void>[] = [];
 
   if (notification.email) {
-    tasks.push(
-      sendEmail({
-        to: notification.email,
-        subject: "Purchase Approval Required",
-        templateName: "approval-request",
-        templateData: {
-          orderId: notification.transactionId,
-          amount: notification.amount,
-          approvalUrl: notification.approvalUrl,
-        },
-      }).catch((err) =>
-        log.error("Failed to send email notification", {
-          error: err,
-          userId: notification.userId,
-        })
-      )
-    );
+    const shouldSend =
+      !eventId ||
+      (await checkAndMarkDispatched(redis, {
+        userId: notification.userId,
+        channel: "email",
+        eventType: "transaction_approval",
+        eventId,
+      }));
+
+    if (shouldSend) {
+      tasks.push(
+        sendEmail({
+          to: notification.email,
+          subject: "Purchase Approval Required",
+          templateName: "approval-request",
+          templateData: {
+            orderId: notification.transactionId,
+            amount: notification.amount,
+            approvalUrl: notification.approvalUrl,
+          },
+        }).catch((err) =>
+          log.error("Failed to send email notification", {
+            error: err,
+            userId: notification.userId,
+          })
+        )
+      );
+    } else {
+      log.info("Skipping duplicate email dispatch", {
+        userId: notification.userId,
+        eventId,
+      });
+    }
   }
 
   const subscriptions = await getUserSubscriptions(notification.userId);
   for (const sub of subscriptions) {
+    const shouldSend =
+      !eventId ||
+      (await checkAndMarkDispatched(redis, {
+        userId: notification.userId,
+        channel: "push",
+        eventType: "transaction_approval",
+        eventId,
+      }));
+
+    if (!shouldSend) {
+      log.info("Skipping duplicate push dispatch", {
+        userId: notification.userId,
+        eventId,
+      });
+      continue;
+    }
+
     const payload: PushPayload = {
       title: "Purchase Approval Required",
       body: `${notification.merchant} is requesting ${notification.amount}`,

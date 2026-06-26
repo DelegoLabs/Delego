@@ -7,12 +7,14 @@
       "ES2022"
     ],
     "types": [
-      "node"
+      "node",
+      "vitest/globals"
     ]
   },
   "include": [
     "src/**/*",
     "email/**/*",
-    "push/**/*"
+    "push/**/*",
+    "templates/**/*"
   ]
 }
