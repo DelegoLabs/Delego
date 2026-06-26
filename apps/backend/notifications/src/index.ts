@@ -4,6 +4,7 @@
 import { createLogger } from "@delego/utils";
 import { startHttpServer } from "@delego/utils";
 import { initWebSocketServer } from "./websocket.js";
+import { startEscrowEventListener } from "./escrow-event-listener.js";
 
 const SERVICE_NAME = "notifications";
 const DEFAULT_PORT = 3015;
@@ -22,4 +23,12 @@ const server = startHttpServer({
 });
 
 initWebSocketServer(server);
+
+// Start the on-chain escrow event listener.
+// Requires SOROBAN_RPC_URL and ESCROW_CONTRACT_ID to be set; logs a warning
+// and skips gracefully when either is missing.
+startEscrowEventListener(
+  process.env.SOROBAN_RPC_URL ?? "",
+  process.env.ESCROW_CONTRACT_ID ?? ""
+);
 
