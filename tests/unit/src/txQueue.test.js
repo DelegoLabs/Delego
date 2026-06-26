@@ -218,17 +218,19 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       return { sequenceNumber: () => "400", accountId: () => address };
     };
 
+    // Return the simulation error format instead of throwing a generic JS Error
     simulateMock = async (tx) => {
-      throw new Error("Transaction simulation failed: contract panic: Invalid input parameters");
+      return {
+        error: "Transaction simulation failed: contract panic: Invalid input parameters",
+        results: []
+      };
     };
 
     const request = { sourceAddress: testPub, contractId: testContractId, method: "fatal_method", args: [] };
+    const result = await addTransactionToQueue(request);
 
-    try {
-      await addTransactionToQueue(request);
-      assert.fail("Should have thrown an error for fatal simulation");
-    } catch (err) {
-      assert.match(err.message, /Transaction simulation failed: contract panic: Invalid input parameters/);
-    }
+    // Assert that the function returned a failing status object, and inspect the error message property
+    assert.equal(result.success, false);
+    assert.match(result.error, /Transaction simulation failed: contract panic: Invalid input param/);
   });
 });
