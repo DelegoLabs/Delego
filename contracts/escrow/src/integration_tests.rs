@@ -110,12 +110,24 @@ fn test_deposit_with_non_whitelisted_token_fails() {
 
 #[test]
 fn test_add_token_by_non_admin_fails() {
-    let t = TestEnv::setup();
-    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
-    let new_token = Address::generate(&t.env);
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let agent = Address::generate(&env);
+    let treasury = Address::generate(&env);
+
+    let escrow_contract_id = env.register(EscrowContract, ());
+    let escrow_client = EscrowContractClient::new(&env, &escrow_contract_id);
+    let fee_bps = 0u32;
+    let min_amount = 100i128;
+    let max_amount = 10000i128;
+    escrow_client.initialize(&admin, &fee_bps, &treasury, &min_amount, &max_amount);
+
+    let new_token = Address::generate(&env);
 
     assert_eq!(
-        escrow_client.try_add_token(&t.agent, &new_token),
+        escrow_client.try_add_token(&agent, &new_token),
         Err(Ok(EscrowError::Unauthorized))
     );
     assert!(!escrow_client.is_token_allowed(&new_token));
