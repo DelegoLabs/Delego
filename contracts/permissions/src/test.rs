@@ -42,8 +42,7 @@ mod test {
         client.grant(&owner, &delegate, &100, &1000, &merchants, &10000);
         assert!(!client.can_spend(&owner, &delegate, &50, &other_merchant));
     }
-
-    #[test]
+#[test]
     fn test_grant() {
         let env = Env::default();
         let owner = Address::generate(&env);
@@ -58,7 +57,7 @@ mod test {
         let mut merchants = Vec::new(&env);
         merchants.push_back(merchant.clone());
 
-        assert!(client.grant(&owner, &delegate, &1000, &100, &merchants, &10000));
+        assert!(client.grant(&owner, &delegate, &100, &1000, &merchants, &10000));
         assert!(client.can_spend(&owner, &delegate, &50, &merchant));
     }
 
@@ -74,12 +73,12 @@ mod test {
 
         env.mock_all_auths();
 
-        let merchants = Vec::new(&env);
-        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
-        client.revoke(&owner, &delegate);
+        let mut merchants = Vec::new(&env);
+        merchants.push_back(merchant.clone());
+        assert!(client.grant(&owner, &delegate, &1000, &100, &merchants, &10000));
+        assert!(client.revoke(&owner, &delegate));
         assert!(!client.can_spend(&owner, &delegate, &50, &merchant));
     }
-
     #[test]
     fn test_get_permission() {
         let env = Env::default();
