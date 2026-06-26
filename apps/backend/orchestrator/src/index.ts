@@ -22,6 +22,9 @@ startHttpServer({
 });
 
 // Export workflows and state machine for internal use (issue #7)
+export { RedisPublisher } from "./pubsub/index.js";
+export type { PublishResult, RedisClient } from "./pubsub/index.js";
+
 export { purchaseWorkflow, restorePurchaseWorkflow } from "../workflows/purchase/index.js";
 export { PurchaseWorkflowMachine } from "../state/index.js";
 export type { WorkflowSnapshot, PurchaseState, PurchaseEvent } from "../state/index.js";
