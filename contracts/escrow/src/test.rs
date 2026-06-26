@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test {
-    use soroban_sdk::{testutils::Address as _, Address, Env};
     use crate::{EscrowContract, EscrowContractClient, EscrowError};
+    use soroban_sdk::{testutils::Address as _, Address, Env};
 
     #[test]
     fn test_initialize() {
@@ -13,7 +13,7 @@ mod test {
         let fee_bps = 250u32;
         let min_amount = 100i128;
         let max_amount = 10000i128;
-        
+
         let res = client.initialize(&admin, &fee_bps, &treasury, &min_amount, &max_amount);
         assert!(res);
 

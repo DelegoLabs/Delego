@@ -420,6 +420,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "delego-delegation-registry"
+version = "0.0.1"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "delego-escrow"
 version = "0.0.1"
 dependencies = [

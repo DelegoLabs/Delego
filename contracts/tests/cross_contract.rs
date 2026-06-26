@@ -1,12 +1,12 @@
 #![cfg(test)]
 
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, Vec};
 use delego_escrow::{EscrowContract, EscrowContractClient, EscrowStatus};
 use delego_permissions::{PermissionsContract, PermissionsContractClient};
+use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, Vec};
 
 struct TestEnv {
     env: Env,
-    admin: Address,
+    _admin: Address,
     buyer: Address,
     seller: Address,
     agent: Address,
@@ -41,10 +41,11 @@ impl TestEnv {
         let min_amount = 100i128;
         let max_amount = 10000i128;
         escrow_client.initialize(&admin, &fee_bps, &treasury, &min_amount, &max_amount);
+        escrow_client.add_token(&admin, &token_contract_id);
 
         TestEnv {
             env,
-            admin,
+            _admin: admin,
             buyer,
             seller,
             agent,
@@ -76,13 +77,16 @@ fn delegated_deposit(t: &TestEnv, amount: i128, timeout_ledgers: u32) -> u64 {
 }
 
 #[test]
-#[should_panic(expected = "Spend not authorized")]
 fn test_permission_checked_before_escrow_fund_fails_without_permission() {
     let t = TestEnv::setup();
     let perm_client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
 
     // Agent tries to spend without a granted permission.
-    perm_client.execute_spend(&t.buyer, &t.agent, &200, &t.seller);
+    let result = perm_client.try_execute_spend(&t.buyer, &t.agent, &200, &t.seller);
+    assert_eq!(
+        result,
+        Err(Ok(delego_permissions::PermissionError::NotFound))
+    );
 }
 
 #[test]
