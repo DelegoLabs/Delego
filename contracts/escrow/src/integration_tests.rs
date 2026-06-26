@@ -297,20 +297,32 @@ fn test_release_wrong_caller() {
         escrow_client.try_release(&escrow_id, &t.agent),
         Err(Ok(EscrowError::Unauthorized))
     );
+    assert_eq!(
+        escrow_client.get_escrow(&escrow_id).status,
+        EscrowStatus::Funded
+    );
 }
 
 #[test]
 fn test_double_release_prevention() {
     let t = TestEnv::setup();
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
 
     let escrow_id = deposit_escrow(&t, 1000, 100);
 
     assert!(escrow_client.release(&escrow_id, &t.buyer));
+    assert_eq!(token_client.balance(&t.seller), 1000);
+    assert_eq!(
+        escrow_client.get_escrow(&escrow_id).status,
+        EscrowStatus::Released
+    );
+
     assert_eq!(
         escrow_client.try_release(&escrow_id, &t.buyer),
         Err(Ok(EscrowError::AlreadyReleased))
     );
+    assert_eq!(token_client.balance(&t.seller), 1000);
 }
 
 #[test]
