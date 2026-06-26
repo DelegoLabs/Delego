@@ -10,6 +10,42 @@ pnpm --filter @delego/wallet dev
 
 Health check: `GET http://localhost:3012/health`
 
+## Sequence Number Reservation System
+
+To prevent sequence number conflicts during parallel transaction submission, we've implemented a pre-allocation block reservation system in Redis.
+
+### Key Features
+
+- **Non-overlapping sequence blocks**: Uses Redis locks to ensure concurrent workers get unique blocks
+- **Expired reservation cleanup**: Automatically cleans up expired/invalid reservations
+- **Backward compatible**: Falls back to the original cache mechanism if no reservations exist
+- **Idempotent retries**: Safe for retries and multiple workers
+
+### Redis Keys Used
+
+- `seq:reservations:{account}`: List of active reservations for an account
+- `seq:lock:{account}`: Lock used when creating new reservations
+- `seq:res:{leaseId}:cursor`: Tracks progress within a reservation block
+- `seq:{account}`: Legacy cache key for backward compatibility
+
+### API
+
+```typescript
+import { reserveSequenceBlock } from "./src/queue/txQueue";
+
+// Reserve a block of 10 sequence numbers
+const reservation = await reserveSequenceBlock(
+  "GDEMOACCOUNT...",  // Account address
+  10,                 // Block size
+  redisClient,        // Redis connection
+  horizonServer       // Horizon server
+);
+```
+
+### Configuration
+
+No additional environment variables are required. Uses existing Redis configuration.
+
 ## Security & Encryption
 
 ### Hot Wallet Seed Phrase Encryption

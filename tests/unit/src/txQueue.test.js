@@ -7,7 +7,8 @@ import {
   addTransactionToQueue, 
   initQueue, 
   closeQueue, 
-  getRedisConnection 
+  getRedisConnection,
+  reserveSequenceBlock
 } from "../../../apps/backend/wallet/dist/src/queue/txQueue.js";
 import { vaultService } from "../../../apps/backend/wallet/dist/src/vault.js";
 
@@ -314,5 +315,56 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
       },
       /Invalid input parameters/
     );
+  });
+
+  it("should reserve non-overlapping sequence blocks with concurrent workers", async () => {
+    let mockSequence = "1000";
+    let loadAccountCallCount = 0;
+    
+    loadAccountMock = async (address) => {
+      loadAccountCallCount++;
+      return {
+        sequenceNumber: () => mockSequence,
+        accountId: () => address
+      };
+    };
+
+    const redis = getRedisConnection();
+    const horizonServer = new Horizon.Server("https://horizon-testnet.stellar.org");
+
+    // Simulate 5 concurrent workers each trying to reserve a block
+    const reservationPromises = [];
+    for (let i = 0; i < 5; i++) {
+      reservationPromises.push(
+        reserveSequenceBlock(testPub, 10, redis, horizonServer)
+      );
+    }
+
+    const reservations = await Promise.all(reservationPromises);
+
+    // Collect all reserved sequence ranges
+    const ranges = reservations.map(res => ({
+      first: BigInt(res.firstSequence),
+      last: BigInt(res.lastSequence)
+    }));
+
+    // Verify ranges are non-overlapping
+    for (let i = 0; i < ranges.length; i++) {
+      for (let j = i + 1; j < ranges.length; j++) {
+        const a = ranges[i];
+        const b = ranges[j];
+        
+        // Check that ranges don't overlap
+        const overlap = !(a.last < b.first || b.last < a.first);
+        assert.equal(overlap, false, `Reservations ${i} and ${j} overlap: [${a.first}-${a.last}] and [${b.first}-${b.last}]`);
+      }
+    }
+
+    // Verify all reservations start after 1000 and each block is 10 sequences
+    for (const res of reservations) {
+      assert.equal(res.size, 10);
+      assert.ok(BigInt(res.firstSequence) > 1000n);
+      assert.equal(BigInt(res.lastSequence) - BigInt(res.firstSequence) + 1n, 10n);
+    }
   });
 });
