@@ -10,7 +10,7 @@ import type {
   WorkflowSnapshot,
   TransitionHook,
 } from "../../state/index.js";
-import { generateId } from "@delego/utils";
+import { randomUUID } from "node:crypto";
 
 export interface PurchaseWorkflowInput {
   delegationId: string;
@@ -109,5 +109,24 @@ export function restorePurchaseWorkflow(
   onTransition?: TransitionHook
 ): PurchaseWorkflowHandle {
   const machine = PurchaseWorkflowMachine.fromSnapshot(snapshot, onTransition);
+  return { machine, snapshot: machine.getSnapshot() };
+}
+
+/**
+ * Start a new purchase workflow.
+ * Returns a handle with the machine and its initial snapshot.
+ */
+export function purchaseWorkflow(
+  input: PurchaseWorkflowInput,
+  onTransition?: TransitionHook
+): PurchaseWorkflowHandle {
+  const machine = new PurchaseWorkflowMachine(
+    {
+      workflowId: input.workflowId ?? randomUUID(),
+      delegationId: input.delegationId,
+      userId: input.userId,
+    },
+    onTransition
+  );
   return { machine, snapshot: machine.getSnapshot() };
 }

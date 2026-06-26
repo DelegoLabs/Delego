@@ -10,6 +10,52 @@ import type {
   ReleaseEscrowParams,
 } from "../escrow/types.js";
 
+// ---------------------------------------------------------------------------
+// Issue #203 – Escrow Release Request Schema
+// ---------------------------------------------------------------------------
+
+/**
+ * Validated request payload for releasing funds from an escrow contract.
+ *
+ * All ids are non-empty strings; idempotencyKey ensures exactly-once
+ * settlement even if the caller retries on network failure.
+ */
+export interface ReleaseEscrowRequest {
+  orderId: string;
+  escrowId: string;
+  deliveryProofId: string;
+  idempotencyKey: string;
+}
+
+// ---------------------------------------------------------------------------
+// Issue #204 – Escrow Refund Request Schema
+// ---------------------------------------------------------------------------
+
+/**
+ * Supported reason codes for escrow refund requests.
+ * Keeping a closed enum prevents arbitrary strings reaching the contract.
+ */
+export const SUPPORTED_REFUND_REASONS = [
+  "item_not_received",
+  "item_not_as_described",
+  "duplicate_charge",
+  "fraudulent",
+  "order_cancelled",
+  "seller_agreement",
+] as const;
+
+export type RefundReasonCode = (typeof SUPPORTED_REFUND_REASONS)[number];
+
+/**
+ * Validated request payload for refunding an escrow contract back to the buyer.
+ */
+export interface RefundEscrowRequest {
+  orderId: string;
+  escrowId: string;
+  reasonCode: RefundReasonCode;
+  idempotencyKey: string;
+}
+
 export interface ValidationError {
   code: string;
   message: string;
@@ -254,6 +300,123 @@ export function validateRefundRequest(
     value: {
       sourceAddress: sourceAddress.value,
       escrowId: escrowId.value,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Issue #203 – validateReleaseEscrowRequest
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate a release-escrow request body.
+ *
+ * Checks that orderId, escrowId, deliveryProofId, and idempotencyKey are all
+ * present non-empty strings and that the idempotencyKey passes the shared
+ * idempotency rules (8–128 printable ASCII chars).
+ */
+export function validateReleaseEscrowRequest(
+  body: Record<string, unknown>
+): ValidationResult<ReleaseEscrowRequest> {
+  const orderId = requireString(body, "orderId");
+  if (!orderId.ok) return orderId;
+
+  const escrowId = requireString(body, "escrowId");
+  if (!escrowId.ok) return escrowId;
+
+  const deliveryProofId = requireString(body, "deliveryProofId");
+  if (!deliveryProofId.ok) return deliveryProofId;
+
+  const idempotencyKey = requireString(body, "idempotencyKey");
+  if (!idempotencyKey.ok) return idempotencyKey;
+
+  // Re-use the shared idempotency-key rules
+  const idempotencyResult = validateIdempotencyKey(
+    { "idempotency-key": idempotencyKey.value },
+    "release-escrow-request"
+  );
+  if (!idempotencyResult.ok) {
+    return {
+      ok: false,
+      error: {
+        code: idempotencyResult.error.code,
+        message: idempotencyResult.error.message,
+        details: { field: "idempotencyKey" },
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      orderId: orderId.value,
+      escrowId: escrowId.value,
+      deliveryProofId: deliveryProofId.value,
+      idempotencyKey: idempotencyKey.value,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Issue #204 – validateRefundEscrowRequest
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate a refund-escrow request body.
+ *
+ * In addition to the common field checks, `reasonCode` is validated against
+ * the closed {@link SUPPORTED_REFUND_REASONS} enum so that only well-known
+ * reason codes reach downstream contract calls.
+ */
+export function validateRefundEscrowRequest(
+  body: Record<string, unknown>
+): ValidationResult<RefundEscrowRequest> {
+  const orderId = requireString(body, "orderId");
+  if (!orderId.ok) return orderId;
+
+  const escrowId = requireString(body, "escrowId");
+  if (!escrowId.ok) return escrowId;
+
+  const reasonCodeRaw = requireString(body, "reasonCode");
+  if (!reasonCodeRaw.ok) return reasonCodeRaw;
+
+  const reasonCodeValue = reasonCodeRaw.value as RefundReasonCode;
+  if (!(SUPPORTED_REFUND_REASONS as readonly string[]).includes(reasonCodeValue)) {
+    return {
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: `reasonCode must be one of: ${SUPPORTED_REFUND_REASONS.join(", ")}`,
+        details: { field: "reasonCode", received: reasonCodeValue },
+      },
+    };
+  }
+
+  const idempotencyKey = requireString(body, "idempotencyKey");
+  if (!idempotencyKey.ok) return idempotencyKey;
+
+  const idempotencyResult = validateIdempotencyKey(
+    { "idempotency-key": idempotencyKey.value },
+    "refund-escrow-request"
+  );
+  if (!idempotencyResult.ok) {
+    return {
+      ok: false,
+      error: {
+        code: idempotencyResult.error.code,
+        message: idempotencyResult.error.message,
+        details: { field: "idempotencyKey" },
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      orderId: orderId.value,
+      escrowId: escrowId.value,
+      reasonCode: reasonCodeValue,
+      idempotencyKey: idempotencyKey.value,
     },
   };
 }

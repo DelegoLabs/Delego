@@ -2,7 +2,6 @@
  * @delego/orchestrator — Workflow coordination
  */
 import { createLogger, startHttpServer } from "@delego/utils";
-import { purchaseWorkflow } from "../workflows/purchase/index.js";
 
 const SERVICE_NAME = "orchestrator";
 const DEFAULT_PORT = 3010;
