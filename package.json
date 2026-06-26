@@ -10,13 +10,13 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "pnpm -r --filter '!@delego/contract-*' build",
     "dev": "pnpm --parallel -r --filter './apps/frontend' --filter './apps/backend/*' --filter './agents' dev",
     "dev:web": "pnpm --filter @delego/web dev",
     "dev:gateway": "pnpm --filter @delego/gateway dev",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "pnpm -r --filter '!@delego/contract-*' test",
     "test:unit": "pnpm --filter @delego/tests-unit test",
     "test:integration": "pnpm --filter @delego/tests-integration test",
     "test:contracts": "pnpm --filter './contracts/*' test",
