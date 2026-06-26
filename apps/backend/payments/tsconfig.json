@@ -12,6 +12,8 @@
   },
   "include": [
     "src/**/*",
-    "escrow/**/*"
+    "escrow/**/*",
+    "events/**/*",
+    "settlement/**/*"
   ]
 }
