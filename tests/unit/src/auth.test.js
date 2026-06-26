@@ -8,7 +8,7 @@ import {
   registerUser,
   loginUser,
 } from "../../../apps/backend/gateway/dist/src/auth/authService.js";
-import { extractAuth } from "../../../apps/backend/gateway/dist/middleware/auth.js";
+import { extractAuth, getAuthenticatedUserContext } from "../../../apps/backend/gateway/dist/middleware/auth.js";
 import { User } from "../../../apps/backend/gateway/dist/src/models/User.js";
 import { RefreshToken } from "../../../apps/backend/gateway/dist/src/models/RefreshToken.js";
 
@@ -82,6 +82,27 @@ describe("Gateway Authentication System", () => {
 
       assert.equal(auth.userId, userId);
       assert.equal(auth.token, token);
+    });
+  });
+
+  describe("Authenticated User Context (getAuthenticatedUserContext)", () => {
+    it("should populate a typed context with userId, email, and roles on success", () => {
+      const userId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+      const token = generateToken(userId, "user@delego.dev");
+      const mockReq = { headers: { authorization: `Bearer ${token}` } };
+
+      extractAuth(mockReq);
+      const context = getAuthenticatedUserContext(mockReq);
+
+      assert.deepEqual(context, { userId, email: "user@delego.dev", roles: ["user"] });
+    });
+
+    it("should leave the context unset when authentication fails", () => {
+      const mockReq = { headers: { authorization: "Bearer invalidjwt" } };
+
+      extractAuth(mockReq);
+
+      assert.equal(getAuthenticatedUserContext(mockReq), undefined);
     });
   });
 

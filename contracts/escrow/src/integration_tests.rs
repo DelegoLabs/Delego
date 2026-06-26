@@ -1,10 +1,10 @@
 #![cfg(test)]
 
+use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus};
 use soroban_sdk::{
     testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
     Address, BytesN, Env, IntoVal,
 };
-use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus};
 
 struct TestEnv {
     env: Env,
@@ -28,7 +28,9 @@ impl TestEnv {
         let treasury = Address::generate(&env);
 
         let token_admin = Address::generate(&env);
-        let token_contract_id = env.register_stellar_asset_contract(token_admin.clone());
+        let token_contract_id = env
+            .register_stellar_asset_contract_v2(token_admin.clone())
+            .address();
         let token_admin_client =
             soroban_sdk::token::StellarAssetClient::new(&env, &token_contract_id);
         token_admin_client.mint(&buyer, &10000);
@@ -39,6 +41,7 @@ impl TestEnv {
         let min_amount = 100i128;
         let max_amount = 10000i128;
         escrow_client.initialize(&admin, &fee_bps, &treasury, &min_amount, &max_amount);
+        escrow_client.add_token(&admin, &token_contract_id);
 
         TestEnv {
             env,
@@ -66,6 +69,103 @@ fn deposit_escrow(t: &TestEnv, amount: i128, timeout_ledgers: u32) -> u64 {
         &t.order_id(),
         &timeout_ledgers,
     )
+}
+
+#[test]
+fn test_deposit_with_whitelisted_token_succeeds() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    assert!(escrow_client.is_token_allowed(&t.token_contract_id));
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.token, t.token_contract_id);
+    assert_eq!(record.status, EscrowStatus::Funded);
+}
+
+#[test]
+fn test_deposit_with_non_whitelisted_token_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let other_token_admin = Address::generate(&t.env);
+    let other_token_contract_id = t
+        .env
+        .register_stellar_asset_contract_v2(other_token_admin.clone())
+        .address();
+
+    assert_eq!(
+        escrow_client.try_deposit(
+            &t.buyer,
+            &t.seller,
+            &other_token_contract_id,
+            &1000,
+            &t.order_id(),
+            &100,
+        ),
+        Err(Ok(EscrowError::TokenNotWhitelisted))
+    );
+}
+
+#[test]
+fn test_add_token_by_non_admin_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let new_token = Address::generate(&t.env);
+
+    assert_eq!(
+        escrow_client.try_add_token(&t.agent, &new_token),
+        Err(Ok(EscrowError::Unauthorized))
+    );
+    assert!(!escrow_client.is_token_allowed(&new_token));
+}
+
+#[test]
+fn test_remove_token_blocks_future_deposit() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    assert!(escrow_client.remove_token(&t.admin, &t.token_contract_id));
+    assert!(!escrow_client.is_token_allowed(&t.token_contract_id));
+    assert_eq!(
+        escrow_client.try_deposit(
+            &t.buyer,
+            &t.seller,
+            &t.token_contract_id,
+            &1000,
+            &t.order_id(),
+            &100,
+        ),
+        Err(Ok(EscrowError::TokenNotWhitelisted))
+    );
+}
+
+#[test]
+fn test_list_tokens_returns_all_added_tokens() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let second_token = Address::generate(&t.env);
+
+    assert!(escrow_client.add_token(&t.admin, &second_token));
+
+    let tokens = escrow_client.list_tokens();
+    assert_eq!(tokens.len(), 2);
+    assert!(tokens.contains(&t.token_contract_id));
+    assert!(tokens.contains(&second_token));
+}
+
+#[test]
+fn test_add_token_is_idempotent() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    assert!(escrow_client.add_token(&t.admin, &t.token_contract_id));
+    assert!(escrow_client.add_token(&t.admin, &t.token_contract_id));
+
+    let tokens = escrow_client.list_tokens();
+    assert_eq!(tokens.len(), 1);
+    assert!(tokens.contains(&t.token_contract_id));
 }
 
 #[test]
@@ -224,9 +324,7 @@ fn test_timeout_auto_refund() {
     let escrow_id = deposit_escrow(&t, 1000, timeout_ledgers);
 
     let record = escrow_client.get_escrow(&escrow_id);
-    t.env
-        .ledger()
-        .set_sequence_number(record.timeout_ledger);
+    t.env.ledger().set_sequence_number(record.timeout_ledger);
 
     assert!(escrow_client.refund(&escrow_id, &t.buyer));
     assert_eq!(token_client.balance(&t.buyer), 10000);
