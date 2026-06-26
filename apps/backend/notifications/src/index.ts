@@ -3,6 +3,7 @@
  */
 import { createLogger, startHttpServer, route, json } from "@delego/utils";
 import { initWebSocketServer } from "./websocket.js";
+import { connectDb } from "./db.js";
 import {
   savePushSubscription,
   removePushSubscription,
@@ -21,6 +22,8 @@ const port = Number(process.env.NOTIFICATIONS_PORT ?? DEFAULT_PORT);
 
 log.info("Starting service", { port, nodeEnv });
 
+// Connect to database first
+await connectDb();
 function readBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     let data = "";
