@@ -11,6 +11,7 @@ import type {
   TransitionHook,
 } from "../../state/index.js";
 import { randomUUID } from "node:crypto";
+import { generateId } from "@delego/utils";
 
 export interface PurchaseWorkflowInput {
   delegationId: string;
