@@ -21,5 +21,7 @@ startHttpServer({
   ],
 });
 
-// Export workflows for internal use
-export { purchaseWorkflow };
+// Export workflows and state machine for internal use (issue #7)
+export { purchaseWorkflow, restorePurchaseWorkflow } from "../workflows/purchase/index.js";
+export { PurchaseWorkflowMachine } from "../state/index.js";
+export type { WorkflowSnapshot, PurchaseState, PurchaseEvent } from "../state/index.js";
