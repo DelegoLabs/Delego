@@ -24,6 +24,15 @@ let txQueue: Queue | null = null;
 let txWorker: Worker | null = null;
 let queueEvents: QueueEvents | null = null;
 
+export interface SequenceReservation {
+  account: string;
+  firstSequence: string;
+  lastSequence: string;
+  size: number;
+  leaseId: string;
+  expiresAt: string;
+}
+
 export interface TransactionJobStatus {
   jobId: string;
   status: "queued" | "processing" | "submitted" | "failed";
@@ -109,6 +118,166 @@ export function getRedisConnection(): Redis {
   return redisClient;
 }
 
+function generateLeaseId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+async function getActiveReservations(
+  account: string,
+  redis: Redis
+): Promise<SequenceReservation[]> {
+  const key = `seq:reservations:${account}`;
+  const reservationsJson = await redis.lrange(key, 0, -1);
+  const now = Date.now();
+  
+  const activeReservations: SequenceReservation[] = [];
+  const toDelete: string[] = [];
+  
+  for (const json of reservationsJson) {
+    try {
+      const reservation = JSON.parse(json) as SequenceReservation;
+      if (parseInt(reservation.expiresAt) > now) {
+        activeReservations.push(reservation);
+      } else {
+        toDelete.push(json);
+      }
+    } catch {
+      toDelete.push(json);
+    }
+  }
+  
+  // Clean up expired or invalid reservations
+  if (toDelete.length > 0) {
+    for (const json of toDelete) {
+      await redis.lrem(key, 0, json);
+    }
+  }
+  
+  return activeReservations;
+}
+
+export async function reserveSequenceBlock(
+  address: string,
+  size: number,
+  redis: Redis,
+  horizonServer: Horizon.Server
+): Promise<SequenceReservation> {
+  const accountKey = `seq:reservations:${address}`;
+  const lockKey = `seq:lock:${address}`;
+  const lockTimeout = 5000; // 5 seconds lock timeout
+  
+  // Acquire lock
+  const lockAcquired = await redis.set(lockKey, "locked", "NX", "PX", lockTimeout);
+  if (!lockAcquired) {
+    throw new Error("Failed to acquire sequence reservation lock");
+  }
+  
+  try {
+    // Load account from Horizon to get the source account details
+    const sourceAccount = await horizonServer.loadAccount(address);
+    const ledgerSequence = BigInt(sourceAccount.sequenceNumber());
+    
+    // Get active reservations and find next available starting point
+    const activeReservations = await getActiveReservations(address, redis);
+    
+    // Find the highest used sequence from active reservations
+    let highestReservedSequence = ledgerSequence;
+    for (const res of activeReservations) {
+      const resLast = BigInt(res.lastSequence);
+      if (resLast > highestReservedSequence) {
+        highestReservedSequence = resLast;
+      }
+    }
+    
+    // Create new reservation
+    const firstSequence = highestReservedSequence + 1n;
+    const lastSequence = firstSequence + BigInt(size) - 1n;
+    const leaseId = generateLeaseId();
+    const now = Date.now();
+    const ttl = 60 * 60 * 1000; // 1 hour lease
+    const expiresAt = (now + ttl).toString();
+    
+    const reservation: SequenceReservation = {
+      account: address,
+      firstSequence: firstSequence.toString(),
+      lastSequence: lastSequence.toString(),
+      size,
+      leaseId,
+      expiresAt
+    };
+    
+    // Store reservation
+    await redis.rpush(accountKey, JSON.stringify(reservation));
+    await redis.expire(accountKey, ttl / 1000);
+    
+    log.info("Reserved sequence block", {
+      account: address,
+      firstSequence: firstSequence.toString(),
+      lastSequence: lastSequence.toString(),
+      size,
+      leaseId
+    });
+    
+    return reservation;
+  } finally {
+    // Release lock
+    await redis.del(lockKey);
+  }
+}
+
+async function getNextSequenceFromReservation(
+  address: string,
+  redis: Redis
+): Promise<{ sequence: string; reservation: SequenceReservation; releaseReservation: () => Promise<void> } | null> {
+  const key = `seq:reservations:${address}`;
+  const now = Date.now();
+  const reservationCursorKey = `seq:cursor:${address}`;
+  
+  const reservationsJson = await redis.lrange(key, 0, -1);
+  
+  for (const json of reservationsJson) {
+    try {
+      const reservation = JSON.parse(json) as SequenceReservation;
+      
+      // Skip expired reservations
+      if (parseInt(reservation.expiresAt) <= now) {
+        continue;
+      }
+      
+      // Get current cursor for this reservation
+      const cursorKey = `seq:res:${reservation.leaseId}:cursor`;
+      let cursorStr = await redis.get(cursorKey);
+      let cursor = cursorStr ? BigInt(cursorStr) : BigInt(reservation.firstSequence);
+      
+      const lastSeq = BigInt(reservation.lastSequence);
+      
+      if (cursor <= lastSeq) {
+        // Increment cursor atomically
+        const newCursor = cursor + 1n;
+        await redis.set(cursorKey, newCursor.toString(), "PX", parseInt(reservation.expiresAt) - Date.now());
+        
+        const releaseReservation = async () => {
+          // Check if reservation is exhausted
+          if (newCursor > lastSeq) {
+            await redis.lrem(key, 0, json);
+            await redis.del(cursorKey);
+          }
+        };
+        
+        return {
+          sequence: cursor.toString(),
+          reservation,
+          releaseReservation
+        };
+      }
+    } catch {
+      continue;
+    }
+  }
+  
+  return null;
+}
+
 // Synchronize and manage sequence numbers thread-safely per source address in Redis
 async function getNextSequenceNumber(
   horizonServer: Horizon.Server,
@@ -117,10 +286,18 @@ async function getNextSequenceNumber(
   attempt: number
 ): Promise<{ sequence: string; resetCache: () => Promise<void> }> {
   const cacheKey = `seq:${sourceAddress}`;
+  const reservationKey = `seq:reservations:${sourceAddress}`;
   
   const resetCache = async () => {
     await redis.del(cacheKey);
-    log.info("Cleared cached sequence number from Redis", { sourceAddress });
+    // Clear all reservations on reset
+    await redis.del(reservationKey);
+    // Clear all reservation cursors
+    const cursorKeys = await redis.keys(`seq:res:*:cursor`);
+    if (cursorKeys.length > 0) {
+      await redis.del(...cursorKeys);
+    }
+    log.info("Cleared cached sequence number and reservations from Redis", { sourceAddress });
   };
 
   // If this is a retry attempt, clear the cached sequence number from Redis to force a fresh reload from Horizon
@@ -128,12 +305,31 @@ async function getNextSequenceNumber(
     await resetCache();
   }
 
+  // First try to get a sequence from an existing reservation
+  let reservationResult = await getNextSequenceFromReservation(sourceAddress, redis);
+  
+  if (reservationResult) {
+    log.info("Using sequence from existing reservation", {
+      sourceAddress,
+      sequence: reservationResult.sequence,
+      leaseId: reservationResult.reservation.leaseId
+    });
+    
+    return {
+      sequence: reservationResult.sequence,
+      resetCache: async () => {
+        await reservationResult.releaseReservation();
+        await resetCache();
+      }
+    };
+  }
+
   // Load account from Horizon to get the source account details
   log.info("Loading account details from Horizon...", { sourceAddress });
   const sourceAccount = await horizonServer.loadAccount(sourceAddress);
   const ledgerSequence = BigInt(sourceAccount.sequenceNumber());
 
-  // Check Redis for cached sequence number
+  // Check Redis for cached sequence number (fallback for backward compatibility)
   const cachedSeqStr = await redis.get(cacheKey);
   
   let nextSequence: bigint;
@@ -149,9 +345,9 @@ async function getNextSequenceNumber(
     nextSequence = ledgerSequence + 1n;
   }
 
-  // Save the new sequence number back to Redis with a TTL of 60 seconds
+  // Save the new sequence number back to Redis with a TTL of 60 seconds (fallback)
   await redis.set(cacheKey, nextSequence.toString(), "EX", 60);
-  log.info("Determined sequence number", { 
+  log.info("Determined sequence number (fallback)", { 
     sourceAddress, 
     ledgerSequence: ledgerSequence.toString(), 
     cachedSequence: cachedSeqStr ?? "none",
