@@ -214,6 +214,84 @@ fn test_full_refund_lifecycle() {
 }
 
 #[test]
+fn test_get_escrow_timeout_on_funded_escrow() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let timeout_ledgers = 100u32;
+    let escrow_id = deposit_escrow(&t, 500, timeout_ledgers);
+    let current_ledger = t.env.ledger().sequence();
+
+    let timeout_view = escrow_client
+        .get_escrow_timeout(&escrow_id)
+        .expect("expected escrow timeout view");
+
+    assert_eq!(timeout_view.timeout_ledger, current_ledger + timeout_ledgers);
+    assert_eq!(timeout_view.current_ledger, current_ledger);
+    assert!(!timeout_view.refundable);
+    assert_eq!(&timeout_view.escrow_id.to_array()[24..], &escrow_id.to_be_bytes());
+}
+
+#[test]
+fn test_get_escrow_timeout_after_release() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 500, 100);
+    assert!(escrow_client.release(&escrow_id, &t.buyer));
+
+    let timeout_view = escrow_client
+        .get_escrow_timeout(&escrow_id)
+        .expect("expected escrow timeout view");
+
+    assert_eq!(timeout_view.refundable, false);
+}
+
+#[test]
+fn test_get_escrow_timeout_after_refund() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 500, 100);
+    assert!(escrow_client.refund(&escrow_id, &t.seller));
+
+    let timeout_view = escrow_client
+        .get_escrow_timeout(&escrow_id)
+        .expect("expected escrow timeout view");
+
+    assert_eq!(timeout_view.refundable, false);
+}
+
+#[test]
+fn test_get_escrow_timeout_after_timeout() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let timeout_ledgers = 100u32;
+    let escrow_id = deposit_escrow(&t, 500, timeout_ledgers);
+    let record = escrow_client.get_escrow(&escrow_id);
+    t.env.ledger().set_sequence_number(record.timeout_ledger);
+
+    let timeout_view = escrow_client
+        .get_escrow_timeout(&escrow_id)
+        .expect("expected escrow timeout view");
+
+    assert_eq!(timeout_view.current_ledger, record.timeout_ledger);
+    assert!(timeout_view.refundable);
+}
+
+#[test]
+fn test_get_escrow_timeout_unknown_escrow() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    assert_eq!(
+        escrow_client.try_get_escrow_timeout(&0),
+        Err(Ok(EscrowError::NotFound))
+    );
+}
+
+#[test]
 fn test_dispute_resolution_to_seller() {
     let t = TestEnv::setup();
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
