@@ -10,13 +10,18 @@ async function run() {
   const client = new Client({ connectionString: databaseUrl });
   try {
     await client.connect();
-    
-    // Read 001_initial.sql
-    const sqlPath = path.join(__dirname, "../../database/schema/001_initial.sql");
-    const sql = fs.readFileSync(sqlPath, "utf8");
-    
-    console.log("[delego] db:migrate — running initial schema migration...");
-    await client.query(sql);
+
+    const schemaDir = path.join(__dirname, "../../database/schema");
+    const files = fs
+      .readdirSync(schemaDir)
+      .filter((file) => file.endsWith(".sql"))
+      .sort();
+
+    for (const file of files) {
+      console.log(`[delego] db:migrate — running ${file}...`);
+      const sql = fs.readFileSync(path.join(schemaDir, file), "utf8");
+      await client.query(sql);
+    }
     console.log("[delego] db:migrate — schema migrated successfully.");
   } catch (err) {
     console.error("[delego] db:migrate — migration failed:", err);

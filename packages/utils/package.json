@@ -17,6 +17,9 @@
     "lint": "echo 'TODO: add eslint'",
     "test": "echo 'No tests yet'"
   },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^15.1.0"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.7.0"
