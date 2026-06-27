@@ -1,6 +1,7 @@
 import { Keypair, Horizon } from "@stellar/stellar-sdk";
 import type { WalletAccount, StellarNetwork } from "@delego/types";
 import { vaultService } from "../src/vault.js";
+import { resolveAndValidateStellarConfig } from "../src/stellarConfig.js";
 import { createLogger } from "@delego/utils";
 
 const log = createLogger("wallet:stellar:account", process.env.LOG_LEVEL ?? "info");
@@ -8,16 +9,6 @@ const log = createLogger("wallet:stellar:account", process.env.LOG_LEVEL ?? "inf
 export interface AccountService {
   getAccount(address: string): Promise<WalletAccount | null>;
   createAccount(network: StellarNetwork): Promise<WalletAccount & { secret?: string }>;
-}
-
-function getHorizonUrl(network: StellarNetwork): string {
-  if (network === "mainnet") {
-    return process.env.STELLAR_HORIZON_URL ?? "https://horizon.stellar.org";
-  } else if (network === "futurenet") {
-    return process.env.STELLAR_HORIZON_URL ?? "https://horizon-futurenet.stellar.org";
-  } else {
-    return process.env.STELLAR_HORIZON_URL ?? "https://horizon-testnet.stellar.org";
-  }
 }
 
 export const accountService: AccountService = {
@@ -29,14 +20,16 @@ export const accountService: AccountService = {
         log.warn("Account requested is not managed in local vault", { address });
       }
 
-      // Check if it exists on-chain via Horizon
-      const network: StellarNetwork = (process.env.STELLAR_NETWORK as StellarNetwork) ?? "testnet";
-      const horizonUrl = getHorizonUrl(network);
-      const server = new Horizon.Server(horizonUrl);
-      
+      // Use the same validated config as `index.ts` at startup. The Horizon URL
+      // already incorporates any STELLAR_HORIZON_URL override.
+      const config = resolveAndValidateStellarConfig();
+      const networkName: StellarNetwork =
+        config.network === "custom" ? "testnet" : (config.network as StellarNetwork);
+      const server = new Horizon.Server(config.horizonUrl);
+
       try {
         await server.loadAccount(address);
-        return { address, network };
+        return { address, network: networkName };
       } catch (err: any) {
         if (err.response?.status === 404) {
           log.warn("Account not found on-chain", { address });
