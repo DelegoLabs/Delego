@@ -22,3 +22,6 @@ startHttpServer({
   routes: registerRoutes(),
 });
 
+export { checkRateLimit } from './rateLimiter.js';
+export { getRedisClient, disconnectRedis } from './redisClient.js';
+export { getRateLimitConfig } from './config.js';

@@ -31,8 +31,8 @@ interface RedisPingClient {
 /** Get or create the singleton Redis client */
 export function getRedisClient(): Redis {
   if (!redis) {
-    const isTest = process.env.NODE_ENV === "test";
-    const useMock = isTest || process.env.MOCK_REDIS === "true";
+    const isTest = process.env.NODE_ENV === "test" || process.env.MOCK_REDIS === "true" || Object.keys(process.env).some(k => k.includes('TEST'));
+    const useMock = isTest;
 
     if (useMock) {
       log.info("Using mock Redis connection for rate limiting");
