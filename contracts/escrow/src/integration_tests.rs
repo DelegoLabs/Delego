@@ -3,7 +3,7 @@
 use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus};
 use soroban_sdk::{
     testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
-    Address, BytesN, Env, IntoVal,
+    Address, BytesN, Env, IntoVal, TryIntoVal,
 };
 
 struct TestEnv {
@@ -108,6 +108,18 @@ fn test_deposit_with_non_whitelisted_token_fails() {
     );
 }
 
+fn create_pending_escrow(t: &TestEnv, amount: i128, timeout_ledgers: u32) -> u64 {
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    escrow_client.create_escrow(
+        &t.seller,
+        &t.buyer,
+        &t.token_contract_id,
+        &amount,
+        &t.order_id(),
+        &timeout_ledgers,
+    )
+}
+
 #[test]
 fn test_add_token_by_non_admin_fails() {
     let t = TestEnv::setup();
@@ -119,6 +131,57 @@ fn test_add_token_by_non_admin_fails() {
         Err(Ok(EscrowError::Unauthorized))
     );
     assert!(!escrow_client.is_token_allowed(&new_token));
+}
+
+#[test]
+fn test_merchant_can_cancel_before_funding() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = create_pending_escrow(&t, 1000, 100);
+    assert!(escrow_client.cancel_before_funding(
+        &escrow_id,
+        &t.seller,
+        &soroban_sdk::symbol_short!("merchant_cancelled"),
+    ));
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.status, EscrowStatus::Cancelled);
+
+    let events = t.env.events().all();
+    let mut cancelled_event_found = false;
+    for event in events.iter() {
+        let (_contract, topics, value) = event;
+        if topics.len() == 2 {
+            let topic0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&t.env).unwrap();
+            let topic1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&t.env).unwrap();
+            if topic0 == soroban_sdk::symbol_short!("escrow") && topic1 == soroban_sdk::symbol_short!("cancelled") {
+                let evt: crate::EscrowCancelledEvent = value.try_into_val(&t.env).unwrap();
+                assert_eq!(evt.cancelled_by, t.seller);
+                assert_eq!(evt.reason, soroban_sdk::symbol_short!("merchant_cancelled"));
+                cancelled_event_found = true;
+            }
+        }
+    }
+    assert!(cancelled_event_found);
+}
+
+#[test]
+fn test_cancel_after_funding_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = create_pending_escrow(&t, 1000, 100);
+    assert!(escrow_client.fund_escrow(&escrow_id, &t.buyer));
+
+    assert_eq!(
+        escrow_client.try_cancel_before_funding(
+            &escrow_id,
+            &t.seller,
+            &soroban_sdk::symbol_short!("merchant_cancelled"),
+        ),
+        Err(Ok(EscrowError::InvalidStatus))
+    );
 }
 
 #[test]
