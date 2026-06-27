@@ -30,3 +30,31 @@ export async function connectDb(): Promise<void> {
   }
 }
 
+/**
+ * Check PostgreSQL connectivity with a lightweight query.
+ * Returns the query latency in milliseconds or throws on failure.
+ * @param timeoutMs - Query timeout in milliseconds (default: 5000)
+ */
+export async function checkDatabaseHealth(timeoutMs: number = 5000): Promise<number> {
+  const startTime = performance.now();
+  let timeoutId: NodeJS.Timeout | null = null;
+  
+  try {
+    const queryPromise = sequelize.query("SELECT 1", { raw: true });
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error("Database health check timeout")), timeoutMs);
+    });
+    
+    await Promise.race([queryPromise, timeoutPromise]);
+    const endTime = performance.now();
+    return endTime - startTime;
+  } catch (err) {
+    log.warn("Database health check failed", err instanceof Error ? { error: err.message } : { error: String(err) });
+    throw err;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
