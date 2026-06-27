@@ -15,6 +15,21 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 /** Rate-limit and server-error status codes that warrant a retry. */
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
+interface OpenAIChatCompletionUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+}
+
+interface OpenAIChatCompletionChoice {
+  message?: { content?: string };
+  finish_reason?: string;
+}
+
+interface OpenAIChatCompletionResponse {
+  usage?: OpenAIChatCompletionUsage;
+  choices?: OpenAIChatCompletionChoice[];
+}
+
 export class OpenAIClient implements LLMClient {
   readonly provider = "openai" as const;
 
@@ -47,11 +62,12 @@ export class OpenAIClient implements LLMClient {
     const response = (await this.requestWithRetry(
       "https://api.openai.com/v1/chat/completions",
       body
-    )) as any;
+    )) as OpenAIChatCompletionResponse;
 
-    const usage = response.usage as { prompt_tokens?: number; completion_tokens?: number } | undefined;
-    const inputTokens: number = usage?.prompt_tokens ?? 0;
-    const outputTokens: number = usage?.completion_tokens ?? 0;
+    const inputTokens: number =
+      (response.usage as Record<string, number>)?.prompt_tokens ?? 0;
+    const outputTokens: number =
+      (response.usage as Record<string, number>)?.completion_tokens ?? 0;
     const totalTokens = inputTokens + outputTokens;
 
     if (options.tokenBudget && totalTokens > options.tokenBudget) {
@@ -60,8 +76,10 @@ export class OpenAIClient implements LLMClient {
       );
     }
 
-    const choices = response.choices as Array<{ message?: { content?: string }; finish_reason?: string }> | undefined;
-    const choice = choices?.[0];
+    const choice = (response.choices as Array<{
+      message?: { content?: string };
+      finish_reason?: string;
+    }>)?.[0];
     return {
       provider: "openai",
       model,

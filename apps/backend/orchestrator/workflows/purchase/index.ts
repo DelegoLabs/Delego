@@ -5,12 +5,12 @@
  * Callers can restore a crashed workflow with PurchaseWorkflowMachine.fromSnapshot().
  */
 
+import { randomUUID } from "node:crypto";
 import { PurchaseWorkflowMachine } from "../../state/index.js";
 import type {
   WorkflowSnapshot,
   TransitionHook,
 } from "../../state/index.js";
-import { randomUUID } from "node:crypto";
 
 export interface PurchaseWorkflowInput {
   delegationId: string;
@@ -110,7 +110,7 @@ export function purchaseWorkflow(
   input: PurchaseWorkflowInput,
   onTransition?: TransitionHook
 ): PurchaseWorkflowHandle {
-  const workflowId = input.workflowId ?? generateId();
+  const workflowId = input.workflowId ?? randomUUID();
 
   const machine = new PurchaseWorkflowMachine(
     {
@@ -136,3 +136,12 @@ export function restorePurchaseWorkflow(
   return { machine, snapshot: machine.getSnapshot() };
 }
 
+export {
+  lookupOrderPaymentStatus,
+  createHttpOrderLookupAdapter,
+  createHttpOrderLookupClient,
+  defaultOrderLookupAdapter,
+  OrderPaymentNotFoundError,
+  type OrderPaymentStatus,
+  type OrderLookupAdapter,
+} from "./order-lookup.js";

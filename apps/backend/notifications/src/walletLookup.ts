@@ -164,8 +164,10 @@ export function getWalletLookupAdapter(): WalletLookupAdapter {
   // pg and ioredis without needing a static import at the top of the file
   // (which would force a real DB/Redis connection on every module load).
   const _require = createRequire(import.meta.url);
-  const { Pool } = _require("pg") as typeof import("pg");
-  const { Redis } = _require("ioredis") as typeof import("ioredis");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { Pool } = _require("pg") as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { Redis } = _require("ioredis") as any;
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");

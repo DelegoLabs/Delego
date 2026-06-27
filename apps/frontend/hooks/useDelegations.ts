@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Delegation } from "@delego/types";
+import type { ApiResponse, Delegation } from "@delego/types";
 import { api } from "../lib/api";
 
 /** Fetch user delegations — TODO: Add SWR or React Query */
@@ -10,7 +10,7 @@ export function useDelegations() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getDelegations().then((res) => {
+    api.getDelegations().then((res: ApiResponse<Delegation[]>) => {
       if (res.data) setDelegations(res.data);
       setLoading(false);
     });
