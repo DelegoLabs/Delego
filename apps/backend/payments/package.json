@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@delego/types": "workspace:*",
-    "@delego/utils": "workspace:*"
+    "@delego/utils": "workspace:*",
+    "ioredis": "^5.11.1"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

@@ -1,10 +1,10 @@
 #![cfg(test)]
 
+use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus};
 use soroban_sdk::{
     testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
     Address, BytesN, Env, IntoVal,
 };
-use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus};
 
 struct TestEnv {
     env: Env,
@@ -28,7 +28,9 @@ impl TestEnv {
         let treasury = Address::generate(&env);
 
         let token_admin = Address::generate(&env);
-        let token_contract_id = env.register_stellar_asset_contract(token_admin.clone());
+        let token_contract_id = env
+            .register_stellar_asset_contract_v2(token_admin.clone())
+            .address();
         let token_admin_client =
             soroban_sdk::token::StellarAssetClient::new(&env, &token_contract_id);
         token_admin_client.mint(&buyer, &10000);
@@ -88,7 +90,10 @@ fn test_deposit_with_non_whitelisted_token_fails() {
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
 
     let other_token_admin = Address::generate(&t.env);
-    let other_token_contract_id = t.env.register_stellar_asset_contract(other_token_admin.clone());
+    let other_token_contract_id = t
+        .env
+        .register_stellar_asset_contract_v2(other_token_admin.clone())
+        .address();
 
     assert_eq!(
         escrow_client.try_deposit(
@@ -319,9 +324,7 @@ fn test_timeout_auto_refund() {
     let escrow_id = deposit_escrow(&t, 1000, timeout_ledgers);
 
     let record = escrow_client.get_escrow(&escrow_id);
-    t.env
-        .ledger()
-        .set_sequence_number(record.timeout_ledger);
+    t.env.ledger().set_sequence_number(record.timeout_ledger);
 
     assert!(escrow_client.refund(&escrow_id, &t.buyer));
     assert_eq!(token_client.balance(&t.buyer), 10000);

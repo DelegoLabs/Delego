@@ -216,8 +216,16 @@ impl EscrowContract {
         }
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::LastEscrowId, &0u64);
-        env.storage().instance().set(&DataKey::FeeConfig, &FeeConfig { fee_bps, treasury });
-        env.storage().instance().set(&DataKey::AmountLimits, &EscrowAmountLimits { min_amount, max_amount });
+        env.storage()
+            .instance()
+            .set(&DataKey::FeeConfig, &FeeConfig { fee_bps, treasury });
+        env.storage().instance().set(
+            &DataKey::AmountLimits,
+            &EscrowAmountLimits {
+                min_amount,
+                max_amount,
+            },
+        );
         Ok(true)
     }
 
@@ -235,13 +243,22 @@ impl EscrowContract {
         if min_amount <= 0 || max_amount < min_amount {
             return Err(EscrowError::InvalidLimits);
         }
-        env.storage().instance().set(&DataKey::AmountLimits, &EscrowAmountLimits { min_amount, max_amount });
+        env.storage().instance().set(
+            &DataKey::AmountLimits,
+            &EscrowAmountLimits {
+                min_amount,
+                max_amount,
+            },
+        );
         Ok(true)
     }
 
     /// Get the current escrow amount limits.
     pub fn get_limits(env: Env) -> EscrowAmountLimits {
-        env.storage().instance().get(&DataKey::AmountLimits).unwrap()
+        env.storage()
+            .instance()
+            .get(&DataKey::AmountLimits)
+            .unwrap()
     }
 
     /// Set the quorum configuration for dispute resolution. Admin-only.
@@ -266,14 +283,22 @@ impl EscrowContract {
             }
             unique_arbiters.push_back(arbiter);
         }
-        let quorum_config = QuorumConfig { arbiters: unique_arbiters, threshold };
-        env.storage().instance().set(&DataKey::QuorumConfig, &quorum_config);
+        let quorum_config = QuorumConfig {
+            arbiters: unique_arbiters,
+            threshold,
+        };
+        env.storage()
+            .instance()
+            .set(&DataKey::QuorumConfig, &quorum_config);
         Ok(true)
     }
 
     /// Get the current quorum configuration.
     pub fn get_quorum_config(env: Env) -> Result<QuorumConfig, EscrowError> {
-        env.storage().instance().get(&DataKey::QuorumConfig).ok_or(EscrowError::QuorumConfigNotSet)
+        env.storage()
+            .instance()
+            .get(&DataKey::QuorumConfig)
+            .ok_or(EscrowError::QuorumConfigNotSet)
     }
 
     /// Vote on a disputed escrow. Only authorized arbiters.
@@ -285,7 +310,11 @@ impl EscrowContract {
     ) -> Result<bool, EscrowError> {
         arbiter.require_auth();
 
-        let quorum_config: QuorumConfig = env.storage().instance().get(&DataKey::QuorumConfig).ok_or(EscrowError::QuorumConfigNotSet)?;
+        let quorum_config: QuorumConfig = env
+            .storage()
+            .instance()
+            .get(&DataKey::QuorumConfig)
+            .ok_or(EscrowError::QuorumConfigNotSet)?;
         if !quorum_config.arbiters.contains(&arbiter) {
             return Err(EscrowError::NotAnArbiter);
         }
@@ -300,7 +329,11 @@ impl EscrowContract {
         }
 
         let votes_key = DataKey::DisputeVotes(escrow_id);
-        let mut votes: soroban_sdk::Vec<DisputeVote> = env.storage().persistent().get(&votes_key).unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+        let mut votes: soroban_sdk::Vec<DisputeVote> = env
+            .storage()
+            .persistent()
+            .get(&votes_key)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
 
         if votes.iter().any(|vote| vote.arbiter == arbiter) {
             return Err(EscrowError::AlreadyVoted);
@@ -318,11 +351,18 @@ impl EscrowContract {
     /// Get votes for a disputed escrow.
     pub fn get_dispute_votes(env: Env, escrow_id: u64) -> soroban_sdk::Vec<DisputeVote> {
         let votes_key = DataKey::DisputeVotes(escrow_id);
-        env.storage().persistent().get(&votes_key).unwrap_or_else(|| soroban_sdk::Vec::new(&env))
+        env.storage()
+            .persistent()
+            .get(&votes_key)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env))
     }
 
     /// Resolve a disputed escrow via quorum.
-    pub fn resolve_dispute_quorum(env: Env, escrow_id: u64, caller: Address) -> Result<bool, EscrowError> {
+    pub fn resolve_dispute_quorum(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+    ) -> Result<bool, EscrowError> {
         caller.require_auth();
 
         let key = DataKey::Escrow(escrow_id);
@@ -334,28 +374,39 @@ impl EscrowContract {
             return Err(EscrowError::NotDisputed);
         }
 
-        let quorum_config: QuorumConfig = env.storage().instance().get(&DataKey::QuorumConfig).ok_or(EscrowError::QuorumConfigNotSet)?;
+        let quorum_config: QuorumConfig = env
+            .storage()
+            .instance()
+            .get(&DataKey::QuorumConfig)
+            .ok_or(EscrowError::QuorumConfigNotSet)?;
         let votes_key = DataKey::DisputeVotes(escrow_id);
-        let votes: soroban_sdk::Vec<DisputeVote> = env.storage().persistent().get(&votes_key).unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+        let votes: soroban_sdk::Vec<DisputeVote> = env
+            .storage()
+            .persistent()
+            .get(&votes_key)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
 
         // Only count votes from current arbiters
-        let seller_votes = votes.iter()
+        let seller_votes = votes
+            .iter()
             .filter(|v| v.release_to_seller && quorum_config.arbiters.contains(&v.arbiter))
             .count() as u32;
-        let buyer_votes = votes.iter()
+        let buyer_votes = votes
+            .iter()
             .filter(|v| !v.release_to_seller && quorum_config.arbiters.contains(&v.arbiter))
             .count() as u32;
 
         // Handle conflicting quorum outcomes explicitly
-        let release_to_seller = if seller_votes >= quorum_config.threshold && buyer_votes >= quorum_config.threshold {
-            return Err(EscrowError::ConflictingQuorum);
-        } else if seller_votes >= quorum_config.threshold {
-            true
-        } else if buyer_votes >= quorum_config.threshold {
-            false
-        } else {
-            return Err(EscrowError::QuorumNotReached);
-        };
+        let release_to_seller =
+            if seller_votes >= quorum_config.threshold && buyer_votes >= quorum_config.threshold {
+                return Err(EscrowError::ConflictingQuorum);
+            } else if seller_votes >= quorum_config.threshold {
+                true
+            } else if buyer_votes >= quorum_config.threshold {
+                false
+            } else {
+                return Err(EscrowError::QuorumNotReached);
+            };
 
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
         if release_to_seller {
@@ -368,10 +419,18 @@ impl EscrowContract {
             if fee > 0 {
                 token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
             }
-            token_client.transfer(&env.current_contract_address(), &record.seller, &seller_amount);
+            token_client.transfer(
+                &env.current_contract_address(),
+                &record.seller,
+                &seller_amount,
+            );
             record.status = EscrowStatus::Released;
         } else {
-            token_client.transfer(&env.current_contract_address(), &record.buyer, &record.amount);
+            token_client.transfer(
+                &env.current_contract_address(),
+                &record.buyer,
+                &record.amount,
+            );
             record.status = EscrowStatus::Refunded;
         }
 
@@ -400,7 +459,9 @@ impl EscrowContract {
         }
         let mut fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
         fee_config.fee_bps = new_fee_bps;
-        env.storage().instance().set(&DataKey::FeeConfig, &fee_config);
+        env.storage()
+            .instance()
+            .set(&DataKey::FeeConfig, &fee_config);
         Ok(true)
     }
 
@@ -410,7 +471,11 @@ impl EscrowContract {
     }
 
     /// Add a token to the escrow whitelist. Admin-only.
-    pub fn add_token(env: Env, admin: Address, token_address: Address) -> Result<bool, EscrowError> {
+    pub fn add_token(
+        env: Env,
+        admin: Address,
+        token_address: Address,
+    ) -> Result<bool, EscrowError> {
         admin.require_auth();
         if !Self::is_admin(env.clone(), admin.clone()) {
             return Err(EscrowError::Unauthorized);
@@ -426,7 +491,9 @@ impl EscrowContract {
             .get(&DataKey::TokenWhitelist)
             .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
         whitelist.push_back(token_address.clone());
-        env.storage().instance().set(&DataKey::TokenWhitelist, &whitelist);
+        env.storage()
+            .instance()
+            .set(&DataKey::TokenWhitelist, &whitelist);
         env.storage()
             .instance()
             .set(&DataKey::TokenEnabled(token_address), &true);
@@ -435,7 +502,11 @@ impl EscrowContract {
     }
 
     /// Remove a token from the escrow whitelist. Admin-only.
-    pub fn remove_token(env: Env, admin: Address, token_address: Address) -> Result<bool, EscrowError> {
+    pub fn remove_token(
+        env: Env,
+        admin: Address,
+        token_address: Address,
+    ) -> Result<bool, EscrowError> {
         admin.require_auth();
         if !Self::is_admin(env.clone(), admin.clone()) {
             return Err(EscrowError::Unauthorized);
@@ -448,7 +519,9 @@ impl EscrowContract {
             .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
         if let Some(index) = whitelist.first_index_of(&token_address) {
             whitelist.remove(index);
-            env.storage().instance().set(&DataKey::TokenWhitelist, &whitelist);
+            env.storage()
+                .instance()
+                .set(&DataKey::TokenWhitelist, &whitelist);
         }
         env.storage()
             .instance()
@@ -492,7 +565,11 @@ impl EscrowContract {
         if amount <= 0 {
             return Err(EscrowError::InvalidAmount);
         }
-        let limits: EscrowAmountLimits = env.storage().instance().get(&DataKey::AmountLimits).unwrap();
+        let limits: EscrowAmountLimits = env
+            .storage()
+            .instance()
+            .get(&DataKey::AmountLimits)
+            .unwrap();
         if amount < limits.min_amount {
             return Err(EscrowError::AmountBelowMin);
         }
@@ -578,7 +655,11 @@ impl EscrowContract {
         if fee > 0 {
             token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
         }
-        token_client.transfer(&env.current_contract_address(), &record.seller, &seller_amount);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &record.seller,
+            &seller_amount,
+        );
 
         record.status = EscrowStatus::Released;
         env.storage().persistent().set(&key, &record);
@@ -716,7 +797,11 @@ impl EscrowContract {
             if fee > 0 {
                 token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
             }
-            token_client.transfer(&env.current_contract_address(), &record.seller, &seller_amount);
+            token_client.transfer(
+                &env.current_contract_address(),
+                &record.seller,
+                &seller_amount,
+            );
             record.status = EscrowStatus::Released;
         } else {
             token_client.transfer(
@@ -751,13 +836,23 @@ impl EscrowContract {
     }
 
     /// Propose a new primary admin. Must be called by current primary admin.
-    pub fn propose_admin(env: Env, current_admin: Address, new_admin: Address) -> Result<bool, EscrowError> {
+    pub fn propose_admin(
+        env: Env,
+        current_admin: Address,
+        new_admin: Address,
+    ) -> Result<bool, EscrowError> {
         current_admin.require_auth();
-        let primary_admin: Address = env.storage().instance().get(&DataKey::Admin).ok_or(EscrowError::NotFound)?;
+        let primary_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(EscrowError::NotFound)?;
         if current_admin != primary_admin {
             return Err(EscrowError::Unauthorized);
         }
-        env.storage().instance().set(&DataKey::PendingAdmin, &new_admin);
+        env.storage()
+            .instance()
+            .set(&DataKey::PendingAdmin, &new_admin);
         env.events().publish(
             (symbol_short!("admin"), symbol_short!("proposed")),
             AdminProposedEvent {
@@ -786,16 +881,16 @@ impl EscrowContract {
             .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
         if let Some(index) = admin_list.first_index_of(&new_admin) {
             admin_list.remove(index);
-            env.storage().instance().set(&DataKey::AdminList, &admin_list);
+            env.storage()
+                .instance()
+                .set(&DataKey::AdminList, &admin_list);
         }
 
         env.storage().instance().set(&DataKey::Admin, &new_admin);
         env.storage().instance().remove(&DataKey::PendingAdmin);
         env.events().publish(
             (symbol_short!("admin"), symbol_short!("accepted")),
-            AdminAcceptedEvent {
-                new_admin,
-            },
+            AdminAcceptedEvent { new_admin },
         );
         Ok(true)
     }
@@ -803,7 +898,11 @@ impl EscrowContract {
     /// Cancel a pending admin transfer. Must be called by current primary admin.
     pub fn cancel_admin_transfer(env: Env, current_admin: Address) -> Result<bool, EscrowError> {
         current_admin.require_auth();
-        let primary_admin: Address = env.storage().instance().get(&DataKey::Admin).ok_or(EscrowError::NotFound)?;
+        let primary_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(EscrowError::NotFound)?;
         if current_admin != primary_admin {
             return Err(EscrowError::Unauthorized);
         }
@@ -813,17 +912,23 @@ impl EscrowContract {
         env.storage().instance().remove(&DataKey::PendingAdmin);
         env.events().publish(
             (symbol_short!("admin"), symbol_short!("cancelled")),
-            AdminTransferCancelledEvent {
-                current_admin,
-            },
+            AdminTransferCancelledEvent { current_admin },
         );
         Ok(true)
     }
 
     /// Add a co-admin. Must be called by the primary admin.
-    pub fn add_co_admin(env: Env, admin: Address, new_co_admin: Address) -> Result<bool, EscrowError> {
+    pub fn add_co_admin(
+        env: Env,
+        admin: Address,
+        new_co_admin: Address,
+    ) -> Result<bool, EscrowError> {
         admin.require_auth();
-        let primary_admin: Address = env.storage().instance().get(&DataKey::Admin).ok_or(EscrowError::NotFound)?;
+        let primary_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(EscrowError::NotFound)?;
         if admin != primary_admin {
             return Err(EscrowError::Unauthorized);
         }
@@ -839,14 +944,24 @@ impl EscrowContract {
             return Err(EscrowError::AdminAlreadyExists);
         }
         admin_list.push_back(new_co_admin);
-        env.storage().instance().set(&DataKey::AdminList, &admin_list);
+        env.storage()
+            .instance()
+            .set(&DataKey::AdminList, &admin_list);
         Ok(true)
     }
 
     /// Remove a co-admin. Must be called by the primary admin.
-    pub fn remove_co_admin(env: Env, admin: Address, co_admin: Address) -> Result<bool, EscrowError> {
+    pub fn remove_co_admin(
+        env: Env,
+        admin: Address,
+        co_admin: Address,
+    ) -> Result<bool, EscrowError> {
         admin.require_auth();
-        let primary_admin: Address = env.storage().instance().get(&DataKey::Admin).ok_or(EscrowError::NotFound)?;
+        let primary_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(EscrowError::NotFound)?;
         if admin != primary_admin {
             return Err(EscrowError::Unauthorized);
         }
@@ -860,7 +975,9 @@ impl EscrowContract {
             None => return Err(EscrowError::NotFound),
         };
         admin_list.remove(index);
-        env.storage().instance().set(&DataKey::AdminList, &admin_list);
+        env.storage()
+            .instance()
+            .set(&DataKey::AdminList, &admin_list);
         Ok(true)
     }
 
@@ -883,6 +1000,6 @@ impl EscrowContract {
 }
 
 #[cfg(test)]
-mod test;
-#[cfg(test)]
 mod integration_tests;
+#[cfg(test)]
+mod test;
