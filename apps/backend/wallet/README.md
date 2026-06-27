@@ -10,35 +10,19 @@ pnpm --filter @delego/wallet dev
 
 Health check: `GET http://localhost:3012/health`
 
-## Public Key Validation
+## Environment
 
-This service uses `@delego/utils` to validate Stellar public keys at route boundaries.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `STELLAR_NETWORK` | No (defaults to `testnet`) | Selects the public Stellar network. Allowed values: `testnet`, `mainnet`, `futurenet`. Unknown values are rejected at startup. |
+| `STELLAR_PASSPHRASE` | No | Optional override for the network passphrase. Must either match `STELLAR_NETWORK` or be a custom value supplied together with explicit `STELLAR_HORIZON_URL` and `SOROBAN_RPC_URL`. Set-but-empty values are rejected at startup. |
+| `STELLAR_HORIZON_URL` | No | Override the default Horizon URL for the configured network. |
+| `SOROBAN_RPC_URL` | No | Override the default Soroban RPC URL for the configured network. |
+| `WALLET_MASTER_SECRET` | Recommended in prod | Master secret used to encrypt the local vault. |
 
-| Export | Purpose |
-|---|---|
-| `validatePublicKey(key)` | Returns `{ valid, normalized?, error? }` — trims whitespace, rejects secret seeds (`S...`), validates Ed25519 public key (`G...`) |
-| `isValidStellarPublicKey(key)` | Boolean shorthand for `validatePublicKey(key).valid` |
-| `validatePublicKeyMiddleware(paramName)` | Express middleware that validates a route param and responds with HTTP 400 on failure |
-
-Malformed keys and secret keys are rejected before processing.
-## Security & Encryption
-
-### Hot Wallet Seed Phrase Encryption
-To secure hot wallet secrets, BIP-39 seed phrases must be encrypted before being persisted. We use `aes-256-gcm` authenticated encryption:
-- **Key Derivation**: The encryption key is derived by hashing the `WALLET_MASTER_SECRET` via SHA-256 to ensure a secure 32-byte key.
-- **Initialization Vector**: A random 12-byte IV is generated for each encryption operation.
-- **Authentication**: A 16-byte authentication tag is generated and validated on decryption to ensure integrity and prevent tampering.
-
-### Key Rotation and Row Shape
-Future key rotation is supported without database schema changes by storing the encrypted details as a unified JSON object representing `EncryptedSeedPhrase`:
-```typescript
-interface EncryptedSeedPhrase {
-  ciphertext: string;
-  iv: string;
-  authTag: string;
-  keyVersion: string;
-  algorithm: "aes-256-gcm";
-}
-```
-This can be saved directly in a text or JSON/JSONB column. The `keyVersion` metadata determines which key version (e.g., `v1`, `v2`) was used for encryption, enabling seamless background rotation of legacy rows during decrypt-reencrypt operations.
-
+The wallet service validates its Stellar configuration during startup and
+exits with code 1 on misconfiguration (unknown `STELLAR_NETWORK`, blank
+`STELLAR_PASSPHRASE`, mismatched `STELLAR_NETWORK`/`STELLAR_PASSPHRASE`,
+custom passphrase without explicit URLs). The selected network name and the
+Soroban RPC URL are logged at startup; the passphrase itself is never
+logged.
