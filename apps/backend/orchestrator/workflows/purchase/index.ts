@@ -5,12 +5,12 @@
  * Callers can restore a crashed workflow with PurchaseWorkflowMachine.fromSnapshot().
  */
 
+import { randomUUID } from "node:crypto";
 import { PurchaseWorkflowMachine } from "../../state/index.js";
 import type {
   WorkflowSnapshot,
   TransitionHook,
 } from "../../state/index.js";
-import { generateId } from "@delego/utils";
 
 export interface PurchaseWorkflowInput {
   delegationId: string;
@@ -110,7 +110,7 @@ export function purchaseWorkflow(
   input: PurchaseWorkflowInput,
   onTransition?: TransitionHook
 ): PurchaseWorkflowHandle {
-  const workflowId = input.workflowId ?? generateId();
+  const workflowId = input.workflowId ?? randomUUID();
 
   const machine = new PurchaseWorkflowMachine(
     {

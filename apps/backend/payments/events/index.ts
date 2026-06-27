@@ -116,7 +116,8 @@ function getRedisClient(): RedisLike {
     // ioredis ships a CJS build; a bare `import` from NodeNext ESM would need
     // an explicit `.js` interop shim.  createRequire is the standard solution.
     const _require = createRequire(import.meta.url);
-    const { Redis } = _require("ioredis") as typeof import("ioredis");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { Redis } = _require("ioredis") as any;
     _redis = new Redis(
       process.env.REDIS_URL ?? "redis://localhost:6379"
     ) as unknown as RedisLike;
