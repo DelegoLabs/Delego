@@ -16,10 +16,27 @@ pub const CONTRACT_SEMVER: &str = "0_1_0";
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
 pub enum PermissionError {
+    /// No permission record found for this owner/delegate pair
     NotFound = 1,
+    /// Permission has expired
+    Expired = 2,
+    /// Amount exceeds per-transaction limit
+    ExceedsPerTxLimit = 3,
+    /// Amount exceeds remaining total allowance
+    ExceedsTotalLimit = 4,
+    /// Merchant is not in the allowed merchants list
+    MerchantNotAllowed = 5,
+    /// Caller is not authorized (not the owner)
+    Unauthorized = 6,
+    /// Invalid parameter (zero limit, etc.)
+    InvalidParam = 7,
+    /// Permission is currently paused
     PermissionPaused = 8,
+    /// Permission is already paused
     AlreadyPaused = 9,
+    /// Permission is already active
     AlreadyActive = 10,
 }
 
@@ -166,6 +183,12 @@ impl PermissionsContract {
     ) -> Result<(), PermissionError> {
         owner.require_auth();
 
+        // Reject nonsensical limits: per-tx must be positive and the total
+        // allowance must be at least one full per-tx spend.
+        if limit_per_tx <= 0 || limit_total < limit_per_tx {
+            return Err(PermissionError::InvalidParam);
+        }
+
         let expires_at_ledger = env.ledger().sequence() + ttl_ledgers;
 
         let record = PermissionRecord {
@@ -232,31 +255,31 @@ impl PermissionsContract {
         delegate: Address,
         amount: i128,
         merchant: Address,
-    ) -> Result<bool, PermissionError> {
+    ) -> Result<(), PermissionError> {
         let key = DataKey::Permission(owner.clone(), delegate.clone());
         let record: PermissionRecord = match env.storage().persistent().get(&key) {
             Some(r) => r,
             None => return Err(PermissionError::NotFound),
         };
 
-        if record.status == PermissionStatus::Paused {
-            return Err(PermissionError::PermissionPaused);
-        }
-        if record.status != PermissionStatus::Active {
-            return Ok(false);
+        match record.status {
+            PermissionStatus::Active => {}
+            PermissionStatus::Paused => return Err(PermissionError::PermissionPaused),
+            PermissionStatus::Expired => return Err(PermissionError::Expired),
+            PermissionStatus::Revoked => return Err(PermissionError::Unauthorized),
         }
 
         if env.ledger().sequence() >= record.expires_at_ledger {
-            return Ok(false);
+            return Err(PermissionError::Expired);
         }
 
         if amount > record.limit_per_tx {
-            return Ok(false);
+            return Err(PermissionError::ExceedsPerTxLimit);
         }
 
         let remaining = record.limit_total - record.spent;
         if amount > remaining {
-            return Ok(false);
+            return Err(PermissionError::ExceedsTotalLimit);
         }
 
         if record.allowed_merchants.len() > 0 {
@@ -268,11 +291,11 @@ impl PermissionsContract {
                 }
             }
             if !allowed {
-                return Ok(false);
+                return Err(PermissionError::MerchantNotAllowed);
             }
         }
 
-        Ok(true)
+        Ok(())
     }
 
     pub fn execute_spend(
@@ -284,17 +307,15 @@ impl PermissionsContract {
     ) -> Result<(), PermissionError> {
         delegate.require_auth();
 
-        match Self::can_spend(
+        // Propagate the precise reason (expired, over-limit, wrong merchant, …)
+        // to the caller instead of panicking with an opaque string.
+        Self::can_spend(
             env.clone(),
             owner.clone(),
             delegate.clone(),
             amount,
             merchant.clone(),
-        ) {
-            Ok(true) => {}
-            Ok(false) => panic!("Spend not authorized"),
-            Err(e) => return Err(e),
-        }
+        )?;
 
         let key = DataKey::Permission(owner.clone(), delegate.clone());
         let mut record: PermissionRecord = env.storage().persistent().get(&key).unwrap();

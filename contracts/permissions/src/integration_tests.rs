@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use crate::{PermissionsContract, PermissionsContractClient};
+use crate::{PermissionError, PermissionsContract, PermissionsContractClient};
 use soroban_sdk::{
     testutils::{Address as _, Events, Ledger},
     Address, Env, TryIntoVal, Vec,
@@ -72,18 +72,27 @@ fn test_grant_and_spend() {
         &ttl_ledgers,
     );
 
-    assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller));
+    assert_eq!(
+        client.try_can_spend(&t.buyer, &t.agent, &40, &t.seller),
+        Ok(Ok(()))
+    );
 
     client.execute_spend(&t.buyer, &t.agent, &40, &t.seller);
 
-    assert!(client.can_spend(&t.buyer, &t.agent, &40, &t.seller));
+    assert_eq!(
+        client.try_can_spend(&t.buyer, &t.agent, &40, &t.seller),
+        Ok(Ok(()))
+    );
     client.execute_spend(&t.buyer, &t.agent, &40, &t.seller);
 
-    assert!(!client.can_spend(&t.buyer, &t.agent, &30, &t.seller));
+    // Only 20 of the 100 total allowance remains, so a 30 spend is over the total limit.
+    assert_eq!(
+        client.try_can_spend(&t.buyer, &t.agent, &30, &t.seller),
+        Err(Ok(PermissionError::ExceedsTotalLimit))
+    );
 }
 
 #[test]
-#[should_panic(expected = "Spend not authorized")]
 fn test_spend_exceeds_per_tx_limit() {
     let t = TestEnv::setup();
     let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
@@ -102,11 +111,13 @@ fn test_spend_exceeds_per_tx_limit() {
         &ttl_ledgers,
     );
 
-    client.execute_spend(&t.buyer, &t.agent, &60, &t.seller);
+    assert_eq!(
+        client.try_execute_spend(&t.buyer, &t.agent, &60, &t.seller),
+        Err(Ok(PermissionError::ExceedsPerTxLimit))
+    );
 }
 
 #[test]
-#[should_panic(expected = "Spend not authorized")]
 fn test_spend_exceeds_total_limit() {
     let t = TestEnv::setup();
     let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
@@ -128,7 +139,10 @@ fn test_spend_exceeds_total_limit() {
     client.execute_spend(&t.buyer, &t.agent, &50, &t.seller);
     client.execute_spend(&t.buyer, &t.agent, &50, &t.seller);
 
-    client.execute_spend(&t.buyer, &t.agent, &1, &t.seller);
+    assert_eq!(
+        client.try_execute_spend(&t.buyer, &t.agent, &1, &t.seller),
+        Err(Ok(PermissionError::ExceedsTotalLimit))
+    );
 }
 
 #[test]
@@ -152,10 +166,16 @@ fn test_merchant_restriction() {
         &ttl_ledgers,
     );
 
-    assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+    assert_eq!(
+        client.try_can_spend(&t.buyer, &t.agent, &50, &t.seller),
+        Ok(Ok(()))
+    );
 
     let unauthorized_merchant = t.admin.clone();
-    assert!(!client.can_spend(&t.buyer, &t.agent, &50, &unauthorized_merchant));
+    assert_eq!(
+        client.try_can_spend(&t.buyer, &t.agent, &50, &unauthorized_merchant),
+        Err(Ok(PermissionError::MerchantNotAllowed))
+    );
 }
 
 #[test]
@@ -177,13 +197,19 @@ fn test_permission_expiry() {
         &ttl_ledgers,
     );
 
-    assert!(client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+    assert_eq!(
+        client.try_can_spend(&t.buyer, &t.agent, &50, &t.seller),
+        Ok(Ok(()))
+    );
 
     t.env
         .ledger()
         .set_sequence_number(t.env.ledger().sequence() + ttl_ledgers + 1);
 
-    assert!(!client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+    assert_eq!(
+        client.try_can_spend(&t.buyer, &t.agent, &50, &t.seller),
+        Err(Ok(PermissionError::Expired))
+    );
 }
 
 #[test]
@@ -207,7 +233,10 @@ fn test_revoke_prevents_spend() {
 
     client.revoke(&t.buyer, &t.agent);
 
-    assert!(!client.can_spend(&t.buyer, &t.agent, &50, &t.seller));
+    assert_eq!(
+        client.try_can_spend(&t.buyer, &t.agent, &50, &t.seller),
+        Err(Ok(PermissionError::Unauthorized))
+    );
 }
 
 #[test]
