@@ -1,9 +1,13 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { randomUUID } from "node:crypto";
 import { User } from "../models/User.js";
+import { RefreshToken } from "../models/index.js";
+import { Op } from "sequelize";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "change-me-in-production";
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN ?? "7d";
+const ACCESS_TOKEN_EXPIRES_IN = "15m";
+const REFRESH_TOKEN_EXPIRES_IN = "7d";
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
@@ -13,17 +17,126 @@ export async function comparePassword(password: string, hash: string): Promise<b
   return bcrypt.compare(password, hash);
 }
 
-export function generateToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN as any });
+export interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
 }
 
+interface RefreshTokenPayload {
+  tokenId: string;
+  familyId: string;
+  userId: string;
+  secret: string;
+}
 
-export function verifyToken(token: string): { userId: string } {
+function generateAccessToken(userId: string, email: string, roles: string[] = ["user"]): string {
+  return jwt.sign({ userId, email, roles }, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
+}
+
+async function generateRefreshToken(userId: string, familyId?: string): Promise<{ refreshToken: string; familyId: string; tokenId: string }> {
+  const tokenId = randomUUID();
+  const family = familyId ?? randomUUID();
+  const expiresInMs = 7 * 24 * 60 * 60 * 1000; // 7 days
+  const expiresAt = new Date(Date.now() + expiresInMs);
+  const secret = randomUUID();
+  const tokenHash = await bcrypt.hash(secret, 10);
+
+  await RefreshToken.create({
+    id: tokenId,
+    userId,
+    tokenHash,
+    familyId: family,
+    expiresAt,
+  });
+
+  const refreshToken = jwt.sign(
+    { tokenId, familyId: family, userId, secret },
+    JWT_SECRET,
+    { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
+  );
+
+  return { refreshToken, familyId: family, tokenId };
+}
+
+export async function generateTokens(userId: string, email: string, familyId?: string): Promise<TokenPair> {
+  const accessToken = generateAccessToken(userId, email);
+  const { refreshToken } = await generateRefreshToken(userId, familyId);
+  const expiresIn = 15 * 60; // 15 minutes in seconds
+  return { accessToken, refreshToken, expiresIn };
+}
+
+export function verifyToken(token: string): { userId: string; email?: string; roles?: string[] } {
   const decoded = jwt.verify(token, JWT_SECRET);
   if (typeof decoded === "object" && decoded !== null && "userId" in decoded) {
-    return decoded as { userId: string };
+    return decoded as { userId: string; email?: string; roles?: string[] };
   }
   throw new Error("Invalid token structure");
+}
+
+function verifyRefreshToken(token: string): RefreshTokenPayload {
+  const decoded = jwt.verify(token, JWT_SECRET);
+  if (
+    typeof decoded === "object" &&
+    decoded !== null &&
+    "tokenId" in decoded &&
+    "familyId" in decoded &&
+    "userId" in decoded &&
+    "secret" in decoded
+  ) {
+    return decoded as RefreshTokenPayload;
+  }
+  throw new Error("Invalid refresh token structure");
+}
+
+export async function revokeTokenFamily(familyId: string): Promise<void> {
+  await RefreshToken.update(
+    { revokedAt: new Date() },
+    { where: { familyId } }
+  );
+}
+
+export async function refreshAccessToken(rawRefreshToken: string): Promise<TokenPair> {
+  const decoded = verifyRefreshToken(rawRefreshToken);
+
+  const tokenRecord = await RefreshToken.findByPk(decoded.tokenId);
+  if (!tokenRecord) {
+    throw new Error("Invalid refresh token");
+  }
+
+  const isSecretValid = await bcrypt.compare(decoded.secret, tokenRecord.tokenHash);
+  if (!isSecretValid) {
+    throw new Error("Invalid refresh token");
+  }
+
+  if (tokenRecord.expiresAt < new Date()) {
+    throw new Error("Refresh token expired");
+  }
+
+  // Token reuse detected - revoke entire family
+  if (tokenRecord.revokedAt) {
+    await revokeTokenFamily(tokenRecord.familyId);
+    throw new Error("Token reuse detected");
+  }
+
+  // Revoke the used refresh token atomically
+  const [affectedCount] = await RefreshToken.update(
+    { revokedAt: new Date() },
+    { where: { id: decoded.tokenId, revokedAt: { [Op.is]: null } } }
+  );
+
+  if (affectedCount === 0) {
+    await revokeTokenFamily(tokenRecord.familyId);
+    throw new Error("Token reuse detected");
+  }
+
+  // Generate new token pair
+  const user = await User.findByPk(tokenRecord.userId);
+  return generateTokens(tokenRecord.userId, user?.email ?? "", tokenRecord.familyId);
+}
+
+export function generateToken(userId: string, email: string = ""): string {
+  return generateAccessToken(userId, email);
 }
 
 export interface RegisterResult {
@@ -32,7 +145,10 @@ export interface RegisterResult {
     email: string;
     displayName: string | null;
   };
-  token: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  token: string; // Backward compatibility
 }
 
 export async function registerUser(email: string, password: string, displayName?: string): Promise<RegisterResult> {
@@ -52,7 +168,7 @@ export async function registerUser(email: string, password: string, displayName?
     displayName: displayName ?? null,
   });
 
-  const token = generateToken(user.id);
+  const { accessToken, refreshToken, expiresIn } = await generateTokens(user.id, user.email);
 
   return {
     user: {
@@ -60,7 +176,10 @@ export async function registerUser(email: string, password: string, displayName?
       email: user.email,
       displayName: user.displayName,
     },
-    token,
+    accessToken,
+    refreshToken,
+    expiresIn,
+    token: accessToken, // Backward compatibility
   };
 }
 
@@ -71,7 +190,10 @@ export interface LoginResult {
     displayName: string | null;
     stellarAddress: string | null;
   };
-  token: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  token: string; // Backward compatibility
 }
 
 export async function loginUser(email: string, password: string): Promise<LoginResult> {
@@ -89,7 +211,7 @@ export async function loginUser(email: string, password: string): Promise<LoginR
     throw new Error("Invalid email or password");
   }
 
-  const token = generateToken(user.id);
+  const { accessToken, refreshToken, expiresIn } = await generateTokens(user.id, user.email);
 
   return {
     user: {
@@ -98,6 +220,9 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       displayName: user.displayName,
       stellarAddress: user.stellarAddress,
     },
-    token,
+    accessToken,
+    refreshToken,
+    expiresIn,
+    token: accessToken, // Backward compatibility
   };
 }

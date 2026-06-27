@@ -1,11 +1,11 @@
 import type { IncomingMessage } from "node:http";
-import { route, json, type Route } from "@delego/utils";
+import { route, json, isValidStellarPublicKey, validatePublicKeyMiddleware, type Route } from "@delego/utils";
 import { accountService } from "../stellar/account.js";
 import { transactionService } from "../transactions/index.js";
 import { vaultService } from "./vault.js";
 import type { StellarNetwork } from "@delego/types";
 import { Asset, Networks, Horizon, TransactionBuilder, Transaction } from "@stellar/stellar-sdk";
-import { getRedisConnection } from "./queue/txQueue.js";
+import { getRedisConnection, getJobStatus } from "./queue/txQueue.js";
 import { createLogger } from "@delego/utils";
 
 const log = createLogger("wallet:routes", process.env.LOG_LEVEL ?? "info");
@@ -79,6 +79,8 @@ async function readJsonBody<T>(req: IncomingMessage): Promise<T> {
 }
 
 export function registerRoutes(): Route[] {
+  const validateAddress = validatePublicKeyMiddleware("address");
+
   return [
     // Create new Stellar wallet (Master or Delegate keypair)
     route("POST", "/wallets/create", async (req, res) => {
@@ -99,6 +101,9 @@ export function registerRoutes(): Route[] {
     // Retrieve details for a specific wallet address
     route("GET", "/wallets/:address", async (_req, res, params) => {
       try {
+        await validateAddress(_req, res, params);
+        if (res.writableEnded) return;
+
         const address = params.address;
         if (!address) {
           throw new Error("Address parameter is required");
@@ -147,6 +152,9 @@ export function registerRoutes(): Route[] {
         if (!body.sourceAddress || !body.contractId || !body.method || !body.args) {
           throw new Error("Missing required transaction simulation parameters");
         }
+        if (!isValidStellarPublicKey(body.sourceAddress)) {
+          throw new Error("Malformed Stellar public key address");
+        }
 
         const simResult = await transactionService.simulate({
           sourceAddress: body.sourceAddress,
@@ -179,6 +187,9 @@ export function registerRoutes(): Route[] {
         if (!body.sourceAddress || !body.contractId || !body.method || !body.args) {
           throw new Error("Missing required transaction submission parameters");
         }
+        if (!isValidStellarPublicKey(body.sourceAddress)) {
+          throw new Error("Malformed Stellar public key address");
+        }
 
         const txResult = await transactionService.submit({
           sourceAddress: body.sourceAddress,
@@ -200,11 +211,15 @@ export function registerRoutes(): Route[] {
     // Get native XLM and token balances
     route("GET", "/api/v1/wallet/:address/balance", async (_req, res, params) => {
       try {
+        await validateAddress(_req, res, params);
+        if (res.writableEnded) return;
+
         const address = params.address;
-        if (!address || address.length !== 56 || !address.startsWith("G") || !/^G[A-Z2-7]{55}$/.test(address)) {
+
+        if (!isValidStellarPublicKey(address)) {
           json(res, 400, {
             data: null,
-            error: { code: "BAD_REQUEST", message: "Malformed Stellar public key address" }
+            error: { code: "BAD_REQUEST", message: "Invalid Stellar address format" },
           });
           return;
         }
@@ -314,17 +329,44 @@ export function registerRoutes(): Route[] {
       }
     }),
 
-    // Get recent transaction history
-    route("GET", "/api/v1/wallet/:address/transactions", async (req, res, params) => {
+    // Get queue job status by job ID
+    route("GET", "/api/v1/queue/jobs/:jobId", async (_req, res, params) => {
       try {
-        const address = params.address;
-        if (!address || address.length !== 56 || !address.startsWith("G") || !/^G[A-Z2-7]{55}$/.test(address)) {
+        const jobId = params.jobId;
+        if (!jobId) {
           json(res, 400, {
             data: null,
-            error: { code: "BAD_REQUEST", message: "Malformed Stellar public key address" }
+            error: { code: "BAD_REQUEST", message: "jobId parameter is required" },
           });
           return;
         }
+
+        const status = await getJobStatus(jobId);
+        if (!status) {
+          json(res, 404, {
+            data: null,
+            error: { code: "NOT_FOUND", message: `Job not found: ${jobId}` },
+          });
+          return;
+        }
+
+        json(res, 200, { data: status, error: null });
+      } catch (err: any) {
+        log.error("GET job status error", { error: err.message });
+        json(res, 500, {
+          data: null,
+          error: { code: "INTERNAL_ERROR", message: err.message },
+        });
+      }
+    }),
+
+    // Get recent transaction history
+    route("GET", "/api/v1/wallet/:address/transactions", async (req, res, params) => {
+      try {
+        await validateAddress(req, res, params);
+        if (res.writableEnded) return;
+
+        const address = params.address;
 
         const url = new URL(req.url ?? "", `http://${req.headers.host ?? "localhost"}`);
         const cursorParam = url.searchParams.get("cursor");

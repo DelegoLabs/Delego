@@ -1,4 +1,3 @@
-// commitlint.config.js
 const Configuration = {
   extends: ['@commitlint/config-conventional'],
   formatter: '@commitlint/format',

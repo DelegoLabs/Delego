@@ -11,6 +11,13 @@
     ]
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "email/**/*",
+    "push/**/*",
+    "templates/**/*"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.spec.ts"
   ]
 }

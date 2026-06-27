@@ -8,8 +8,9 @@ import {
   registerUser,
   loginUser,
 } from "../../../apps/backend/gateway/dist/src/auth/authService.js";
-import { extractAuth } from "../../../apps/backend/gateway/dist/middleware/auth.js";
+import { extractAuth, getAuthenticatedUserContext } from "../../../apps/backend/gateway/dist/middleware/auth.js";
 import { User } from "../../../apps/backend/gateway/dist/src/models/User.js";
+import { RefreshToken } from "../../../apps/backend/gateway/dist/src/models/RefreshToken.js";
 
 describe("Gateway Authentication System", () => {
   describe("Password Hashing (bcrypt)", () => {
@@ -84,9 +85,32 @@ describe("Gateway Authentication System", () => {
     });
   });
 
+  describe("Authenticated User Context (getAuthenticatedUserContext)", () => {
+    it("should populate a typed context with userId, email, and roles on success", () => {
+      const userId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+      const token = generateToken(userId, "user@delego.dev");
+      const mockReq = { headers: { authorization: `Bearer ${token}` } };
+
+      extractAuth(mockReq);
+      const context = getAuthenticatedUserContext(mockReq);
+
+      assert.deepEqual(context, { userId, email: "user@delego.dev", roles: ["user"] });
+    });
+
+    it("should leave the context unset when authentication fails", () => {
+      const mockReq = { headers: { authorization: "Bearer invalidjwt" } };
+
+      extractAuth(mockReq);
+
+      assert.equal(getAuthenticatedUserContext(mockReq), undefined);
+    });
+  });
+
   describe("Auth Service (register & login flow stubs)", () => {
     const originalFindOne = User.findOne;
     const originalCreate = User.create;
+    const originalRefreshTokenCreate = RefreshToken.create;
+    const originalRefreshTokenFindAll = RefreshToken.findAll;
 
     it("should register a user successfully if they do not exist", async () => {
       // Mock db methods
@@ -97,12 +121,16 @@ describe("Gateway Authentication System", () => {
         displayName: data.displayName || null,
         stellarAddress: null,
       });
+      RefreshToken.create = async () => ({});
 
       const result = await registerUser("test@delego.dev", "password123", "Test User");
 
       assert.equal(result.user.id, "mocked-user-id");
       assert.equal(result.user.email, "test@delego.dev");
       assert.ok(result.token);
+      assert.ok(result.accessToken);
+      assert.ok(result.refreshToken);
+      assert.equal(result.token, result.accessToken);
 
       const decoded = verifyToken(result.token);
       assert.equal(decoded.userId, "mocked-user-id");
@@ -110,6 +138,7 @@ describe("Gateway Authentication System", () => {
 
     it("should throw if registering an already existing email", async () => {
       User.findOne = async () => ({ id: "existing-id" });
+      RefreshToken.create = async () => ({});
 
       await assert.rejects(
         registerUser("test@delego.dev", "password123"),
@@ -126,12 +155,16 @@ describe("Gateway Authentication System", () => {
         displayName: "Test User",
         stellarAddress: null,
       });
+      RefreshToken.create = async () => ({});
 
       const result = await loginUser("test@delego.dev", "password123");
 
       assert.equal(result.user.id, "mocked-user-id");
       assert.equal(result.user.email, "test@delego.dev");
       assert.ok(result.token);
+      assert.ok(result.accessToken);
+      assert.ok(result.refreshToken);
+      assert.equal(result.token, result.accessToken);
     });
 
     it("should throw if logging in with invalid password", async () => {
@@ -141,6 +174,7 @@ describe("Gateway Authentication System", () => {
         email: "test@delego.dev",
         passwordHash: mockPasswordHash,
       });
+      RefreshToken.create = async () => ({});
 
       await assert.rejects(
         loginUser("test@delego.dev", "wrong-password"),
@@ -151,5 +185,7 @@ describe("Gateway Authentication System", () => {
     // Cleanup stubs
     User.findOne = originalFindOne;
     User.create = originalCreate;
+    RefreshToken.create = originalRefreshTokenCreate;
+    RefreshToken.findAll = originalRefreshTokenFindAll;
   });
 });

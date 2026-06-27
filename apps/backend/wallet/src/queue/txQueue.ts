@@ -24,6 +24,20 @@ let txQueue: Queue | null = null;
 let txWorker: Worker | null = null;
 let queueEvents: QueueEvents | null = null;
 
+export interface TransactionJobStatus {
+  jobId: string;
+  status: "queued" | "processing" | "submitted" | "failed";
+  txHash?: string;
+  error?: string;
+}
+
+export interface LedgerSubmissionCheck {
+  txHash: string;
+  status: "confirmed" | "missing" | "failed";
+  ledger?: number;
+  checkedAt: string;
+}
+
 const QUEUE_NAME = "stellar-tx-queue";
 
 function getStellarConfig() {
@@ -267,6 +281,11 @@ async function executeTxJob(
       retries--;
     }
 
+    const isConfirmed = await verifyLedgerSubmission(txHash);
+    if (isConfirmed) {
+      log.info("Transaction confirmed on ledger despite polling timeout", { txHash });
+      return { hash: txHash, ledger: 0, success: true };
+    }
     throw new Error(`Transaction timeout or status untracked: ${sendRes.status}`);
   } catch (err: any) {
     log.error("Transaction error in worker", { error: err.message });
@@ -334,6 +353,21 @@ async function runTestJob(request: TransactionRequest, connection: Redis): Promi
   testPromiseChain = resultPromise.then(() => {}).catch(() => {});
 
   return resultPromise;
+}
+
+async function verifyLedgerSubmission(hash: string): Promise<boolean> {
+  const { horizonUrl } = getStellarConfig();
+  const horizonServer = new Horizon.Server(horizonUrl);
+
+  try {
+    await horizonServer.transactions().transaction(hash).call();
+    return true;
+  } catch (err: any) {
+    if (err?.response?.status === 404) {
+      return false;
+    }
+    return false;
+  }
 }
 
 export function initQueue() {
@@ -471,6 +505,54 @@ export async function addTransactionToQueue(request: TransactionRequest): Promis
     qEvents.on("completed", onCompleted);
     qEvents.on("failed", onFailed);
   });
+}
+
+export async function getJobStatus(jobId: string): Promise<TransactionJobStatus | null> {
+  const { txQueue: queue } = initQueue();
+  if (!queue) {
+    return null;
+  }
+
+  const job = await queue.getJob(jobId);
+  if (!job) {
+    return null;
+  }
+
+  const state = await job.getState();
+  let status: TransactionJobStatus["status"];
+
+  if (state === "waiting" || state === "delayed" || state === "waiting-children") {
+    status = "queued";
+  } else if (state === "active") {
+    status = "processing";
+  } else if (state === "completed") {
+    status = "submitted";
+  } else if (state === "failed") {
+    status = "failed";
+  } else {
+    // unknown or any future BullMQ state — treat as queued rather than failed
+    status = "queued";
+  }
+
+  const result: TransactionJobStatus = { jobId, status };
+
+  if (state === "completed" && job.returnvalue) {
+    try {
+      const rv =
+        typeof job.returnvalue === "string"
+          ? (JSON.parse(job.returnvalue) as { hash?: string })
+          : (job.returnvalue as { hash?: string });
+      if (rv.hash) result.txHash = rv.hash;
+    } catch {
+      // returnvalue not parseable — leave txHash unset
+    }
+  }
+
+  if (state === "failed" && job.failedReason) {
+    result.error = job.failedReason;
+  }
+
+  return result;
 }
 
 export async function closeQueue() {

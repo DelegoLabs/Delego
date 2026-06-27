@@ -16,6 +16,8 @@
   "dependencies": {
     "@delego/types": "workspace:*",
     "@delego/utils": "workspace:*",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "bcryptjs": "^3.0.3",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
@@ -34,4 +36,3 @@
     "typescript": "^5.7.0"
   }
 }
-

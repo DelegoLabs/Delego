@@ -1,4 +1,4 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 
 export type RouteHandler = (
   req: IncomingMessage,
@@ -66,7 +66,7 @@ export function json(
   res.end(JSON.stringify(body));
 }
 
-export function startHttpServer(options: HttpServerOptions): void {
+export function startHttpServer(options: HttpServerOptions): Server {
   const { port, host = "0.0.0.0", serviceName, version = "0.0.1", routes = [] } =
     options;
 
@@ -140,5 +140,7 @@ export function startHttpServer(options: HttpServerOptions): void {
     // eslint-disable-next-line no-console
     console.log(`[${serviceName}] listening on ${host}:${port}`);
   });
+
+  return server;
 }
 
