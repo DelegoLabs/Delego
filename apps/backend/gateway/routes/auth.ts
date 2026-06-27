@@ -11,6 +11,7 @@ import {
   InvalidJsonError,
   BodyTooLargeError,
 } from "../src/request.js";
+import { badRequest, sendApiError, unauthorized } from "../src/errors.js";
 
 export const authDependencies = {
   registerUser: authService.registerUser,
@@ -60,14 +61,7 @@ export async function registerHandler(
     const body = await readJsonBody(req);
     const validation = validateSchema(RegisterSchema, body);
     if (!validation.valid) {
-      json(res, 400, {
-        data: null,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid request body",
-          details: validation.errors,
-        },
-      });
+      badRequest(res, "Invalid request body", req, validation.errors);
       return;
     }
 
@@ -87,15 +81,9 @@ export async function registerHandler(
     });
   } catch (err: any) {
     if (err instanceof InvalidJsonError || err instanceof BodyTooLargeError) {
-      json(res, 400, {
-        data: null,
-        error: { code: "VALIDATION_ERROR", message: err.message },
-      });
+      badRequest(res, err.message, req);
     } else {
-      json(res, 400, {
-        data: null,
-        error: { code: "BAD_REQUEST", message: err.message },
-      });
+      sendApiError(res, 400, "BAD_REQUEST", err.message, req);
     }
   }
 }
@@ -108,14 +96,7 @@ export async function loginHandler(
     const body = await readJsonBody(req);
     const validation = validateSchema(LoginSchema, body);
     if (!validation.valid) {
-      json(res, 400, {
-        data: null,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid request body",
-          details: validation.errors,
-        },
-      });
+      badRequest(res, "Invalid request body", req, validation.errors);
       return;
     }
 
@@ -131,15 +112,9 @@ export async function loginHandler(
     });
   } catch (err: any) {
     if (err instanceof InvalidJsonError || err instanceof BodyTooLargeError) {
-      json(res, 400, {
-        data: null,
-        error: { code: "VALIDATION_ERROR", message: err.message },
-      });
+      badRequest(res, err.message, req);
     } else {
-      json(res, 401, {
-        data: null,
-        error: { code: "UNAUTHORIZED", message: err.message },
-      });
+      unauthorized(res, err.message, req);
     }
   }
 }
@@ -153,10 +128,7 @@ export async function refreshHandler(
     const refreshToken = cookies.refresh_token;
 
     if (!refreshToken) {
-      json(res, 401, {
-        data: null,
-        error: { code: "UNAUTHORIZED", message: "Refresh token missing" },
-      });
+      unauthorized(res, "Refresh token missing", req);
       return;
     }
 
