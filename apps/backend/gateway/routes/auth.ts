@@ -3,6 +3,7 @@ import { json } from "@delego/utils";
 import { registerUser, loginUser, refreshAccessToken } from "../src/auth/authService.js";
 import { validateSchema, RegisterSchema, LoginSchema } from "../src/validation.js";
 import { readJsonBody, InvalidJsonError, BodyTooLargeError } from "../src/request.js";
+import { badRequest, sendApiError, unauthorized } from "../src/errors.js";
 
 function parseCookies(req: IncomingMessage): Record<string, string> {
   const list: Record<string, string> = {};
@@ -40,10 +41,7 @@ export async function registerHandler(req: IncomingMessage, res: ServerResponse)
     const body = await readJsonBody(req);
     const validation = validateSchema(RegisterSchema, body);
     if (!validation.valid) {
-      json(res, 400, {
-        data: null,
-        error: { code: "VALIDATION_ERROR", message: "Invalid request body", details: validation.errors },
-      });
+      badRequest(res, "Invalid request body", req, validation.errors);
       return;
     }
 
@@ -59,15 +57,9 @@ export async function registerHandler(req: IncomingMessage, res: ServerResponse)
     });
   } catch (err: any) {
     if (err instanceof InvalidJsonError || err instanceof BodyTooLargeError) {
-      json(res, 400, {
-        data: null,
-        error: { code: "VALIDATION_ERROR", message: err.message },
-      });
+      badRequest(res, err.message, req);
     } else {
-      json(res, 400, {
-        data: null,
-        error: { code: "BAD_REQUEST", message: err.message },
-      });
+      sendApiError(res, 400, "BAD_REQUEST", err.message, req);
     }
   }
 }
@@ -77,10 +69,7 @@ export async function loginHandler(req: IncomingMessage, res: ServerResponse): P
     const body = await readJsonBody(req);
     const validation = validateSchema(LoginSchema, body);
     if (!validation.valid) {
-      json(res, 400, {
-        data: null,
-        error: { code: "VALIDATION_ERROR", message: "Invalid request body", details: validation.errors },
-      });
+      badRequest(res, "Invalid request body", req, validation.errors);
       return;
     }
 
@@ -96,15 +85,9 @@ export async function loginHandler(req: IncomingMessage, res: ServerResponse): P
     });
   } catch (err: any) {
     if (err instanceof InvalidJsonError || err instanceof BodyTooLargeError) {
-      json(res, 400, {
-        data: null,
-        error: { code: "VALIDATION_ERROR", message: err.message },
-      });
+      badRequest(res, err.message, req);
     } else {
-      json(res, 401, {
-        data: null,
-        error: { code: "UNAUTHORIZED", message: err.message },
-      });
+      unauthorized(res, err.message, req);
     }
   }
 }
@@ -115,10 +98,7 @@ export async function refreshHandler(req: IncomingMessage, res: ServerResponse):
     const refreshToken = cookies.refresh_token;
 
     if (!refreshToken) {
-      json(res, 401, {
-        data: null,
-        error: { code: "UNAUTHORIZED", message: "Refresh token missing" },
-      });
+      unauthorized(res, "Refresh token missing", req);
       return;
     }
 
@@ -132,9 +112,6 @@ export async function refreshHandler(req: IncomingMessage, res: ServerResponse):
       error: null,
     });
   } catch (err: any) {
-    json(res, 401, {
-      data: null,
-      error: { code: "UNAUTHORIZED", message: err.message },
-    });
+    unauthorized(res, err.message, req);
   }
 }

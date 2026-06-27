@@ -122,6 +122,9 @@ importers:
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
+      pg:
+        specifier: ^8.11.0
+        version: 8.21.0
       web-push:
         specifier: ^3.6.7
         version: 3.6.7
@@ -135,6 +138,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.21
+      '@types/pg':
+        specifier: ^8.11.0
+        version: 8.20.0
       '@types/web-push':
         specifier: ^3.6.4
         version: 3.6.4
@@ -159,6 +165,15 @@ importers:
       '@delego/utils':
         specifier: workspace:*
         version: link:../../../packages/utils
+      pg:
+        specifier: ^8.21.0
+        version: 8.21.0
+      pg-hstore:
+        specifier: ^2.3.4
+        version: 2.3.4
+      sequelize:
+        specifier: ^6.37.8
+        version: 6.37.8(pg-hstore@2.3.4)(pg@8.21.0)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -181,6 +196,9 @@ importers:
       '@delego/utils':
         specifier: workspace:*
         version: link:../../../packages/utils
+      ioredis:
+        specifier: ^5.11.1
+        version: 5.11.1
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -312,6 +330,10 @@ importers:
         version: 5.9.3
 
   packages/utils:
+    dependencies:
+      '@stellar/stellar-sdk':
+        specifier: ^15.1.0
+        version: 15.1.0
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -1152,6 +1174,9 @@ packages:
 
   '@types/node@25.9.3':
     resolution: {integrity: sha512-603BddQMv3pUcr4U2dhujk83N2tTDVr/34wII2B6bJy6g+8WD6yUb11jszNs0gdi4PesVWl7ABt8nYMVpnLUcg==}
+
+  '@types/pg@8.20.0':
+    resolution: {integrity: sha512-bEPFOaMAHTEP1EzpvHTbmwR8UsFyHSKsRisLIHVMXnpNefSbGA1bD6CVy+qKjGSqmZqNqBDV2azOBo8TgkcVow==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -2793,6 +2818,12 @@ snapshots:
   '@types/node@25.9.3':
     dependencies:
       undici-types: 7.24.6
+
+  '@types/pg@8.20.0':
+    dependencies:
+      '@types/node': 25.9.3
+      pg-protocol: 1.14.0
+      pg-types: 2.2.0
 
   '@types/react-dom@19.2.3(@types/react@19.2.17)':
     dependencies:

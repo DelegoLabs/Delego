@@ -49,4 +49,10 @@ export interface WorkflowSnapshot {
   currentState: PurchaseState;
   context: PurchaseContext;
   history: StateTransitionRecord[];
+  version: number;
+}
+
+export interface SnapshotValidationResult {
+  valid: boolean;
+  errors: string[];
 }

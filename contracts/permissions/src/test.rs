@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-    use crate::{PermissionsContract, PermissionsContractClient};
+    use crate::{PermissionError, PermissionsContract, PermissionsContractClient};
     use soroban_sdk::{
         testutils::{Address as _, Events},
         Address, Env, TryIntoVal, Vec,
@@ -20,8 +20,11 @@ mod test {
         let mut merchants = Vec::new(&env);
         merchants.push_back(merchant.clone());
 
-        client.grant(&owner, &delegate, &100, &1000, &merchants, &10000);
-        assert!(client.can_spend(&owner, &delegate, &50, &merchant));
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+        assert_eq!(
+            client.try_can_spend(&owner, &delegate, &50, &merchant),
+            Ok(Ok(()))
+        );
     }
 
     #[test]
@@ -39,8 +42,11 @@ mod test {
         let mut merchants = Vec::new(&env);
         merchants.push_back(allowed_merchant.clone());
 
-        client.grant(&owner, &delegate, &100, &1000, &merchants, &10000);
-        assert!(!client.can_spend(&owner, &delegate, &50, &other_merchant));
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+        assert_eq!(
+            client.try_can_spend(&owner, &delegate, &50, &other_merchant),
+            Err(Ok(PermissionError::MerchantNotAllowed))
+        );
     }
 
     #[test]
@@ -59,7 +65,51 @@ mod test {
         merchants.push_back(merchant.clone());
 
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
-        assert!(client.can_spend(&owner, &delegate, &50, &merchant));
+        assert_eq!(
+            client.try_can_spend(&owner, &delegate, &50, &merchant),
+            Ok(Ok(()))
+        );
+    }
+
+    #[test]
+    fn test_grant_rejects_invalid_params() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::new(&env);
+
+        // Zero per-tx limit is invalid.
+        assert_eq!(
+            client.try_grant(&owner, &delegate, &1000, &0, &merchants, &10000),
+            Err(Ok(PermissionError::InvalidParam))
+        );
+
+        // Total smaller than a single per-tx spend is invalid.
+        assert_eq!(
+            client.try_grant(&owner, &delegate, &100, &1000, &merchants, &10000),
+            Err(Ok(PermissionError::InvalidParam))
+        );
+    }
+
+    #[test]
+    fn test_revoke_not_found() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        assert_eq!(
+            client.try_revoke(&owner, &delegate),
+            Err(Ok(PermissionError::NotFound))
+        );
     }
 
     #[test]
@@ -77,7 +127,10 @@ mod test {
         let merchants = Vec::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         client.revoke(&owner, &delegate);
-        assert!(!client.can_spend(&owner, &delegate, &50, &merchant));
+        assert_eq!(
+            client.try_can_spend(&owner, &delegate, &50, &merchant),
+            Err(Ok(PermissionError::Unauthorized))
+        );
     }
 
     #[test]
@@ -241,7 +294,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "Spend not authorized")]
     fn test_spend_event_not_emitted_on_rejection() {
         let env = Env::default();
         env.mock_all_auths();
@@ -254,8 +306,26 @@ mod test {
 
         let merchants = Vec::new(&env);
         client.grant(&owner, &delegate, &50, &50, &merchants, &10000);
-        // Exceeds total limit — panics before event is emitted.
-        client.execute_spend(&owner, &delegate, &51, &merchant);
+
+        // Exceeds the per-tx limit — returns a typed error before any event is emitted.
+        let res = client.try_execute_spend(&owner, &delegate, &51, &merchant);
+        assert_eq!(res, Err(Ok(PermissionError::ExceedsPerTxLimit)));
+
+        // No spend event should have been published.
+        let events = env.events().all();
+        for event in events.iter() {
+            let (contract, topics, _value) = event;
+            if contract != contract_id || topics.len() != 2 {
+                continue;
+            }
+            let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+            let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
+            assert!(
+                !(t0 == soroban_sdk::symbol_short!("perm")
+                    && t1 == soroban_sdk::symbol_short!("spent")),
+                "PermissionSpendEvent must not be emitted on rejection"
+            );
+        }
     }
 
     // --- Issue #103: version getter tests ---
@@ -290,12 +360,17 @@ mod test {
 
         let merchants = Vec::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
-        assert!(client.can_spend(&owner, &delegate, &50, &merchant));
+        assert_eq!(
+            client.try_can_spend(&owner, &delegate, &50, &merchant),
+            Ok(Ok(()))
+        );
 
         client.pause(&owner, &delegate);
 
-        let res = client.try_can_spend(&owner, &delegate, &50, &merchant);
-        assert!(res.is_err()); // PermissionPaused is an error
+        assert_eq!(
+            client.try_can_spend(&owner, &delegate, &50, &merchant),
+            Err(Ok(PermissionError::PermissionPaused))
+        );
     }
 
     #[test]
@@ -336,11 +411,16 @@ mod test {
 
         client.pause(&owner, &delegate);
 
-        let res = client.try_can_spend(&owner, &delegate, &50, &merchant);
-        assert!(res.is_err());
+        assert_eq!(
+            client.try_can_spend(&owner, &delegate, &50, &merchant),
+            Err(Ok(PermissionError::PermissionPaused))
+        );
 
         client.resume(&owner, &delegate);
-        assert!(client.can_spend(&owner, &delegate, &50, &merchant));
+        assert_eq!(
+            client.try_can_spend(&owner, &delegate, &50, &merchant),
+            Ok(Ok(()))
+        );
 
         let perm = client.get_permission(&owner, &delegate);
         assert_eq!(perm.status, crate::PermissionStatus::Active);
