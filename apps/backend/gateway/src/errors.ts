@@ -99,6 +99,15 @@ export function rateLimited(
   sendApiError(res, 429, "RATE_LIMIT_EXCEEDED", message, req);
 }
 
+export function payloadTooLarge(
+  res: ServerResponse,
+  message: string,
+  req?: IncomingMessage,
+  details?: unknown
+): void {
+  sendApiError(res, 413, "PAYLOAD_TOO_LARGE", message, req, { details });
+}
+
 export function internalError(
   res: ServerResponse,
   message: string,

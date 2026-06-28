@@ -11,6 +11,94 @@ import type {
 } from "../escrow/types.js";
 
 // ---------------------------------------------------------------------------
+// Issue #202 – Merchant Address Consistency Check
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of comparing the merchant address in an escrow request against the
+ * merchant stored on the order. Both addresses are normalized (trimmed) before
+ * comparison; callers should invoke {@link validateMerchantConsistency} to
+ * reject mismatches before wallet submission.
+ */
+export interface MerchantConsistencyCheck {
+  orderId: string;
+  expectedMerchant: string;
+  requestedMerchant: string;
+  matches: boolean;
+}
+
+/**
+ * Normalize a Stellar merchant address for equality comparison.
+ * Trims surrounding whitespace; canonical casing is preserved.
+ */
+function normalizeMerchantAddress(address: string): string {
+  return address.trim();
+}
+
+/**
+ * Compare escrow-request merchant address against the order's stored merchant.
+ * Does not reject — use {@link validateMerchantConsistency} as the route guard.
+ */
+export function checkMerchantConsistency(
+  orderId: string,
+  expectedMerchant: string,
+  requestedMerchant: string
+): MerchantConsistencyCheck {
+  const normalizedExpected = normalizeMerchantAddress(expectedMerchant);
+  const normalizedRequested = normalizeMerchantAddress(requestedMerchant);
+
+  return {
+    orderId: orderId.trim(),
+    expectedMerchant: normalizedExpected,
+    requestedMerchant: normalizedRequested,
+    matches: normalizedExpected === normalizedRequested,
+  };
+}
+
+/**
+ * Reject escrow funding when the requested merchant address does not match
+ * the merchant stored for the order. Call after request-body validation and
+ * before any wallet or contract client is invoked.
+ *
+ * @example
+ * const consistency = validateMerchantConsistency(
+ *   fundRequest.orderId,
+ *   order.merchantAddress,
+ *   fundRequest.merchantAddress
+ * );
+ * if (!consistency.ok) {
+ *   sendValidationError(res, consistency.error);
+ *   return;
+ * }
+ */
+export function validateMerchantConsistency(
+  orderId: string,
+  expectedMerchant: string,
+  requestedMerchant: string
+): ValidationResult<MerchantConsistencyCheck> {
+  const check = checkMerchantConsistency(orderId, expectedMerchant, requestedMerchant);
+
+  if (!check.matches) {
+    return {
+      ok: false,
+      error: {
+        code: "MERCHANT_ADDRESS_MISMATCH",
+        message:
+          "Merchant address in escrow request does not match the merchant stored for the order",
+        details: {
+          orderId: check.orderId,
+          expectedMerchant: check.expectedMerchant,
+          requestedMerchant: check.requestedMerchant,
+          field: "merchantAddress",
+        },
+      },
+    };
+  }
+
+  return { ok: true, value: check };
+}
+
+// ---------------------------------------------------------------------------
 // Issue #203 – Escrow Release Request Schema
 // ---------------------------------------------------------------------------
 

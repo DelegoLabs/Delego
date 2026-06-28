@@ -46,3 +46,28 @@ Health check endpoint: `GET http://localhost:3000/health`
 - `degraded`: One or more dependencies are unhealthy
 
 The endpoint always returns HTTP 200, even when degraded, to distinguish between endpoint unavailability and service degradation.
+
+## API v1 JSON Body Size Limit
+
+`bodyLimitMiddleware` in `routes/api-v1.ts` rejects oversized JSON payloads on `/api/v1` routes before handlers run.
+
+| Setting | Default | Environment variable |
+|---|---|---|
+| `jsonLimit` | `100kb` | `GATEWAY_API_V1_JSON_BODY_LIMIT` |
+| `routePrefix` | `/api/v1` | (fixed) |
+
+Oversized bodies receive HTTP **413** with the standard error envelope:
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "PAYLOAD_TOO_LARGE",
+    "message": "JSON body exceeds limit of 100kb",
+    "details": { "limit": "100kb", "maxBytes": 102400 }
+  },
+  "meta": { "requestId": "...", "timestamp": "..." }
+}
+```
+
+The limit is checked via `Content-Length` when present and by streaming byte count otherwise. Invalid limit strings fall back to `100kb`.

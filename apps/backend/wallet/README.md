@@ -12,15 +12,31 @@ Health check: `GET http://localhost:3012/health`
 
 ## Public Key Validation
 
-This service uses `@delego/utils` to validate Stellar public keys at route boundaries.
+This service uses `@delego/utils` to validate Stellar public keys at route boundaries, and
+`normalizeStellarAddress` in `src/normalizeStellarAddress.ts` before account lookups and persistence.
 
 | Export | Purpose |
 |---|---|
 | `validatePublicKey(key)` | Returns `{ valid, normalized?, error? }` — trims whitespace, rejects secret seeds (`S...`), validates Ed25519 public key (`G...`) |
 | `isValidStellarPublicKey(key)` | Boolean shorthand for `validatePublicKey(key).valid` |
 | `validatePublicKeyMiddleware(paramName)` | Express middleware that validates a route param and responds with HTTP 400 on failure |
+| `normalizeStellarAddress(input)` | Returns `{ original, normalized, valid }` — trims whitespace, rejects secret seeds and malformed StrKey values per SDK behavior; used by `stellar/account.ts` before Horizon and vault lookups |
 
 Malformed keys and secret keys are rejected before processing.
+
+## Transaction Submission Retry Classification
+
+`classifySubmissionFailure` in `src/queue/submissionFailure.ts` (re-exported from `txQueue.ts`) maps thrown submission errors to a `SubmissionFailure` before BullMQ requeues jobs:
+
+| Field | Purpose |
+|---|---|
+| `code` | Stable failure code (e.g. `TX_RPC_TRANSIENT`, `TX_MALFORMED_XDR`) |
+| `message` | Original error message |
+| `retryable` | `true` for network/RPC faults, sequence conflicts, and poll timeouts; `false` for malformed XDR, auth failures, simulation, and on-chain execution errors |
+| `txHash` | Optional hash when known at failure time |
+
+Retryable failures are rethrown as standard errors so BullMQ applies backoff. Terminal failures throw `UnrecoverableError` to stop retries immediately.
+
 ## Security & Encryption
 
 ### Hot Wallet Seed Phrase Encryption

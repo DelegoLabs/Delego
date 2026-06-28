@@ -10,6 +10,7 @@ import {
   updateDelegationHandler,
   revokeDelegationHandler,
 } from "./delegations.js";
+import { getWalletHandler } from "./wallets.js";
 
 /** Register all gateway routes */
 export function registerRoutes(): Route[] {
@@ -24,6 +25,7 @@ export function registerRoutes(): Route[] {
     route("GET", "/api/v1/delegations/:id", getDelegationHandler),
     route("PATCH", "/api/v1/delegations/:id", updateDelegationHandler),
     route("DELETE", "/api/v1/delegations/:id", revokeDelegationHandler),
+    route("GET", "/api/v1/wallets/:walletId", getWalletHandler),
   ];
 }
 

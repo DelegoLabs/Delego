@@ -38,6 +38,8 @@ pub enum PermissionError {
     AlreadyPaused = 9,
     /// Permission is already active
     AlreadyActive = 10,
+    /// New grants are globally paused by admin
+    GrantsPaused = 11,
 }
 
 #[contracttype]
@@ -160,11 +162,40 @@ pub struct PermissionResumedEvent {
     pub resumed_by: Address,
 }
 
+/// Global pause state for new permission grants (issue #186).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionPauseState {
+    pub grants_paused: bool,
+    pub updated_at_ledger: u32,
+}
+
+/// Emitted when the global grant pause state changes (issue #186).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct GrantPauseChangedEvent {
+    pub grants_paused: bool,
+    pub changed_by: Address,
+    pub ledger: u32,
+}
+
+/// Emitted when an allowance decrease is successfully applied (issue #189).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct AllowanceDecreasedEvent {
+    pub owner: Address,
+    pub delegate: Address,
+    pub old_limit: i128,
+    pub new_limit: i128,
+}
+
 #[contracttype]
 pub enum DataKey {
     Permission(Address, Address),
     PendingDecrement(Address, Address),
     PauseMetadata(Address, Address),
+    Admin,
+    GrantPauseState,
 }
 
 #[contract]
@@ -182,6 +213,17 @@ impl PermissionsContract {
         ttl_ledgers: u32,
     ) -> Result<(), PermissionError> {
         owner.require_auth();
+
+        // Issue #186: block new grants when globally paused
+        if let Some(state) = env
+            .storage()
+            .instance()
+            .get::<DataKey, PermissionPauseState>(&DataKey::GrantPauseState)
+        {
+            if state.grants_paused {
+                return Err(PermissionError::GrantsPaused);
+            }
+        }
 
         // Reject nonsensical limits: per-tx must be positive and the total
         // allowance must be at least one full per-tx spend.
@@ -423,9 +465,20 @@ impl PermissionsContract {
         env.events().publish(
             (symbol_short!("perm"), symbol_short!("dec_allow")),
             DecrementExecutedEvent {
+                owner: owner.clone(),
+                delegate: delegate.clone(),
+                previous_limit,
+                new_limit,
+            },
+        );
+
+        // Issue #189: emit AllowanceDecreasedEvent on successful decrease execution
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("allowdec")),
+            AllowanceDecreasedEvent {
                 owner,
                 delegate,
-                previous_limit,
+                old_limit: previous_limit,
                 new_limit,
             },
         );
@@ -488,6 +541,88 @@ impl PermissionsContract {
         );
 
         Ok(())
+    }
+
+    // ── Issue #186: Admin pause for new permission grants ──────────────────
+
+    /// Set the admin address. Can only be called once (first call wins).
+    pub fn set_admin(env: Env, admin: Address) {
+        admin.require_auth();
+        if env.storage().instance().has(&DataKey::Admin) {
+            panic!("Admin already set");
+        }
+        env.storage().instance().set(&DataKey::Admin, &admin);
+    }
+
+    /// Pause new grant creation. Admin-only.
+    pub fn pause_grants(env: Env, admin: Address) -> Result<(), PermissionError> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+        if admin != stored_admin {
+            return Err(PermissionError::Unauthorized);
+        }
+
+        let state = PermissionPauseState {
+            grants_paused: true,
+            updated_at_ledger: env.ledger().sequence(),
+        };
+        env.storage().instance().set(&DataKey::GrantPauseState, &state);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("gpaused")),
+            GrantPauseChangedEvent {
+                grants_paused: true,
+                changed_by: admin,
+                ledger: state.updated_at_ledger,
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Unpause new grant creation. Admin-only.
+    pub fn unpause_grants(env: Env, admin: Address) -> Result<(), PermissionError> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+        if admin != stored_admin {
+            return Err(PermissionError::Unauthorized);
+        }
+
+        let state = PermissionPauseState {
+            grants_paused: false,
+            updated_at_ledger: env.ledger().sequence(),
+        };
+        env.storage().instance().set(&DataKey::GrantPauseState, &state);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("gpaused")),
+            GrantPauseChangedEvent {
+                grants_paused: false,
+                changed_by: admin,
+                ledger: state.updated_at_ledger,
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Read the current grant pause state.
+    pub fn get_grant_pause_state(env: Env) -> PermissionPauseState {
+        env.storage()
+            .instance()
+            .get(&DataKey::GrantPauseState)
+            .unwrap_or(PermissionPauseState {
+                grants_paused: false,
+                updated_at_ledger: 0,
+            })
     }
 
     /// Returns the stored pause metadata, or panics if the permission is not currently paused.

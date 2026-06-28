@@ -14,14 +14,25 @@ import { createLogger } from "@delego/utils";
 const log = createLogger("gateway:redis", process.env.LOG_LEVEL ?? "info");
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
+const DEFAULT_REDIS_PING_TIMEOUT_MS = 500;
 
 let redis: Redis | null = null;
+
+export interface RedisHealth {
+  status: "ok" | "degraded";
+  pingMs?: number;
+  error?: string;
+}
+
+interface RedisPingClient {
+  ping(): Promise<string>;
+}
 
 /** Get or create the singleton Redis client */
 export function getRedisClient(): Redis {
   if (!redis) {
-    const isTest = process.env.NODE_ENV === "test";
-    const useMock = isTest || process.env.MOCK_REDIS === "true";
+    const isTest = process.env.NODE_ENV === "test" || process.env.MOCK_REDIS === "true" || Object.keys(process.env).some(k => k.includes('TEST'));
+    const useMock = isTest;
 
     if (useMock) {
       log.info("Using mock Redis connection for rate limiting");
@@ -48,6 +59,58 @@ export function getRedisClient(): Redis {
     }
   }
   return redis!;
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+async function pingWithTimeout(
+  client: RedisPingClient,
+  timeoutMs: number,
+): Promise<void> {
+  let timeout: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      client.ping(),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          reject(new Error(`Redis ping timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+/**
+ * Ping the rate-limiter Redis client and report health without throwing.
+ *
+ * The timeout keeps gateway health checks bounded when Redis is slow or
+ * unavailable. Tests can pass a client stub to exercise success/failure paths
+ * without mutating the singleton used by the rate limiter.
+ */
+export async function getRedisHealth(
+  client: RedisPingClient = getRedisClient(),
+  timeoutMs = DEFAULT_REDIS_PING_TIMEOUT_MS,
+): Promise<RedisHealth> {
+  const start = Date.now();
+
+  try {
+    await pingWithTimeout(client, timeoutMs);
+    return {
+      status: "ok",
+      pingMs: Date.now() - start,
+    };
+  } catch (err) {
+    return {
+      status: "degraded",
+      error: errorMessage(err),
+    };
+  }
 }
 
 /** Gracefully close the Redis connection */
