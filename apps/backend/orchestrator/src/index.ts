@@ -2,7 +2,6 @@
  * @delego/orchestrator — Workflow coordination
  */
 import { createLogger, json, route, startHttpServer } from "@delego/utils";
-import { restorePurchaseWorkflow } from "../workflows/purchase/index.js";
 import {
   checkoutWorkflow,
   createCheckoutSagaCoordinator,
@@ -179,8 +178,7 @@ export { RedisPublisher } from "./pubsub/index.js";
 export type { PublishResult, RedisClient } from "./pubsub/index.js";
 
 export { purchaseWorkflow, restorePurchaseWorkflow } from "../workflows/purchase/index.js";
-export { checkoutWorkflow, restorePurchaseWorkflow };
-export { purchaseWorkflow } from "../workflows/purchase/index.js";
+export { checkoutWorkflow } from "../workflows/checkout/index.js";
 export { publishWorkflowEvent, createWorkflowCorrelationId } from "./workflow-events.js";
 export type { WorkflowEventEnvelope } from "./workflow-events.js";
 export { PurchaseWorkflowMachine } from "../state/index.js";
