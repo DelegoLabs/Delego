@@ -21,6 +21,27 @@ This service uses `@delego/utils` to validate Stellar public keys at route bound
 | `validatePublicKeyMiddleware(paramName)` | Express middleware that validates a route param and responds with HTTP 400 on failure |
 
 Malformed keys and secret keys are rejected before processing.
+
+## Soroban RPC Configuration
+
+Soroban RPC timeouts and retries are configured via environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `SOROBAN_RPC_URL` | `https://soroban-testnet.stellar.org` | Soroban RPC endpoint |
+| `SOROBAN_RPC_TIMEOUT_MS` | `30000` | Timeout for RPC requests in milliseconds |
+| `SOROBAN_RPC_MAX_RETRIES` | `3` | Maximum retry attempts for failed RPC calls |
+
+The `SorobanRpcConfig` interface is exported from `sorobanSimulator.ts`:
+
+```typescript
+export interface SorobanRpcConfig {
+  rpcUrl: string;
+  timeoutMs: number;
+  maxRetries: number;
+}
+```
+
 ## Security & Encryption
 
 ### Hot Wallet Seed Phrase Encryption

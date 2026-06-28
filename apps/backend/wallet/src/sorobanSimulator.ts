@@ -7,6 +7,23 @@ import {
 
 type SimulateTransactionResponse = SorobanRpc.Api.SimulateTransactionResponse;
 
+export interface SorobanRpcConfig {
+  rpcUrl: string;
+  timeoutMs: number;
+  maxRetries: number;
+}
+
+const DEFAULT_RPC_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_RETRIES = 3;
+
+export function readSorobanRpcConfig(): SorobanRpcConfig {
+  return {
+    rpcUrl: process.env.SOROBAN_RPC_URL ?? "https://soroban-testnet.stellar.org",
+    timeoutMs: Number(process.env.SOROBAN_RPC_TIMEOUT_MS ?? DEFAULT_RPC_TIMEOUT_MS),
+    maxRetries: Number(process.env.SOROBAN_RPC_MAX_RETRIES ?? DEFAULT_MAX_RETRIES),
+  };
+}
+
 export interface SimulationResult {
   success: boolean;
   minResourceFee?: string;
@@ -45,9 +62,13 @@ export function mapSimulationResult(
 
 export class SorobanTransactionSimulator {
   private rpcServer: SorobanRpc.Server;
+  public readonly config: SorobanRpcConfig;
 
-  constructor(rpcUrl: string) {
-    this.rpcServer = new SorobanRpc.Server(rpcUrl);
+  constructor(config: SorobanRpcConfig) {
+    this.config = config;
+    this.rpcServer = new SorobanRpc.Server(config.rpcUrl, {
+      timeout: config.timeoutMs,
+    });
   }
 
   public async simulateTransaction(
