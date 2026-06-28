@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SorobanTransactionSimulator, readSorobanRpcConfig } from "./sorobanSimulator.js";
 
 const mockSimulateTransaction = vi.fn();
@@ -21,6 +21,10 @@ describe("readSorobanRpcConfig", () => {
     vi.stubEnv("SOROBAN_RPC_URL", "");
     vi.stubEnv("SOROBAN_RPC_TIMEOUT_MS", "");
     vi.stubEnv("SOROBAN_RPC_MAX_RETRIES", "");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("returns defaults when no env vars are set", () => {
@@ -50,6 +54,49 @@ describe("readSorobanRpcConfig", () => {
     expect(config.maxRetries).toBe(2);
     expect(typeof config.timeoutMs).toBe("number");
     expect(typeof config.maxRetries).toBe("number");
+  });
+
+  it("treats blank SOROBAN_RPC_URL as unset and uses default", () => {
+    vi.stubEnv("SOROBAN_RPC_URL", "   ");
+
+    const config = readSorobanRpcConfig();
+    expect(config.rpcUrl).toBe("https://soroban-testnet.stellar.org");
+  });
+
+  it("treats blank timeout string as unset and uses default", () => {
+    vi.stubEnv("SOROBAN_RPC_TIMEOUT_MS", "");
+
+    const config = readSorobanRpcConfig();
+    expect(config.timeoutMs).toBe(30_000);
+  });
+
+  it("treats malformed timeout string as unset and uses default", () => {
+    vi.stubEnv("SOROBAN_RPC_TIMEOUT_MS", "abc");
+
+    const config = readSorobanRpcConfig();
+    expect(config.timeoutMs).toBe(30_000);
+  });
+
+  it("treats negative timeout as unset and uses default", () => {
+    vi.stubEnv("SOROBAN_RPC_TIMEOUT_MS", "-5000");
+
+    const config = readSorobanRpcConfig();
+    expect(config.timeoutMs).toBe(30_000);
+  });
+
+  it("treats malformed maxRetries as unset and uses default", () => {
+    vi.stubEnv("SOROBAN_RPC_MAX_RETRIES", "not-a-number");
+
+    const config = readSorobanRpcConfig();
+    expect(config.maxRetries).toBe(3);
+  });
+
+  it("accepts zero for maxRetries", () => {
+    vi.stubEnv("SOROBAN_RPC_URL", "https://zero-retry.example.com");
+    vi.stubEnv("SOROBAN_RPC_MAX_RETRIES", "0");
+
+    const config = readSorobanRpcConfig();
+    expect(config.maxRetries).toBe(0);
   });
 });
 
@@ -101,7 +148,7 @@ describe("SorobanTransactionSimulator", () => {
     const simulator = new SorobanTransactionSimulator({
       rpcUrl: "https://rpc.example.com",
       timeoutMs: 100,
-      maxRetries: 3,
+      maxRetries: 0,
     });
 
     const fakeTx = {} as any;
@@ -119,12 +166,62 @@ describe("SorobanTransactionSimulator", () => {
     const simulator = new SorobanTransactionSimulator({
       rpcUrl: "https://rpc.example.com",
       timeoutMs: 5000,
-      maxRetries: 3,
+      maxRetries: 0,
     });
 
     const fakeTx = {} as any;
     server.simulateTransaction.mockRejectedValue(new Error("network error"));
 
     await expect(simulator.simulateTransaction(fakeTx)).rejects.toThrow("network error");
+  });
+
+  it("simulateTransaction retries on transient failure and succeeds", async () => {
+    const server = makeServerInstance();
+    const simulator = new SorobanTransactionSimulator({
+      rpcUrl: "https://rpc.example.com",
+      timeoutMs: 5000,
+      maxRetries: 3,
+    });
+
+    const fakeTx = {} as any;
+    const successResponse = { success: true, minResourceFee: "100" };
+    server.simulateTransaction
+      .mockRejectedValueOnce(new Error("timeout"))
+      .mockRejectedValueOnce(new Error("network error"))
+      .mockResolvedValueOnce(successResponse);
+
+    const result = await simulator.simulateTransaction(fakeTx);
+    expect(result).toEqual(successResponse);
+    expect(server.simulateTransaction).toHaveBeenCalledTimes(3);
+  });
+
+  it("simulateTransaction retries up to maxRetries and then rejects", async () => {
+    const server = makeServerInstance();
+    const simulator = new SorobanTransactionSimulator({
+      rpcUrl: "https://rpc.example.com",
+      timeoutMs: 5000,
+      maxRetries: 2,
+    });
+
+    const fakeTx = {} as any;
+    server.simulateTransaction.mockRejectedValue(new Error("persistent timeout"));
+
+    await expect(simulator.simulateTransaction(fakeTx)).rejects.toThrow("persistent timeout");
+    expect(server.simulateTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it("simulateTransaction respects maxRetries of 1 (no retry)", async () => {
+    const server = makeServerInstance();
+    const simulator = new SorobanTransactionSimulator({
+      rpcUrl: "https://rpc.example.com",
+      timeoutMs: 5000,
+      maxRetries: 1,
+    });
+
+    const fakeTx = {} as any;
+    server.simulateTransaction.mockRejectedValue(new Error("no retry"));
+
+    await expect(simulator.simulateTransaction(fakeTx)).rejects.toThrow("no retry");
+    expect(server.simulateTransaction).toHaveBeenCalledTimes(1);
   });
 });
