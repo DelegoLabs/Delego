@@ -9,6 +9,7 @@ import {
   dispatchTransactionApproval,
 } from "./dispatcher.js";
 import { getVapidPublicKey } from "../push/index.js";
+import { startEscrowEventListener } from "./escrowListener.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 const SERVICE_NAME = "notifications";
@@ -125,3 +126,11 @@ const server = startHttpServer({
 });
 
 initWebSocketServer(server);
+
+const escrowContractId = process.env.ESCROW_CONTRACT_ID;
+const rpcUrl = process.env.SOROBAN_RPC_URL;
+if (escrowContractId && rpcUrl) {
+  startEscrowEventListener(rpcUrl, escrowContractId);
+} else {
+  log.warn("Escrow listener not started: ESCROW_CONTRACT_ID or SOROBAN_RPC_URL missing");
+}
