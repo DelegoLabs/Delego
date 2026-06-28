@@ -1,6 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { json } from "@delego/utils";
-import { generateId } from "@delego/utils";
+import { json, generateId } from "@delego/utils";
 import { getRequestContext } from "../middleware/requestId.js";
 
 /** Issue #109 — Standard API error envelope with request metadata. */
@@ -27,7 +26,7 @@ function resolveRequestId(req?: IncomingMessage, override?: string): string {
 export function buildApiErrorBody(
   code: string,
   message: string,
-  options: ApiErrorOptions = {}
+  options: ApiErrorOptions = {},
 ): ApiErrorBody {
   return {
     data: null,
@@ -49,7 +48,7 @@ export function sendApiError(
   code: string,
   message: string,
   req?: IncomingMessage,
-  options: Omit<ApiErrorOptions, "requestId"> = {}
+  options: Omit<ApiErrorOptions, "requestId"> = {},
 ): void {
   const body = buildApiErrorBody(code, message, {
     ...options,
@@ -62,7 +61,7 @@ export function badRequest(
   res: ServerResponse,
   message: string,
   req?: IncomingMessage,
-  details?: unknown
+  details?: unknown,
 ): void {
   sendApiError(res, 400, "VALIDATION_ERROR", message, req, { details });
 }
@@ -70,7 +69,7 @@ export function badRequest(
 export function unauthorized(
   res: ServerResponse,
   message: string,
-  req?: IncomingMessage
+  req?: IncomingMessage,
 ): void {
   sendApiError(res, 401, "UNAUTHORIZED", message, req);
 }
@@ -78,7 +77,7 @@ export function unauthorized(
 export function forbidden(
   res: ServerResponse,
   message: string,
-  req?: IncomingMessage
+  req?: IncomingMessage,
 ): void {
   sendApiError(res, 403, "FORBIDDEN", message, req);
 }
@@ -86,7 +85,7 @@ export function forbidden(
 export function notFound(
   res: ServerResponse,
   message: string,
-  req?: IncomingMessage
+  req?: IncomingMessage,
 ): void {
   sendApiError(res, 404, "NOT_FOUND", message, req);
 }
@@ -94,7 +93,7 @@ export function notFound(
 export function rateLimited(
   res: ServerResponse,
   message: string,
-  req?: IncomingMessage
+  req?: IncomingMessage,
 ): void {
   sendApiError(res, 429, "RATE_LIMIT_EXCEEDED", message, req);
 }
@@ -102,7 +101,7 @@ export function rateLimited(
 export function internalError(
   res: ServerResponse,
   message: string,
-  req?: IncomingMessage
+  req?: IncomingMessage,
 ): void {
   sendApiError(res, 500, "INTERNAL_ERROR", message, req);
 }
