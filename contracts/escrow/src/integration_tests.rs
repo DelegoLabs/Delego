@@ -2,10 +2,10 @@
 
 use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus};
 use soroban_sdk::{
+    symbol_short,
     testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
     Address, BytesN, Env, IntoVal,
 };
-
 struct TestEnv {
     env: Env,
     admin: Address,
@@ -221,7 +221,11 @@ fn test_dispute_resolution_to_seller() {
 
     let escrow_id = deposit_escrow(&t, 1000, 100);
 
-    assert!(escrow_client.dispute(&escrow_id, &t.buyer));
+    assert!(escrow_client.dispute(
+    &escrow_id,
+    &t.buyer,
+    &symbol_short!("fraud"),
+));
     assert!(escrow_client.resolve_dispute(&escrow_id, &t.admin, &true));
 
     assert_eq!(token_client.balance(&t.seller), 1000);
@@ -239,7 +243,11 @@ fn test_dispute_resolution_to_buyer() {
 
     let escrow_id = deposit_escrow(&t, 1000, 100);
 
-    assert!(escrow_client.dispute(&escrow_id, &t.seller));
+    assert!(escrow_client.dispute(
+    &escrow_id,
+    &t.seller,
+    &symbol_short!("fraud"),
+));
     assert!(escrow_client.resolve_dispute(&escrow_id, &t.admin, &false));
 
     assert_eq!(token_client.balance(&t.seller), 0);
@@ -255,7 +263,11 @@ fn test_dispute_blocks_release_and_refund() {
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
 
     let escrow_id = deposit_escrow(&t, 1000, 100);
-    assert!(escrow_client.dispute(&escrow_id, &t.buyer));
+    assert!(escrow_client.dispute(
+    &escrow_id,
+    &t.buyer,
+    &symbol_short!("fraud"),
+));
 
     assert_eq!(
         escrow_client.try_release(&escrow_id, &t.buyer),
@@ -382,4 +394,42 @@ fn test_get_escrow_returns_full_record() {
     assert_eq!(record.status, EscrowStatus::Funded);
     assert_eq!(record.order_id, t.order_id());
     assert!(record.timeout_ledger > t.env.ledger().sequence());
+}
+
+
+#[test]
+fn test_dispute_emits_event() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert!(escrow_client.dispute(
+        &escrow_id,
+        &t.buyer,
+        &symbol_short!("fraud"),
+    ));
+
+    let events = t.env.events().all();
+
+    assert_eq!(events.len(), 1);
+}
+
+#[test]
+fn test_dispute_after_release_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    escrow_client.release(&escrow_id, &t.buyer);
+
+    assert_eq!(
+        escrow_client.try_dispute(
+            &escrow_id,
+            &t.buyer,
+            &symbol_short!("fraud"),
+        ),
+        Err(Ok(EscrowError::InvalidStatus))
+    );
 }
