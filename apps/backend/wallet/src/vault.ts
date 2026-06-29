@@ -13,7 +13,10 @@ const ITERATIONS = 10000;
 
 export class VaultService {
   private masterSecret: string;
-  private vaultData: Record<string, { iv: string; tag: string; encryptedData: string; salt: string }> = {};
+  private vaultData: Record<
+    string,
+    { iv: string; tag: string; encryptedData: string; salt: string; keyVersion: string }
+  > = {};
 
   constructor() {
     this.masterSecret = process.env.WALLET_MASTER_SECRET ?? "default-dev-wallet-master-secret-key-32-chars";
@@ -83,6 +86,7 @@ export class VaultService {
       tag,
       encryptedData: encrypted,
       salt: salt.toString("hex"),
+      keyVersion: getActiveKeyVersion(),
     };
 
     await this.saveVault();
@@ -119,6 +123,103 @@ export class VaultService {
 
 export const vaultService = new VaultService();
 
+/** Issue #198 — Metadata for signing key rotation audits. */
+export interface SigningKeyVersion {
+  walletId: string;
+  keyVersion: string;
+  activeFrom: string;
+  rotatedAt?: string;
+}
+
+export interface InsertSigningKeyVersionInput {
+  walletId: string;
+  keyVersion: string;
+  activeFrom?: string;
+  rotatedAt?: string;
+}
+
+export interface SigningKeyVersionStore {
+  insert(input: InsertSigningKeyVersionInput): Promise<SigningKeyVersion>;
+  listByWallet(walletId: string): Promise<SigningKeyVersion[]>;
+}
+
+class InMemorySigningKeyVersionStore implements SigningKeyVersionStore {
+  private readonly rows: SigningKeyVersion[] = [];
+
+  async insert(input: InsertSigningKeyVersionInput): Promise<SigningKeyVersion> {
+    const record: SigningKeyVersion = {
+      walletId: input.walletId,
+      keyVersion: input.keyVersion,
+      activeFrom: input.activeFrom ?? new Date().toISOString(),
+      ...(input.rotatedAt ? { rotatedAt: input.rotatedAt } : {}),
+    };
+    this.rows.push(record);
+    return record;
+  }
+
+  async listByWallet(walletId: string): Promise<SigningKeyVersion[]> {
+    return this.rows.filter((row) => row.walletId === walletId);
+  }
+
+  clear(): void {
+    this.rows.length = 0;
+  }
+}
+
+let signingKeyVersionStore: SigningKeyVersionStore = new InMemorySigningKeyVersionStore();
+
+/** Swap for a Postgres implementation backed by signing_key_versions. */
+export function setSigningKeyVersionStore(store: SigningKeyVersionStore): void {
+  signingKeyVersionStore = store;
+}
+
+export function resetSigningKeyVersionStore(): void {
+  signingKeyVersionStore = new InMemorySigningKeyVersionStore();
+}
+
+/**
+ * Persists key-version metadata when encrypting wallet seeds.
+ * Backed by `signing_key_versions` (see database/migrations/007_signing_key_versions.sql).
+ */
+export async function recordSigningKeyVersion(
+  input: InsertSigningKeyVersionInput
+): Promise<SigningKeyVersion> {
+  if (!input.walletId || input.walletId.trim() === "") {
+    throw new Error("walletId is required");
+  }
+  if (!input.keyVersion || input.keyVersion.trim() === "") {
+    throw new Error("keyVersion is required");
+  }
+
+  return signingKeyVersionStore.insert(input);
+}
+
+export async function listSigningKeyVersions(walletId: string): Promise<SigningKeyVersion[]> {
+  return signingKeyVersionStore.listByWallet(walletId);
+}
+
+export function getActiveKeyVersion(): string {
+  return process.env.WALLET_ACTIVE_KEY_VERSION?.trim() || "v1";
+}
+
+export function getMasterKeyForVersion(keyVersion: string): string {
+  const normalized = keyVersion.trim();
+  if (!normalized) {
+    throw new Error("keyVersion is required");
+  }
+
+  const envKey = process.env[`WALLET_MASTER_SECRET_${normalized.toUpperCase()}`];
+  if (envKey && envKey.trim() !== "") {
+    return envKey;
+  }
+
+  if (normalized === getActiveKeyVersion() || normalized === "v1") {
+    return process.env.WALLET_MASTER_SECRET ?? "default-dev-wallet-master-secret-key-32-chars";
+  }
+
+  throw new Error(`Unknown signing key version: ${normalized}`);
+}
+
 export interface EncryptedSeedPhrase {
   ciphertext: string;
   iv: string;
@@ -129,16 +230,20 @@ export interface EncryptedSeedPhrase {
 
 export function encryptSeedPhrase(
   plainText: string,
-  masterKey: string
+  masterKey?: string,
+  keyVersion?: string
 ): EncryptedSeedPhrase {
   if (!plainText) {
     throw new Error("Plaintext cannot be empty");
   }
-  if (!masterKey) {
+
+  const resolvedVersion = keyVersion?.trim() || getActiveKeyVersion();
+  const resolvedMasterKey = masterKey ?? getMasterKeyForVersion(resolvedVersion);
+  if (!resolvedMasterKey) {
     throw new Error("Master key cannot be empty");
   }
 
-  const key = crypto.createHash("sha256").update(masterKey).digest();
+  const key = crypto.createHash("sha256").update(resolvedMasterKey).digest();
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
 
@@ -150,7 +255,7 @@ export function encryptSeedPhrase(
     ciphertext: encrypted,
     iv: iv.toString("hex"),
     authTag: tag,
-    keyVersion: "v1",
+    keyVersion: resolvedVersion,
     algorithm: "aes-256-gcm",
   };
 }
@@ -159,25 +264,56 @@ export function decryptSeedPhrase(
   ciphertext: string,
   iv: string,
   authTag: string,
-  masterKey: string
+  masterKey?: string,
+  keyVersion?: string
+): string;
+export function decryptSeedPhrase(encrypted: EncryptedSeedPhrase, masterKey?: string): string;
+export function decryptSeedPhrase(
+  ciphertextOrEncrypted: string | EncryptedSeedPhrase,
+  ivOrMasterKey?: string,
+  authTag?: string,
+  masterKey?: string,
+  keyVersion?: string
 ): string {
+  let ciphertext: string;
+  let iv: string;
+  let tag: string;
+  let resolvedKeyVersion: string;
+  let resolvedMasterKey: string | undefined;
+
+  if (typeof ciphertextOrEncrypted === "object") {
+    ciphertext = ciphertextOrEncrypted.ciphertext;
+    iv = ciphertextOrEncrypted.iv;
+    tag = ciphertextOrEncrypted.authTag;
+    resolvedKeyVersion = ciphertextOrEncrypted.keyVersion;
+    resolvedMasterKey = ivOrMasterKey;
+  } else {
+    ciphertext = ciphertextOrEncrypted;
+    iv = ivOrMasterKey ?? "";
+    tag = authTag ?? "";
+    resolvedKeyVersion = keyVersion ?? getActiveKeyVersion();
+    resolvedMasterKey = masterKey;
+  }
+
   if (!ciphertext) {
     throw new Error("Ciphertext cannot be empty");
   }
   if (!iv) {
     throw new Error("IV cannot be empty");
   }
-  if (!authTag) {
+  if (!tag) {
     throw new Error("Tag cannot be empty");
   }
-  if (!masterKey) {
+
+  const effectiveMasterKey = resolvedMasterKey ?? getMasterKeyForVersion(resolvedKeyVersion);
+  if (!effectiveMasterKey) {
     throw new Error("Master key cannot be empty");
   }
 
   try {
-    const key = crypto.createHash("sha256").update(masterKey).digest();
+    const key = crypto.createHash("sha256").update(effectiveMasterKey).digest();
     const ivBuffer = Buffer.from(iv, "hex");
-    const tagBuffer = Buffer.from(authTag, "hex");
+    const tagBuffer = Buffer.from(tag, "hex");
 
     if (ivBuffer.length !== 12) {
       throw new Error("Invalid IV length for AES-256-GCM (expected 12 bytes)");
@@ -196,5 +332,18 @@ export function decryptSeedPhrase(
   } catch (err: any) {
     throw new Error(`Decryption failed: ${err.message}`);
   }
+}
+
+export async function encryptAndRecordSeedPhrase(
+  walletId: string,
+  plainText: string,
+  keyVersion?: string
+): Promise<EncryptedSeedPhrase> {
+  const encrypted = encryptSeedPhrase(plainText, undefined, keyVersion);
+  await recordSigningKeyVersion({
+    walletId,
+    keyVersion: encrypted.keyVersion,
+  });
+  return encrypted;
 }
 
