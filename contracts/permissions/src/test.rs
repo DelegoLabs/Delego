@@ -496,7 +496,7 @@ mod test {
         let admin = Address::generate(&env);
         let owner = Address::generate(&env);
         let delegate = Address::generate(&env);
-        let merchants = Vec::new(&env);
+        let merchants = Vec::<Address>::new(&env);
 
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
@@ -842,7 +842,7 @@ mod test {
         );
 
         // get_receipt reads only the Permission key.
-        let receipt = client.get_receipt(&owner, &delegate).unwrap();
+        let receipt = client.get_receipt(&owner, &delegate);
         assert_eq!(receipt.limit, 1000, "Receipt must read from Permission key");
     }
 
@@ -869,7 +869,7 @@ mod test {
         );
 
         // And the a→b slot must still hold the right data.
-        let receipt = client.get_receipt(&a, &b).unwrap();
+        let receipt = client.get_receipt(&a, &b);
         assert_eq!(receipt.limit, 500, "a→b grant must be unaffected by b→a absence");
     }
 
@@ -920,7 +920,7 @@ mod test {
         let client = PermissionsContractClient::new(&env, &contract_id);
 
         client.set_admin(&admin);
-        client.set_allow_self_delegation(&admin, &true).unwrap();
+        client.set_allow_self_delegation(&admin, &true);
 
         let result = client.try_grant(&owner, &owner, &1000, &100, &merchants, &10000);
         assert!(
@@ -969,7 +969,7 @@ mod test {
         let client = PermissionsContractClient::new(&env, &contract_id);
 
         client.grant(&owner, &delegate, &500, &100, &merchants, &1000);
-        let receipt = client.get_receipt(&owner, &delegate).unwrap();
+        let receipt = client.get_receipt(&owner, &delegate);
 
         assert_eq!(receipt.owner, owner);
         assert_eq!(receipt.delegate, delegate);
@@ -990,7 +990,7 @@ mod test {
 
         client.grant(&owner, &delegate, &500, &100, &merchants, &1000);
         client.revoke(&owner, &delegate);
-        let receipt = client.get_receipt(&owner, &delegate).unwrap();
+        let receipt = client.get_receipt(&owner, &delegate);
 
         assert!(!receipt.active, "Revoked permission should not be active");
     }
@@ -1015,7 +1015,7 @@ mod test {
             li.sequence_number += 20;
         });
 
-        let receipt = client.get_receipt(&owner, &delegate).unwrap();
+        let receipt = client.get_receipt(&owner, &delegate);
         assert!(
             !receipt.active,
             "Receipt.active must be false after the TTL ledger has passed"
