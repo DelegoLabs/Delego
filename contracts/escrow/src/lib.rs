@@ -95,6 +95,29 @@ pub struct AdminTransferCancelledEvent {
 }
 
 #[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowPauseChangedEvent {
+    pub paused: bool,
+    pub admin: Address,
+    pub ledger: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowPauseState {
+    pub create_paused: bool,
+    pub updated_by: Address,
+    pub updated_at_ledger: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowTokenView {
+    pub escrow_id: u64,
+    pub token: Address,
+}
+
+#[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FeeConfig {
     /// Fee in basis points (e.g., 250 = 2.5%)
@@ -137,6 +160,7 @@ pub enum DataKey {
     DisputeVotes(u64),
     TokenWhitelist,
     TokenEnabled(Address),
+    PauseState,
 }
 
 #[contracterror]
@@ -189,6 +213,8 @@ pub enum EscrowError {
     QuorumConfigNotSet = 24,
     /// Conflicting quorum outcomes
     ConflictingQuorum = 25,
+    /// New escrow creation is currently paused by admin
+    CreationPaused = 26,
 }
 
 /// Refund eligibility result returned by `get_refund_eligibility` (issue #173).
@@ -566,6 +592,16 @@ impl EscrowContract {
         timeout_ledgers: u32,
     ) -> Result<u64, EscrowError> {
         buyer.require_auth();
+
+        if let Some(pause_state) = env
+            .storage()
+            .instance()
+            .get::<DataKey, EscrowPauseState>(&DataKey::PauseState)
+        {
+            if pause_state.create_paused {
+                return Err(EscrowError::CreationPaused);
+            }
+        }
 
         if !Self::is_token_allowed(env.clone(), token.clone()) {
             return Err(EscrowError::TokenNotWhitelisted);
@@ -988,6 +1024,58 @@ impl EscrowContract {
             .instance()
             .set(&DataKey::AdminList, &admin_list);
         Ok(true)
+    }
+
+    /// Set or clear the admin pause flag for new escrow creation. Admin-only.
+    pub fn set_create_paused(
+        env: Env,
+        admin: Address,
+        paused: bool,
+    ) -> Result<bool, EscrowError> {
+        admin.require_auth();
+        if !Self::is_admin(env.clone(), admin.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+        let pause_state = EscrowPauseState {
+            create_paused: paused,
+            updated_by: admin.clone(),
+            updated_at_ledger: env.ledger().sequence(),
+        };
+        env.storage()
+            .instance()
+            .set(&DataKey::PauseState, &pause_state);
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("paused")),
+            EscrowPauseChangedEvent {
+                paused,
+                admin,
+                ledger: env.ledger().sequence(),
+            },
+        );
+        Ok(true)
+    }
+
+    /// Get the current escrow creation pause state.
+    pub fn get_create_paused(env: Env) -> bool {
+        env.storage()
+            .instance()
+            .get::<DataKey, EscrowPauseState>(&DataKey::PauseState)
+            .map(|s| s.create_paused)
+            .unwrap_or(false)
+    }
+
+    /// Get the token address associated with an escrow.
+    pub fn get_token(env: Env, escrow_id: u64) -> Result<EscrowTokenView, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+        Ok(EscrowTokenView {
+            escrow_id,
+            token: record.token,
+        })
     }
 
     /// Returns true if the address is the primary admin or a co-admin.
