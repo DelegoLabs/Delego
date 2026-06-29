@@ -48,3 +48,17 @@ executed steps across services when a downstream step fails:
 - `GET /sagas/:sagaId` — current saga status and completed steps.
 - `POST /sagas/:sagaId/resume` — manually resume a saga stuck in `running` or
   `compensating` (e.g. after a downstream outage is fixed).
+
+## Reliable event publishing (Issue #216)
+
+`src/events/service-event-outbox.ts` provides `insertServiceEventOutbox()` for writing
+rows to `service_event_outbox` before publishing critical Redis events. Publishers should
+insert in the same DB transaction as the domain mutation; a relay worker polls `pending`
+rows and publishes to Redis, then marks them `published`.
+
+## Idempotent workers (Issue #217)
+
+`src/messaging/processed-messages.ts` provides `checkAndMarkProcessed(messageId, consumer)`
+for Redis and contract-derived event consumers. Returns `true` on first delivery and
+`false` on duplicate message ids. Backed by `processed_messages`
+(`database/migrations/006_processed_messages.sql`).

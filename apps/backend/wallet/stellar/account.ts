@@ -2,6 +2,7 @@ import { Keypair, Horizon } from "@stellar/stellar-sdk";
 import type { WalletAccount, StellarNetwork } from "@delego/types";
 import { vaultService } from "../src/vault.js";
 import { createLogger } from "@delego/utils";
+import { normalizeStellarAddress } from "../src/normalizeStellarAddress.js";
 
 const log = createLogger("wallet:stellar:account", process.env.LOG_LEVEL ?? "info");
 
@@ -22,11 +23,16 @@ function getHorizonUrl(network: StellarNetwork): string {
 
 export const accountService: AccountService = {
   async getAccount(address: string): Promise<WalletAccount | null> {
+    const { original, normalized, valid } = normalizeStellarAddress(address);
+    if (!valid) {
+      throw new Error("Invalid Stellar public key address");
+    }
+
     // For now, let's check if we manage this account in our vault.
     try {
       const publicKeys = await vaultService.listPublicKeys();
-      if (!publicKeys.includes(address)) {
-        log.warn("Account requested is not managed in local vault", { address });
+      if (!publicKeys.includes(normalized)) {
+        log.warn("Account requested is not managed in local vault", { address: normalized, original });
       }
 
       // Check if it exists on-chain via Horizon
@@ -35,17 +41,17 @@ export const accountService: AccountService = {
       const server = new Horizon.Server(horizonUrl);
       
       try {
-        await server.loadAccount(address);
-        return { address, network };
+        await server.loadAccount(normalized);
+        return { address: normalized, network };
       } catch (err: any) {
         if (err.response?.status === 404) {
-          log.warn("Account not found on-chain", { address });
+          log.warn("Account not found on-chain", { address: normalized });
           return null;
         }
         throw err;
       }
     } catch (err: any) {
-      log.error("Failed to get account details", { address, error: err.message });
+      log.error("Failed to get account details", { address: normalized, error: err.message });
       throw err;
     }
   },

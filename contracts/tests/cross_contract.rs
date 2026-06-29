@@ -90,7 +90,6 @@ fn test_permission_checked_before_escrow_fund_fails_without_permission() {
 }
 
 #[test]
-#[should_panic(expected = "Spend not authorized")]
 fn test_permission_checked_before_escrow_fund_fails_exceeding_limit() {
     let t = TestEnv::setup();
     let perm_client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
@@ -110,7 +109,10 @@ fn test_permission_checked_before_escrow_fund_fails_exceeding_limit() {
     );
 
     // Exceeds per-tx limit of 500.
-    perm_client.execute_spend(&t.buyer, &t.agent, &600, &t.seller);
+    assert_eq!(
+        perm_client.try_execute_spend(&t.buyer, &t.agent, &600, &t.seller),
+        Err(Ok(delego_permissions::PermissionError::ExceedsPerTxLimit))
+    );
 }
 
 #[test]
