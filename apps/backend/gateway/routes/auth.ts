@@ -1,6 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { json } from "@delego/utils";
+import { generateId, json } from "@delego/utils";
 import * as authService from "../src/auth/authService.js";
+import {
+  publishAuthAuditEvent,
+  AUTH_AUDIT_ACTIONS,
+} from "../src/auth/authAuditEvent.js";
 import {
   validateSchema,
   RegisterSchema,
@@ -12,12 +16,22 @@ import {
   BodyTooLargeError,
 } from "../src/request.js";
 import { badRequest, sendApiError, unauthorized } from "../src/errors.js";
+import { getRequestContext } from "../middleware/requestId.js";
+import {
+  extractAuth,
+  getAuthenticatedUserContext,
+} from "../middleware/auth.js";
 
 export const authDependencies = {
   registerUser: authService.registerUser,
   loginUser: authService.loginUser,
   refreshAccessToken: authService.refreshAccessToken,
+  logoutUser: authService.logoutUser,
 };
+
+function resolveRequestId(req: IncomingMessage): string {
+  return getRequestContext(req)?.requestId ?? generateId();
+}
 
 function parseCookies(req: IncomingMessage): Record<string, string> {
   const list: Record<string, string> = {};
@@ -53,14 +67,36 @@ function setRefreshTokenCookie(
   res.setHeader("Set-Cookie", cookie);
 }
 
+function clearRefreshTokenCookie(res: ServerResponse): void {
+  const cookie = [
+    "refresh_token=",
+    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Strict",
+    "Path=/",
+  ].join("; ");
+  res.setHeader("Set-Cookie", cookie);
+}
+
 export async function registerHandler(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
+  const requestId = resolveRequestId(req);
+  let email: string | undefined;
+
   try {
     const body = await readJsonBody(req);
+    email = typeof body.email === "string" ? body.email : undefined;
     const validation = validateSchema(RegisterSchema, body);
     if (!validation.valid) {
+      publishAuthAuditEvent({
+        action: AUTH_AUDIT_ACTIONS.REGISTER,
+        success: false,
+        requestId,
+        email,
+      });
       badRequest(res, "Invalid request body", req, validation.errors);
       return;
     }
@@ -70,6 +106,13 @@ export async function registerHandler(
       body.password,
       body.displayName,
     );
+    publishAuthAuditEvent({
+      action: AUTH_AUDIT_ACTIONS.REGISTER,
+      success: true,
+      requestId,
+      userId: result.user.id,
+      email: result.user.email,
+    });
     setRefreshTokenCookie(res, result.refreshToken);
     json(res, 201, {
       data: {
@@ -80,6 +123,12 @@ export async function registerHandler(
       error: null,
     });
   } catch (err: any) {
+    publishAuthAuditEvent({
+      action: AUTH_AUDIT_ACTIONS.REGISTER,
+      success: false,
+      requestId,
+      email,
+    });
     if (err instanceof InvalidJsonError || err instanceof BodyTooLargeError) {
       badRequest(res, err.message, req);
     } else {
@@ -92,15 +141,32 @@ export async function loginHandler(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
+  const requestId = resolveRequestId(req);
+  let email: string | undefined;
+
   try {
     const body = await readJsonBody(req);
+    email = typeof body.email === "string" ? body.email : undefined;
     const validation = validateSchema(LoginSchema, body);
     if (!validation.valid) {
+      publishAuthAuditEvent({
+        action: AUTH_AUDIT_ACTIONS.LOGIN,
+        success: false,
+        requestId,
+        email,
+      });
       badRequest(res, "Invalid request body", req, validation.errors);
       return;
     }
 
     const result = await authDependencies.loginUser(body.email, body.password);
+    publishAuthAuditEvent({
+      action: AUTH_AUDIT_ACTIONS.LOGIN,
+      success: true,
+      requestId,
+      userId: result.user.id,
+      email: result.user.email,
+    });
     setRefreshTokenCookie(res, result.refreshToken);
     json(res, 200, {
       data: {
@@ -111,6 +177,12 @@ export async function loginHandler(
       error: null,
     });
   } catch (err: any) {
+    publishAuthAuditEvent({
+      action: AUTH_AUDIT_ACTIONS.LOGIN,
+      success: false,
+      requestId,
+      email,
+    });
     if (err instanceof InvalidJsonError || err instanceof BodyTooLargeError) {
       badRequest(res, err.message, req);
     } else {
@@ -123,16 +195,30 @@ export async function refreshHandler(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
+  const requestId = resolveRequestId(req);
+
   try {
     const cookies = parseCookies(req);
     const refreshToken = cookies.refresh_token;
 
     if (!refreshToken) {
+      publishAuthAuditEvent({
+        action: AUTH_AUDIT_ACTIONS.REFRESH,
+        success: false,
+        requestId,
+      });
       unauthorized(res, "Refresh token missing", req);
       return;
     }
 
     const result = await authDependencies.refreshAccessToken(refreshToken);
+    publishAuthAuditEvent({
+      action: AUTH_AUDIT_ACTIONS.REFRESH,
+      success: true,
+      requestId,
+      userId: getAuthenticatedUserContext(req)?.userId,
+      email: getAuthenticatedUserContext(req)?.email,
+    });
     setRefreshTokenCookie(res, result.refreshToken);
     json(res, 200, {
       data: {
@@ -142,69 +228,46 @@ export async function refreshHandler(
       error: null,
     });
   } catch (err: any) {
-    json(res, 401, {
-      data: null,
-      error: { code: "UNAUTHORIZED", message: err.message },
+    publishAuthAuditEvent({
+      action: AUTH_AUDIT_ACTIONS.REFRESH,
+      success: false,
+      requestId,
     });
+    unauthorized(res, err.message, req);
   }
-}
-
-function clearRefreshTokenCookie(res: ServerResponse): void {
-  const cookie = [
-    "refresh_token=",
-    `Expires=${new Date(0).toUTCString()}`,
-    "Max-Age=0",
-    "HttpOnly",
-    "Secure",
-    "SameSite=Strict",
-    "Path=/",
-  ].join("; ");
-  res.setHeader("Set-Cookie", cookie);
 }
 
 export async function logoutHandler(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
-  try {
-    const authHeader = req.headers.authorization;
+  const requestId = resolveRequestId(req);
+  const auth = extractAuth(req);
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      json(res, 401, {
-        data: null,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Missing Authorization header",
-        },
-      });
-      return;
-    }
-
-    const token = authHeader.slice("Bearer ".length).trim();
-    if (!token) {
-      json(res, 401, {
-        data: null,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Missing Authorization header",
-        },
-      });
-      return;
-    }
-
-    // Clear the refresh token cookie
-    clearRefreshTokenCookie(res);
-
-    json(res, 200, {
-      data: {
-        success: true,
-      },
-      error: null,
+  if (!auth.userId) {
+    publishAuthAuditEvent({
+      action: AUTH_AUDIT_ACTIONS.LOGOUT,
+      success: false,
+      requestId,
     });
-  } catch (err: any) {
-    json(res, 500, {
-      data: null,
-      error: { code: "INTERNAL_ERROR", message: "Logout failed" },
-    });
+    unauthorized(res, "Authentication required", req);
+    return;
   }
+
+  const cookies = parseCookies(req);
+  await authDependencies.logoutUser(cookies.refresh_token);
+  clearRefreshTokenCookie(res);
+
+  publishAuthAuditEvent({
+    action: AUTH_AUDIT_ACTIONS.LOGOUT,
+    success: true,
+    requestId,
+    userId: auth.userId,
+    email: getAuthenticatedUserContext(req)?.email,
+  });
+
+  json(res, 200, {
+    data: { success: true },
+    error: null,
+  });
 }
