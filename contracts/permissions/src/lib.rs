@@ -112,15 +112,6 @@ pub struct PendingAllowanceDecrement {
     pub execution_time: u64,
 }
 
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct DecrementExecutedEvent {
-    pub owner: Address,
-    pub delegate: Address,
-    pub previous_limit: i128,
-    pub new_limit: i128,
-}
-
 /// Typed allowance breakdown returned by `get_allowance_detail` (issue #98).
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -498,11 +489,11 @@ impl PermissionsContract {
         env.storage().persistent().remove(&pend_key);
 
         env.events().publish(
-            (symbol_short!("perm"), symbol_short!("dec_allow")),
-            DecrementExecutedEvent {
+            (symbol_short!("perm"), symbol_short!("allowdec")),
+            AllowanceDecreasedEvent {
                 owner,
                 delegate,
-                previous_limit,
+                old_limit: previous_limit,
                 new_limit,
             },
         );

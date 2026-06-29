@@ -37,6 +37,39 @@ Malformed keys and secret keys are rejected before processing.
 
 Retryable failures are rethrown as standard errors so BullMQ applies backoff. Terminal failures throw `UnrecoverableError` to stop retries immediately.
 
+## HSM Key Signer Adapter
+
+Transaction building and signing are separated behind a `KeySigner` interface in `src/vault.ts`. The adapter never exposes raw private keys from provider implementations — callers pass opaque `keyId` values and receive signatures or public keys only.
+
+| Export | Purpose |
+|---|---|
+| `KeySigner` | `sign(data, keyId)` and `getPublicKey(keyId)` contract |
+| `KeySignerProvider` | `{ provider, keyId }` configuration |
+| `createKeySigner(provider?)` | Factory for `local`, `aws-kms`, or `hashicorp-vault` drivers |
+| `getKeySigner()` / `setKeySigner()` | Process-wide signer singleton (override in tests) |
+| `KeySignerError` | Stable `code` plus `retryable` flag for transient HSM outages |
+
+### Providers
+
+| Provider | Use case | `keyId` meaning |
+|---|---|---|
+| `local` | Development | Stellar public address (`G...`) stored in the encrypted file vault |
+| `aws-kms` | Production | AWS KMS key id, ARN, or alias (ED25519 key spec) |
+| `hashicorp-vault` | Production | Transit engine key name |
+
+`sign()` is stateless and idempotent for identical inputs, so BullMQ retries and blockchain resubmission paths can safely re-invoke signing.
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `WALLET_KEY_SIGNER_PROVIDER` | `local` | `local`, `aws-kms`, or `hashicorp-vault` |
+| `WALLET_KEY_SIGNER_KEY_ID` | _(empty)_ | Default key id when callers omit `keyId` |
+| `AWS_REGION` | `us-east-1` | AWS region for the KMS client |
+| `VAULT_ADDR` | _(required for Vault)_ | HashiCorp Vault base URL |
+| `VAULT_TOKEN` | _(required for Vault)_ | Vault token with transit sign/read access |
+| `VAULT_TRANSIT_MOUNT` | `transit` | Transit secrets engine mount path |
+
 ## Security & Encryption
 
 ### Hot Wallet Seed Phrase Encryption
