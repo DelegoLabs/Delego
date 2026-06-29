@@ -558,3 +558,83 @@ fn test_release_eligibility_terminal_refund_blocks_release() {
     assert!(!re.eligible);
     assert_eq!(re.reason, soroban_sdk::symbol_short!("refunded"));
 }
+
+// ── EscrowReceipt getter tests (get_receipt) ─────────────────────────────
+
+/// Success path: receipt returned immediately after deposit (Funded state).
+#[test]
+fn test_get_receipt_funded_state() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let eid = deposit_escrow(&t, 1000, 100);
+    let receipt = client.get_receipt(&eid);
+
+    assert_eq!(receipt.escrow_id, eid);
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.seller, t.seller);
+    assert_eq!(receipt.order_id, t.order_id());
+    assert_eq!(receipt.status, EscrowStatus::Funded);
+}
+
+/// Success path: receipt reflects Released status after release.
+#[test]
+fn test_get_receipt_released_state() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.release(&eid, &t.buyer);
+
+    let receipt = client.get_receipt(&eid);
+    assert_eq!(receipt.escrow_id, eid);
+    assert_eq!(receipt.status, EscrowStatus::Released);
+    // Buyer and seller are unchanged after release
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.seller, t.seller);
+    assert_eq!(receipt.order_id, t.order_id());
+}
+
+/// Success path: receipt reflects Refunded status after refund.
+#[test]
+fn test_get_receipt_refunded_state() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.refund(&eid, &t.seller);
+
+    let receipt = client.get_receipt(&eid);
+    assert_eq!(receipt.escrow_id, eid);
+    assert_eq!(receipt.status, EscrowStatus::Refunded);
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.seller, t.seller);
+    assert_eq!(receipt.order_id, t.order_id());
+}
+
+/// Success path: receipt reflects Disputed status mid-lifecycle.
+#[test]
+fn test_get_receipt_disputed_state() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.dispute(&eid, &t.buyer);
+
+    let receipt = client.get_receipt(&eid);
+    assert_eq!(receipt.escrow_id, eid);
+    assert_eq!(receipt.status, EscrowStatus::Disputed);
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.seller, t.seller);
+    assert_eq!(receipt.order_id, t.order_id());
+}
+
+/// Failure path: NotFound error for a non-existent escrow id.
+#[test]
+fn test_get_receipt_not_found() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let result = client.try_get_receipt(&999u64);
+    assert_eq!(result, Err(Ok(EscrowError::NotFound)));
+}
