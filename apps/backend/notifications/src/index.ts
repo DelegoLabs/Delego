@@ -9,7 +9,7 @@ import {
   dispatchTransactionApproval,
 } from "./dispatcher.js";
 import { getVapidPublicKey } from "../push/index.js";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { IncomingMessage, ServerResponse, Server } from "node:http";
 
 const SERVICE_NAME = "notifications";
 const DEFAULT_PORT = 3015;
@@ -36,7 +36,7 @@ function readBody(req: IncomingMessage): Promise<unknown> {
   });
 }
 
-const server = startHttpServer({
+const server: Server = startHttpServer({
   port,
   serviceName: SERVICE_NAME,
   routes: [

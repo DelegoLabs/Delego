@@ -271,6 +271,19 @@ export interface LoginResult {
   token: string; // Backward compatibility
 }
 
+export async function logoutUser(refreshToken?: string): Promise<void> {
+  if (!refreshToken) {
+    return;
+  }
+
+  try {
+    const decoded = verifyRefreshToken(refreshToken);
+    await revokeTokenFamily(decoded.familyId);
+  } catch {
+    // Ignore invalid refresh tokens during logout.
+  }
+}
+
 export async function loginUser(email: string, password: string): Promise<LoginResult> {
   if (!email || !password) {
     throw new Error("Email and password are required");

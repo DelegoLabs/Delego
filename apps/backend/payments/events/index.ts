@@ -106,7 +106,7 @@ function getRedisClient(): RedisLike {
   if (_redis) return _redis;
 
   const isTest = process.env.NODE_ENV === "test";
-  const useMock = isTest || process.env.MOCK_REDIS === "true";
+  const useMock = isTest || process.env.MOCK_REDIS === "true" || process.env.CI === "true";
 
   if (useMock) {
     log.info("Using in-memory Redis stub for payment events");

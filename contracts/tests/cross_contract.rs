@@ -97,7 +97,7 @@ fn test_permission_checked_before_escrow_fund_fails_exceeding_limit() {
     let limit_total = 1000i128;
     let limit_per_tx = 500i128;
     let ttl_ledgers = 36000u32;
-    let merchants = Vec::new(&t.env);
+    let merchants = Vec::<soroban_sdk::Address>::new(&t.env);
 
     perm_client.grant(
         &t.buyer,
@@ -124,7 +124,7 @@ fn test_permission_checked_before_escrow_fund_succeeds() {
     let limit_total = 1000i128;
     let limit_per_tx = 500i128;
     let ttl_ledgers = 36000u32;
-    let merchants = Vec::new(&t.env);
+    let merchants = Vec::<soroban_sdk::Address>::new(&t.env);
 
     perm_client.grant(
         &t.buyer,
@@ -152,7 +152,7 @@ fn test_end_to_end_delegated_purchase() {
     let limit_total = 1000i128;
     let limit_per_tx = 500i128;
     let ttl_ledgers = 36000u32;
-    let mut merchants = Vec::new(&t.env);
+    let mut merchants = Vec::<soroban_sdk::Address>::new(&t.env);
     merchants.push_back(t.seller.clone());
 
     perm_client.grant(

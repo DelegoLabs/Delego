@@ -112,15 +112,6 @@ pub struct PendingAllowanceDecrement {
     pub execution_time: u64,
 }
 
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct DecrementExecutedEvent {
-    pub owner: Address,
-    pub delegate: Address,
-    pub previous_limit: i128,
-    pub new_limit: i128,
-}
-
 /// Typed allowance breakdown returned by `get_allowance_detail` (issue #98).
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -190,6 +181,24 @@ pub struct AllowanceDecreasedEvent {
     pub delegate: Address,
     pub old_limit: i128,
     pub new_limit: i128,
+}
+
+/// Read-only preview of a hypothetical spend (issue #XX).
+///
+/// `allowed`       – true when all validation rules would pass.
+/// `reason`        – short code describing the outcome:
+///                   `"ok"`, `"not_found"`, `"expired"`, `"paused"`,
+///                   `"unauthorized"`, `"per_tx_limit"`, `"total_limit"`,
+///                   `"bad_merchant"`.
+/// `remaining_after` – allowance that would be left if the spend were
+///                   executed (equals current remaining when `allowed`
+///                   is false).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SpendPreview {
+    pub allowed: bool,
+    pub reason: Symbol,
+    pub remaining_after: i128,
 }
 
 /// Compact receipt returned after a successful grant (issue #180).
@@ -417,6 +426,71 @@ impl PermissionsContract {
         Ok(())
     }
 
+    /// Dry-run a spend and report whether it would succeed, without mutating state.
+    ///
+    /// Reuses the identical validation sequence from `can_spend`.  Because this
+    /// function never writes to storage it is safe to call at any time without
+    /// requiring delegate auth — the caller supplies no secret; they only learn
+    /// whether a *particular amount / merchant* would pass.
+    ///
+    /// # Returns
+    /// A [`SpendPreview`] with:
+    /// - `allowed = true` when every rule passes.
+    /// - `reason` — a short [`Symbol`] code:
+    ///   `"ok"`, `"not_found"`, `"expired"`, `"paused"`,
+    ///   `"unauthorized"`, `"per_tx_limit"`, `"total_limit"`, `"bad_merchant"`.
+    /// - `remaining_after` — how much allowance would be left *after* the
+    ///   spend if it were executed; when `allowed = false` this equals the
+    ///   current remaining (i.e. the spend is not subtracted).
+    pub fn preview_spend(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+        amount: i128,
+        merchant: Address,
+    ) -> SpendPreview {
+        // Compute current remaining before we know whether the call will pass.
+        let current_remaining: i128 = env
+            .storage()
+            .persistent()
+            .get::<DataKey, PermissionRecord>(&DataKey::Permission(owner.clone(), delegate.clone()))
+            .map(|r| r.limit_total - r.spent)
+            .unwrap_or(0);
+
+        match Self::can_spend(
+            env.clone(),
+            owner,
+            delegate,
+            amount,
+            merchant,
+        ) {
+            Ok(()) => SpendPreview {
+                allowed: true,
+                reason: Symbol::new(&env, "ok"),
+                remaining_after: current_remaining - amount,
+            },
+            Err(e) => {
+                let reason = match e {
+                    PermissionError::NotFound => Symbol::new(&env, "not_found"),
+                    PermissionError::Expired => Symbol::new(&env, "expired"),
+                    PermissionError::PermissionPaused => Symbol::new(&env, "paused"),
+                    PermissionError::Unauthorized => Symbol::new(&env, "unauthorized"),
+                    PermissionError::ExceedsPerTxLimit => Symbol::new(&env, "per_tx_limit"),
+                    PermissionError::ExceedsTotalLimit => Symbol::new(&env, "total_limit"),
+                    PermissionError::MerchantNotAllowed => Symbol::new(&env, "bad_merchant"),
+                    // Remaining variants cannot be returned by can_spend but
+                    // exhaustively handled to satisfy the compiler.
+                    _ => Symbol::new(&env, "unauthorized"),
+                };
+                SpendPreview {
+                    allowed: false,
+                    reason,
+                    remaining_after: current_remaining,
+                }
+            }
+        }
+    }
+
     pub fn get_permission(env: Env, owner: Address, delegate: Address) -> PermissionRecord {
         let key = DataKey::Permission(owner, delegate);
         env.storage().persistent().get(&key).unwrap()
@@ -498,11 +572,11 @@ impl PermissionsContract {
         env.storage().persistent().remove(&pend_key);
 
         env.events().publish(
-            (symbol_short!("perm"), symbol_short!("dec_allow")),
-            DecrementExecutedEvent {
+            (symbol_short!("perm"), symbol_short!("allowdec")),
+            AllowanceDecreasedEvent {
                 owner,
                 delegate,
-                previous_limit,
+                old_limit: previous_limit,
                 new_limit,
             },
         );
