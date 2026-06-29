@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Delegation granted</title>
+</head>
+<body>
+  <h1>A new delegation has been authorised</h1>
+  <p>Your wallet <strong>{{owner}}</strong> has just granted a new spending delegation.</p>
+  <table style="border-collapse:collapse;margin:16px 0">
+    <tr><td><strong>Delegate</strong></td><td>{{delegate}}</td></tr>
+    <tr><td><strong>Per-tx / total allowance (stroops)</strong></td><td>{{limitStroops}}</td></tr>
+    <tr><td><strong>Expires at ledger</strong></td><td>{{expiresAtLedger}}</td></tr>
+    <tr><td><strong>Contract</strong></td><td>{{contractId}}</td></tr>
+  </table>
+  <p>Transaction hash: <code>{{txHash}}</code></p>
+  <p>If you did not intend this change, please revoke the delegation immediately from your wallet dashboard.</p>
+</body>
+</html>
