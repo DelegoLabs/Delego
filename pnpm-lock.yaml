@@ -211,6 +211,9 @@ importers:
       '@delego/utils':
         specifier: workspace:*
         version: link:../../../packages/utils
+      '@stellar/stellar-sdk':
+        specifier: ^15.1.0
+        version: 15.1.0
       ioredis:
         specifier: ^5.11.1
         version: 5.11.1
@@ -227,6 +230,9 @@ importers:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@22.20.0)
 
   apps/backend/wallet:
     dependencies:
@@ -242,6 +248,7 @@ importers:
       bullmq:
         specifier: ^5.78.1
         version: 5.79.2
+        version: 5.79.1
       ioredis:
         specifier: ^5.11.1
         version: 5.11.1
@@ -1323,6 +1330,8 @@ packages:
 
   bullmq@5.79.2:
     resolution: {integrity: sha512-FebD+8XCZl/hnS1R4to24L4EAN70XSndKZO0776M36vGRk5MKVhKlNFM8/34zXLXKyYB4QaeIPFhVXSYYGTHpQ==}
+  bullmq@5.79.1:
+    resolution: {integrity: sha512-cteoHRr1FGOTUgzFrnMyBNGtQhNeVR8Ej6nImNSHQDJi4tj6GMD0p9ZG65ZsTnvR9RVf18dhRxWu4kFl634QGA==}
     engines: {node: '>=12.22.0'}
     peerDependencies:
       redis: '>=5.0.0'
@@ -1973,6 +1982,11 @@ packages:
 
   scheduler@0.27.0:
     resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
+
+  semver@7.8.1:
+    resolution: {integrity: sha512-rkVq3IXh+4FDGch+KwzX3aV9W3kO54GyEgpvBzSyctDA6Xtd7RJQV1xmXbeQp5v7+VzLOfVqiutSE6GICgPFvg==}
+    engines: {node: '>=10'}
+    hasBin: true
 
   semver@7.8.5:
     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
@@ -2854,6 +2868,7 @@ snapshots:
   '@types/pg@8.20.0':
     dependencies:
       '@types/node': 22.20.0
+      '@types/node': 25.9.4
       pg-protocol: 1.15.0
       pg-types: 2.2.0
 
@@ -2985,6 +3000,7 @@ snapshots:
       ieee754: 1.2.1
 
   bullmq@5.79.2:
+  bullmq@5.79.1:
     dependencies:
       cron-parser: 4.9.0
       ioredis: 5.10.1
@@ -3667,6 +3683,8 @@ snapshots:
 
   scheduler@0.27.0: {}
 
+  semver@7.8.1: {}
+
   semver@7.8.5: {}
 
   sequelize-pool@7.1.0: {}
@@ -3913,6 +3931,7 @@ snapshots:
   wkx@0.5.0:
     dependencies:
       '@types/node': 22.20.0
+      '@types/node': 25.9.4
 
   wrap-ansi@9.0.2:
     dependencies:
