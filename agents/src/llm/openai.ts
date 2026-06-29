@@ -95,7 +95,11 @@ export class OpenAIClient implements LLMClient {
     url: string,
     body: unknown,
     attempt = 1
-  ): Promise<Record<string, unknown>> {
+  ): Promise<{
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+    choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
+    [key: string]: unknown;
+  }> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
