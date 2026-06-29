@@ -91,8 +91,9 @@ export async function cancelTimeout(orderId: string): Promise<void> {
     await job.remove();
     log.info("Checkout timeout cancelled", { orderId });
   }
+}
+
 /** Checkout workflow — payment confirmation via the saga coordinator */
-import { createLogger } from "@delego/utils";
 import type { ApiResponse } from "@delego/types";
 import { SagaCoordinator, type SagaStep } from "../../src/saga/index.js";
 import type { SagaRecord, SagaStore } from "../../src/saga/index.js";
@@ -103,8 +104,6 @@ import {
   clearPublishedWorkflowEvents,
   type WorkflowEventEnvelope,
 } from "../../src/workflow-events.js";
-
-const log = createLogger("orchestrator:checkout", process.env.LOG_LEVEL ?? "info");
 
 export type CheckoutCancellationReason =
   | "user_rejected"

@@ -18,6 +18,8 @@ export interface ProductMatch {
   priceStroops: string;
   url: string;
 }
+
+/**
  * Purchase workflow — delegates to PurchaseWorkflowMachine (issue #7).
  *
  * The machine persists every transition via the `onTransition` hook.
@@ -193,9 +195,11 @@ export async function createWorkflow(
     settlementTxHash: null,
     error: null,
     createdAt: now,
-  userId: string;
-  /** Override the auto-generated workflow ID (e.g. for replay). */
-  workflowId?: string;
+  };
+  const snapshot: WorkflowSnapshot = { orderId, state: "INITIATED", context, updatedAt: now };
+  await persistWorkflow(snapshot);
+  log.info("Workflow created", { orderId, userId });
+  return orderId;
 }
 
 export interface PurchaseWorkflowHandle {
@@ -232,10 +236,6 @@ export function handlePaymentTimeout(event: PaymentTimeoutEvent): CancellationEv
     reason: "payment_timeout",
     occurredAt: new Date().toISOString(),
   };
-  const snapshot: WorkflowSnapshot = { orderId, state: "INITIATED", context, updatedAt: now };
-  await persistWorkflow(snapshot);
-  log.info("Workflow created", { orderId, userId });
-  return orderId;
 }
 
 export async function transitionWorkflow(
@@ -287,8 +287,7 @@ export async function listWorkflows(
   }));
 }
 
-// Legacy export for backwards compat
-export { createWorkflow as purchaseWorkflow };
+// Legacy export removed due to duplicate name
 // Issue #209 — Delivery Proof Validation Adapter
 
 export interface DeliveryProofValidation {
