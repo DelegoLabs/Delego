@@ -490,3 +490,71 @@ fn test_refund_eligibility_unauthorized_stranger() {
     assert!(!re.eligible);
     assert_eq!(re.reason, soroban_sdk::symbol_short!("noauth"));
 }
+
+// ── ReleaseEligibility getter tests ──────────────────────────────────────
+
+#[test]
+fn test_release_eligibility_funded_before_timeout() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let eid = deposit_escrow(&t, 1000, 100);
+
+    let re = client.get_release_eligibility(&eid);
+    assert_eq!(re.escrow_id, t.order_id());
+    assert!(re.eligible);
+    assert_eq!(re.reason, soroban_sdk::symbol_short!("ok"));
+}
+
+#[test]
+fn test_release_eligibility_disputed_blocks_release() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.dispute(&eid, &t.buyer);
+
+    let re = client.get_release_eligibility(&eid);
+    assert_eq!(re.escrow_id, t.order_id());
+    assert!(!re.eligible);
+    assert_eq!(re.reason, soroban_sdk::symbol_short!("disputed"));
+}
+
+#[test]
+fn test_release_eligibility_timeout_blocks_release() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let eid = deposit_escrow(&t, 1000, 100);
+
+    let record = client.get_escrow(&eid);
+    t.env.ledger().set_sequence_number(record.timeout_ledger);
+
+    let re = client.get_release_eligibility(&eid);
+    assert_eq!(re.escrow_id, t.order_id());
+    assert!(!re.eligible);
+    assert_eq!(re.reason, soroban_sdk::symbol_short!("timeout"));
+}
+
+#[test]
+fn test_release_eligibility_terminal_release_blocks_release() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.release(&eid, &t.buyer);
+
+    let re = client.get_release_eligibility(&eid);
+    assert_eq!(re.escrow_id, t.order_id());
+    assert!(!re.eligible);
+    assert_eq!(re.reason, soroban_sdk::symbol_short!("released"));
+}
+
+#[test]
+fn test_release_eligibility_terminal_refund_blocks_release() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.refund(&eid, &t.seller);
+
+    let re = client.get_release_eligibility(&eid);
+    assert_eq!(re.escrow_id, t.order_id());
+    assert!(!re.eligible);
+    assert_eq!(re.reason, soroban_sdk::symbol_short!("refunded"));
+}

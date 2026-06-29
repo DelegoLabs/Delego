@@ -226,6 +226,18 @@ pub struct RefundEligibility {
     pub reason: Symbol,
 }
 
+/// Release eligibility result returned by `get_release_eligibility`.
+///
+/// `escrow_id` mirrors the escrow record's 32-byte order id so settlement
+/// workers can correlate the read-only response with their backend job.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReleaseEligibility {
+    pub escrow_id: BytesN<32>,
+    pub eligible: bool,
+    pub reason: Symbol,
+}
+
 #[contract]
 pub struct EscrowContract;
 
@@ -682,13 +694,7 @@ impl EscrowContract {
             return Err(EscrowError::Unauthorized);
         }
 
-        if record.status == EscrowStatus::Released {
-            return Err(EscrowError::AlreadyReleased);
-        }
-
-        if record.status != EscrowStatus::Funded {
-            return Err(EscrowError::InvalidStatus);
-        }
+        Self::validate_release_status(&record)?;
 
         let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
         let fee_bps = fee_config.fee_bps as i128;
@@ -871,6 +877,40 @@ impl EscrowContract {
         Ok(true)
     }
 
+    /// Read-only helper for settlement workers to determine whether release can proceed.
+    ///
+    /// Reason symbols (≤9 chars for `symbol_short!` compat):
+    ///   `ok`       — escrow is funded and not timed out
+    ///   `notfound` — escrow record does not exist
+    ///   `released` — already released (terminal)
+    ///   `refunded` — already refunded (terminal)
+    ///   `disputed` — escrow is under dispute
+    ///   `timeout`  — refund timeout has been reached
+    pub fn get_release_eligibility(env: Env, escrow_id: u64) -> ReleaseEligibility {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => {
+                return ReleaseEligibility {
+                    escrow_id: BytesN::from_array(&env, &[0u8; 32]),
+                    eligible: false,
+                    reason: symbol_short!("notfound"),
+                };
+            }
+        };
+
+        let reason = match Self::release_block_reason(env, &record) {
+            Some(reason) => reason,
+            None => symbol_short!("ok"),
+        };
+
+        ReleaseEligibility {
+            escrow_id: record.order_id,
+            eligible: reason == symbol_short!("ok"),
+            reason,
+        }
+    }
+
     /// Read-only getter for escrow state.
     pub fn get_escrow(env: Env, escrow_id: u64) -> EscrowRecord {
         let key = DataKey::Escrow(escrow_id);
@@ -1027,11 +1067,7 @@ impl EscrowContract {
     }
 
     /// Set or clear the admin pause flag for new escrow creation. Admin-only.
-    pub fn set_create_paused(
-        env: Env,
-        admin: Address,
-        paused: bool,
-    ) -> Result<bool, EscrowError> {
+    pub fn set_create_paused(env: Env, admin: Address, paused: bool) -> Result<bool, EscrowError> {
         admin.require_auth();
         if !Self::is_admin(env.clone(), admin.clone()) {
             return Err(EscrowError::Unauthorized);
@@ -1090,11 +1126,7 @@ impl EscrowContract {
     ///   `disputed` — escrow is under dispute
     ///   `noauth`   — caller is not buyer/seller/admin
     ///   `timeout`  — buyer must wait for timeout
-    pub fn get_refund_eligibility(
-        env: Env,
-        escrow_id: u64,
-        caller: Address,
-    ) -> RefundEligibility {
+    pub fn get_refund_eligibility(env: Env, escrow_id: u64, caller: Address) -> RefundEligibility {
         let key = DataKey::Escrow(escrow_id);
         let record: EscrowRecord = match env.storage().persistent().get(&key) {
             Some(rec) => rec,
@@ -1164,6 +1196,33 @@ impl EscrowContract {
             escrow_id,
             eligible: false,
             reason: symbol_short!("noauth"),
+        }
+    }
+
+    fn validate_release_status(record: &EscrowRecord) -> Result<(), EscrowError> {
+        if record.status == EscrowStatus::Released {
+            return Err(EscrowError::AlreadyReleased);
+        }
+
+        if record.status != EscrowStatus::Funded {
+            return Err(EscrowError::InvalidStatus);
+        }
+
+        Ok(())
+    }
+
+    fn release_block_reason(env: Env, record: &EscrowRecord) -> Option<Symbol> {
+        match record.status {
+            EscrowStatus::Funded => {
+                if env.ledger().sequence() >= record.timeout_ledger {
+                    Some(symbol_short!("timeout"))
+                } else {
+                    None
+                }
+            }
+            EscrowStatus::Released => Some(symbol_short!("released")),
+            EscrowStatus::Refunded => Some(symbol_short!("refunded")),
+            EscrowStatus::Disputed => Some(symbol_short!("disputed")),
         }
     }
 

@@ -3,7 +3,8 @@
 
 #![no_std]
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, Symbol, Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
+    Symbol, Vec,
 };
 
 const _PERM: Symbol = symbol_short!("PERM");
@@ -40,6 +41,8 @@ pub enum PermissionError {
     AlreadyActive = 10,
     /// New grants are globally paused by admin
     GrantsPaused = 11,
+    /// Owner and delegate cannot be the same address
+    SelfDelegationNotAllowed = 401,
 }
 
 #[contracttype]
@@ -189,6 +192,25 @@ pub struct AllowanceDecreasedEvent {
     pub new_limit: i128,
 }
 
+/// Compact receipt returned after a successful grant (issue #180).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionReceipt {
+    pub owner: Address,
+    pub delegate: Address,
+    pub limit: i128,
+    pub expires_at_ledger: u32,
+    pub active: bool,
+}
+
+/// Optional metadata linking on-chain policy to off-chain descriptions (issue #181).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionMetadata {
+    pub policy_hash: BytesN<32>,
+    pub schema: Symbol,
+}
+
 #[contracttype]
 pub enum DataKey {
     Permission(Address, Address),
@@ -196,6 +218,9 @@ pub enum DataKey {
     PauseMetadata(Address, Address),
     Admin,
     GrantPauseState,
+    Metadata(Address, Address),
+    /// Instance-level flag: when true, grant() allows owner == delegate.
+    AllowSelfDelegation,
 }
 
 #[contract]
@@ -223,6 +248,16 @@ impl PermissionsContract {
             if state.grants_paused {
                 return Err(PermissionError::GrantsPaused);
             }
+        }
+
+        // Reject self-delegation unless the contract config explicitly allows it (issue #182).
+        let allow_self: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::AllowSelfDelegation)
+            .unwrap_or(false);
+        if !allow_self && owner == delegate {
+            return Err(PermissionError::SelfDelegationNotAllowed);
         }
 
         // Reject nonsensical limits: per-tx must be positive and the total
@@ -465,20 +500,9 @@ impl PermissionsContract {
         env.events().publish(
             (symbol_short!("perm"), symbol_short!("dec_allow")),
             DecrementExecutedEvent {
-                owner: owner.clone(),
-                delegate: delegate.clone(),
-                previous_limit,
-                new_limit,
-            },
-        );
-
-        // Issue #189: emit AllowanceDecreasedEvent on successful decrease execution
-        env.events().publish(
-            (symbol_short!("perm"), symbol_short!("allowdec")),
-            AllowanceDecreasedEvent {
                 owner,
                 delegate,
-                old_limit: previous_limit,
+                previous_limit,
                 new_limit,
             },
         );
@@ -543,9 +567,14 @@ impl PermissionsContract {
         Ok(())
     }
 
-    // ── Issue #186: Admin pause for new permission grants ──────────────────
+    /// Returns the stored pause metadata, or panics if the permission is not currently paused.
+    pub fn get_pause_metadata(env: Env, owner: Address, delegate: Address) -> PauseMetadata {
+        env.storage()
+            .persistent()
+            .get(&DataKey::PauseMetadata(owner, delegate))
+            .unwrap()
+    }
 
-    /// Set the admin address. Can only be called once (first call wins).
     pub fn set_admin(env: Env, admin: Address) {
         admin.require_auth();
         if env.storage().instance().has(&DataKey::Admin) {
@@ -625,20 +654,106 @@ impl PermissionsContract {
             })
     }
 
-    /// Returns the stored pause metadata, or panics if the permission is not currently paused.
-    pub fn get_pause_metadata(env: Env, owner: Address, delegate: Address) -> PauseMetadata {
-        env.storage()
-            .persistent()
-            .get(&DataKey::PauseMetadata(owner, delegate))
-            .unwrap()
-    }
-
     /// Returns contract name and semantic version for deployment verification (issue #103).
     pub fn version(env: Env) -> ContractVersion {
         ContractVersion {
             name: Symbol::new(&env, CONTRACT_NAME),
             semver: Symbol::new(&env, CONTRACT_SEMVER),
         }
+    }
+
+    /// Allow or forbid self-delegation globally. Admin-only (issue #182).
+    pub fn set_allow_self_delegation(
+        env: Env,
+        admin: Address,
+        allow: bool,
+    ) -> Result<(), PermissionError> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+        if admin != stored_admin {
+            return Err(PermissionError::Unauthorized);
+        }
+        env.storage()
+            .instance()
+            .set(&DataKey::AllowSelfDelegation, &allow);
+        Ok(())
+    }
+
+    /// Grants a permission and stores optional metadata hash (issue #181).
+    pub fn grant_with_metadata(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+        limit_total: i128,
+        limit_per_tx: i128,
+        allowed_merchants: Vec<Address>,
+        ttl_ledgers: u32,
+        metadata: Option<PermissionMetadata>,
+    ) -> Result<(), PermissionError> {
+        Self::grant(
+            env.clone(),
+            owner.clone(),
+            delegate.clone(),
+            limit_total,
+            limit_per_tx,
+            allowed_merchants,
+            ttl_ledgers,
+        )?;
+
+        let meta_key = DataKey::Metadata(owner, delegate);
+        match metadata {
+            Some(m) => env.storage().persistent().set(&meta_key, &m),
+            None => {
+                // Clear any stale metadata from a previous grant so
+                // get_metadata cannot return a hash that belongs to an older policy.
+                if env.storage().persistent().has(&meta_key) {
+                    env.storage().persistent().remove(&meta_key);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Returns optional metadata for a permission grant (issue #181).
+    pub fn get_metadata(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> Option<PermissionMetadata> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Metadata(owner, delegate))
+    }
+
+    /// Returns a compact receipt for an existing permission grant (issue #180).
+    /// Includes active status derived from stored state and current ledger.
+    pub fn get_receipt(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> Result<PermissionReceipt, PermissionError> {
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
+        let record: PermissionRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(PermissionError::NotFound)?;
+
+        let active = matches!(record.status, PermissionStatus::Active)
+            && env.ledger().sequence() < record.expires_at_ledger;
+
+        Ok(PermissionReceipt {
+            owner,
+            delegate,
+            limit: record.limit_total,
+            expires_at_ledger: record.expires_at_ledger,
+            active,
+        })
     }
 }
 
