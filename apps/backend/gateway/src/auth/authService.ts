@@ -9,6 +9,54 @@ const JWT_SECRET = process.env.JWT_SECRET ?? "change-me-in-production";
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
 const REFRESH_TOKEN_EXPIRES_IN = "7d";
 
+/**
+ * Configuration contract used when validating JWTs across distributed services.
+ * `clockToleranceSeconds` is applied to the `nbf` and `exp` claims so that
+ * minor clock drift between issuing and verifying services does not cause
+ * spurious authentication failures.
+ */
+export interface JwtValidationConfig {
+  issuer: string;
+  audience: string;
+  clockToleranceSeconds: number;
+}
+
+const DEFAULT_CLOCK_TOLERANCE_SECONDS = 5;
+const MAX_CLOCK_TOLERANCE_SECONDS = 300; // 5 minutes hard ceiling
+
+/**
+ * Safely parse a numeric environment variable. Returns the provided fallback
+ * when the value is missing, not a finite number, negative, or beyond a
+ * sensible upper bound. Keeping this strict prevents an operator from
+ * accidentally disabling expiry enforcement (e.g. JWT_CLOCK_TOLERANCE=9999999).
+ */
+function parseToleranceSeconds(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw === "") return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return Math.min(Math.floor(parsed), MAX_CLOCK_TOLERANCE_SECONDS);
+}
+
+/**
+ * Resolve the active JWT validation config from environment variables.
+ * Exported so middleware and tests can introspect the values in use.
+ *
+ * Environment variables:
+ *   JWT_ISSUER                   (default: "delego-gateway")
+ *   JWT_AUDIENCE                 (default: "delego-clients")
+ *   JWT_CLOCK_TOLERANCE_SECONDS  (default: 5, max: 300)
+ */
+export function getJwtValidationConfig(): JwtValidationConfig {
+  return {
+    issuer: process.env.JWT_ISSUER ?? "delego-gateway",
+    audience: process.env.JWT_AUDIENCE ?? "delego-clients",
+    clockToleranceSeconds: parseToleranceSeconds(
+      process.env.JWT_CLOCK_TOLERANCE_SECONDS,
+      DEFAULT_CLOCK_TOLERANCE_SECONDS
+    ),
+  };
+}
+
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
 }
@@ -31,7 +79,12 @@ interface RefreshTokenPayload {
 }
 
 function generateAccessToken(userId: string, email: string, roles: string[] = ["user"]): string {
-  return jwt.sign({ userId, email, roles }, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
+  const { issuer, audience } = getJwtValidationConfig();
+  return jwt.sign({ userId, email, roles }, JWT_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+    issuer,
+    audience,
+  });
 }
 
 async function generateRefreshToken(userId: string, familyId?: string): Promise<{ refreshToken: string; familyId: string; tokenId: string }> {
@@ -50,10 +103,11 @@ async function generateRefreshToken(userId: string, familyId?: string): Promise<
     expiresAt,
   });
 
+  const { issuer, audience } = getJwtValidationConfig();
   const refreshToken = jwt.sign(
     { tokenId, familyId: family, userId, secret },
     JWT_SECRET,
-    { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
+    { expiresIn: REFRESH_TOKEN_EXPIRES_IN, issuer, audience }
   );
 
   return { refreshToken, familyId: family, tokenId };
@@ -66,16 +120,37 @@ export async function generateTokens(userId: string, email: string, familyId?: s
   return { accessToken, refreshToken, expiresIn };
 }
 
-export function verifyToken(token: string): { userId: string; email?: string; roles?: string[] } {
-  const decoded = jwt.verify(token, JWT_SECRET);
+/**
+ * Verify an access token. Applies the configured `clockToleranceSeconds`
+ * to the `nbf` and `exp` claims so small clock drift between distributed
+ * services does not reject otherwise-valid tokens. Also enforces the
+ * configured `issuer` and `audience` claims so a token minted by another
+ * party cannot be replayed against the gateway.
+ */
+export function verifyToken(
+  token: string,
+  config: JwtValidationConfig = getJwtValidationConfig()
+): { userId: string; email?: string; roles?: string[] } {
+  const decoded = jwt.verify(token, JWT_SECRET, {
+    clockTolerance: config.clockToleranceSeconds,
+    issuer: config.issuer,
+    audience: config.audience,
+  });
   if (typeof decoded === "object" && decoded !== null && "userId" in decoded) {
     return decoded as { userId: string; email?: string; roles?: string[] };
   }
   throw new Error("Invalid token structure");
 }
 
-function verifyRefreshToken(token: string): RefreshTokenPayload {
-  const decoded = jwt.verify(token, JWT_SECRET);
+function verifyRefreshToken(
+  token: string,
+  config: JwtValidationConfig = getJwtValidationConfig()
+): RefreshTokenPayload {
+  const decoded = jwt.verify(token, JWT_SECRET, {
+    clockTolerance: config.clockToleranceSeconds,
+    issuer: config.issuer,
+    audience: config.audience,
+  });
   if (
     typeof decoded === "object" &&
     decoded !== null &&
@@ -194,6 +269,19 @@ export interface LoginResult {
   refreshToken: string;
   expiresIn: number;
   token: string; // Backward compatibility
+}
+
+export async function logoutUser(refreshToken?: string): Promise<void> {
+  if (!refreshToken) {
+    return;
+  }
+
+  try {
+    const decoded = verifyRefreshToken(refreshToken);
+    await revokeTokenFamily(decoded.familyId);
+  } catch {
+    // Ignore invalid refresh tokens during logout.
+  }
 }
 
 export async function loginUser(email: string, password: string): Promise<LoginResult> {

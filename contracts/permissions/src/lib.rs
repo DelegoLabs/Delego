@@ -3,7 +3,8 @@
 
 #![no_std]
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, Symbol, Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
+    Symbol, Vec,
 };
 
 const _PERM: Symbol = symbol_short!("PERM");
@@ -38,6 +39,10 @@ pub enum PermissionError {
     AlreadyPaused = 9,
     /// Permission is already active
     AlreadyActive = 10,
+    /// New grants are globally paused by admin
+    GrantsPaused = 11,
+    /// Owner and delegate cannot be the same address
+    SelfDelegationNotAllowed = 401,
 }
 
 #[contracttype]
@@ -107,15 +112,6 @@ pub struct PendingAllowanceDecrement {
     pub execution_time: u64,
 }
 
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct DecrementExecutedEvent {
-    pub owner: Address,
-    pub delegate: Address,
-    pub previous_limit: i128,
-    pub new_limit: i128,
-}
-
 /// Typed allowance breakdown returned by `get_allowance_detail` (issue #98).
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -160,11 +156,62 @@ pub struct PermissionResumedEvent {
     pub resumed_by: Address,
 }
 
+/// Global pause state for new permission grants (issue #186).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionPauseState {
+    pub grants_paused: bool,
+    pub updated_at_ledger: u32,
+}
+
+/// Emitted when the global grant pause state changes (issue #186).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct GrantPauseChangedEvent {
+    pub grants_paused: bool,
+    pub changed_by: Address,
+    pub ledger: u32,
+}
+
+/// Emitted when an allowance decrease is successfully applied (issue #189).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct AllowanceDecreasedEvent {
+    pub owner: Address,
+    pub delegate: Address,
+    pub old_limit: i128,
+    pub new_limit: i128,
+}
+
+/// Compact receipt returned after a successful grant (issue #180).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionReceipt {
+    pub owner: Address,
+    pub delegate: Address,
+    pub limit: i128,
+    pub expires_at_ledger: u32,
+    pub active: bool,
+}
+
+/// Optional metadata linking on-chain policy to off-chain descriptions (issue #181).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionMetadata {
+    pub policy_hash: BytesN<32>,
+    pub schema: Symbol,
+}
+
 #[contracttype]
 pub enum DataKey {
     Permission(Address, Address),
     PendingDecrement(Address, Address),
     PauseMetadata(Address, Address),
+    Admin,
+    GrantPauseState,
+    Metadata(Address, Address),
+    /// Instance-level flag: when true, grant() allows owner == delegate.
+    AllowSelfDelegation,
 }
 
 #[contract]
@@ -182,6 +229,27 @@ impl PermissionsContract {
         ttl_ledgers: u32,
     ) -> Result<(), PermissionError> {
         owner.require_auth();
+
+        // Issue #186: block new grants when globally paused
+        if let Some(state) = env
+            .storage()
+            .instance()
+            .get::<DataKey, PermissionPauseState>(&DataKey::GrantPauseState)
+        {
+            if state.grants_paused {
+                return Err(PermissionError::GrantsPaused);
+            }
+        }
+
+        // Reject self-delegation unless the contract config explicitly allows it (issue #182).
+        let allow_self: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::AllowSelfDelegation)
+            .unwrap_or(false);
+        if !allow_self && owner == delegate {
+            return Err(PermissionError::SelfDelegationNotAllowed);
+        }
 
         // Reject nonsensical limits: per-tx must be positive and the total
         // allowance must be at least one full per-tx spend.
@@ -421,11 +489,11 @@ impl PermissionsContract {
         env.storage().persistent().remove(&pend_key);
 
         env.events().publish(
-            (symbol_short!("perm"), symbol_short!("dec_allow")),
-            DecrementExecutedEvent {
+            (symbol_short!("perm"), symbol_short!("allowdec")),
+            AllowanceDecreasedEvent {
                 owner,
                 delegate,
-                previous_limit,
+                old_limit: previous_limit,
                 new_limit,
             },
         );
@@ -498,12 +566,185 @@ impl PermissionsContract {
             .unwrap()
     }
 
+    pub fn set_admin(env: Env, admin: Address) {
+        admin.require_auth();
+        if env.storage().instance().has(&DataKey::Admin) {
+            panic!("Admin already set");
+        }
+        env.storage().instance().set(&DataKey::Admin, &admin);
+    }
+
+    /// Pause new grant creation. Admin-only.
+    pub fn pause_grants(env: Env, admin: Address) -> Result<(), PermissionError> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+        if admin != stored_admin {
+            return Err(PermissionError::Unauthorized);
+        }
+
+        let state = PermissionPauseState {
+            grants_paused: true,
+            updated_at_ledger: env.ledger().sequence(),
+        };
+        env.storage().instance().set(&DataKey::GrantPauseState, &state);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("gpaused")),
+            GrantPauseChangedEvent {
+                grants_paused: true,
+                changed_by: admin,
+                ledger: state.updated_at_ledger,
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Unpause new grant creation. Admin-only.
+    pub fn unpause_grants(env: Env, admin: Address) -> Result<(), PermissionError> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+        if admin != stored_admin {
+            return Err(PermissionError::Unauthorized);
+        }
+
+        let state = PermissionPauseState {
+            grants_paused: false,
+            updated_at_ledger: env.ledger().sequence(),
+        };
+        env.storage().instance().set(&DataKey::GrantPauseState, &state);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("gpaused")),
+            GrantPauseChangedEvent {
+                grants_paused: false,
+                changed_by: admin,
+                ledger: state.updated_at_ledger,
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Read the current grant pause state.
+    pub fn get_grant_pause_state(env: Env) -> PermissionPauseState {
+        env.storage()
+            .instance()
+            .get(&DataKey::GrantPauseState)
+            .unwrap_or(PermissionPauseState {
+                grants_paused: false,
+                updated_at_ledger: 0,
+            })
+    }
+
     /// Returns contract name and semantic version for deployment verification (issue #103).
     pub fn version(env: Env) -> ContractVersion {
         ContractVersion {
             name: Symbol::new(&env, CONTRACT_NAME),
             semver: Symbol::new(&env, CONTRACT_SEMVER),
         }
+    }
+
+    /// Allow or forbid self-delegation globally. Admin-only (issue #182).
+    pub fn set_allow_self_delegation(
+        env: Env,
+        admin: Address,
+        allow: bool,
+    ) -> Result<(), PermissionError> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+        if admin != stored_admin {
+            return Err(PermissionError::Unauthorized);
+        }
+        env.storage()
+            .instance()
+            .set(&DataKey::AllowSelfDelegation, &allow);
+        Ok(())
+    }
+
+    /// Grants a permission and stores optional metadata hash (issue #181).
+    pub fn grant_with_metadata(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+        limit_total: i128,
+        limit_per_tx: i128,
+        allowed_merchants: Vec<Address>,
+        ttl_ledgers: u32,
+        metadata: Option<PermissionMetadata>,
+    ) -> Result<(), PermissionError> {
+        Self::grant(
+            env.clone(),
+            owner.clone(),
+            delegate.clone(),
+            limit_total,
+            limit_per_tx,
+            allowed_merchants,
+            ttl_ledgers,
+        )?;
+
+        let meta_key = DataKey::Metadata(owner, delegate);
+        match metadata {
+            Some(m) => env.storage().persistent().set(&meta_key, &m),
+            None => {
+                // Clear any stale metadata from a previous grant so
+                // get_metadata cannot return a hash that belongs to an older policy.
+                if env.storage().persistent().has(&meta_key) {
+                    env.storage().persistent().remove(&meta_key);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Returns optional metadata for a permission grant (issue #181).
+    pub fn get_metadata(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> Option<PermissionMetadata> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Metadata(owner, delegate))
+    }
+
+    /// Returns a compact receipt for an existing permission grant (issue #180).
+    /// Includes active status derived from stored state and current ledger.
+    pub fn get_receipt(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> Result<PermissionReceipt, PermissionError> {
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
+        let record: PermissionRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(PermissionError::NotFound)?;
+
+        let active = matches!(record.status, PermissionStatus::Active)
+            && env.ledger().sequence() < record.expires_at_ledger;
+
+        Ok(PermissionReceipt {
+            owner,
+            delegate,
+            limit: record.limit_total,
+            expires_at_ledger: record.expires_at_ledger,
+            active,
+        })
     }
 }
 

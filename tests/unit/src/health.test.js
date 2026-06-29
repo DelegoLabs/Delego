@@ -134,7 +134,7 @@ describe("Gateway Health Endpoint Tests", () => {
       assert.equal(capturedBody.data.version, "0.0.1");
       assert.ok(capturedBody.data.timestamp);
       assert.ok(Array.isArray(capturedBody.data.dependencies));
-      assert.equal(capturedBody.data.dependencies.length, 1);
+      assert.equal(capturedBody.data.dependencies.length, 2);
       
       const dbDep = capturedBody.data.dependencies[0];
       assert.equal(dbDep.name, "postgresql");

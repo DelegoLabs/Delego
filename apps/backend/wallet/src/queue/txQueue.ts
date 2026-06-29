@@ -1,4 +1,4 @@
-import { Queue, Worker, QueueEvents } from "bullmq";
+import { Queue, Worker, QueueEvents, UnrecoverableError } from "bullmq";
 import { Redis } from "ioredis";
 // @ts-ignore
 import MockRedis from "ioredis-mock";
@@ -16,6 +16,12 @@ import {
 import type { TransactionRequest, TransactionResult } from "@delego/types";
 import { vaultService } from "../vault.js";
 import { createLogger } from "@delego/utils";
+import {
+  classifySubmissionFailure,
+  type SubmissionFailure,
+} from "./submissionFailure.js";
+
+export { classifySubmissionFailure, type SubmissionFailure } from "./submissionFailure.js";
 
 const log = createLogger("wallet:queue", process.env.LOG_LEVEL ?? "info");
 
@@ -36,6 +42,30 @@ export interface LedgerSubmissionCheck {
   status: "confirmed" | "missing" | "failed";
   ledger?: number;
   checkedAt: string;
+}
+
+function throwClassifiedSubmissionFailure(
+  failure: SubmissionFailure,
+  attempt: number
+): never {
+  log.error("Transaction error in worker", {
+    code: failure.code,
+    message: failure.message,
+    retryable: failure.retryable,
+    txHash: failure.txHash,
+  });
+
+  if (failure.retryable) {
+    log.warn(`Retryable submission failure. Attempt ${attempt}/5`, {
+      code: failure.code,
+    });
+    throw new Error(failure.message);
+  }
+
+  log.error("Terminal submission failure, failing job without retry", {
+    code: failure.code,
+  });
+  throw new UnrecoverableError(`${failure.code}: ${failure.message}`);
 }
 
 const QUEUE_NAME = "stellar-tx-queue";
@@ -186,6 +216,7 @@ async function executeTxJob(
 
   // Create dummy Account object with current sequence number
   const account = new Account(request.sourceAddress, sequence);
+  let txHash: string | undefined;
 
   try {
     // 3. Convert arguments to ScVals
@@ -232,7 +263,7 @@ async function executeTxJob(
     }
 
     // 8. Poll for transaction result
-    const txHash = sendRes.hash;
+    txHash = sendRes.hash;
     log.info("Waiting for transaction confirmation...", { txHash });
     
     let retries = 12; // Poll for ~1 minute (5s intervals)
@@ -287,29 +318,9 @@ async function executeTxJob(
       return { hash: txHash, ledger: 0, success: true };
     }
     throw new Error(`Transaction timeout or status untracked: ${sendRes.status}`);
-  } catch (err: any) {
-    log.error("Transaction error in worker", { error: err.message });
-    
-    // Distinguish between transient and fatal errors
-    const isTransient = 
-      err.message.includes("timeout") ||
-      err.message.includes("network") ||
-      err.message.includes("tx_bad_seq") ||
-      err.message.includes("bad_seq") ||
-      err.message.includes("rate limit") ||
-      err.message.includes("429") ||
-      err.message.includes("500") ||
-      err.message.includes("502") ||
-      err.message.includes("503") ||
-      err.message.includes("504");
-
-    if (isTransient) {
-      log.warn(`Transient error encountered. Attempt ${attempt}/5`);
-      throw err; // Worker will retry the job
-    } else {
-      log.error("Fatal error encountered, failing job immediately without retry", { error: err.message });
-      throw err;
-    }
+  } catch (err: unknown) {
+    const failure = classifySubmissionFailure(err, { txHash });
+    throwClassifiedSubmissionFailure(failure, attempt);
   }
 }
 
@@ -324,22 +335,17 @@ async function runTestJob(request: TransactionRequest, connection: Redis): Promi
       try {
         const result = await executeTxJob(request, attemptsMade + 1, connection);
         return result;
-      } catch (err: any) {
+      } catch (err: unknown) {
         attemptsMade++;
-        const isTransient = 
-          err.message.includes("timeout") ||
-          err.message.includes("network") ||
-          err.message.includes("tx_bad_seq") ||
-          err.message.includes("bad_seq") ||
-          err.message.includes("rate limit") ||
-          err.message.includes("429") ||
-          err.message.includes("500") ||
-          err.message.includes("502") ||
-          err.message.includes("503") ||
-          err.message.includes("504");
+        if (err instanceof UnrecoverableError) {
+          throw err;
+        }
 
-        if (isTransient && attemptsMade < maxAttempts) {
-          log.warn(`Test runner: Transient error encountered, retrying... Attempt ${attemptsMade}/${maxAttempts}`);
+        const failure = classifySubmissionFailure(err);
+        if (failure.retryable && attemptsMade < maxAttempts) {
+          log.warn(`Test runner: Retryable submission failure, retrying... Attempt ${attemptsMade}/${maxAttempts}`, {
+            code: failure.code,
+          });
           await new Promise((resolve) => setTimeout(resolve, 50));
           continue;
         }

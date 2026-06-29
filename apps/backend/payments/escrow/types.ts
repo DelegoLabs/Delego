@@ -1,5 +1,17 @@
 /** Escrow contract interaction types */
 
+/**
+ * Fee estimate from Horizon /fee_stats API
+ * Contains statistics about transaction fees on the Stellar network
+ */
+export interface FeeEstimate {
+  source: "horizon" | "fallback";
+  baseFeeStroops: number;
+  recommendedFeeStroops: number;
+  percentile: "p50" | "p95" | "p99";
+  fetchedAt: string;
+}
+
 export interface EscrowOperationResult {
   txHash: string;
   ledger: number;
