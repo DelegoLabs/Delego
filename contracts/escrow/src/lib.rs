@@ -4,7 +4,7 @@
 
 #![no_std]
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol,
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
 };
 
 #[contracttype]
@@ -124,22 +124,6 @@ pub struct DisputeVote {
     pub release_to_seller: bool,
 }
 
-/// Contract version information for deployment scripts and runtime compatibility checks.
-///
-/// # When to bump
-/// - **Patch** (third digit): Bug fixes, internal refactors, gas optimizations — no
-///   observable contract-behaviour change to callers.
-/// - **Minor** (second digit): New read-only getters, new events, new optional
-///   parameters — backward-compatible additions.
-/// - **Major** (first digit): Breaking changes — removed functions, changed
-///   function signatures, altered storage layout, modified event shapes.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ContractVersion {
-    pub name: Symbol,
-    pub semver: Symbol,
-}
-
 #[contracttype]
 pub enum DataKey {
     Admin,
@@ -243,15 +227,6 @@ impl EscrowContract {
             },
         );
         Ok(true)
-    }
-
-    /// Return the contract name and semantic version.
-    /// Callable without authentication — safe for off-chain tooling.
-    pub fn version(_env: Env) -> ContractVersion {
-        ContractVersion {
-            name: symbol_short!("escrow"),
-            semver: symbol_short!("0_1_0"),
-        }
     }
 
     /// Set the escrow amount limits. Admin-only.

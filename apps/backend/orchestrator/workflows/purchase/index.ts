@@ -12,7 +12,6 @@ import type {
   TransitionHook,
 } from "../../state/index.js";
 
-
 export interface PurchaseWorkflowInput {
   delegationId: string;
   userId: string;
