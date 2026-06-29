@@ -12,7 +12,7 @@ const log = createLogger(
   "notifications:dispatcher",
   process.env.LOG_LEVEL ?? "info"
 );
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
+const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true });
 
 const SUBSCRIPTIONS_NS = "push:subscriptions";
 
