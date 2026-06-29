@@ -217,6 +217,25 @@ pub enum EscrowError {
     CreationPaused = 26,
 }
 
+/// Compact receipt returned to buyers after escrow creation via `get_receipt`.
+///
+/// Fields are a purposeful subset of `EscrowRecord` — callers that need the
+/// full record (amount, token, timeout, …) should use `get_escrow` instead.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowReceipt {
+    /// Numeric escrow identifier (matches the value returned by `deposit`).
+    pub escrow_id: u64,
+    /// Address of the buyer who funded the escrow.
+    pub buyer: Address,
+    /// Address of the seller (merchant) who will receive the released funds.
+    pub seller: Address,
+    /// Merchant-facing order reference embedded at deposit time.
+    pub order_id: BytesN<32>,
+    /// Current lifecycle status of the escrow.
+    pub status: EscrowStatus,
+}
+
 /// Refund eligibility result returned by `get_refund_eligibility` (issue #173).
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -918,6 +937,31 @@ impl EscrowContract {
             .persistent()
             .get(&key)
             .expect("Escrow not found")
+    }
+
+    /// Read-only buyer-facing receipt for an escrow.
+    ///
+    /// Returns a compact [`EscrowReceipt`] containing the identifiers and
+    /// current status that a backend service can forward to the buyer after
+    /// escrow creation or as a status check.  The full record (amount, token,
+    /// timeout, …) is available via [`get_escrow`].
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::NotFound`] when no escrow exists for `escrow_id`.
+    pub fn get_receipt(env: Env, escrow_id: u64) -> Result<EscrowReceipt, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+        Ok(EscrowReceipt {
+            escrow_id: record.escrow_id,
+            buyer: record.buyer,
+            seller: record.seller,
+            order_id: record.order_id,
+            status: record.status,
+        })
     }
 
     /// Propose a new primary admin. Must be called by current primary admin.
