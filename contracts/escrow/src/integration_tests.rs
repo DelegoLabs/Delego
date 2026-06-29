@@ -558,3 +558,75 @@ fn test_release_eligibility_terminal_refund_blocks_release() {
     assert!(!re.eligible);
     assert_eq!(re.reason, soroban_sdk::symbol_short!("refunded"));
 }
+
+// ── MerchantEscrowReceipt getter tests ─────────────────────────────────────
+
+#[test]
+fn test_merchant_escrow_receipt_funded() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let eid = deposit_escrow(&t, 1000, 100);
+
+    let receipt = client.get_merchant_escrow_receipt(&eid);
+    assert_eq!(receipt.escrow_id, t.order_id());
+    assert_eq!(receipt.merchant, t.seller);
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.status, EscrowStatus::Funded);
+    assert!(receipt.release_eligible);
+}
+
+#[test]
+fn test_merchant_escrow_receipt_disputed() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.dispute(&eid, &t.buyer);
+
+    let receipt = client.get_merchant_escrow_receipt(&eid);
+    assert_eq!(receipt.escrow_id, t.order_id());
+    assert_eq!(receipt.merchant, t.seller);
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.status, EscrowStatus::Disputed);
+    assert!(!receipt.release_eligible);
+}
+
+#[test]
+fn test_merchant_escrow_receipt_released() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.release(&eid, &t.buyer);
+
+    let receipt = client.get_merchant_escrow_receipt(&eid);
+    assert_eq!(receipt.escrow_id, t.order_id());
+    assert_eq!(receipt.merchant, t.seller);
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.status, EscrowStatus::Released);
+    assert!(!receipt.release_eligible);
+}
+
+#[test]
+fn test_merchant_escrow_receipt_refunded() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.refund(&eid, &t.seller);
+
+    let receipt = client.get_merchant_escrow_receipt(&eid);
+    assert_eq!(receipt.escrow_id, t.order_id());
+    assert_eq!(receipt.merchant, t.seller);
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.status, EscrowStatus::Refunded);
+    assert!(!receipt.release_eligible);
+}
+
+#[test]
+fn test_merchant_escrow_receipt_not_found() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    assert_eq!(
+        client.try_get_merchant_escrow_receipt(&999u64),
+        Err(Ok(EscrowError::NotFound))
+    );
+}

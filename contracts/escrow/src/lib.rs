@@ -238,6 +238,20 @@ pub struct ReleaseEligibility {
     pub reason: Symbol,
 }
 
+/// Merchant-facing escrow receipt returned by `get_merchant_escrow_receipt`.
+///
+/// `escrow_id` mirrors the escrow record's 32-byte order id so merchant
+/// dashboards can correlate the read-only response with their backend order.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MerchantEscrowReceipt {
+    pub escrow_id: BytesN<32>,
+    pub merchant: Address,
+    pub buyer: Address,
+    pub status: EscrowStatus,
+    pub release_eligible: bool,
+}
+
 #[contract]
 pub struct EscrowContract;
 
@@ -909,6 +923,32 @@ impl EscrowContract {
             eligible: reason == symbol_short!("ok"),
             reason,
         }
+    }
+
+    /// Read-only merchant receipt for dashboards and settlement checks.
+    ///
+    /// `release_eligible` is derived from escrow status and timeout without
+    /// mutating contract state. Returns `NotFound` when the escrow does not exist.
+    pub fn get_merchant_escrow_receipt(
+        env: Env,
+        escrow_id: u64,
+    ) -> Result<MerchantEscrowReceipt, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+
+        let release_eligible = Self::release_block_reason(env, &record).is_none();
+
+        Ok(MerchantEscrowReceipt {
+            escrow_id: record.order_id,
+            merchant: record.seller,
+            buyer: record.buyer,
+            status: record.status,
+            release_eligible,
+        })
     }
 
     /// Read-only getter for escrow state.
