@@ -158,24 +158,10 @@ export function deriveEventIdempotencyKey(raw: RawRpcEvent): string | null {
 // XDR decoding helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Minimal structural type covering the parts of `xdr.ScMap` we actually
- * use.  The Stellar SDK exports `ScMap` as an XDR array whose exact
- * declared type is shaped like `XDRArray<ScMapEntry>`; using that class
- * directly here would drag in the full union of array helpers across the
- * codebase.  We only need indexed access and `.key()` / `.val()` on each
- * map entry, so a structural shape is sufficient and side-steps the
- * `abstract new` constraint.
- */
-type ScMapLike = {
-  length: number;
-  get(i: number): xdr.ScMapEntry;
-};
-
-function decodeMap(map: ScMapLike): Record<string, xdr.ScVal> {
+function decodeMap(map: xdr.ScMapEntry[]): Record<string, xdr.ScVal> {
   const out: Record<string, xdr.ScVal> = {};
   for (let i = 0; i < map.length; i++) {
-    const entry = map.get(i);
+    const entry = map[i];
     const k = entry.key();
     if (k.switch().name === "scvSymbol") {
       out[k.sym().toString()] = entry.val();
@@ -199,7 +185,7 @@ function decodeBody(bodyXdr: string): DecodedPermissionBody | null {
   if (scv.switch().name !== "scvMap") return null;
   const map = scv.map();
   if (!map) return null;
-  const decoded = decodeMap(map as unknown as ScMapLike);
+  const decoded = decodeMap(map as unknown as xdr.ScMapEntry[]);
   const allowedKeys = [
     "owner",
     "delegate",

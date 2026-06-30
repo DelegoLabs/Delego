@@ -125,15 +125,12 @@ describe("mapTopicToEventType (issue #57)", () => {
 // ── Idempotency-key derivation ───────────────────────────────────────────────
 
 describe("deriveEventIdempotencyKey (issue #57)", () => {
-  it("returns null for an id with a single segment", () => {
+  it("produces the expected colon-joined key from a 4-segment RPC id", () => {
     expect(deriveEventIdempotencyKey(makeRawGrant())).toBe("12345:0:0:0");
   });
-  it("returns the expected key for a 4-segment id", () => {
-    const raw: RawRpcEvent = {
-      ...makeRawGrant(),
-      id: "ledger=12345-txIdx=0-opIdx=0-evtIdx=1",
-    };
-    expect(deriveEventIdempotencyKey(raw)).not.toBeNull();
+  it("returns null for an id with only a single segment", () => {
+    const raw: RawRpcEvent = { ...makeRawGrant(), id: "single-segment" };
+    expect(deriveEventIdempotencyKey(raw)).toBeNull();
   });
 });
 
