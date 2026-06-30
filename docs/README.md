@@ -23,7 +23,7 @@ The Delego documentation is organized to help users, developers, and contributor
 - **Accuracy**: Ensure technical accuracy
 - **Completeness**: Cover all necessary details
 - **Accessibility**: Make documentation accessible to all skill levels
-- **Maintenance**: Keep documentation up to date with code changes
+  
 
 ## Documentation Structure
 
