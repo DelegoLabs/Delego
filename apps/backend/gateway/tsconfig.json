@@ -14,5 +14,9 @@
     "src/**/*",
     "routes/**/*",
     "middleware/**/*"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.spec.ts"
   ]
 }
