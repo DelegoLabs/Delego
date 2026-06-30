@@ -1389,4 +1389,40 @@ mod test {
         let res = client.try_execute_spend(&owner, &delegate, &60, &merchant);
         assert_eq!(res, Err(Ok(crate::PermissionError::ExceedsPerTxLimit)));
     }
+
+     #[test]
+    fn test_merchant_list_event() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &200, &100, &merchants, &10000);
+
+        let events = env.events().all();
+        let mut found = false;
+        for event in events.iter() {
+            let (contract, topics, value) = event;
+            if contract != contract_id || topics.len() != 2 {
+                continue;
+            }
+            let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+            let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
+            if t0 == soroban_sdk::symbol_short!("perm") && t1 == soroban_sdk::symbol_short!("merc_list")
+            {
+                let evt: crate::MerchantWhitelistChangedEvent = value.try_into_val(&env).unwrap();
+                assert_eq!(evt.owner, owner);
+                assert_eq!(evt.delegate, delegate);
+                assert_eq!(evt.merchant_count, merchants.len());
+                found = true;
+            }
+        }
+        assert!(found, "MerchantWhitelistChangedEvent not found in events");
+    }
+
+    
 }
