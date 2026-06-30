@@ -12,6 +12,12 @@
   },
   "include": [
     "src/**/*",
-    "escrow/**/*"
+    "escrow/**/*",
+    "events/**/*",
+    "settlement/**/*"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "node_modules"
   ]
 }

@@ -15,11 +15,15 @@
   },
   "dependencies": {
     "@delego/types": "workspace:*",
-    "@delego/utils": "workspace:*"
+    "@delego/utils": "workspace:*",
+    "pg": "^8.21.0",
+    "ioredis": "^5.11.1",
+    "@stellar/stellar-sdk": "^15.1.0"
   },
   "devDependencies": {
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "vitest": "^2.0.0"
   }
 }

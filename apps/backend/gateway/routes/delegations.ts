@@ -1,10 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { Op } from "sequelize";
 import { json } from "@delego/utils";
 import { extractAuth } from "../middleware/auth.js";
+import { checkDelegationOwnership } from "../middleware/delegationOwnership.js";
 import { validateSchema, CreateDelegationSchema, UpdateDelegationSchema } from "../src/validation.js";
+import { parsePaginationQuery } from "../src/pagination.js";
 import { sequelize } from "../src/db.js";
 import { Delegation, DelegationPolicy, SpendLimit, PermissionLevel, Wallet } from "../src/models/index.js";
 import { readJsonBody, InvalidJsonError, BodyTooLargeError } from "../src/request.js";
+import { forbidden, notFound } from "../src/errors.js";
 
 function formatDelegationResponse(delegation: Delegation, policy: DelegationPolicy, spendLimit: SpendLimit, permissionLevel: PermissionLevel): any {
   return {
@@ -143,8 +147,26 @@ export async function listDelegationsHandler(req: IncomingMessage, res: ServerRe
       return;
     }
 
+    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    const pagination = parsePaginationQuery(url.searchParams);
+    if (!pagination.ok) {
+      json(res, 400, {
+        data: null,
+        error: { code: "VALIDATION_ERROR", message: pagination.error.message, details: [pagination.error] },
+      });
+      return;
+    }
+    const { limit, cursor, sort } = pagination.value;
+
+    const where: any = { userId: auth.userId };
+    if (cursor) {
+      where.id = sort === "asc" ? { [Op.gt]: cursor } : { [Op.lt]: cursor };
+    }
+
     const delegations = await Delegation.findAll({
-      where: { userId: auth.userId },
+      where,
+      order: [["id", sort.toUpperCase()]],
+      limit,
       include: [
         { model: DelegationPolicy, as: "delegationPolicy" },
         { model: SpendLimit, as: "spendLimits" },
@@ -218,6 +240,17 @@ export async function updateDelegationHandler(req: IncomingMessage, res: ServerR
         data: null,
         error: { code: "UNAUTHORIZED", message: "Authentication required" },
       });
+      return;
+    }
+
+    // Verify delegation ownership
+    const ownership = await checkDelegationOwnership(auth.userId, params.id);
+    if (!ownership.owned) {
+      if (ownership.delegationId === params.id) {
+        forbidden(res, "You do not have permission to modify this delegation");
+      } else {
+        notFound(res, "Delegation not found");
+      }
       return;
     }
 
@@ -330,6 +363,17 @@ export async function revokeDelegationHandler(req: IncomingMessage, res: ServerR
         data: null,
         error: { code: "UNAUTHORIZED", message: "Authentication required" },
       });
+      return;
+    }
+
+    // Verify delegation ownership
+    const ownership = await checkDelegationOwnership(auth.userId, params.id);
+    if (!ownership.owned) {
+      if (ownership.delegationId === params.id) {
+        forbidden(res, "You do not have permission to modify this delegation");
+      } else {
+        notFound(res, "Delegation not found");
+      }
       return;
     }
 
