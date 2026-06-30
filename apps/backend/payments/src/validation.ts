@@ -1,3 +1,4 @@
+import { parseBigIntString } from "@delego/utils";
 import {
   getEscrowContractId,
   isValidContractId,
@@ -9,6 +10,213 @@ import type {
   RefundEscrowParams,
   ReleaseEscrowParams,
 } from "../escrow/types.js";
+
+// ---------------------------------------------------------------------------
+// Issue #202 – Merchant Address Consistency Check
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of comparing the merchant address in an escrow request against the
+ * merchant stored on the order. Both addresses are normalized (trimmed) before
+ * comparison; callers should invoke {@link validateMerchantConsistency} to
+ * reject mismatches before wallet submission.
+ */
+export interface MerchantConsistencyCheck {
+  orderId: string;
+  expectedMerchant: string;
+  requestedMerchant: string;
+  matches: boolean;
+}
+
+/**
+ * Normalize a Stellar merchant address for equality comparison.
+ * Trims surrounding whitespace; canonical casing is preserved.
+ */
+function normalizeMerchantAddress(address: string): string {
+  return address.trim();
+}
+
+/**
+ * Compare escrow-request merchant address against the order's stored merchant.
+ * Does not reject — use {@link validateMerchantConsistency} as the route guard.
+ */
+export function checkMerchantConsistency(
+  orderId: string,
+  expectedMerchant: string,
+  requestedMerchant: string
+): MerchantConsistencyCheck {
+  const normalizedExpected = normalizeMerchantAddress(expectedMerchant);
+  const normalizedRequested = normalizeMerchantAddress(requestedMerchant);
+
+  return {
+    orderId: orderId.trim(),
+    expectedMerchant: normalizedExpected,
+    requestedMerchant: normalizedRequested,
+    matches: normalizedExpected === normalizedRequested,
+  };
+}
+
+/**
+ * Reject escrow funding when the requested merchant address does not match
+ * the merchant stored for the order. Call after request-body validation and
+ * before any wallet or contract client is invoked.
+ *
+ * @example
+ * const consistency = validateMerchantConsistency(
+ *   fundRequest.orderId,
+ *   order.merchantAddress,
+ *   fundRequest.merchantAddress
+ * );
+ * if (!consistency.ok) {
+ *   sendValidationError(res, consistency.error);
+ *   return;
+ * }
+ */
+export function validateMerchantConsistency(
+  orderId: string,
+  expectedMerchant: string,
+  requestedMerchant: string
+): ValidationResult<MerchantConsistencyCheck> {
+  const check = checkMerchantConsistency(orderId, expectedMerchant, requestedMerchant);
+
+  if (!check.matches) {
+    return {
+      ok: false,
+      error: {
+        code: "MERCHANT_ADDRESS_MISMATCH",
+        message:
+          "Merchant address in escrow request does not match the merchant stored for the order",
+        details: {
+          orderId: check.orderId,
+          expectedMerchant: check.expectedMerchant,
+          requestedMerchant: check.requestedMerchant,
+          field: "merchantAddress",
+        },
+      },
+    };
+  }
+
+  return { ok: true, value: check };
+}
+
+// ---------------------------------------------------------------------------
+// Order Amount Consistency Check
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of comparing the escrow funding amount against the order amount
+ * expected by the orchestrator or payment record. Amounts are normalized to
+ * canonical stroops strings before comparison; callers should invoke
+ * {@link validateAmountConsistency} to reject mismatches before wallet
+ * submission.
+ */
+export interface AmountConsistencyCheck {
+  orderId: string;
+  expectedStroops: string;
+  requestedStroops: string;
+  matches: boolean;
+}
+
+/**
+ * Normalize a stroops amount string for equality comparison.
+ * Trims surrounding whitespace and canonicalizes via bigint (e.g. "0100" → "100").
+ */
+function normalizeStroopsAmount(stroops: string): string {
+  const parsed = parseBigIntString(stroops);
+  if (parsed.valid && parsed.value !== undefined) {
+    return parsed.value.toString();
+  }
+  return stroops.trim();
+}
+
+/**
+ * Compare escrow funding amount against the order's expected amount.
+ * Does not reject — use {@link validateAmountConsistency} as the route guard.
+ */
+export function checkAmountConsistency(
+  orderId: string,
+  expectedStroops: string,
+  requestedStroops: string
+): AmountConsistencyCheck {
+  const normalizedExpected = normalizeStroopsAmount(expectedStroops);
+  const normalizedRequested = normalizeStroopsAmount(requestedStroops);
+
+  return {
+    orderId: orderId.trim(),
+    expectedStroops: normalizedExpected,
+    requestedStroops: normalizedRequested,
+    matches: normalizedExpected === normalizedRequested,
+  };
+}
+
+/**
+ * Reject escrow funding when the requested amount does not match the amount
+ * stored for the order. Call after request-body validation and before any
+ * wallet or contract client is invoked.
+ *
+ * @example
+ * const consistency = validateAmountConsistency(
+ *   fundRequest.orderId,
+ *   order.amountStroops,
+ *   fundRequest.amountStroops
+ * );
+ * if (!consistency.ok) {
+ *   sendValidationError(res, consistency.error);
+ *   return;
+ * }
+ */
+export function validateAmountConsistency(
+  orderId: string,
+  expectedStroops: string,
+  requestedStroops: string
+): ValidationResult<AmountConsistencyCheck> {
+  const expectedParsed = parseBigIntString(expectedStroops);
+  if (!expectedParsed.valid) {
+    return {
+      ok: false,
+      error: invalidField(
+        "amountStroops",
+        "amountStroops must be a non-negative integer string"
+      ),
+    };
+  }
+
+  const requestedParsed = parseBigIntString(requestedStroops);
+  if (!requestedParsed.valid) {
+    return {
+      ok: false,
+      error: invalidField(
+        "amountStroops",
+        "amountStroops must be a non-negative integer string"
+      ),
+    };
+  }
+
+  const check = checkAmountConsistency(
+    orderId,
+    expectedParsed.value!.toString(),
+    requestedParsed.value!.toString()
+  );
+
+  if (!check.matches) {
+    return {
+      ok: false,
+      error: {
+        code: "ORDER_AMOUNT_MISMATCH",
+        message:
+          "Escrow funding amount does not match the order amount stored for the order",
+        details: {
+          orderId: check.orderId,
+          expectedStroops: check.expectedStroops,
+          requestedStroops: check.requestedStroops,
+          field: "amountStroops",
+        },
+      },
+    };
+  }
+
+  return { ok: true, value: check };
+}
 
 // ---------------------------------------------------------------------------
 // Issue #203 – Escrow Release Request Schema

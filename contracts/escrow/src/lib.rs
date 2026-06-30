@@ -1,10 +1,10 @@
-//! Delego Escrow Contract
+﻿//! Delego Escrow Contract
 //!
 //! Holds funds in escrow until order fulfillment is confirmed.
 
 #![no_std]
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol,
 };
 
 #[contracttype]
@@ -95,6 +95,29 @@ pub struct AdminTransferCancelledEvent {
 }
 
 #[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowPauseChangedEvent {
+    pub paused: bool,
+    pub admin: Address,
+    pub ledger: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowPauseState {
+    pub create_paused: bool,
+    pub updated_by: Address,
+    pub updated_at_ledger: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowTokenView {
+    pub escrow_id: u64,
+    pub token: Address,
+}
+
+#[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FeeConfig {
     /// Fee in basis points (e.g., 250 = 2.5%)
@@ -124,6 +147,22 @@ pub struct DisputeVote {
     pub release_to_seller: bool,
 }
 
+/// Contract version information for deployment scripts and runtime compatibility checks.
+///
+/// # When to bump
+/// - **Patch** (third digit): Bug fixes, internal refactors, gas optimizations — no
+///   observable contract-behaviour change to callers.
+/// - **Minor** (second digit): New read-only getters, new events, new optional
+///   parameters — backward-compatible additions.
+/// - **Major** (first digit): Breaking changes — removed functions, changed
+///   function signatures, altered storage layout, modified event shapes.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContractVersion {
+    pub name: Symbol,
+    pub semver: Symbol,
+}
+
 #[contracttype]
 pub enum DataKey {
     Admin,
@@ -137,6 +176,7 @@ pub enum DataKey {
     DisputeVotes(u64),
     TokenWhitelist,
     TokenEnabled(Address),
+    PauseState,
 }
 
 #[contracterror]
@@ -189,6 +229,48 @@ pub enum EscrowError {
     QuorumConfigNotSet = 24,
     /// Conflicting quorum outcomes
     ConflictingQuorum = 25,
+    /// New escrow creation is currently paused by admin
+    CreationPaused = 26,
+}
+
+/// Compact receipt returned to buyers after escrow creation via `get_receipt`.
+///
+/// Fields are a purposeful subset of `EscrowRecord` — callers that need the
+/// full record (amount, token, timeout, …) should use `get_escrow` instead.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowReceipt {
+    /// Numeric escrow identifier (matches the value returned by `deposit`).
+    pub escrow_id: u64,
+    /// Address of the buyer who funded the escrow.
+    pub buyer: Address,
+    /// Address of the seller (merchant) who will receive the released funds.
+    pub seller: Address,
+    /// Merchant-facing order reference embedded at deposit time.
+    pub order_id: BytesN<32>,
+    /// Current lifecycle status of the escrow.
+    pub status: EscrowStatus,
+}
+
+/// Refund eligibility result returned by `get_refund_eligibility` (issue #173).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RefundEligibility {
+    pub escrow_id: u64,
+    pub eligible: bool,
+    pub reason: Symbol,
+}
+
+/// Release eligibility result returned by `get_release_eligibility`.
+///
+/// `escrow_id` mirrors the escrow record's 32-byte order id so settlement
+/// workers can correlate the read-only response with their backend job.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReleaseEligibility {
+    pub escrow_id: BytesN<32>,
+    pub eligible: bool,
+    pub reason: Symbol,
 }
 
 #[contract]
@@ -227,6 +309,15 @@ impl EscrowContract {
             },
         );
         Ok(true)
+    }
+
+    /// Return the contract name and semantic version.
+    /// Callable without authentication — safe for off-chain tooling.
+    pub fn version(_env: Env) -> ContractVersion {
+        ContractVersion {
+            name: symbol_short!("escrow"),
+            semver: symbol_short!("0_1_0"),
+        }
     }
 
     /// Set the escrow amount limits. Admin-only.
@@ -558,6 +649,16 @@ impl EscrowContract {
     ) -> Result<u64, EscrowError> {
         buyer.require_auth();
 
+        if let Some(pause_state) = env
+            .storage()
+            .instance()
+            .get::<DataKey, EscrowPauseState>(&DataKey::PauseState)
+        {
+            if pause_state.create_paused {
+                return Err(EscrowError::CreationPaused);
+            }
+        }
+
         if !Self::is_token_allowed(env.clone(), token.clone()) {
             return Err(EscrowError::TokenNotWhitelisted);
         }
@@ -637,13 +738,7 @@ impl EscrowContract {
             return Err(EscrowError::Unauthorized);
         }
 
-        if record.status == EscrowStatus::Released {
-            return Err(EscrowError::AlreadyReleased);
-        }
-
-        if record.status != EscrowStatus::Funded {
-            return Err(EscrowError::InvalidStatus);
-        }
+        Self::validate_release_status(&record)?;
 
         let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
         let fee_bps = fee_config.fee_bps as i128;
@@ -826,6 +921,40 @@ impl EscrowContract {
         Ok(true)
     }
 
+    /// Read-only helper for settlement workers to determine whether release can proceed.
+    ///
+    /// Reason symbols (≤9 chars for `symbol_short!` compat):
+    ///   `ok`       — escrow is funded and not timed out
+    ///   `notfound` — escrow record does not exist
+    ///   `released` — already released (terminal)
+    ///   `refunded` — already refunded (terminal)
+    ///   `disputed` — escrow is under dispute
+    ///   `timeout`  — refund timeout has been reached
+    pub fn get_release_eligibility(env: Env, escrow_id: u64) -> ReleaseEligibility {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => {
+                return ReleaseEligibility {
+                    escrow_id: BytesN::from_array(&env, &[0u8; 32]),
+                    eligible: false,
+                    reason: symbol_short!("notfound"),
+                };
+            }
+        };
+
+        let reason = match Self::release_block_reason(env, &record) {
+            Some(reason) => reason,
+            None => symbol_short!("ok"),
+        };
+
+        ReleaseEligibility {
+            escrow_id: record.order_id,
+            eligible: reason == symbol_short!("ok"),
+            reason,
+        }
+    }
+
     /// Read-only getter for escrow state.
     pub fn get_escrow(env: Env, escrow_id: u64) -> EscrowRecord {
         let key = DataKey::Escrow(escrow_id);
@@ -833,6 +962,31 @@ impl EscrowContract {
             .persistent()
             .get(&key)
             .expect("Escrow not found")
+    }
+
+    /// Read-only buyer-facing receipt for an escrow.
+    ///
+    /// Returns a compact [`EscrowReceipt`] containing the identifiers and
+    /// current status that a backend service can forward to the buyer after
+    /// escrow creation or as a status check.  The full record (amount, token,
+    /// timeout, …) is available via [`get_escrow`].
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::NotFound`] when no escrow exists for `escrow_id`.
+    pub fn get_receipt(env: Env, escrow_id: u64) -> Result<EscrowReceipt, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+        Ok(EscrowReceipt {
+            escrow_id: record.escrow_id,
+            buyer: record.buyer,
+            seller: record.seller,
+            order_id: record.order_id,
+            status: record.status,
+        })
     }
 
     /// Propose a new primary admin. Must be called by current primary admin.
@@ -981,7 +1135,166 @@ impl EscrowContract {
         Ok(true)
     }
 
+    /// Set or clear the admin pause flag for new escrow creation. Admin-only.
+    pub fn set_create_paused(env: Env, admin: Address, paused: bool) -> Result<bool, EscrowError> {
+        admin.require_auth();
+        if !Self::is_admin(env.clone(), admin.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+        let pause_state = EscrowPauseState {
+            create_paused: paused,
+            updated_by: admin.clone(),
+            updated_at_ledger: env.ledger().sequence(),
+        };
+        env.storage()
+            .instance()
+            .set(&DataKey::PauseState, &pause_state);
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("paused")),
+            EscrowPauseChangedEvent {
+                paused,
+                admin,
+                ledger: env.ledger().sequence(),
+            },
+        );
+        Ok(true)
+    }
+
+    /// Get the current escrow creation pause state.
+    pub fn get_create_paused(env: Env) -> bool {
+        env.storage()
+            .instance()
+            .get::<DataKey, EscrowPauseState>(&DataKey::PauseState)
+            .map(|s| s.create_paused)
+            .unwrap_or(false)
+    }
+
+    /// Get the token address associated with an escrow.
+    pub fn get_token(env: Env, escrow_id: u64) -> Result<EscrowTokenView, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+        Ok(EscrowTokenView {
+            escrow_id,
+            token: record.token,
+        })
+    }
+
     /// Returns true if the address is the primary admin or a co-admin.
+    /// Read-only check: returns whether the given caller is eligible to refund
+    /// the specified escrow, and a machine-readable reason symbol (issue #173).
+    ///
+    /// Reason symbols (≤7 chars for `symbol_short!` compat):
+    ///   `ok`       — caller may refund right now
+    ///   `notfund`  — escrow not found
+    ///   `released` — already released (terminal)
+    ///   `refunded` — already refunded (terminal)
+    ///   `disputed` — escrow is under dispute
+    ///   `noauth`   — caller is not buyer/seller/admin
+    ///   `timeout`  — buyer must wait for timeout
+    pub fn get_refund_eligibility(env: Env, escrow_id: u64, caller: Address) -> RefundEligibility {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => {
+                return RefundEligibility {
+                    escrow_id,
+                    eligible: false,
+                    reason: symbol_short!("notfund"),
+                };
+            }
+        };
+
+        // Terminal states
+        if record.status == EscrowStatus::Released {
+            return RefundEligibility {
+                escrow_id,
+                eligible: false,
+                reason: symbol_short!("released"),
+            };
+        }
+        if record.status == EscrowStatus::Refunded {
+            return RefundEligibility {
+                escrow_id,
+                eligible: false,
+                reason: symbol_short!("refunded"),
+            };
+        }
+        if record.status == EscrowStatus::Disputed {
+            return RefundEligibility {
+                escrow_id,
+                eligible: false,
+                reason: symbol_short!("disputed"),
+            };
+        }
+
+        // Must be Funded at this point
+        let is_seller = caller == record.seller;
+        let is_buyer = caller == record.buyer;
+        let is_admin = Self::is_admin(env.clone(), caller.clone());
+
+        if is_seller || is_admin {
+            return RefundEligibility {
+                escrow_id,
+                eligible: true,
+                reason: symbol_short!("ok"),
+            };
+        }
+
+        if is_buyer {
+            let timeout_reached = env.ledger().sequence() >= record.timeout_ledger;
+            if timeout_reached {
+                return RefundEligibility {
+                    escrow_id,
+                    eligible: true,
+                    reason: symbol_short!("ok"),
+                };
+            } else {
+                return RefundEligibility {
+                    escrow_id,
+                    eligible: false,
+                    reason: symbol_short!("timeout"),
+                };
+            }
+        }
+
+        RefundEligibility {
+            escrow_id,
+            eligible: false,
+            reason: symbol_short!("noauth"),
+        }
+    }
+
+    fn validate_release_status(record: &EscrowRecord) -> Result<(), EscrowError> {
+        if record.status == EscrowStatus::Released {
+            return Err(EscrowError::AlreadyReleased);
+        }
+
+        if record.status != EscrowStatus::Funded {
+            return Err(EscrowError::InvalidStatus);
+        }
+
+        Ok(())
+    }
+
+    fn release_block_reason(env: Env, record: &EscrowRecord) -> Option<Symbol> {
+        match record.status {
+            EscrowStatus::Funded => {
+                if env.ledger().sequence() >= record.timeout_ledger {
+                    Some(symbol_short!("timeout"))
+                } else {
+                    None
+                }
+            }
+            EscrowStatus::Released => Some(symbol_short!("released")),
+            EscrowStatus::Refunded => Some(symbol_short!("refunded")),
+            EscrowStatus::Disputed => Some(symbol_short!("disputed")),
+        }
+    }
+
     pub fn is_admin(env: Env, address: Address) -> bool {
         let primary_admin: Address = match env.storage().instance().get(&DataKey::Admin) {
             Some(addr) => addr,

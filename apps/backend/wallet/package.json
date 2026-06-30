@@ -11,10 +11,10 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'TODO: add eslint'",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.750.0",
     "@delego/types": "workspace:*",
     "@delego/utils": "workspace:*",
     "@stellar/stellar-sdk": "^15.1.0",
@@ -31,6 +31,6 @@
     "ioredis-mock": "^8.13.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vitest": "^2.0.0"
+    "vitest": "^2.1.9"
   }
 }

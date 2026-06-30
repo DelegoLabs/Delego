@@ -60,7 +60,7 @@ fn test_grant_and_spend() {
     let limit_per_tx = 50i128;
     let limit_total = 100i128;
     let ttl_ledgers = 3600u32;
-    let mut merchants = Vec::new(&t.env);
+    let mut merchants = Vec::<soroban_sdk::Address>::new(&t.env);
     merchants.push_back(t.seller.clone());
 
     client.grant(
@@ -100,7 +100,7 @@ fn test_spend_exceeds_per_tx_limit() {
     let limit_per_tx = 50i128;
     let limit_total = 100i128;
     let ttl_ledgers = 3600u32;
-    let merchants = Vec::new(&t.env);
+    let merchants = Vec::<soroban_sdk::Address>::new(&t.env);
 
     client.grant(
         &t.buyer,
@@ -125,7 +125,7 @@ fn test_spend_exceeds_total_limit() {
     let limit_per_tx = 50i128;
     let limit_total = 100i128;
     let ttl_ledgers = 3600u32;
-    let merchants = Vec::new(&t.env);
+    let merchants = Vec::<soroban_sdk::Address>::new(&t.env);
 
     client.grant(
         &t.buyer,
@@ -154,7 +154,7 @@ fn test_merchant_restriction() {
     let limit_total = 1000i128;
     let ttl_ledgers = 3600u32;
 
-    let mut merchants = Vec::new(&t.env);
+    let mut merchants = Vec::<soroban_sdk::Address>::new(&t.env);
     merchants.push_back(t.seller.clone());
 
     client.grant(
@@ -186,7 +186,7 @@ fn test_permission_expiry() {
     let limit_per_tx = 100i128;
     let limit_total = 1000i128;
     let ttl_ledgers = 100u32;
-    let merchants = Vec::new(&t.env);
+    let merchants = Vec::<soroban_sdk::Address>::new(&t.env);
 
     client.grant(
         &t.buyer,
@@ -220,7 +220,7 @@ fn test_revoke_prevents_spend() {
     let limit_per_tx = 100i128;
     let limit_total = 1000i128;
     let ttl_ledgers = 3600u32;
-    let merchants = Vec::new(&t.env);
+    let merchants = Vec::<soroban_sdk::Address>::new(&t.env);
 
     client.grant(
         &t.buyer,
@@ -247,7 +247,7 @@ fn test_permission_events() {
     let limit_per_tx = 50i128;
     let limit_total = 100i128;
     let ttl_ledgers = 3600u32;
-    let mut merchants = Vec::new(&t.env);
+    let mut merchants = Vec::<soroban_sdk::Address>::new(&t.env);
     merchants.push_back(t.seller.clone());
 
     client.grant(
@@ -348,7 +348,7 @@ fn test_decrease_allowance_timelock() {
     let limit_per_tx = 100i128;
     let limit_total = 1000i128;
     let ttl_ledgers = 36000u32;
-    let merchants = Vec::new(&t.env);
+    let merchants = Vec::<soroban_sdk::Address>::new(&t.env);
 
     client.grant(
         &t.buyer,
@@ -381,7 +381,7 @@ fn test_decrease_allowance_timelock_blocked() {
     let limit_per_tx = 100i128;
     let limit_total = 1000i128;
     let ttl_ledgers = 36000u32;
-    let merchants = Vec::new(&t.env);
+    let merchants = Vec::<soroban_sdk::Address>::new(&t.env);
 
     client.grant(
         &t.buyer,
