@@ -110,6 +110,16 @@ pub struct EscrowPauseState {
     pub updated_at_ledger: u32,
 }
 
+/// Optional metadata hash stored on escrow creation for off-chain order verification.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowMetadata {
+    /// Hash of off-chain order details (e.g., order JSON)
+    pub order_hash: BytesN<32>,
+    /// Schema identifier for the off-chain data (e.g., "order_v1")
+    pub schema: Symbol,
+}
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EscrowTokenView {
@@ -177,6 +187,7 @@ pub enum DataKey {
     TokenWhitelist,
     TokenEnabled(Address),
     PauseState,
+    EscrowMetadata(u64),
 }
 
 #[contracterror]
@@ -638,6 +649,9 @@ impl EscrowContract {
     }
 
     /// Deposit funds into escrow for an order.
+    ///
+    /// Optional metadata parameters (order_hash and schema) can be provided to store
+    /// a hash of off-chain order details for later verification.
     pub fn deposit(
         env: Env,
         buyer: Address,
@@ -646,6 +660,8 @@ impl EscrowContract {
         amount: i128,
         order_id: BytesN<32>,
         timeout_ledgers: u32,
+        order_hash: Option<BytesN<32>>,
+        schema: Option<Symbol>,
     ) -> Result<u64, EscrowError> {
         buyer.require_auth();
 
@@ -707,6 +723,17 @@ impl EscrowContract {
         env.storage()
             .persistent()
             .set(&DataKey::Escrow(last_id), &record);
+
+        // Store optional metadata if both order_hash and schema are provided
+        if let (Some(hash), Some(sch)) = (order_hash, schema) {
+            let metadata = EscrowMetadata {
+                order_hash: hash,
+                schema: sch,
+            };
+            env.storage()
+                .persistent()
+                .set(&DataKey::EscrowMetadata(last_id), &metadata);
+        }
 
         env.events().publish(
             (symbol_short!("escrow"), symbol_short!("created")),
@@ -1181,6 +1208,19 @@ impl EscrowContract {
             escrow_id,
             token: record.token,
         })
+    }
+
+    /// Get the optional metadata for an escrow.
+    ///
+    /// Returns the metadata if it was provided during escrow creation, otherwise
+    /// returns NotFound. The metadata contains the order hash and schema identifier
+    /// for off-chain order verification.
+    pub fn get_escrow_metadata(env: Env, escrow_id: u64) -> Result<EscrowMetadata, EscrowError> {
+        let key = DataKey::EscrowMetadata(escrow_id);
+        env.storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)
     }
 
     /// Returns true if the address is the primary admin or a co-admin.
