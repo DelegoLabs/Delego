@@ -64,10 +64,8 @@ export class OpenAIClient implements LLMClient {
       body
     )) as OpenAIChatCompletionResponse;
 
-    const inputTokens: number =
-      (response.usage as Record<string, number>)?.prompt_tokens ?? 0;
-    const outputTokens: number =
-      (response.usage as Record<string, number>)?.completion_tokens ?? 0;
+    const inputTokens = response.usage?.prompt_tokens ?? 0;
+    const outputTokens = response.usage?.completion_tokens ?? 0;
     const totalTokens = inputTokens + outputTokens;
 
     if (options.tokenBudget && totalTokens > options.tokenBudget) {
