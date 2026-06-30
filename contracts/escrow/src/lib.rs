@@ -762,11 +762,6 @@ impl EscrowContract {
             token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
         }
         token_client.transfer(&env.current_contract_address(), &recipient, &seller_amount);
-        token_client.transfer(
-            &env.current_contract_address(),
-            &record.seller,
-            &seller_amount,
-        );
 
         record.status = EscrowStatus::Released;
         env.storage().persistent().set(&key, &record);

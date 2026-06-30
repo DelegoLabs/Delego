@@ -3,7 +3,7 @@ mod test {
     use crate::{DataKey, EscrowContract, EscrowContractClient, EscrowError};
     use soroban_sdk::{symbol_short, testutils::Address as _, Address, Env, IntoVal};
 
-    fn setup_client(env: &Env) -> (EscrowContractClient, Address) {
+    fn setup_client(env: &Env) -> (EscrowContractClient<'_>, Address) {
         let contract_id = env.register(EscrowContract, ());
         let client = EscrowContractClient::new(env, &contract_id);
         let admin = Address::generate(env);

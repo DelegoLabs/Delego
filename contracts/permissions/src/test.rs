@@ -17,13 +17,9 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let mut merchants = Vec::<soroban_sdk::Address>::new(&env);
         let mut merchants = Vec::<Address>::new(&env);
         merchants.push_back(merchant.clone());
 
-        assert!(client.grant(&owner, &delegate, &100, &1000, &merchants, &10000));
-        client.grant(&owner, &delegate, &100, &1000, &merchants, &10000);
-        assert!(client.can_spend(&owner, &delegate, &50, &merchant));
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         assert_eq!(
             client.try_can_spend(&owner, &delegate, &50, &merchant),
@@ -43,13 +39,9 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let mut merchants = Vec::<soroban_sdk::Address>::new(&env);
         let mut merchants = Vec::<Address>::new(&env);
         merchants.push_back(allowed_merchant.clone());
 
-        assert!(client.grant(&owner, &delegate, &100, &1000, &merchants, &10000));
-        client.grant(&owner, &delegate, &100, &1000, &merchants, &10000);
-        assert!(!client.can_spend(&owner, &delegate, &50, &other_merchant));
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         assert_eq!(
             client.try_can_spend(&owner, &delegate, &50, &other_merchant),
@@ -69,7 +61,6 @@ mod test {
 
         env.mock_all_auths();
 
-        let mut merchants = Vec::<soroban_sdk::Address>::new(&env);
         let mut merchants = Vec::<Address>::new(&env);
         merchants.push_back(merchant.clone());
 
@@ -133,7 +124,6 @@ mod test {
 
         env.mock_all_auths();
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         client.revoke(&owner, &delegate);
@@ -154,7 +144,6 @@ mod test {
 
         env.mock_all_auths();
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
 
@@ -179,7 +168,6 @@ mod test {
 
         env.mock_all_auths();
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         assert_eq!(client.get_remaining_allowance(&owner, &delegate), 1000);
@@ -200,7 +188,6 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &500, &100, &merchants, &10000);
 
@@ -221,7 +208,6 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &500, &100, &merchants, &10000);
         client.execute_spend(&owner, &delegate, &75, &merchant);
@@ -243,7 +229,6 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &100, &100, &merchants, &10000);
         client.execute_spend(&owner, &delegate, &100, &merchant);
@@ -281,7 +266,6 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &200, &100, &merchants, &10000);
         client.execute_spend(&owner, &delegate, &60, &merchant);
@@ -320,7 +304,6 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &50, &50, &merchants, &10000);
 
@@ -375,7 +358,6 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         assert_eq!(
@@ -402,7 +384,6 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &500, &100, &merchants, &10000);
 
@@ -425,7 +406,6 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
 
@@ -457,7 +437,6 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
         client.revoke(&owner, &delegate);
@@ -476,7 +455,6 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
 
@@ -495,7 +473,6 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<soroban_sdk::Address>::new(&env);
         let merchants = Vec::<Address>::new(&env);
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
 
@@ -512,7 +489,6 @@ mod test {
         let admin = Address::generate(&env);
         let owner = Address::generate(&env);
         let delegate = Address::generate(&env);
-        let merchants = Vec::<Address>::new(&env);
 
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);

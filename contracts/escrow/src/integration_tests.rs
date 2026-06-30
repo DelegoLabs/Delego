@@ -28,7 +28,6 @@ impl TestEnv {
         let treasury = Address::generate(&env);
 
         let token_admin = Address::generate(&env);
-        let token_contract_id = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
         let token_contract_id = env
             .register_stellar_asset_contract_v2(token_admin.clone())
             .address();
@@ -91,7 +90,6 @@ fn test_deposit_with_non_whitelisted_token_fails() {
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
 
     let other_token_admin = Address::generate(&t.env);
-    let other_token_contract_id = t.env.register_stellar_asset_contract_v2(other_token_admin.clone()).address();
     let other_token_contract_id = t
         .env
         .register_stellar_asset_contract_v2(other_token_admin.clone())
@@ -328,7 +326,6 @@ fn test_double_release_prevention() {
     let escrow_id = deposit_escrow(&t, 1000, 100);
 
     assert!(escrow_client.release(&escrow_id, &t.buyer, &t.seller));
-    assert!(escrow_client.release(&escrow_id, &t.buyer));
     assert_eq!(token_client.balance(&t.seller), 1000);
     assert_eq!(
         escrow_client.get_escrow(&escrow_id).status,
@@ -490,7 +487,7 @@ fn test_refund_eligibility_already_released() {
     let t = TestEnv::setup();
     let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
     let eid = deposit_escrow(&t, 1000, 100);
-    client.release(&eid, &t.buyer);
+    client.release(&eid, &t.buyer, &t.seller);
 
     let re = client.get_refund_eligibility(&eid, &t.seller);
     assert!(!re.eligible);
@@ -579,7 +576,7 @@ fn test_release_eligibility_terminal_release_blocks_release() {
     let t = TestEnv::setup();
     let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
     let eid = deposit_escrow(&t, 1000, 100);
-    client.release(&eid, &t.buyer);
+    client.release(&eid, &t.buyer, &t.seller);
 
     let re = client.get_release_eligibility(&eid);
     assert_eq!(re.escrow_id, t.order_id());
@@ -625,7 +622,7 @@ fn test_get_receipt_released_state() {
     let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
 
     let eid = deposit_escrow(&t, 1000, 100);
-    client.release(&eid, &t.buyer);
+    client.release(&eid, &t.buyer, &t.seller);
 
     let receipt = client.get_receipt(&eid);
     assert_eq!(receipt.escrow_id, eid);
