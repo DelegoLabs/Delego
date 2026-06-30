@@ -24,10 +24,19 @@ pub struct EscrowRecord {
     pub seller: Address,
     pub token: Address,
     pub amount: i128,
+    pub released_amount: i128,
     pub status: EscrowStatus,
     pub order_id: BytesN<32>,
     pub created_at: u64,
     pub timeout_ledger: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PartialReleaseResult {
+    pub released: i128,
+    pub remaining: i128,
+    pub fully_released: bool,
 }
 
 #[contracttype]
@@ -203,6 +212,10 @@ pub enum EscrowError {
     InvalidAmount = 9,
     /// Token is not approved for escrow deposits
     TokenNotWhitelisted = 10,
+    /// Release amount exceeds remaining escrow balance
+    InsufficientEscrowBalance = 11,
+    /// Release amount is zero
+    ZeroAmount = 12,
     /// No pending admin transfer exists
     NoPendingTransfer = 13,
     /// Caller is not the pending admin
@@ -698,6 +711,7 @@ impl EscrowContract {
             seller: seller.clone(),
             token: token.clone(),
             amount,
+            released_amount: 0,
             status: EscrowStatus::Funded,
             order_id: order_id.clone(),
             created_at: env.ledger().timestamp(),
@@ -724,8 +738,15 @@ impl EscrowContract {
         Ok(last_id)
     }
 
-    /// Release escrowed funds to the seller. Only the buyer or admin may call.
-    pub fn release(env: Env, escrow_id: u64, caller: Address) -> Result<bool, EscrowError> {
+    /// Release a partial amount to the seller.
+    /// `release_amount` must be <= (record.amount - record.released_amount).
+    /// If release_amount equals the remaining balance, set status to Released.
+    pub fn partial_release(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+        release_amount: i128,
+    ) -> Result<PartialReleaseResult, EscrowError> {
         caller.require_auth();
 
         let key = DataKey::Escrow(escrow_id);
@@ -740,23 +761,29 @@ impl EscrowContract {
 
         Self::validate_release_status(&record)?;
 
-        let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
-        let fee_bps = fee_config.fee_bps as i128;
-        let fee = (record.amount / 10_000i128) * fee_bps
-            + ((record.amount % 10_000i128) * fee_bps) / 10_000i128;
-        let seller_amount = record.amount - fee;
+        if release_amount <= 0 {
+            return Err(EscrowError::ZeroAmount);
+        }
+
+        let remaining = record.amount - record.released_amount;
+        if release_amount > remaining {
+            return Err(EscrowError::InsufficientEscrowBalance);
+        }
 
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
-        if fee > 0 {
-            token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
-        }
         token_client.transfer(
             &env.current_contract_address(),
             &record.seller,
-            &seller_amount,
+            &release_amount,
         );
 
-        record.status = EscrowStatus::Released;
+        record.released_amount += release_amount;
+        let new_remaining = record.amount - record.released_amount;
+        let fully_released = new_remaining == 0;
+        if fully_released {
+            record.status = EscrowStatus::Released;
+        }
+
         env.storage().persistent().set(&key, &record);
 
         env.events().publish(
@@ -764,11 +791,28 @@ impl EscrowContract {
             EscrowReleasedEvent {
                 escrow_id,
                 seller: record.seller.clone(),
-                amount: seller_amount,
+                amount: release_amount,
                 released_by: caller,
             },
         );
 
+        Ok(PartialReleaseResult {
+            released: release_amount,
+            remaining: new_remaining,
+            fully_released,
+        })
+    }
+
+    /// Release escrowed funds to the seller. Only the buyer or admin may call.
+    pub fn release(env: Env, escrow_id: u64, caller: Address) -> Result<bool, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        let remaining = record.amount - record.released_amount;
+        Self::partial_release(env, escrow_id, caller, remaining)?;
         Ok(true)
     }
 
@@ -803,11 +847,13 @@ impl EscrowContract {
             return Err(EscrowError::Unauthorized);
         }
 
+        let refund_amount = record.amount - record.released_amount;
+
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
         token_client.transfer(
             &env.current_contract_address(),
             &record.buyer,
-            &record.amount,
+            &refund_amount,
         );
 
         record.status = EscrowStatus::Refunded;
@@ -818,7 +864,7 @@ impl EscrowContract {
             EscrowRefundedEvent {
                 escrow_id,
                 buyer: record.buyer.clone(),
-                amount: record.amount,
+                amount: refund_amount,
                 refunded_by: caller,
             },
         );
