@@ -1424,5 +1424,22 @@ mod test {
         assert!(found, "MerchantWhitelistChangedEvent not found in events");
     }
 
+     #[test]
+    fn test_merchant_list_event_not_emitted() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        let _ = client.try_grant(&owner, &delegate, &200, &0, &merchants, &10000);
+
+        let events = env.events().all();
+        assert_eq!(events.len(), 0);
+    }
+
     
 }
