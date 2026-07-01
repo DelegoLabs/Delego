@@ -170,7 +170,7 @@ export function getWalletLookupAdapter(): WalletLookupAdapter {
   const { Redis } = _require("ioredis") as any;
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
+  const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true });
 
   const dbClient: DbClient = {
     async queryOne<T>(sql: string, params?: unknown[]): Promise<T | null> {

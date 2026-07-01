@@ -115,7 +115,7 @@ export function getRedisConnection(): Redis {
   const redisHost = process.env.REDIS_HOST ?? "localhost";
   const redisPort = Number(process.env.REDIS_PORT ?? 6379);
 
-  if (isTest || (!redisUrl && redisHost === "localhost" && process.env.MOCK_REDIS === "true")) {
+  if (isTest || (!redisUrl && redisHost === "localhost" && (process.env.MOCK_REDIS === "true" || process.env.CI === "true"))) {
     log.info("Using mock Redis connection");
     const MockRedisConstructor = MockRedis as any;
     redisClient = new MockRedisConstructor();

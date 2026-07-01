@@ -1,7 +1,7 @@
-#[cfg(test)]
+﻿#[cfg(test)]
 mod test {
     use crate::{DataKey, EscrowContract, EscrowContractClient, EscrowError};
-    use soroban_sdk::{testutils::Address as _, Address, Env, IntoVal};
+    use soroban_sdk::{symbol_short, testutils::Address as _, Address, Env, IntoVal};
 
     fn setup_client(env: &Env) -> (EscrowContractClient, Address) {
         let contract_id = env.register(EscrowContract, ());
@@ -156,5 +156,16 @@ mod test {
 
         let res = client.try_get_token(&999u64);
         assert_eq!(res, Err(Ok(EscrowError::NotFound)));
+    }
+
+    #[test]
+    fn test_version() {
+        let env = Env::default();
+        let contract_id = env.register(EscrowContract, ());
+        let client = EscrowContractClient::new(&env, &contract_id);
+
+        let version = client.version();
+        assert_eq!(version.name, symbol_short!("escrow"));
+        assert_eq!(version.semver, symbol_short!("0_1_0"));
     }
 }
