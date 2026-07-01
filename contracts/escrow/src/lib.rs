@@ -63,8 +63,10 @@ pub struct EscrowRefundedEvent {
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct EscrowDisputedEvent {
-    pub escrow_id: u64,
-    pub disputed_by: Address,
+    pub escrow_id: BytesN<32>,
+    pub raised_by: Address,
+    pub reason_code: Symbol,
+    pub ledger: u32,
 }
 
 #[contracttype]
@@ -827,7 +829,7 @@ impl EscrowContract {
     }
 
     /// Mark the escrow as disputed. Only the buyer or seller may call.
-    pub fn dispute(env: Env, escrow_id: u64, caller: Address) -> Result<bool, EscrowError> {
+    pub fn dispute(env: Env, escrow_id: u64, caller: Address, reason_code: Symbol, ) -> Result<bool, EscrowError> {
         caller.require_auth();
 
         let key = DataKey::Escrow(escrow_id);
@@ -848,12 +850,15 @@ impl EscrowContract {
         env.storage().persistent().set(&key, &record);
 
         env.events().publish(
-            (symbol_short!("escrow"), symbol_short!("disputed")),
-            EscrowDisputedEvent {
-                escrow_id,
-                disputed_by: caller,
-            },
-        );
+    (symbol_short!("escrow"), symbol_short!("disputed")),
+    EscrowDisputedEvent {
+        // Use order_id because it is the contract's only BytesN<32> identifier.
+        escrow_id: record.order_id.clone(),
+        raised_by: caller,
+        reason_code,
+        ledger: env.ledger().sequence(),
+    },
+);
 
         Ok(true)
     }
@@ -1314,5 +1319,8 @@ impl EscrowContract {
 
 #[cfg(test)]
 mod integration_tests;
+
+
+
 #[cfg(test)]
 mod test;
