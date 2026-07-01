@@ -77,6 +77,14 @@ pub struct PermissionConfig {
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MerchantRestriction {
+    pub owner: Address,
+    pub delegate: Address,
+    pub merchant: Option<Address>,
+}
+
+#[contracttype]
 #[derive(Clone, Debug)]
 pub struct PermissionGrantedEvent {
     pub owner: Address,
@@ -107,10 +115,10 @@ pub struct PermissionSpendEvent {
 
 #[contracttype]
 #[derive(Clone, Debug)]
-pub struct MerchantWhitelistChangedEvent { 
-    pub owner: Address, 
-    pub delegate: Address, 
-    pub merchant_count: u32 
+pub struct MerchantWhitelistChangedEvent {
+    pub owner: Address,
+    pub delegate: Address,
+    pub merchant_count: u32,
 }
 
 #[contracttype]
@@ -314,7 +322,7 @@ impl PermissionsContract {
             },
         );
 
-         env.events().publish(
+        env.events().publish(
             (symbol_short!("perm"), symbol_short!("merc_list")),
             MerchantWhitelistChangedEvent {
                 owner,
@@ -474,13 +482,7 @@ impl PermissionsContract {
             .map(|r| r.limit_total - r.spent)
             .unwrap_or(0);
 
-        match Self::can_spend(
-            env.clone(),
-            owner,
-            delegate,
-            amount,
-            merchant,
-        ) {
+        match Self::can_spend(env.clone(), owner, delegate, amount, merchant) {
             Ok(()) => SpendPreview {
                 allowed: true,
                 reason: Symbol::new(&env, "ok"),
@@ -511,6 +513,20 @@ impl PermissionsContract {
     pub fn get_permission(env: Env, owner: Address, delegate: Address) -> PermissionRecord {
         let key = DataKey::Permission(owner, delegate);
         env.storage().persistent().get(&key).unwrap()
+    }
+
+    /// Returns the first merchant restriction stored for an owner/delegate pair.
+    ///
+    /// This reads the existing `Permission(owner, delegate)` record without
+    /// touching allowance counters, status, TTL, or pending-decrement state.
+    pub fn get_merchant_restriction(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> Option<Address> {
+        let key = DataKey::Permission(owner, delegate);
+        let record: Option<PermissionRecord> = env.storage().persistent().get(&key);
+        record.and_then(|permission| permission.allowed_merchants.get(0))
     }
 
     pub fn get_remaining_allowance(env: Env, owner: Address, delegate: Address) -> i128 {
@@ -690,7 +706,9 @@ impl PermissionsContract {
             grants_paused: true,
             updated_at_ledger: env.ledger().sequence(),
         };
-        env.storage().instance().set(&DataKey::GrantPauseState, &state);
+        env.storage()
+            .instance()
+            .set(&DataKey::GrantPauseState, &state);
 
         env.events().publish(
             (symbol_short!("perm"), symbol_short!("gpaused")),
@@ -720,7 +738,9 @@ impl PermissionsContract {
             grants_paused: false,
             updated_at_ledger: env.ledger().sequence(),
         };
-        env.storage().instance().set(&DataKey::GrantPauseState, &state);
+        env.storage()
+            .instance()
+            .set(&DataKey::GrantPauseState, &state);
 
         env.events().publish(
             (symbol_short!("perm"), symbol_short!("gpaused")),
@@ -811,11 +831,7 @@ impl PermissionsContract {
     }
 
     /// Returns optional metadata for a permission grant (issue #181).
-    pub fn get_metadata(
-        env: Env,
-        owner: Address,
-        delegate: Address,
-    ) -> Option<PermissionMetadata> {
+    pub fn get_metadata(env: Env, owner: Address, delegate: Address) -> Option<PermissionMetadata> {
         env.storage()
             .persistent()
             .get(&DataKey::Metadata(owner, delegate))
