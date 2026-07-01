@@ -1,4 +1,4 @@
-import { Keypair, Horizon } from "@stellar/stellar-sdk";
+import { Keypair, Horizon, Networks, TransactionBuilder } from "@stellar/stellar-sdk";
 import type { WalletAccount, StellarNetwork } from "@delego/types";
 import { vaultService } from "../src/vault.js";
 import { createLogger } from "@delego/utils";
@@ -11,6 +11,20 @@ export interface AccountService {
   createAccount(network: StellarNetwork): Promise<WalletAccount & { secret?: string }>;
 }
 
+export interface MultisigTxRequest {
+  xdr: string;
+  signerKeyIds?: string[];
+  /** @deprecated Use signerKeyIds. Signer IDs are vault-managed Stellar public keys. */
+  signers?: string[];
+  requiredWeight?: number;
+}
+
+export interface MultisigTxResult {
+  signedXdr: string;
+  signerCount: number;
+  thresholdMet: boolean;
+}
+
 function getHorizonUrl(network: StellarNetwork): string {
   if (network === "mainnet") {
     return process.env.STELLAR_HORIZON_URL ?? "https://horizon.stellar.org";
@@ -19,6 +33,112 @@ function getHorizonUrl(network: StellarNetwork): string {
   } else {
     return process.env.STELLAR_HORIZON_URL ?? "https://horizon-testnet.stellar.org";
   }
+}
+
+function getNetworkPassphrase(): string {
+  const network = ((process.env.STELLAR_NETWORK as StellarNetwork | undefined) ?? "testnet").toLowerCase();
+  if (network === "mainnet") {
+    return Networks.PUBLIC;
+  }
+  if (network === "futurenet") {
+    return Networks.FUTURENET;
+  }
+  return Networks.TESTNET;
+}
+
+function getRequestedSignerIds(request: MultisigTxRequest): string[] {
+  const rawSignerIds = request.signerKeyIds?.length ? request.signerKeyIds : request.signers ?? [];
+  const signerIds: string[] = [];
+  const seen = new Set<string>();
+
+  for (const rawSignerId of rawSignerIds) {
+    const signerId = rawSignerId.trim();
+    if (!signerId || seen.has(signerId)) {
+      continue;
+    }
+
+    try {
+      Keypair.fromPublicKey(signerId);
+    } catch {
+      throw new Error(`Invalid signer key id: ${signerId}`);
+    }
+
+    seen.add(signerId);
+    signerIds.push(signerId);
+  }
+
+  if (signerIds.length === 0) {
+    throw new Error("At least one signer key id is required");
+  }
+
+  return signerIds;
+}
+
+function getRequiredWeight(request: MultisigTxRequest, signerCount: number): number {
+  const requiredWeight = request.requiredWeight ?? signerCount;
+  if (!Number.isInteger(requiredWeight) || requiredWeight < 1) {
+    throw new Error("requiredWeight must be a positive integer");
+  }
+  if (requiredWeight > signerCount) {
+    throw new Error(`Multisig threshold cannot be met with ${signerCount} signer(s)`);
+  }
+  return requiredWeight;
+}
+
+type SignableTransaction = ReturnType<typeof TransactionBuilder.fromXDR>;
+
+function hasValidSignature(tx: SignableTransaction, signer: Keypair): boolean {
+  const txHash = tx.hash();
+  const signerHint = signer.signatureHint();
+
+  return tx.signatures.some((signature) => (
+    Buffer.compare(signature.hint(), signerHint) === 0
+      && signer.verify(txHash, signature.signature())
+  ));
+}
+
+async function loadSignerKeypair(signerKeyId: string): Promise<Keypair> {
+  const secret = await vaultService.getKey(signerKeyId);
+  const keypair = Keypair.fromSecret(secret);
+
+  if (keypair.publicKey() !== signerKeyId) {
+    throw new Error(`Vault secret does not match signer key id: ${signerKeyId}`);
+  }
+
+  return keypair;
+}
+
+/**
+ * Appends vault-backed Stellar signatures to a transaction envelope without submitting it.
+ * Each signer ID is a vault-managed public key stored through {@link vaultService}.
+ */
+export async function signMultisigTx(request: MultisigTxRequest): Promise<MultisigTxResult> {
+  if (!request.xdr || request.xdr.trim() === "") {
+    throw new Error("Transaction XDR is required");
+  }
+
+  const signerIds = getRequestedSignerIds(request);
+  const requiredWeight = getRequiredWeight(request, signerIds.length);
+  const tx = TransactionBuilder.fromXDR(request.xdr, getNetworkPassphrase());
+  const signerKeypairs = await Promise.all(signerIds.map((signerId) => loadSignerKeypair(signerId)));
+
+  for (const signerKeypair of signerKeypairs) {
+    if (!hasValidSignature(tx, signerKeypair)) {
+      tx.sign(signerKeypair);
+    }
+  }
+
+  const signerCount = signerKeypairs.filter((signerKeypair) => hasValidSignature(tx, signerKeypair)).length;
+  const thresholdMet = signerCount >= requiredWeight;
+  if (!thresholdMet) {
+    throw new Error(`Multisig threshold not met: ${signerCount}/${requiredWeight}`);
+  }
+
+  return {
+    signedXdr: tx.toEnvelope().toXDR("base64"),
+    signerCount,
+    thresholdMet,
+  };
 }
 
 export const accountService: AccountService = {

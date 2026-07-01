@@ -24,6 +24,23 @@ This service uses `@delego/utils` to validate Stellar public keys at route bound
 
 Malformed keys and secret keys are rejected before processing.
 
+## Multi-Sig Transaction Builder
+
+`stellar/account.ts` exports `signMultisigTx` for wallet flows that need a signed Stellar transaction
+envelope without submitting it. Callers pass a base64 transaction XDR and `signerKeyIds`, where each
+signer ID is the vault-managed Stellar public key previously stored through `vaultService.storeKey`.
+
+The helper loads each signer secret from the wallet vault, appends signatures in request order, and
+returns `{ signedXdr, signerCount, thresholdMet }`. Signing is idempotent for retries: if the incoming
+envelope already contains a valid signature for a requested signer, that signature is counted and no
+duplicate signature is appended.
+
+`requiredWeight` is optional and currently uses one unit of weight per requested signer because the
+offline builder does not fetch account signer weights from Horizon. When omitted, all unique requested
+signers must be represented in the final envelope. If `requiredWeight` cannot be met by the provided
+signers, the helper throws instead of returning a final XDR. The network passphrase follows
+`STELLAR_NETWORK` (`testnet` by default, plus `mainnet` and `futurenet`).
+
 ## Transaction Submission Retry Classification
 
 `classifySubmissionFailure` in `src/queue/submissionFailure.ts` (re-exported from `txQueue.ts`) maps thrown submission errors to a `SubmissionFailure` before BullMQ requeues jobs:
