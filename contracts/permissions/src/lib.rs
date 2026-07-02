@@ -107,6 +107,14 @@ pub struct PermissionSpendEvent {
 
 #[contracttype]
 #[derive(Clone, Debug)]
+pub struct MerchantWhitelistChangedEvent { 
+    pub owner: Address, 
+    pub delegate: Address, 
+    pub merchant_count: u32 
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
 pub struct PendingAllowanceDecrement {
     pub amount: i128,
     pub execution_time: u64,
@@ -307,11 +315,20 @@ impl PermissionsContract {
         env.events().publish(
             (symbol_short!("perm"), symbol_short!("granted")),
             PermissionGrantedEvent {
-                owner,
-                delegate,
+                owner: owner.clone(),
+                delegate: delegate.clone(),
                 per_tx_limit: limit_per_tx,
                 total_limit: limit_total,
                 expires_at_ledger,
+                merchant_count: allowed_merchants.len(),
+            },
+        );
+
+         env.events().publish(
+            (symbol_short!("perm"), symbol_short!("merc_list")),
+            MerchantWhitelistChangedEvent {
+                owner,
+                delegate,
                 merchant_count: allowed_merchants.len(),
             },
         );
