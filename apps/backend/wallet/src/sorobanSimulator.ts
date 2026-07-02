@@ -7,6 +7,31 @@ import {
 
 type SimulateTransactionResponse = SorobanRpc.Api.SimulateTransactionResponse;
 
+export interface SorobanRpcConfig {
+  rpcUrl: string;
+  timeoutMs: number;
+  maxRetries: number;
+}
+
+const DEFAULT_RPC_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_RETRIES = 3;
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  if (!value || value.trim() === "") return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 && Number.isInteger(n) ? n : fallback;
+}
+
+export function readSorobanRpcConfig(): SorobanRpcConfig {
+  const rawUrl = process.env.SOROBAN_RPC_URL;
+  const rpcUrl = rawUrl && rawUrl.trim() !== "" ? rawUrl.trim() : "https://soroban-testnet.stellar.org";
+  return {
+    rpcUrl,
+    timeoutMs: parsePositiveInt(process.env.SOROBAN_RPC_TIMEOUT_MS, DEFAULT_RPC_TIMEOUT_MS),
+    maxRetries: parsePositiveInt(process.env.SOROBAN_RPC_MAX_RETRIES, DEFAULT_MAX_RETRIES),
+  };
+}
+
 export interface SimulationResult {
   success: boolean;
   minResourceFee?: string;
@@ -45,21 +70,36 @@ export function mapSimulationResult(
 
 export class SorobanTransactionSimulator {
   private rpcServer: SorobanRpc.Server;
+  public readonly config: SorobanRpcConfig;
 
-  constructor(rpcUrl: string) {
-    this.rpcServer = new SorobanRpc.Server(rpcUrl);
+  constructor(config: SorobanRpcConfig) {
+    this.config = config;
+    this.rpcServer = new SorobanRpc.Server(config.rpcUrl, {
+      timeout: config.timeoutMs,
+    });
   }
 
   public async simulateTransaction(
     transaction: Transaction
   ): Promise<SimulateTransactionResponse> {
-    try {
-      const simulation = await this.rpcServer.simulateTransaction(transaction);
-      return simulation;
-    } catch (error) {
-      console.error("Error simulating transaction:", error);
-      throw error;
+    let lastError: unknown;
+    const maxAttempts = Math.max(1, this.config.maxRetries);
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const simulation = await this.rpcServer.simulateTransaction(transaction);
+        return simulation;
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxAttempts) {
+          console.warn(`Simulation attempt ${attempt}/${maxAttempts} failed, retrying...`, error);
+        } else {
+          console.error(`Simulation failed after ${maxAttempts} attempts:`, error);
+        }
+      }
     }
+
+    throw lastError;
   }
 
   public extractFeeEstimates(
