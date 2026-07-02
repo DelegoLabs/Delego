@@ -799,6 +799,140 @@ mod test {
         assert_eq!(detail.remaining, 350);
     }
 
+    // --- AllowanceIncreasedEvent tests ---
+
+    #[test]
+    fn test_allowance_increased_event_emitted() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        client.increase_allowance(&owner, &delegate, &200);
+
+        let events = env.events().all();
+        let mut found = false;
+        for event in events.iter() {
+            let (contract, topics, value) = event;
+            if contract != contract_id || topics.len() != 2 {
+                continue;
+            }
+            let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+            let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
+            if t0 == soroban_sdk::symbol_short!("perm")
+                && t1 == soroban_sdk::symbol_short!("allowinc")
+            {
+                let evt: crate::AllowanceIncreasedEvent = value.try_into_val(&env).unwrap();
+                assert_eq!(evt.owner, owner);
+                assert_eq!(evt.delegate, delegate);
+                assert_eq!(evt.old_limit, 1000);
+                assert_eq!(evt.new_limit, 1200);
+                found = true;
+            }
+        }
+        assert!(found, "AllowanceIncreasedEvent not found in events");
+        assert_eq!(client.get_remaining_allowance(&owner, &delegate), 1200);
+    }
+
+    #[test]
+    fn test_allowance_increased_event_not_emitted_on_decrease() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        client.decrease_allowance(&owner, &delegate, &200);
+        env.ledger().with_mut(|li| {
+            li.timestamp = li.timestamp + 86401;
+        });
+        client.execute_decrease_allowance(&owner, &delegate);
+
+        for event in env.events().all().iter() {
+            let (contract, topics, _value) = event;
+            if contract != contract_id || topics.len() != 2 {
+                continue;
+            }
+            let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+            let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
+            assert!(
+                !(t0 == soroban_sdk::symbol_short!("perm")
+                    && t1 == soroban_sdk::symbol_short!("allowinc")),
+                "AllowanceIncreasedEvent must not be emitted on decrease"
+            );
+        }
+    }
+
+    #[test]
+    fn test_allowance_increased_event_not_emitted_on_unchanged_limit() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        client.increase_allowance(&owner, &delegate, &0);
+
+        for event in env.events().all().iter() {
+            let (contract, topics, _value) = event;
+            if contract != contract_id || topics.len() != 2 {
+                continue;
+            }
+            let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+            let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
+            assert!(
+                !(t0 == soroban_sdk::symbol_short!("perm")
+                    && t1 == soroban_sdk::symbol_short!("allowinc")),
+                "AllowanceIncreasedEvent must not be emitted on no-op increase"
+            );
+        }
+        assert_eq!(client.get_remaining_allowance(&owner, &delegate), 1000);
+    }
+
+    #[test]
+    fn test_allowance_increased_not_found() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let res = client.try_increase_allowance(&owner, &delegate, &100);
+        assert_eq!(res, Err(Ok(PermissionError::NotFound)));
+
+        for event in env.events().all().iter() {
+            let (contract, topics, _value) = event;
+            if contract != contract_id || topics.len() != 2 {
+                continue;
+            }
+            let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+            let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
+            assert!(
+                !(t0 == soroban_sdk::symbol_short!("perm")
+                    && t1 == soroban_sdk::symbol_short!("allowinc")),
+                "AllowanceIncreasedEvent must not be emitted on failure"
+            );
+        }
+    }
+
     // ── Issue #185: Storage Key Namespace Tests ───────────────────────────────
 
     #[test]
