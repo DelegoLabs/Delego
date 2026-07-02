@@ -83,7 +83,7 @@ export class SorobanTransactionSimulator {
     transaction: Transaction
   ): Promise<SimulateTransactionResponse> {
     let lastError: unknown;
-    const maxAttempts = Math.max(1, this.config.maxRetries);
+    const maxAttempts = 1 + this.config.maxRetries;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {

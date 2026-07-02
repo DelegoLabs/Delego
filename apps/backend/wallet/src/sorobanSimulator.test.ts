@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SorobanTransactionSimulator, readSorobanRpcConfig } from "./sorobanSimulator.js";
 
-const mockSimulateTransaction = vi.fn();
-const mockServerCtor = vi.fn();
+const { mockSimulateTransaction, mockServerCtor } = vi.hoisted(() => ({
+  mockSimulateTransaction: vi.fn(),
+  mockServerCtor: vi.fn(),
+}));
 
 vi.mock("@stellar/stellar-sdk", () => ({
   rpc: {
@@ -207,21 +209,23 @@ describe("SorobanTransactionSimulator", () => {
     server.simulateTransaction.mockRejectedValue(new Error("persistent timeout"));
 
     await expect(simulator.simulateTransaction(fakeTx)).rejects.toThrow("persistent timeout");
-    expect(server.simulateTransaction).toHaveBeenCalledTimes(2);
+    // maxRetries: 2 → 1 initial attempt + 2 retries = 3 total calls
+    expect(server.simulateTransaction).toHaveBeenCalledTimes(3);
   });
 
-  it("simulateTransaction respects maxRetries of 1 (no retry)", async () => {
+  it("simulateTransaction respects maxRetries of 0 (no retry)", async () => {
     const server = makeServerInstance();
     const simulator = new SorobanTransactionSimulator({
       rpcUrl: "https://rpc.example.com",
       timeoutMs: 5000,
-      maxRetries: 1,
+      maxRetries: 0,
     });
 
     const fakeTx = {} as any;
     server.simulateTransaction.mockRejectedValue(new Error("no retry"));
 
     await expect(simulator.simulateTransaction(fakeTx)).rejects.toThrow("no retry");
+    // maxRetries: 0 → 1 initial attempt only, no retries
     expect(server.simulateTransaction).toHaveBeenCalledTimes(1);
   });
 });
