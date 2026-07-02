@@ -191,6 +191,16 @@ pub struct AllowanceDecreasedEvent {
     pub new_limit: i128,
 }
 
+/// Emitted when an allowance increase is successfully applied.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct AllowanceIncreasedEvent {
+    pub owner: Address,
+    pub delegate: Address,
+    pub old_limit: i128,
+    pub new_limit: i128,
+}
+
 /// Read-only preview of a hypothetical spend (issue #XX).
 ///
 /// `allowed`       – true when all validation rules would pass.
@@ -542,6 +552,54 @@ impl PermissionsContract {
             remaining,
             expires_at_ledger: record.expires_at_ledger,
         })
+    }
+
+    /// Increase the total allowance for an existing permission grant.
+    ///
+    /// Emits [`AllowanceIncreasedEvent`] only when `amount > 0` and the limit
+    /// actually rises. A zero `amount` is a no-op: storage is untouched and no
+    /// event is published.
+    pub fn increase_allowance(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+        amount: i128,
+    ) -> Result<(), PermissionError> {
+        owner.require_auth();
+
+        if amount == 0 {
+            return Ok(());
+        }
+        if amount < 0 {
+            return Err(PermissionError::InvalidParam);
+        }
+
+        let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
+        let mut record: PermissionRecord = env
+            .storage()
+            .persistent()
+            .get(&perm_key)
+            .ok_or(PermissionError::NotFound)?;
+
+        let old_limit = record.limit_total;
+        let new_limit = old_limit
+            .checked_add(amount)
+            .ok_or(PermissionError::InvalidParam)?;
+
+        record.limit_total = new_limit;
+        env.storage().persistent().set(&perm_key, &record);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("allowinc")),
+            AllowanceIncreasedEvent {
+                owner,
+                delegate,
+                old_limit,
+                new_limit,
+            },
+        );
+
+        Ok(())
     }
 
     pub fn decrease_allowance(env: Env, owner: Address, delegate: Address, amount: i128) -> bool {

@@ -6,6 +6,18 @@ import { createLogger } from "@delego/utils";
 import { startHttpServer } from "@delego/utils";
 import { registerRoutes } from "./routes.js";
 
+export { escrowCoordinator } from "./escrowCoordinator/index.js";
+export type {
+  EscrowCoordinator,
+  EscrowStatusResult,
+  FundEscrowParams,
+  FundEscrowResult,
+  RefundEscrowParams,
+  RefundResult,
+  ReleaseEscrowParams,
+  ReleaseResult,
+} from "./escrowCoordinator/index.js";
+
 const SERVICE_NAME = "payments";
 const DEFAULT_PORT = 3014;
 
