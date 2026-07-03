@@ -90,7 +90,6 @@ fn test_permission_checked_before_escrow_fund_fails_without_permission() {
 }
 
 #[test]
-#[should_panic(expected = "Spend not authorized")]
 fn test_permission_checked_before_escrow_fund_fails_exceeding_limit() {
     let t = TestEnv::setup();
     let perm_client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
@@ -98,7 +97,7 @@ fn test_permission_checked_before_escrow_fund_fails_exceeding_limit() {
     let limit_total = 1000i128;
     let limit_per_tx = 500i128;
     let ttl_ledgers = 36000u32;
-    let merchants = Vec::new(&t.env);
+    let merchants = Vec::<soroban_sdk::Address>::new(&t.env);
 
     perm_client.grant(
         &t.buyer,
@@ -110,7 +109,10 @@ fn test_permission_checked_before_escrow_fund_fails_exceeding_limit() {
     );
 
     // Exceeds per-tx limit of 500.
-    perm_client.execute_spend(&t.buyer, &t.agent, &600, &t.seller);
+    assert_eq!(
+        perm_client.try_execute_spend(&t.buyer, &t.agent, &600, &t.seller),
+        Err(Ok(delego_permissions::PermissionError::ExceedsPerTxLimit))
+    );
 }
 
 #[test]
@@ -122,7 +124,7 @@ fn test_permission_checked_before_escrow_fund_succeeds() {
     let limit_total = 1000i128;
     let limit_per_tx = 500i128;
     let ttl_ledgers = 36000u32;
-    let merchants = Vec::new(&t.env);
+    let merchants = Vec::<soroban_sdk::Address>::new(&t.env);
 
     perm_client.grant(
         &t.buyer,
@@ -150,7 +152,7 @@ fn test_end_to_end_delegated_purchase() {
     let limit_total = 1000i128;
     let limit_per_tx = 500i128;
     let ttl_ledgers = 36000u32;
-    let mut merchants = Vec::new(&t.env);
+    let mut merchants = Vec::<soroban_sdk::Address>::new(&t.env);
     merchants.push_back(t.seller.clone());
 
     perm_client.grant(

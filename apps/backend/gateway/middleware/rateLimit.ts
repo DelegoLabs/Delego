@@ -31,6 +31,12 @@ export function rateLimitMiddleware(config?: RateLimitConfig) {
     next: (err?: any) => void
   ): Promise<void> => {
     try {
+      const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+      if ((req.method ?? "GET").toUpperCase() === "GET" && url.pathname === "/health") {
+        next();
+        return;
+      }
+
       const identifier = getIdentifier(req);
       const endpoint = getEndpoint(req);
 
