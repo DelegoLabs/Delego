@@ -23,6 +23,24 @@ pnpm --filter @delego/payments dev
 
 Health check: `GET http://localhost:3014/health`
 
+Escrow coordinator health probe: `GET http://localhost:3014/escrow/health`
+
+Returns dependency readiness for escrow funding and settlement:
+
+```json
+{
+  "data": {
+    "database": "ok",
+    "walletService": "ok",
+    "sorobanRpc": "ok",
+    "checkedAt": "2026-06-30T12:00:00.000Z"
+  },
+  "error": null
+}
+```
+
+Each dependency reports `"ok"` or `"degraded"`. An unavailable Soroban RPC returns `"degraded"` without failing the endpoint.
+
 ## Testing
 
 ```bash
@@ -44,6 +62,12 @@ STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
 
 # Wallet service endpoint
 WALLET_URL=http://localhost:3012
+
+# PostgreSQL (processed contract events / payment records)
+DATABASE_URL=postgresql://delego:delego@localhost:5432/delego
+
+# Soroban RPC (escrow contract reads; optional, network-aware default)
+SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
 ```
 
 ## Architecture
