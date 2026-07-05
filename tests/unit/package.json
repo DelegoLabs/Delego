@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test",
+    "test": "node --loader tsx --test",
     "typecheck": "echo 'N/A'"
   },
   "dependencies": {
@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@stellar/stellar-sdk": "^15.1.0",
+    "tsx": "^4.19.0",
     "jsonwebtoken": "^9.0.3"
   }
 }
