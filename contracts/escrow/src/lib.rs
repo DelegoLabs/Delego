@@ -18,6 +18,24 @@ pub enum EscrowStatus {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum EscrowTerminalState {
+    Released,
+    Refunded,
+    Cancelled,
+}
+
+impl EscrowTerminalState {
+    pub fn from_status(status: &EscrowStatus) -> Option<Self> {
+        match status {
+            EscrowStatus::Released => Some(EscrowTerminalState::Released),
+            EscrowStatus::Refunded => Some(EscrowTerminalState::Refunded),
+            _ => None,
+        }
+    }
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EscrowRecord {
     pub escrow_id: u64,
     pub buyer: Address,
@@ -284,6 +302,14 @@ pub struct ReleaseEligibility {
     pub escrow_id: BytesN<32>,
     pub eligible: bool,
     pub reason: Symbol,
+}
+
+fn check_not_terminal(record: &EscrowRecord) -> Result<(), EscrowError> {
+    match record.status {
+        EscrowStatus::Released => Err(EscrowError::AlreadyReleased),
+        EscrowStatus::Refunded => Err(EscrowError::AlreadyRefunded),
+        _ => Ok(()),
+    }
 }
 
 #[contract]
@@ -759,6 +785,11 @@ impl EscrowContract {
             return Err(EscrowError::Unauthorized);
         }
 
+        check_not_terminal(&record)?;
+
+        if record.status != EscrowStatus::Funded {
+            return Err(EscrowError::InvalidStatus);
+        }
         Self::validate_release_status(&record)?;
 
         if release_amount <= 0 {
@@ -827,9 +858,7 @@ impl EscrowContract {
             None => return Err(EscrowError::NotFound),
         };
 
-        if record.status == EscrowStatus::Refunded {
-            return Err(EscrowError::AlreadyRefunded);
-        }
+        check_not_terminal(&record)?;
 
         if record.status != EscrowStatus::Funded {
             return Err(EscrowError::InvalidStatus);
