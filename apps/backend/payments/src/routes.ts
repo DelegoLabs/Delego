@@ -163,7 +163,14 @@ export function registerRoutes(): Route[] {
         if (!(await ensureContractConfig(res))) return;
 
         const result = await escrowService.refund(validated.value);
-        json(res, 200, { data: result, error: null });
+        json(res, 200, {
+          data: {
+            ...result,
+            refundReasonCode: validated.value.refundReasonCode,
+          },
+          error: null,
+        });
+
       } catch (err) {
         if (err instanceof Error && err.message === "Invalid JSON body") {
           sendValidationError(res, {

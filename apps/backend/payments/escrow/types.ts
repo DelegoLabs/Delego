@@ -36,10 +36,19 @@ export interface ReleaseEscrowParams {
   escrowId: string;
 }
 
+export type RefundReasonCode =
+  | 'timeout'
+  | 'buyer_cancelled'
+  | 'merchant_cancelled'
+  | 'dispute_buyer'
+  | 'system_error';
+
 export interface RefundEscrowParams {
   sourceAddress: string;
   escrowId: string;
+  refundReasonCode: RefundReasonCode;
 }
+
 
 export interface EscrowService {
   initialize(params: InitializeEscrowParams): Promise<EscrowOperationResult>;
