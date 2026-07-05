@@ -29,24 +29,26 @@ export interface PushNotificationEvent {
 }
 
 const connections = new Map<string, PushConnection>();
-const redisSubscriber = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
+const redisSubscriber = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true });
 
-redisSubscriber.subscribe("notifications:*", (err: Error | null | undefined) => {
-  if (err) {
-    log.error("Failed to subscribe to Redis channel", { error: err });
-  } else {
-    log.info("Subscribed to Redis notifications channel");
-  }
-});
+if (process.env.NODE_ENV !== "test" && process.env.CI !== "true" && process.env.MOCK_REDIS !== "true") {
+  redisSubscriber.subscribe("notifications:*", (err: Error | null | undefined) => {
+    if (err) {
+      log.error("Failed to subscribe to Redis channel", { error: err });
+    } else {
+      log.info("Subscribed to Redis notifications channel");
+    }
+  });
 
-redisSubscriber.on("message", (_channel: string, message: string) => {
-  try {
-    const event: PushNotificationEvent = JSON.parse(message);
-    broadcastToTopic(event.topic, event);
-  } catch (err) {
-    log.error("Failed to parse Redis message", { error: err });
-  }
-});
+  redisSubscriber.on("message", (_channel: string, message: string) => {
+    try {
+      const event: PushNotificationEvent = JSON.parse(message);
+      broadcastToTopic(event.topic, event);
+    } catch (err) {
+      log.error("Failed to parse Redis message", { error: err });
+    }
+  });
+}
 
 function verifyJwt(token: string): { userId: string } | null {
   try {
@@ -126,7 +128,7 @@ function handleConnection(ws: WebSocket, req: IncomingMessage) {
 
   resetHeartbeat();
 
-  ws.on("message", (data) => {
+  ws.on("message", (data: import("ws").RawData) => {
     try {
       const message = JSON.parse(data.toString());
 
@@ -171,7 +173,7 @@ function handleConnection(ws: WebSocket, req: IncomingMessage) {
     connections.delete(connectionId);
   });
 
-  ws.on("error", (err) => {
+  ws.on("error", (err: Error) => {
     log.error("WebSocket connection error", {
       error: err,
       connectionId,

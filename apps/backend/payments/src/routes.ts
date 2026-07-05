@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { route, json, type Route } from "@delego/utils";
 import { escrowService } from "../escrow/index.js";
+import { getPaymentsHealth } from "../escrow/health.js";
 import {
   validateDepositRequest,
   validateEscrowContractConfig,
@@ -59,6 +60,11 @@ async function ensureContractConfig(res: ServerResponse): Promise<boolean> {
 
 export function registerRoutes(): Route[] {
   return [
+    route("GET", "/escrow/health", async (_req, res) => {
+      const health = await getPaymentsHealth();
+      json(res, 200, { data: health, error: null });
+    }),
+
     route("POST", "/escrow/initialize", async (req, res) => {
       try {
         const body = await readJsonBody(req);

@@ -56,7 +56,11 @@ impl DelegationRegistry {
     ) -> u64 {
         owner.require_auth();
 
-        let id = env.storage().instance().get(&DataKey::NextId).unwrap_or(1u64);
+        let id = env
+            .storage()
+            .instance()
+            .get(&DataKey::NextId)
+            .unwrap_or(1u64);
         env.storage().instance().set(&DataKey::NextId, &(id + 1));
 
         let expires_at_ledger = env.ledger().sequence() + ttl_ledgers;
@@ -72,16 +76,20 @@ impl DelegationRegistry {
             expires_at_ledger,
         };
 
-        env.storage().persistent().set(&DataKey::Delegation(id), &record);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Delegation(id), &record);
 
         let mut user_dels = env
             .storage()
             .persistent()
             .get::<_, Vec<u64>>(&DataKey::UserDelegations(owner.clone()))
             .unwrap_or(Vec::new(&env));
-            
+
         user_dels.push_back(id);
-        env.storage().persistent().set(&DataKey::UserDelegations(owner), &user_dels);
+        env.storage()
+            .persistent()
+            .set(&DataKey::UserDelegations(owner), &user_dels);
 
         id
     }
@@ -100,7 +108,9 @@ impl DelegationRegistry {
         }
 
         record.status = DelegationStatus::Paused;
-        env.storage().persistent().set(&DataKey::Delegation(delegation_id), &record);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Delegation(delegation_id), &record);
         true
     }
 
@@ -119,12 +129,16 @@ impl DelegationRegistry {
 
         if env.ledger().sequence() >= record.expires_at_ledger {
             record.status = DelegationStatus::Expired;
-            env.storage().persistent().set(&DataKey::Delegation(delegation_id), &record);
+            env.storage()
+                .persistent()
+                .set(&DataKey::Delegation(delegation_id), &record);
             panic!("Delegation has already expired");
         }
 
         record.status = DelegationStatus::Active;
-        env.storage().persistent().set(&DataKey::Delegation(delegation_id), &record);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Delegation(delegation_id), &record);
         true
     }
 
@@ -142,7 +156,9 @@ impl DelegationRegistry {
         }
 
         record.status = DelegationStatus::Revoked;
-        env.storage().persistent().set(&DataKey::Delegation(delegation_id), &record);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Delegation(delegation_id), &record);
         true
     }
 
@@ -162,7 +178,11 @@ impl DelegationRegistry {
 
         let mut records = Vec::new(&env);
         for id in user_dels.iter() {
-            if let Some(record) = env.storage().persistent().get::<_, DelegationRecord>(&DataKey::Delegation(id)) {
+            if let Some(record) = env
+                .storage()
+                .persistent()
+                .get::<_, DelegationRecord>(&DataKey::Delegation(id))
+            {
                 records.push_back(record);
             }
         }
@@ -170,7 +190,11 @@ impl DelegationRegistry {
     }
 
     pub fn is_authorized(env: Env, delegation_id: u64, agent_id: BytesN<32>) -> bool {
-        let record: DelegationRecord = match env.storage().persistent().get(&DataKey::Delegation(delegation_id)) {
+        let record: DelegationRecord = match env
+            .storage()
+            .persistent()
+            .get(&DataKey::Delegation(delegation_id))
+        {
             Some(r) => r,
             None => return false,
         };

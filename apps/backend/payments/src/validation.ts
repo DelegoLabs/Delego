@@ -1,3 +1,4 @@
+import { parseBigIntString } from "@delego/utils";
 import {
   getEscrowContractId,
   isValidContractId,
@@ -9,6 +10,259 @@ import type {
   RefundEscrowParams,
   ReleaseEscrowParams,
 } from "../escrow/types.js";
+
+// ---------------------------------------------------------------------------
+// Issue #202 – Merchant Address Consistency Check
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of comparing the merchant address in an escrow request against the
+ * merchant stored on the order. Both addresses are normalized (trimmed) before
+ * comparison; callers should invoke {@link validateMerchantConsistency} to
+ * reject mismatches before wallet submission.
+ */
+export interface MerchantConsistencyCheck {
+  orderId: string;
+  expectedMerchant: string;
+  requestedMerchant: string;
+  matches: boolean;
+}
+
+/**
+ * Normalize a Stellar merchant address for equality comparison.
+ * Trims surrounding whitespace; canonical casing is preserved.
+ */
+function normalizeMerchantAddress(address: string): string {
+  return address.trim();
+}
+
+/**
+ * Compare escrow-request merchant address against the order's stored merchant.
+ * Does not reject — use {@link validateMerchantConsistency} as the route guard.
+ */
+export function checkMerchantConsistency(
+  orderId: string,
+  expectedMerchant: string,
+  requestedMerchant: string
+): MerchantConsistencyCheck {
+  const normalizedExpected = normalizeMerchantAddress(expectedMerchant);
+  const normalizedRequested = normalizeMerchantAddress(requestedMerchant);
+
+  return {
+    orderId: orderId.trim(),
+    expectedMerchant: normalizedExpected,
+    requestedMerchant: normalizedRequested,
+    matches: normalizedExpected === normalizedRequested,
+  };
+}
+
+/**
+ * Reject escrow funding when the requested merchant address does not match
+ * the merchant stored for the order. Call after request-body validation and
+ * before any wallet or contract client is invoked.
+ *
+ * @example
+ * const consistency = validateMerchantConsistency(
+ *   fundRequest.orderId,
+ *   order.merchantAddress,
+ *   fundRequest.merchantAddress
+ * );
+ * if (!consistency.ok) {
+ *   sendValidationError(res, consistency.error);
+ *   return;
+ * }
+ */
+export function validateMerchantConsistency(
+  orderId: string,
+  expectedMerchant: string,
+  requestedMerchant: string
+): ValidationResult<MerchantConsistencyCheck> {
+  const check = checkMerchantConsistency(orderId, expectedMerchant, requestedMerchant);
+
+  if (!check.matches) {
+    return {
+      ok: false,
+      error: {
+        code: "MERCHANT_ADDRESS_MISMATCH",
+        message:
+          "Merchant address in escrow request does not match the merchant stored for the order",
+        details: {
+          orderId: check.orderId,
+          expectedMerchant: check.expectedMerchant,
+          requestedMerchant: check.requestedMerchant,
+          field: "merchantAddress",
+        },
+      },
+    };
+  }
+
+  return { ok: true, value: check };
+}
+
+// ---------------------------------------------------------------------------
+// Order Amount Consistency Check
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of comparing the escrow funding amount against the order amount
+ * expected by the orchestrator or payment record. Amounts are normalized to
+ * canonical stroops strings before comparison; callers should invoke
+ * {@link validateAmountConsistency} to reject mismatches before wallet
+ * submission.
+ */
+export interface AmountConsistencyCheck {
+  orderId: string;
+  expectedStroops: string;
+  requestedStroops: string;
+  matches: boolean;
+}
+
+/**
+ * Normalize a stroops amount string for equality comparison.
+ * Trims surrounding whitespace and canonicalizes via bigint (e.g. "0100" → "100").
+ */
+function normalizeStroopsAmount(stroops: string): string {
+  const parsed = parseBigIntString(stroops);
+  if (parsed.valid && parsed.value !== undefined) {
+    return parsed.value.toString();
+  }
+  return stroops.trim();
+}
+
+/**
+ * Compare escrow funding amount against the order's expected amount.
+ * Does not reject — use {@link validateAmountConsistency} as the route guard.
+ */
+export function checkAmountConsistency(
+  orderId: string,
+  expectedStroops: string,
+  requestedStroops: string
+): AmountConsistencyCheck {
+  const normalizedExpected = normalizeStroopsAmount(expectedStroops);
+  const normalizedRequested = normalizeStroopsAmount(requestedStroops);
+
+  return {
+    orderId: orderId.trim(),
+    expectedStroops: normalizedExpected,
+    requestedStroops: normalizedRequested,
+    matches: normalizedExpected === normalizedRequested,
+  };
+}
+
+/**
+ * Reject escrow funding when the requested amount does not match the amount
+ * stored for the order. Call after request-body validation and before any
+ * wallet or contract client is invoked.
+ *
+ * @example
+ * const consistency = validateAmountConsistency(
+ *   fundRequest.orderId,
+ *   order.amountStroops,
+ *   fundRequest.amountStroops
+ * );
+ * if (!consistency.ok) {
+ *   sendValidationError(res, consistency.error);
+ *   return;
+ * }
+ */
+export function validateAmountConsistency(
+  orderId: string,
+  expectedStroops: string,
+  requestedStroops: string
+): ValidationResult<AmountConsistencyCheck> {
+  const expectedParsed = parseBigIntString(expectedStroops);
+  if (!expectedParsed.valid) {
+    return {
+      ok: false,
+      error: invalidField(
+        "amountStroops",
+        "amountStroops must be a non-negative integer string"
+      ),
+    };
+  }
+
+  const requestedParsed = parseBigIntString(requestedStroops);
+  if (!requestedParsed.valid) {
+    return {
+      ok: false,
+      error: invalidField(
+        "amountStroops",
+        "amountStroops must be a non-negative integer string"
+      ),
+    };
+  }
+
+  const check = checkAmountConsistency(
+    orderId,
+    expectedParsed.value!.toString(),
+    requestedParsed.value!.toString()
+  );
+
+  if (!check.matches) {
+    return {
+      ok: false,
+      error: {
+        code: "ORDER_AMOUNT_MISMATCH",
+        message:
+          "Escrow funding amount does not match the order amount stored for the order",
+        details: {
+          orderId: check.orderId,
+          expectedStroops: check.expectedStroops,
+          requestedStroops: check.requestedStroops,
+          field: "amountStroops",
+        },
+      },
+    };
+  }
+
+  return { ok: true, value: check };
+}
+
+// ---------------------------------------------------------------------------
+// Issue #203 – Escrow Release Request Schema
+// ---------------------------------------------------------------------------
+
+/**
+ * Validated request payload for releasing funds from an escrow contract.
+ *
+ * All ids are non-empty strings; idempotencyKey ensures exactly-once
+ * settlement even if the caller retries on network failure.
+ */
+export interface ReleaseEscrowRequest {
+  orderId: string;
+  escrowId: string;
+  deliveryProofId: string;
+  idempotencyKey: string;
+}
+
+// ---------------------------------------------------------------------------
+// Issue #204 – Escrow Refund Request Schema
+// ---------------------------------------------------------------------------
+
+/**
+ * Supported reason codes for escrow refund requests.
+ * Keeping a closed enum prevents arbitrary strings reaching the contract.
+ */
+export const SUPPORTED_REFUND_REASONS = [
+  "item_not_received",
+  "item_not_as_described",
+  "duplicate_charge",
+  "fraudulent",
+  "order_cancelled",
+  "seller_agreement",
+] as const;
+
+export type RefundReasonCode = (typeof SUPPORTED_REFUND_REASONS)[number];
+
+/**
+ * Validated request payload for refunding an escrow contract back to the buyer.
+ */
+export interface RefundEscrowRequest {
+  orderId: string;
+  escrowId: string;
+  reasonCode: RefundReasonCode;
+  idempotencyKey: string;
+}
 
 export interface ValidationError {
   code: string;
@@ -314,3 +568,119 @@ export function validateRefundRequest(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Issue #203 – validateReleaseEscrowRequest
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate a release-escrow request body.
+ *
+ * Checks that orderId, escrowId, deliveryProofId, and idempotencyKey are all
+ * present non-empty strings and that the idempotencyKey passes the shared
+ * idempotency rules (8–128 printable ASCII chars).
+ */
+export function validateReleaseEscrowRequest(
+  body: Record<string, unknown>
+): ValidationResult<ReleaseEscrowRequest> {
+  const orderId = requireString(body, "orderId");
+  if (!orderId.ok) return orderId;
+
+  const escrowId = requireString(body, "escrowId");
+  if (!escrowId.ok) return escrowId;
+
+  const deliveryProofId = requireString(body, "deliveryProofId");
+  if (!deliveryProofId.ok) return deliveryProofId;
+
+  const idempotencyKey = requireString(body, "idempotencyKey");
+  if (!idempotencyKey.ok) return idempotencyKey;
+
+  // Re-use the shared idempotency-key rules
+  const idempotencyResult = validateIdempotencyKey(
+    { "idempotency-key": idempotencyKey.value },
+    "release-escrow-request"
+  );
+  if (!idempotencyResult.ok) {
+    return {
+      ok: false,
+      error: {
+        code: idempotencyResult.error.code,
+        message: idempotencyResult.error.message,
+        details: { field: "idempotencyKey" },
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      orderId: orderId.value,
+      escrowId: escrowId.value,
+      deliveryProofId: deliveryProofId.value,
+      idempotencyKey: idempotencyKey.value,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Issue #204 – validateRefundEscrowRequest
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate a refund-escrow request body.
+ *
+ * In addition to the common field checks, `reasonCode` is validated against
+ * the closed {@link SUPPORTED_REFUND_REASONS} enum so that only well-known
+ * reason codes reach downstream contract calls.
+ */
+export function validateRefundEscrowRequest(
+  body: Record<string, unknown>
+): ValidationResult<RefundEscrowRequest> {
+  const orderId = requireString(body, "orderId");
+  if (!orderId.ok) return orderId;
+
+  const escrowId = requireString(body, "escrowId");
+  if (!escrowId.ok) return escrowId;
+
+  const reasonCodeRaw = requireString(body, "reasonCode");
+  if (!reasonCodeRaw.ok) return reasonCodeRaw;
+
+  const reasonCodeValue = reasonCodeRaw.value as RefundReasonCode;
+  if (!(SUPPORTED_REFUND_REASONS as readonly string[]).includes(reasonCodeValue)) {
+    return {
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: `reasonCode must be one of: ${SUPPORTED_REFUND_REASONS.join(", ")}`,
+        details: { field: "reasonCode", received: reasonCodeValue },
+      },
+    };
+  }
+
+  const idempotencyKey = requireString(body, "idempotencyKey");
+  if (!idempotencyKey.ok) return idempotencyKey;
+
+  const idempotencyResult = validateIdempotencyKey(
+    { "idempotency-key": idempotencyKey.value },
+    "refund-escrow-request"
+  );
+  if (!idempotencyResult.ok) {
+    return {
+      ok: false,
+      error: {
+        code: idempotencyResult.error.code,
+        message: idempotencyResult.error.message,
+        details: { field: "idempotencyKey" },
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      orderId: orderId.value,
+      escrowId: escrowId.value,
+      reasonCode: reasonCodeValue,
+      idempotencyKey: idempotencyKey.value,
+    },
+  };
+}
