@@ -2,6 +2,7 @@
  * @delego/orchestrator — Workflow coordination
  * #64 Purchase Recovery Engine — reconcileWorkflows compares DB state with on-chain escrow.
  */
+import { createLogger, json, route, startHttpServer } from "@delego/utils";
 import { createLogger, startHttpServer, json, route } from "@delego/utils";
 import { Pool } from "pg";
 import {
@@ -319,8 +320,11 @@ main().catch((err) => {
 });
 
 // Export workflows and state machine for internal use (issue #7)
-export { checkoutWorkflow, restorePurchaseWorkflow };
-export { purchaseWorkflow } from "../workflows/purchase/index.js";
+export { RedisPublisher } from "./pubsub/index.js";
+export type { PublishResult, RedisClient } from "./pubsub/index.js";
+
+export { purchaseWorkflow, restorePurchaseWorkflow } from "../workflows/purchase/index.js";
+export { checkoutWorkflow } from "../workflows/checkout/index.js";
 export { publishWorkflowEvent, createWorkflowCorrelationId } from "./workflow-events.js";
 export type { WorkflowEventEnvelope } from "./workflow-events.js";
 export { PurchaseWorkflowMachine } from "../state/index.js";
