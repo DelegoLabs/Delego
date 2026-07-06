@@ -170,7 +170,7 @@ fn test_end_to_end_delegated_purchase() {
     assert_eq!(token_client.balance(&t.escrow_contract_id), 400);
     assert_eq!(token_client.balance(&t.seller), 0);
 
-    escrow_client.release(&escrow_id, &t.buyer);
+    escrow_client.release(&escrow_id, &t.buyer, &t.seller);
 
     assert_eq!(token_client.balance(&t.buyer), 9600);
     assert_eq!(token_client.balance(&t.escrow_contract_id), 0);

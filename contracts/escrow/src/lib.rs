@@ -271,6 +271,8 @@ pub enum EscrowError {
     QuorumConfigNotSet = 24,
     /// Conflicting quorum outcomes
     ConflictingQuorum = 25,
+    /// Release recipient does not match the stored seller address
+    InvalidReleaseRecipient = 201,
     /// New escrow creation is currently paused by admin
     CreationPaused = 26,
 }
@@ -791,6 +793,13 @@ impl EscrowContract {
         Ok(last_id)
     }
 
+    /// Release escrowed funds to the seller. Only the buyer or admin may call.
+    pub fn release(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+        recipient: Address,
+    ) -> Result<bool, EscrowError> {
     /// Release a partial amount to the seller.
     /// `release_amount` must be <= (record.amount - record.released_amount).
     /// If release_amount equals the remaining balance, set status to Released.
@@ -819,6 +828,21 @@ impl EscrowContract {
         }
         Self::validate_release_status(&record)?;
 
+        if recipient != record.seller {
+            return Err(EscrowError::InvalidReleaseRecipient);
+        }
+
+        let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
+        let fee_bps = fee_config.fee_bps as i128;
+        let fee = (record.amount / 10_000i128) * fee_bps
+            + ((record.amount % 10_000i128) * fee_bps) / 10_000i128;
+        let seller_amount = record.amount - fee;
+
+        let token_client = soroban_sdk::token::Client::new(&env, &record.token);
+        if fee > 0 {
+            token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
+        }
+        token_client.transfer(&env.current_contract_address(), &recipient, &seller_amount);
         if release_amount <= 0 {
             return Err(EscrowError::ZeroAmount);
         }
