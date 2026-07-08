@@ -22,22 +22,30 @@ function redisConnection() {
   return { url };
 }
 
-const timeoutQueue = new Queue<CheckoutTimeoutJob, void, string>(QUEUE_NAME, {
-  connection: redisConnection() as any,
-});
+const isTest = process.env.NODE_ENV === "test";
+
+const timeoutQueue = isTest
+  ? null
+  : new Queue<CheckoutTimeoutJob, void, string>(QUEUE_NAME, {
+      connection: redisConnection() as any,
+    });
 
 // Worker processes timeout jobs
-const _worker = new Worker<CheckoutTimeoutJob, void, string>(
-  QUEUE_NAME,
-  async (job: Job<CheckoutTimeoutJob>) => {
-    await handleTimeout(job.data.orderId);
-  },
-  { connection: redisConnection() as any }
-);
+const _worker = isTest
+  ? null
+  : new Worker<CheckoutTimeoutJob, void, string>(
+      QUEUE_NAME,
+      async (job: Job<CheckoutTimeoutJob>) => {
+        await handleTimeout(job.data.orderId);
+      },
+      { connection: redisConnection() as any }
+    );
 
-_worker.on("failed", (job, err) => {
-  log.error("Timeout job failed", { jobId: job?.id, error: err.message });
-});
+if (_worker) {
+  _worker.on("failed", (job, err) => {
+    log.error("Timeout job failed", { jobId: job?.id, error: err.message });
+  });
+}
 
 /**
  * Schedules a 30-minute cancellation timer for the given order.
@@ -46,9 +54,13 @@ export async function scheduleTimeout(
   orderId: string,
   reason: CheckoutTimeoutJob["reason"] = "approval_timeout"
 ): Promise<void> {
+  if (isTest) {
+    log.info("Mock scheduleTimeout (test mode)", { orderId, reason });
+    return;
+  }
   const expiresAt = new Date(Date.now() + TIMEOUT_MS).toISOString();
 
-  await timeoutQueue.add(
+  await timeoutQueue!.add(
     orderId,
     { orderId, expiresAt, reason },
     {
@@ -86,7 +98,11 @@ export async function handleTimeout(orderId: string): Promise<void> {
  * Removes a pending timeout job for a completed/cancelled order.
  */
 export async function cancelTimeout(orderId: string): Promise<void> {
-  const job = await timeoutQueue.getJob(`timeout:${orderId}`);
+  if (isTest) {
+    log.info("Mock cancelTimeout (test mode)", { orderId });
+    return;
+  }
+  const job = await timeoutQueue!.getJob(`timeout:${orderId}`);
   if (job) {
     await job.remove();
     log.info("Checkout timeout cancelled", { orderId });

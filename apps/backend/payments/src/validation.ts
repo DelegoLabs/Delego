@@ -493,9 +493,9 @@ export function validateReleaseRequest(
   };
 }
 
-import type { RefundReasonCode } from "../escrow/types.js";
+import type { RefundReasonCode as OnChainRefundReasonCode } from "../escrow/types.js";
 
-const ACCEPTED_REFUND_REASON_CODES: RefundReasonCode[] = [
+const ACCEPTED_REFUND_REASON_CODES: OnChainRefundReasonCode[] = [
   'timeout',
   'buyer_cancelled',
   'merchant_cancelled',
@@ -505,7 +505,7 @@ const ACCEPTED_REFUND_REASON_CODES: RefundReasonCode[] = [
 
 function validateRefundReasonCode(
   body: Record<string, unknown>
-): ValidationResult<RefundReasonCode> {
+): ValidationResult<OnChainRefundReasonCode> {
   const raw = body.refundReasonCode;
 
   if (raw === undefined || raw === null) {
@@ -530,7 +530,7 @@ function validateRefundReasonCode(
     };
   }
 
-  const normalized = raw.trim() as RefundReasonCode;
+  const normalized = raw.trim() as OnChainRefundReasonCode;
   if (!ACCEPTED_REFUND_REASON_CODES.includes(normalized)) {
     return {
       ok: false,

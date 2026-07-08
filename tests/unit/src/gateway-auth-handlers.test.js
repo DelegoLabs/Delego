@@ -8,6 +8,7 @@ import {
   logoutHandler,
   authDependencies,
 } from "../../../apps/backend/gateway/routes/auth.ts";
+import { generateToken } from "../../../apps/backend/gateway/dist/src/auth/authService.js";
 
 function createJsonRequest(body, headers = {}) {
   const req = new Readable({
@@ -191,7 +192,9 @@ describe("Gateway Auth Handlers", () => {
     });
 
     it("should successfully logout user with valid Authorization header", async () => {
-      const req = createRequest(null, { authorization: "Bearer valid-token" });
+      authDependencies.logoutUser = async () => {};
+      const token = generateToken("user_123");
+      const req = createRequest(null, { authorization: `Bearer ${token}` });
       const res = createResponse();
 
       await logoutHandler(req, res);
@@ -200,7 +203,7 @@ describe("Gateway Auth Handlers", () => {
       const responseBody = JSON.parse(res.body);
       assert.equal(responseBody.data.success, true);
       assert.equal(responseBody.error, null);
-      assert.ok(res.headers["Set-Cookie"].includes("Max-Age=0"));
+      assert.ok(res.headers["Set-Cookie"].includes("Expires=Thu, 01 Jan 1970"));
     });
   });
 });

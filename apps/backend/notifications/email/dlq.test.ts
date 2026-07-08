@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { logToDLQ } from "./dlq.js";
-import { FailedNotification } from "../models/FailedNotification.js";
+import { FailedNotification } from "../src/models/FailedNotification.js";
 import type { EmailDispatchJob } from "./types.js";
 
-vi.mock("../models/FailedNotification.js");
+vi.mock("../src/models/FailedNotification.js");
 vi.mock("@delego/utils", () => ({
   createLogger: () => ({
     debug: vi.fn(),

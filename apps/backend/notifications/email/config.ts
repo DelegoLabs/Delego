@@ -55,6 +55,9 @@ export function loadRetryConfig(): RetryConfig {
 let cachedConfig: RetryConfig | null = null;
 
 export function getRetryConfig(): RetryConfig {
+  if (process.env.NODE_ENV === "test") {
+    return loadRetryConfig();
+  }
   if (!cachedConfig) {
     cachedConfig = loadRetryConfig();
   }
