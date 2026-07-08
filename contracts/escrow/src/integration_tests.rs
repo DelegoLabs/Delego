@@ -1,12 +1,9 @@
 #![cfg(test)]
 
-use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus};
+use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus, EscrowTerminalState};
 use soroban_sdk::{
     symbol_short, testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
     Address, BytesN, Env, IntoVal,
-};
-use crate::{
-    EscrowContract, EscrowContractClient, EscrowError, EscrowStatus, EscrowTerminalState,
 };
 
 struct TestEnv {
@@ -71,6 +68,8 @@ fn deposit_escrow(t: &TestEnv, amount: i128, timeout_ledgers: u32) -> u64 {
         &amount,
         &t.order_id(),
         &timeout_ledgers,
+        &None,
+        &None,
     )
 }
 
@@ -106,6 +105,8 @@ fn test_deposit_with_non_whitelisted_token_fails() {
             &1000,
             &t.order_id(),
             &100,
+            &None,
+            &None,
         ),
         Err(Ok(EscrowError::TokenNotWhitelisted))
     );
@@ -151,6 +152,8 @@ fn test_remove_token_blocks_future_deposit() {
             &1000,
             &t.order_id(),
             &100,
+            &None,
+            &None,
         ),
         Err(Ok(EscrowError::TokenNotWhitelisted))
     );
@@ -365,7 +368,7 @@ fn test_release_on_refunded_escrow_fails() {
 
     assert!(escrow_client.refund(&escrow_id, &t.seller));
     assert_eq!(
-        escrow_client.try_release(&escrow_id, &t.buyer),
+        escrow_client.try_release(&escrow_id, &t.buyer, &t.seller),
         Err(Ok(EscrowError::AlreadyRefunded))
     );
 }
@@ -377,7 +380,7 @@ fn test_refund_on_released_escrow_fails() {
 
     let escrow_id = deposit_escrow(&t, 1000, 100);
 
-    assert!(escrow_client.release(&escrow_id, &t.buyer));
+    assert!(escrow_client.release(&escrow_id, &t.buyer, &t.seller));
     assert_eq!(
         escrow_client.try_refund(&escrow_id, &t.seller),
         Err(Ok(EscrowError::AlreadyReleased))
@@ -448,6 +451,8 @@ fn test_deposit_requires_buyer_auth() {
             1000i128,
             t.order_id(),
             100u32,
+            Option::<BytesN<32>>::None,
+            Option::<soroban_sdk::Symbol>::None,
         )
             .into_val(&t.env),
         sub_invokes: &[],
@@ -465,6 +470,8 @@ fn test_deposit_requires_buyer_auth() {
             &1000,
             &t.order_id(),
             &100,
+            &None,
+            &None,
         );
     assert!(res.is_err());
 }
@@ -839,7 +846,7 @@ fn test_full_release_via_release_still_works() {
     let amount = 1000i128;
     let escrow_id = deposit_escrow(&t, amount, 100);
 
-    assert!(escrow_client.release(&escrow_id, &t.buyer));
+    assert!(escrow_client.release(&escrow_id, &t.buyer, &t.seller));
 
     assert_eq!(token_client.balance(&t.seller), 1000);
     assert_eq!(token_client.balance(&t.escrow_contract_id), 0);

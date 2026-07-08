@@ -1,7 +1,7 @@
-﻿#[cfg(test)]
+#[cfg(test)]
 mod test {
     use crate::{DataKey, EscrowContract, EscrowContractClient, EscrowError};
-    use soroban_sdk::{symbol_short, testutils::Address as _, Address, Env, IntoVal};
+    use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env, IntoVal};
 
     fn setup_client(env: &Env) -> (EscrowContractClient<'_>, Address) {
         let contract_id = env.register(EscrowContract, ());
@@ -189,7 +189,10 @@ mod test {
 
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
-        let token = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
 
         let order_id = BytesN::from_array(&env, &[1u8; 32]);
@@ -203,8 +206,8 @@ mod test {
             &1000i128,
             &order_id,
             &100u32,
-            &Some(order_hash),
-            &Some(schema),
+            &Some(order_hash.clone()),
+            &Some(schema.clone()),
         );
 
         // Verify metadata was stored
@@ -221,7 +224,10 @@ mod test {
 
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
-        let token = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
 
         let order_id = BytesN::from_array(&env, &[1u8; 32]);
@@ -251,7 +257,10 @@ mod test {
 
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
-        let token = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
 
         let order_id = BytesN::from_array(&env, &[1u8; 32]);
