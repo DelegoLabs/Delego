@@ -12,6 +12,8 @@ concurrency:
 
 env:
   NODE_VERSION: 20
+  NODE_ENV: test
+  MOCK_REDIS: "true"
 
 jobs:
   lint:
