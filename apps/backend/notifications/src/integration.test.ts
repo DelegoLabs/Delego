@@ -1,10 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { dispatchTransactionApproval } from "./dispatcher.js";
-import { sendEmailWithRetry } from "../email/index.js";
-import { FailedNotification } from "./models/FailedNotification.js";
-import type { TransactionApprovalNotification } from "./dispatcher.js";
+import { vi } from "vitest";
 
-vi.mock("ioredis");
+vi.mock("ioredis", () => {
+  const MockRedis = vi.fn().mockImplementation(() => ({
+    smembers: vi.fn().mockResolvedValue([]),
+    sadd: vi.fn().mockResolvedValue(1),
+    srem: vi.fn().mockResolvedValue(1),
+    set: vi.fn().mockResolvedValue("OK"),
+    get: vi.fn().mockResolvedValue(null),
+    on: vi.fn(),
+  }));
+  return { Redis: MockRedis };
+});
 vi.mock("../email/index.js");
 vi.mock("./models/FailedNotification.js");
 vi.mock("./idempotency.js", () => ({
@@ -21,6 +27,12 @@ vi.mock("@delego/utils", () => ({
     error: vi.fn(),
   }),
 }));
+
+import { describe, it, expect, beforeEach } from "vitest";
+import { dispatchTransactionApproval } from "./dispatcher.js";
+import { sendEmailWithRetry } from "../email/index.js";
+import { FailedNotification } from "./models/FailedNotification.js";
+import type { TransactionApprovalNotification } from "./dispatcher.js";
 
 const mockSendEmailWithRetry = vi.mocked(sendEmailWithRetry);
 const mockFailedNotification = vi.mocked(FailedNotification);

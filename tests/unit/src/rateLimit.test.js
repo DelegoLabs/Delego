@@ -4,6 +4,7 @@ import { getRedisClient, disconnectRedis } from "../../../apps/backend/gateway/d
 
 describe("Gateway Rate Limiting System", () => {
   before(async () => {
+    process.env.MOCK_REDIS = "true";
     // Ensure mock Redis connection is initialized safely from compiled code
     getRedisClient();
   });

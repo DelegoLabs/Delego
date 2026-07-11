@@ -73,6 +73,8 @@ fn delegated_deposit(t: &TestEnv, amount: i128, timeout_ledgers: u32) -> u64 {
         &amount,
         &t.order_id(),
         &timeout_ledgers,
+        &None,
+        &None,
     )
 }
 

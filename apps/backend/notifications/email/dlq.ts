@@ -1,5 +1,5 @@
 import { createLogger } from "@delego/utils";
-import { FailedNotification } from "../models/FailedNotification.js";
+import { FailedNotification } from "../src/models/FailedNotification.js";
 import type { EmailDispatchJob } from "./types.js";
 
 const log = createLogger("notifications:dlq", process.env.LOG_LEVEL ?? "info");

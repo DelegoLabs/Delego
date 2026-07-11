@@ -134,6 +134,12 @@ importers:
       pg:
         specifier: ^8.11.0
         version: 8.22.0
+      pg-hstore:
+        specifier: ^2.3.4
+        version: 2.3.4
+      sequelize:
+        specifier: ^6.37.8
+        version: 6.37.8(pg-hstore@2.3.4)(pg@8.22.0)
       web-push:
         specifier: ^3.6.7
         version: 3.6.7
@@ -196,6 +202,9 @@ importers:
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
+      ioredis-mock:
+        specifier: ^8.13.1
+        version: 8.13.1(@types/ioredis-mock@8.2.7(ioredis@5.11.1))(ioredis@5.11.1)
       tsx:
         specifier: ^4.19.0
         version: 4.22.4
@@ -419,6 +428,9 @@ importers:
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
+      tsx:
+        specifier: ^4.19.0
+        version: 4.22.4
 
 packages:
 

@@ -1,15 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { sendEmailWithRetry, type EmailDispatchJob } from "./index.js";
-import { classifyError, calculateBackoffDelay } from "../src/email/errorClassifier.js";
-import { FailedNotification } from "../src/models/FailedNotification.js";
+import { vi } from "vitest";
 
 // Mock SendGrid
-vi.mock("@sendgrid/mail", () => ({
-  default: {
-    setApiKey: vi.fn(),
-    send: vi.fn(),
-  },
-}));
+vi.mock("@sendgrid/mail", () => {
+  process.env.SENDGRID_API_KEY = "test-sendgrid-api-key";
+  return {
+    default: {
+      setApiKey: vi.fn(),
+      send: vi.fn(),
+    },
+  };
+});
 
 // Mock FailedNotification model
 vi.mock("../src/models/FailedNotification.js", () => ({
@@ -28,6 +28,11 @@ vi.mock("@delego/utils", () => ({
     error: vi.fn(),
   }),
 }));
+
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { sendEmailWithRetry, type EmailDispatchJob } from "./index.js";
+import { classifyError, calculateBackoffDelay } from "./errorClassifier.js";
+import { FailedNotification } from "../src/models/FailedNotification.js";
 
 const mockSgMail = await import("@sendgrid/mail");
 const mockFailedNotification = await import("../src/models/FailedNotification.js");
@@ -49,10 +54,16 @@ describe("sendEmailWithRetry", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    process.env.EMAIL_MAX_RETRIES = "3";
+    process.env.EMAIL_RETRY_BASE_DELAY_SECONDS = "2";
+    process.env.EMAIL_DLQ_ENABLED = "true";
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    delete process.env.EMAIL_MAX_RETRIES;
+    delete process.env.EMAIL_RETRY_BASE_DELAY_SECONDS;
+    delete process.env.EMAIL_DLQ_ENABLED;
   });
 
   it("does not write to DLQ on success on first attempt", async () => {
@@ -77,7 +88,9 @@ describe("sendEmailWithRetry", () => {
       null
     );
 
-    await sendEmailWithRetry(baseJob, "Test Subject");
+    const promise = sendEmailWithRetry(baseJob, "Test Subject");
+    await vi.runAllTimersAsync();
+    await promise;
 
     expect(mockSgMail.default.send).toHaveBeenCalledTimes(2);
     expect(mockFailedNotification.FailedNotification.create).not.toHaveBeenCalled();
@@ -107,9 +120,9 @@ describe("sendEmailWithRetry", () => {
     mockSgMail.default.send.mockRejectedValue(error);
     mockFailedNotification.FailedNotification.findOne.mockResolvedValue(null);
 
-    const result = await sendEmailWithRetry(baseJob, "Test Subject").catch(
-      (e) => e
-    );
+    const promise = sendEmailWithRetry(baseJob, "Test Subject").catch((e) => e);
+    await vi.runAllTimersAsync();
+    const result = await promise;
 
     // Should be called 4 times: initial + 3 retries (default EMAIL_MAX_RETRIES=3)
     expect(mockSgMail.default.send).toHaveBeenCalled();
@@ -133,10 +146,15 @@ describe("sendEmailWithRetry", () => {
 
     mockFailedNotification.FailedNotification.findOne.mockResolvedValue(null);
 
-    await sendEmailWithRetry(baseJob, "Test Subject");
-
-    // Verify timers were advanced
+    const promise = sendEmailWithRetry(baseJob, "Test Subject");
+    // Allow microtasks to flush so that the retry timer is scheduled
+    for (let i = 0; i < 10; i++) {
+      await Promise.resolve();
+    }
+    // Verify timers were scheduled
     expect(vi.getTimerCount()).toBeGreaterThan(0);
+    await vi.runAllTimersAsync();
+    await promise;
   });
 
   it("includes userId in error context for audit trail", async () => {
@@ -164,9 +182,9 @@ describe("sendEmailWithRetry", () => {
     mockSgMail.default.send.mockRejectedValue(new Error("ETIMEDOUT"));
     mockFailedNotification.FailedNotification.findOne.mockResolvedValue(null);
 
-    const result = await sendEmailWithRetry(baseJob, "Test Subject").catch(
-      (e) => e
-    );
+    const promise = sendEmailWithRetry(baseJob, "Test Subject").catch((e) => e);
+    await vi.runAllTimersAsync();
+    const result = await promise;
 
     expect(result).toHaveProperty("code", "EMAIL_DISPATCH_FAILED");
     expect(result).toHaveProperty("message");
@@ -181,7 +199,9 @@ describe("sendEmailWithRetry", () => {
 
     mockFailedNotification.FailedNotification.findOne.mockResolvedValue(null);
 
-    await sendEmailWithRetry(baseJob, "Test Subject");
+    const promise = sendEmailWithRetry(baseJob, "Test Subject");
+    await vi.runAllTimersAsync();
+    await promise;
 
     // Verify sendEmail was called with correct payload
     expect(mockSgMail.default.send).toHaveBeenCalled();
@@ -204,7 +224,9 @@ describe("sendEmailWithRetry", () => {
 
     mockFailedNotification.FailedNotification.findOne.mockResolvedValue(null);
 
-    await sendEmailWithRetry(baseJob, "Test Subject");
+    const promise = sendEmailWithRetry(baseJob, "Test Subject");
+    await vi.runAllTimersAsync();
+    await promise;
 
     expect(mockSgMail.default.send).toHaveBeenCalledTimes(3);
     expect(mockFailedNotification.FailedNotification.create).not.toHaveBeenCalled();

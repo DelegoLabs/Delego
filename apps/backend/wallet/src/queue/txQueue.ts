@@ -196,8 +196,20 @@ export async function reserveSequenceBlock(
   const lockKey = `seq:lock:${address}`;
   const lockTimeout = 5000; // 5 seconds lock timeout
   
-  // Acquire lock
-  const lockAcquired = await redis.set(lockKey, "locked", "NX", "PX", lockTimeout);
+  // Acquire lock with retry
+  let lockAcquired = false;
+  const maxRetries = 20;
+  const retryDelay = 50; // 50ms
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const res = await redis.set(lockKey, "locked", "PX", lockTimeout, "NX");
+    if (res) {
+      lockAcquired = true;
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, retryDelay));
+  }
+  
   if (!lockAcquired) {
     throw new Error("Failed to acquire sequence reservation lock");
   }
@@ -261,7 +273,6 @@ async function getNextSequenceFromReservation(
 ): Promise<{ sequence: string; reservation: SequenceReservation; releaseReservation: () => Promise<void> } | null> {
   const key = `seq:reservations:${address}`;
   const now = Date.now();
-  const reservationCursorKey = `seq:cursor:${address}`;
   
   const reservationsJson = await redis.lrange(key, 0, -1);
   
