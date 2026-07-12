@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test src/health-check.test.js",
-    "test:payments-escrow": "node --test src/payments-escrow.testnet.test.js",
+    "test": "NODE_ENV=test MOCK_REDIS=true node --test src/health-check.test.js",
+    "test:payments-escrow": "NODE_ENV=test MOCK_REDIS=true node --test src/payments-escrow.testnet.test.js",
     "typecheck": "echo 'N/A'"
   },
   "dependencies": {

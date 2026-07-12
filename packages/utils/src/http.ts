@@ -97,19 +97,6 @@ export function startHttpServer(options: HttpServerOptions): Server {
           await next(mwErr);
         }
       } else {
-        if (req.method === "GET" && pathname === "/health") {
-          json(res, 200, {
-            data: {
-              status: "ok",
-              service: serviceName,
-              version,
-              timestamp: new Date().toISOString(),
-            },
-            error: null,
-          });
-          return;
-        }
-
         const matched = matchRoute(routes, req.method ?? "GET", pathname);
         if (matched) {
           try {
@@ -123,6 +110,19 @@ export function startHttpServer(options: HttpServerOptions): Server {
               },
             });
           }
+          return;
+        }
+
+        if (req.method === "GET" && pathname === "/health") {
+          json(res, 200, {
+            data: {
+              status: "ok",
+              service: serviceName,
+              version,
+              timestamp: new Date().toISOString(),
+            },
+            error: null,
+          });
           return;
         }
 
