@@ -2,7 +2,7 @@ echo "🔍 Running pre-commit checks..."
 
 # Run lint
 echo "▸ Running linter..."
-pnpm run lint
+node_modules/.pnpm/node_modules/.bin/pnpm run lint
 if [ $? -ne 0 ]; then
   echo "❌ Linting failed."
   exit 1
