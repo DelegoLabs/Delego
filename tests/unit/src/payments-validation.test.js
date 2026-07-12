@@ -65,12 +65,55 @@ describe("payments escrow validation", () => {
     assert.equal(release.ok, true);
     assert.equal(release.value.escrowId, "42");
 
-    const invalid = validateRefundRequest({ sourceAddress: VALID_ADDRESS }, "-1");
+    const invalid = validateRefundRequest(
+      { sourceAddress: VALID_ADDRESS, refundReasonCode: "timeout" },
+      "-1"
+    );
     assert.equal(invalid.ok, false);
 
-    const missing = validateRefundRequest({ sourceAddress: VALID_ADDRESS }, "");
+    const missing = validateRefundRequest(
+      { sourceAddress: VALID_ADDRESS, refundReasonCode: "timeout" },
+      ""
+    );
     assert.equal(missing.ok, false);
   });
+
+  it("accepts valid refundReasonCode values", () => {
+    const codes = [
+      "timeout",
+      "buyer_cancelled",
+      "merchant_cancelled",
+      "dispute_buyer",
+      "system_error",
+    ];
+
+    for (const code of codes) {
+      const result = validateRefundRequest(
+        { sourceAddress: VALID_ADDRESS, refundReasonCode: code },
+        "42"
+      );
+      assert.equal(result.ok, true);
+      assert.equal(result.value.escrowId, "42");
+      assert.equal(result.value.refundReasonCode, code);
+    }
+  });
+
+  it("rejects missing refundReasonCode", () => {
+    const result = validateRefundRequest({ sourceAddress: VALID_ADDRESS }, "42");
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, "VALIDATION_ERROR");
+  });
+
+  it("rejects invalid refundReasonCode", () => {
+    const result = validateRefundRequest(
+      { sourceAddress: VALID_ADDRESS, refundReasonCode: "late" },
+      "42"
+    );
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, "VALIDATION_ERROR");
+    assert.match(result.error.message, /Invalid refundReasonCode/);
+  });
+
 
   it("reports missing ESCROW_CONTRACT_ID config", () => {
     const original = process.env.ESCROW_CONTRACT_ID;

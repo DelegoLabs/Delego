@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Delegation revoked</title>
+</head>
+<body>
+  <h1>A delegation has been revoked</h1>
+  <p>Your wallet <strong>{{owner}}</strong> has revoked a spending delegation.</p>
+  <table style="border-collapse:collapse;margin:16px 0">
+    <tr><td><strong>Delegate</strong></td><td>{{delegate}}</td></tr>
+    <tr><td><strong>Contract</strong></td><td>{{contractId}}</td></tr>
+  </table>
+  <p>The delegate can no longer spend on your behalf.</p>
+  <p>Transaction hash: <code>{{txHash}}</code></p>
+</body>
+</html>

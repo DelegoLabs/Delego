@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Delegation updated</title>
+</head>
+<body>
+  <h1>A delegation has been updated</h1>
+  <p>An on-chain permission change affects your wallet <strong>{{owner}}</strong>.</p>
+  <table style="border-collapse:collapse;margin:16px 0">
+    <tr><td><strong>Event type</strong></td><td>{{eventType}}</td></tr>
+    <tr><td><strong>Delegate</strong></td><td>{{delegate}}</td></tr>
+    <tr><td><strong>Updated allowance (stroops)</strong></td><td>{{limitStroops}}</td></tr>
+    <tr><td><strong>Expires at ledger</strong></td><td>{{expiresAtLedger}}</td></tr>
+    <tr><td><strong>Contract</strong></td><td>{{contractId}}</td></tr>
+  </table>
+  <p>Transaction hash: <code>{{txHash}}</code></p>
+  <p>Sign in to your Delego wallet to review the new policy.</p>
+</body>
+</html>

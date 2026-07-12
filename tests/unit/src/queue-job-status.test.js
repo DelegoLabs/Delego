@@ -5,12 +5,18 @@ import {
 } from "../../../apps/backend/wallet/dist/src/queue/txQueue.js";
 
 describe("getJobStatus", () => {
+  let originalNodeEnv;
   before(() => {
+    originalNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = "test";
   });
 
   after(() => {
-    delete process.env.NODE_ENV;
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
   });
 
   it("returns null for a missing job ID when queue is in test mode", async () => {

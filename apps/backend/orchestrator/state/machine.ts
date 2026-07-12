@@ -11,6 +11,7 @@
  * `onTransition` hook, enabling the machine to be stateless and crash-safe.
  */
 
+import { assertValidSnapshot, SNAPSHOT_VERSION } from "./snapshot-validator.js";
 import type {
   PurchaseContext,
   PurchaseEvent,
@@ -115,15 +116,17 @@ export class PurchaseWorkflowMachine {
       currentState: "Discovery",
       context: ctx,
       history: [],
+      version: SNAPSHOT_VERSION,
     };
     this.onTransition = onTransition;
   }
 
   /** Restore a machine from a previously persisted snapshot (crash recovery). */
   static fromSnapshot(
-    snapshot: WorkflowSnapshot,
+    snapshot: unknown,
     onTransition?: TransitionHook
   ): PurchaseWorkflowMachine {
+    assertValidSnapshot(snapshot);
     const machine = new PurchaseWorkflowMachine(
       {
         workflowId: snapshot.workflowId,
@@ -195,6 +198,7 @@ export class PurchaseWorkflowMachine {
       currentState: this.snapshot.currentState,
       context: { ...this.snapshot.context },
       history: [...this.snapshot.history],
+      version: this.snapshot.version,
     };
   }
 }
