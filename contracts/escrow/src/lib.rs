@@ -1,4 +1,4 @@
-﻿//! Delego Escrow Contract
+//! Delego Escrow Contract
 //!
 //! Holds funds in escrow until order fulfillment is confirmed.
 
@@ -18,16 +18,43 @@ pub enum EscrowStatus {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum EscrowTerminalState {
+    Released,
+    Refunded,
+    Cancelled,
+}
+
+impl EscrowTerminalState {
+    pub fn from_status(status: &EscrowStatus) -> Option<Self> {
+        match status {
+            EscrowStatus::Released => Some(EscrowTerminalState::Released),
+            EscrowStatus::Refunded => Some(EscrowTerminalState::Refunded),
+            _ => None,
+        }
+    }
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EscrowRecord {
     pub escrow_id: u64,
     pub buyer: Address,
     pub seller: Address,
     pub token: Address,
     pub amount: i128,
+    pub released_amount: i128,
     pub status: EscrowStatus,
     pub order_id: BytesN<32>,
     pub created_at: u64,
     pub timeout_ledger: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PartialReleaseResult {
+    pub released: i128,
+    pub remaining: i128,
+    pub fully_released: bool,
 }
 
 #[contracttype]
@@ -112,6 +139,16 @@ pub struct EscrowPauseState {
     pub updated_at_ledger: u32,
 }
 
+/// Optional metadata hash stored on escrow creation for off-chain order verification.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowMetadata {
+    /// Hash of off-chain order details (e.g., order JSON)
+    pub order_hash: BytesN<32>,
+    /// Schema identifier for the off-chain data (e.g., "order_v1")
+    pub schema: Symbol,
+}
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EscrowTokenView {
@@ -179,6 +216,7 @@ pub enum DataKey {
     TokenWhitelist,
     TokenEnabled(Address),
     PauseState,
+    EscrowMetadata(u64),
 }
 
 #[contracterror]
@@ -205,6 +243,10 @@ pub enum EscrowError {
     InvalidAmount = 9,
     /// Token is not approved for escrow deposits
     TokenNotWhitelisted = 10,
+    /// Release amount exceeds remaining escrow balance
+    InsufficientEscrowBalance = 11,
+    /// Release amount is zero
+    ZeroAmount = 12,
     /// No pending admin transfer exists
     NoPendingTransfer = 13,
     /// Caller is not the pending admin
@@ -231,6 +273,8 @@ pub enum EscrowError {
     QuorumConfigNotSet = 24,
     /// Conflicting quorum outcomes
     ConflictingQuorum = 25,
+    /// Release recipient does not match the stored seller address
+    InvalidReleaseRecipient = 201,
     /// New escrow creation is currently paused by admin
     CreationPaused = 26,
 }
@@ -273,6 +317,14 @@ pub struct ReleaseEligibility {
     pub escrow_id: BytesN<32>,
     pub eligible: bool,
     pub reason: Symbol,
+}
+
+fn check_not_terminal(record: &EscrowRecord) -> Result<(), EscrowError> {
+    match record.status {
+        EscrowStatus::Released => Err(EscrowError::AlreadyReleased),
+        EscrowStatus::Refunded => Err(EscrowError::AlreadyRefunded),
+        _ => Ok(()),
+    }
 }
 
 #[contract]
@@ -640,6 +692,9 @@ impl EscrowContract {
     }
 
     /// Deposit funds into escrow for an order.
+    ///
+    /// Optional metadata parameters (order_hash and schema) can be provided to store
+    /// a hash of off-chain order details for later verification.
     pub fn deposit(
         env: Env,
         buyer: Address,
@@ -648,6 +703,8 @@ impl EscrowContract {
         amount: i128,
         order_id: BytesN<32>,
         timeout_ledgers: u32,
+        order_hash: Option<BytesN<32>>,
+        schema: Option<Symbol>,
     ) -> Result<u64, EscrowError> {
         buyer.require_auth();
 
@@ -700,6 +757,7 @@ impl EscrowContract {
             seller: seller.clone(),
             token: token.clone(),
             amount,
+            released_amount: 0,
             status: EscrowStatus::Funded,
             order_id: order_id.clone(),
             created_at: env.ledger().timestamp(),
@@ -709,6 +767,17 @@ impl EscrowContract {
         env.storage()
             .persistent()
             .set(&DataKey::Escrow(last_id), &record);
+
+        // Store optional metadata if both order_hash and schema are provided
+        if let (Some(hash), Some(sch)) = (order_hash, schema) {
+            let metadata = EscrowMetadata {
+                order_hash: hash,
+                schema: sch,
+            };
+            env.storage()
+                .persistent()
+                .set(&DataKey::EscrowMetadata(last_id), &metadata);
+        }
 
         env.events().publish(
             (symbol_short!("escrow"), symbol_short!("created")),
@@ -726,8 +795,15 @@ impl EscrowContract {
         Ok(last_id)
     }
 
-    /// Release escrowed funds to the seller. Only the buyer or admin may call.
-    pub fn release(env: Env, escrow_id: u64, caller: Address) -> Result<bool, EscrowError> {
+    /// Release a partial amount to the seller.
+    /// `release_amount` must be <= (record.amount - record.released_amount).
+    /// If release_amount equals the remaining balance, set status to Released.
+    pub fn partial_release(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+        release_amount: i128,
+    ) -> Result<PartialReleaseResult, EscrowError> {
         caller.require_auth();
 
         let key = DataKey::Escrow(escrow_id);
@@ -740,25 +816,35 @@ impl EscrowContract {
             return Err(EscrowError::Unauthorized);
         }
 
-        Self::validate_release_status(&record)?;
+        check_not_terminal(&record)?;
 
-        let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
-        let fee_bps = fee_config.fee_bps as i128;
-        let fee = (record.amount / 10_000i128) * fee_bps
-            + ((record.amount % 10_000i128) * fee_bps) / 10_000i128;
-        let seller_amount = record.amount - fee;
+        if record.status != EscrowStatus::Funded {
+            return Err(EscrowError::InvalidStatus);
+        }
+        Self::validate_release_status(&record)?;
+        if release_amount <= 0 {
+            return Err(EscrowError::ZeroAmount);
+        }
+
+        let remaining = record.amount - record.released_amount;
+        if release_amount > remaining {
+            return Err(EscrowError::InsufficientEscrowBalance);
+        }
 
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
-        if fee > 0 {
-            token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
-        }
         token_client.transfer(
             &env.current_contract_address(),
             &record.seller,
-            &seller_amount,
+            &release_amount,
         );
 
-        record.status = EscrowStatus::Released;
+        record.released_amount += release_amount;
+        let new_remaining = record.amount - record.released_amount;
+        let fully_released = new_remaining == 0;
+        if fully_released {
+            record.status = EscrowStatus::Released;
+        }
+
         env.storage().persistent().set(&key, &record);
 
         env.events().publish(
@@ -766,11 +852,37 @@ impl EscrowContract {
             EscrowReleasedEvent {
                 escrow_id,
                 seller: record.seller.clone(),
-                amount: seller_amount,
+                amount: release_amount,
                 released_by: caller,
             },
         );
 
+        Ok(PartialReleaseResult {
+            released: release_amount,
+            remaining: new_remaining,
+            fully_released,
+        })
+    }
+
+    /// Release escrowed funds to the seller. Only the buyer or admin may call.
+    pub fn release(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+        recipient: Address,
+    ) -> Result<bool, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        if recipient != record.seller {
+            return Err(EscrowError::InvalidReleaseRecipient);
+        }
+
+        let remaining = record.amount - record.released_amount;
+        Self::partial_release(env, escrow_id, caller, remaining)?;
         Ok(true)
     }
 
@@ -785,9 +897,7 @@ impl EscrowContract {
             None => return Err(EscrowError::NotFound),
         };
 
-        if record.status == EscrowStatus::Refunded {
-            return Err(EscrowError::AlreadyRefunded);
-        }
+        check_not_terminal(&record)?;
 
         if record.status != EscrowStatus::Funded {
             return Err(EscrowError::InvalidStatus);
@@ -805,11 +915,13 @@ impl EscrowContract {
             return Err(EscrowError::Unauthorized);
         }
 
+        let refund_amount = record.amount - record.released_amount;
+
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
         token_client.transfer(
             &env.current_contract_address(),
             &record.buyer,
-            &record.amount,
+            &refund_amount,
         );
 
         record.status = EscrowStatus::Refunded;
@@ -820,7 +932,7 @@ impl EscrowContract {
             EscrowRefundedEvent {
                 escrow_id,
                 buyer: record.buyer.clone(),
-                amount: record.amount,
+                amount: refund_amount,
                 refunded_by: caller,
             },
         );
@@ -1186,6 +1298,19 @@ impl EscrowContract {
             escrow_id,
             token: record.token,
         })
+    }
+
+    /// Get the optional metadata for an escrow.
+    ///
+    /// Returns the metadata if it was provided during escrow creation, otherwise
+    /// returns NotFound. The metadata contains the order hash and schema identifier
+    /// for off-chain order verification.
+    pub fn get_escrow_metadata(env: Env, escrow_id: u64) -> Result<EscrowMetadata, EscrowError> {
+        let key = DataKey::EscrowMetadata(escrow_id);
+        env.storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)
     }
 
     /// Returns true if the address is the primary admin or a co-admin.

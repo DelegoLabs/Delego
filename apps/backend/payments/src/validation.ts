@@ -493,6 +493,58 @@ export function validateReleaseRequest(
   };
 }
 
+import type { RefundReasonCode as OnChainRefundReasonCode } from "../escrow/types.js";
+
+const ACCEPTED_REFUND_REASON_CODES: OnChainRefundReasonCode[] = [
+  'timeout',
+  'buyer_cancelled',
+  'merchant_cancelled',
+  'dispute_buyer',
+  'system_error',
+];
+
+function validateRefundReasonCode(
+  body: Record<string, unknown>
+): ValidationResult<OnChainRefundReasonCode> {
+  const raw = body.refundReasonCode;
+
+  if (raw === undefined || raw === null) {
+    return {
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Missing required field: refundReasonCode",
+        details: { field: "refundReasonCode" },
+      },
+    };
+  }
+
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return {
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "refundReasonCode must be a non-empty string",
+        details: { field: "refundReasonCode" },
+      },
+    };
+  }
+
+  const normalized = raw.trim() as OnChainRefundReasonCode;
+  if (!ACCEPTED_REFUND_REASON_CODES.includes(normalized)) {
+    return {
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: `Invalid refundReasonCode: ${raw}. Accepted: ${ACCEPTED_REFUND_REASON_CODES.join(", ")}`,
+        details: { field: "refundReasonCode", accepted: ACCEPTED_REFUND_REASON_CODES },
+      },
+    };
+  }
+
+  return { ok: true, value: normalized };
+}
+
 export function validateRefundRequest(
   body: Record<string, unknown>,
   escrowIdParam?: string
@@ -503,11 +555,15 @@ export function validateRefundRequest(
   const escrowId = requireEscrowId(escrowIdParam);
   if (!escrowId.ok) return escrowId;
 
+  const refundReasonCode = validateRefundReasonCode(body);
+  if (!refundReasonCode.ok) return refundReasonCode;
+
   return {
     ok: true,
     value: {
       sourceAddress: sourceAddress.value,
       escrowId: escrowId.value,
+      refundReasonCode: refundReasonCode.value,
     },
   };
 }

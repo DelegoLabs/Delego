@@ -25,6 +25,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/pg": "^8.20.0",
+    "ioredis-mock": "^8.13.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^2.0.0"

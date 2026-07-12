@@ -9,6 +9,7 @@ import {
   dispatchTransactionApproval,
 } from "./dispatcher.js";
 import { getVapidPublicKey } from "../push/index.js";
+import { startPermissionEventListener } from "./permissionEventListener.js";
 import type { IncomingMessage, ServerResponse, Server } from "node:http";
 
 const SERVICE_NAME = "notifications";
@@ -20,6 +21,40 @@ const log = createLogger(SERVICE_NAME, logLevel);
 const port = Number(process.env.NOTIFICATIONS_PORT ?? DEFAULT_PORT);
 
 log.info("Starting service", { port, nodeEnv });
+
+// Issue #57 — opt-in permission event listener.
+// Requires both STELLAR_RPC_URL (or SOROBAN_RPC_URL) and
+// PERMISSIONS_CONTRACT_ID to be set.  When unset the service boots normally
+// without the listener so test environments and local dev do not need a live
+// RPC.
+const rpcUrl =
+  process.env.STELLAR_RPC_URL ??
+  process.env.SOROBAN_RPC_URL ??
+  "";
+const permissionsContractId =
+  process.env.PERMISSIONS_CONTRACT_ID ?? "";
+
+let permissionListener: { stop(): Promise<void> } | null = null;
+if (rpcUrl && permissionsContractId) {
+  try {
+    permissionListener = startPermissionEventListener(
+      rpcUrl,
+      permissionsContractId
+    );
+    log.info("Permission event listener wired to boot", {
+      rpcUrl,
+      contractId: permissionsContractId,
+    });
+  } catch (err) {
+    log.error("Failed to start permission event listener", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+} else {
+  log.info(
+    "Permission event listener disabled (set STELLAR_RPC_URL and PERMISSIONS_CONTRACT_ID to enable)"
+  );
+}
 
 function readBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -40,7 +75,7 @@ const server: Server = startHttpServer({
   port,
   serviceName: SERVICE_NAME,
   routes: [
-    route("GET", "/vapid-public-key", (_req, res) => {
+    route("GET", "/vapid-public-key", (_req: IncomingMessage, res: ServerResponse) => {
       const key = getVapidPublicKey();
       if (!key) {
         json(res, 503, {
@@ -55,7 +90,7 @@ const server: Server = startHttpServer({
     route(
       "POST",
       "/subscriptions/:userId",
-      async (req: IncomingMessage, res: ServerResponse, params) => {
+      async (req: IncomingMessage, res: ServerResponse, params: Record<string, string>) => {
         const body = (await readBody(req)) as { subscription: unknown };
         if (!body?.subscription) {
           json(res, 400, {
@@ -75,7 +110,7 @@ const server: Server = startHttpServer({
     route(
       "DELETE",
       "/subscriptions/:userId",
-      async (req: IncomingMessage, res: ServerResponse, params) => {
+      async (req: IncomingMessage, res: ServerResponse, params: Record<string, string>) => {
         const body = (await readBody(req)) as { endpoint: unknown };
         if (!body?.endpoint || typeof body.endpoint !== "string") {
           json(res, 400, {
@@ -125,3 +160,32 @@ const server: Server = startHttpServer({
 });
 
 initWebSocketServer(server);
+
+// Issue #57 — register graceful shutdown so the listener drains cleanly.
+async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
+  log.info("Received shutdown signal", { signal });
+  if (permissionListener) {
+    try {
+      await permissionListener.stop();
+    } catch (err) {
+      log.error("Failed to stop permission event listener cleanly", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  server.close(() => {
+    log.info("HTTP server closed");
+    process.exit(0);
+  });
+  // Hard deadline so a stuck close() does not hang forever.
+  setTimeout(() => {
+    log.warn("Force-exiting after shutdown timeout");
+    process.exit(0);
+  }, 10_000).unref();
+}
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    void gracefulShutdown(signal);
+  });
+}
