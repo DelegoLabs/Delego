@@ -1,6 +1,10 @@
 import { Redis } from "ioredis";
 import { createLogger } from "@delego/utils";
-import { sendEmail } from "../email/index.js";
+import { randomUUID } from "crypto";
+import {
+  sendEmailWithRetry,
+  type EmailDispatchJob,
+} from "../email/index.js";
 import {
   sendPushNotification,
   type PushSubscription,
@@ -12,7 +16,7 @@ const log = createLogger(
   "notifications:dispatcher",
   process.env.LOG_LEVEL ?? "info"
 );
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
+const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true });
 
 const SUBSCRIPTIONS_NS = "push:subscriptions";
 
@@ -70,21 +74,28 @@ export async function dispatchTransactionApproval(
       }));
 
     if (shouldSend) {
+      const notificationId = randomUUID();
+      const emailJob: EmailDispatchJob = {
+        notificationId,
+        recipient: notification.email,
+        templateName: "approval-request",
+        payload: {
+          orderId: notification.transactionId,
+          amount: notification.amount,
+          approvalUrl: notification.approvalUrl,
+        },
+        attempts: 0,
+        userId: notification.userId,
+      };
+
       tasks.push(
-        sendEmail({
-          to: notification.email,
-          subject: "Purchase Approval Required",
-          templateName: "approval-request",
-          templateData: {
-            orderId: notification.transactionId,
-            amount: notification.amount,
-            approvalUrl: notification.approvalUrl,
-          },
-        }).catch((err) =>
-          log.error("Failed to send email notification", {
-            error: err,
-            userId: notification.userId,
-          })
+        sendEmailWithRetry(emailJob, "Purchase Approval Required").catch(
+          (err) =>
+            log.error("Failed to send email notification", {
+              error: err instanceof Error ? err.message : String(err),
+              userId: notification.userId,
+              notificationId,
+            })
         )
       );
     } else {
@@ -132,7 +143,7 @@ export async function dispatchTransactionApproval(
     tasks.push(
       sendPushNotification(sub, payload).catch((err) =>
         log.error("Failed to send push notification", {
-          error: err,
+          error: err instanceof Error ? err.message : String(err),
           userId: notification.userId,
         })
       )

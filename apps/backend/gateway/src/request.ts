@@ -1,6 +1,9 @@
 import type { IncomingMessage } from "node:http";
+import { getBodyLimitConfig, parseJsonLimit } from "../routes/api-v1.js";
 
-const MAX_BODY_SIZE = 1024 * 1024; // 1MB
+function getMaxBodySize(): number {
+  return parseJsonLimit(getBodyLimitConfig().jsonLimit);
+}
 
 export class InvalidJsonError extends Error {
   constructor(message: string = "Invalid JSON body") {
@@ -25,7 +28,7 @@ export async function readJsonBody(req: IncomingMessage): Promise<any> {
       chunks.push(chunk);
       totalBytes += chunk.length;
 
-      if (totalBytes > MAX_BODY_SIZE) {
+      if (totalBytes > getMaxBodySize()) {
         req.destroy();
         reject(new BodyTooLargeError());
         return;

@@ -15,6 +15,21 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 /** Rate-limit and server-error status codes that warrant a retry. */
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
+interface OpenAIChatCompletionUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+}
+
+interface OpenAIChatCompletionChoice {
+  message?: { content?: string };
+  finish_reason?: string;
+}
+
+interface OpenAIChatCompletionResponse {
+  usage?: OpenAIChatCompletionUsage;
+  choices?: OpenAIChatCompletionChoice[];
+}
+
 export class OpenAIClient implements LLMClient {
   readonly provider = "openai" as const;
 
@@ -44,13 +59,13 @@ export class OpenAIClient implements LLMClient {
       temperature: options.temperature ?? 0.7,
     };
 
-    const response = await this.requestWithRetry(
+    const response = (await this.requestWithRetry(
       "https://api.openai.com/v1/chat/completions",
       body
-    );
+    )) as OpenAIChatCompletionResponse;
 
-    const inputTokens: number = response.usage?.prompt_tokens ?? 0;
-    const outputTokens: number = response.usage?.completion_tokens ?? 0;
+    const inputTokens = response.usage?.prompt_tokens ?? 0;
+    const outputTokens = response.usage?.completion_tokens ?? 0;
     const totalTokens = inputTokens + outputTokens;
 
     if (options.tokenBudget && totalTokens > options.tokenBudget) {
@@ -59,7 +74,10 @@ export class OpenAIClient implements LLMClient {
       );
     }
 
-    const choice = response.choices?.[0];
+    const choice = (response.choices as Array<{
+      message?: { content?: string };
+      finish_reason?: string;
+    }>)?.[0];
     return {
       provider: "openai",
       model,
@@ -75,7 +93,11 @@ export class OpenAIClient implements LLMClient {
     url: string,
     body: unknown,
     attempt = 1
-  ): Promise<Record<string, unknown>> {
+  ): Promise<{
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+    choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
+    [key: string]: unknown;
+  }> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
