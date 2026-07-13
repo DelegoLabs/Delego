@@ -7,8 +7,14 @@ import {
 } from "../email/index.js";
 import {
   sendPushNotification,
+  cleanupPushSubscriptions,
+  parseTrackedPushSubscription,
+  recordPushDeliveryFailure,
+  serializeTrackedPushSubscription,
   type PushSubscription,
   type PushPayload,
+  type PushSubscriptionCleanupResult,
+  type TrackedPushSubscription,
 } from "../push/index.js";
 import { checkAndMarkDispatched } from "./idempotency.js";
 
@@ -34,7 +40,14 @@ export async function savePushSubscription(
   subscription: PushSubscription
 ): Promise<void> {
   const key = `${SUBSCRIPTIONS_NS}:${userId}`;
-  await redis.sadd(key, JSON.stringify(subscription));
+  const tracked: TrackedPushSubscription = {
+    subscription,
+    failureCount: 0,
+    createdAt: Date.now(),
+  };
+  // Drop any prior member for the same endpoint (legacy or tracked).
+  await removePushSubscription(userId, subscription.endpoint);
+  await redis.sadd(key, serializeTrackedPushSubscription(tracked));
 }
 
 export async function removePushSubscription(
@@ -44,17 +57,45 @@ export async function removePushSubscription(
   const key = `${SUBSCRIPTIONS_NS}:${userId}`;
   const members = await redis.smembers(key);
   for (const member of members) {
-    const sub = JSON.parse(member) as PushSubscription;
-    if (sub.endpoint === endpoint) {
+    const tracked = parseTrackedPushSubscription(member);
+    if (tracked.subscription.endpoint === endpoint) {
       await redis.srem(key, member);
     }
   }
 }
 
-async function getUserSubscriptions(userId: string): Promise<PushSubscription[]> {
+/**
+ * Scan a user's push subscriptions and remove expired or repeatedly failing
+ * ones. Returns aggregate counts for ops/metrics (issue #137).
+ */
+export async function cleanupUserPushSubscriptions(
+  userId: string
+): Promise<PushSubscriptionCleanupResult> {
   const key = `${SUBSCRIPTIONS_NS}:${userId}`;
   const members = await redis.smembers(key);
-  return members.map((m) => JSON.parse(m) as PushSubscription);
+  const tracked = members.map((m) => parseTrackedPushSubscription(m));
+  const { result, retained, removed } = cleanupPushSubscriptions(tracked);
+
+  for (const member of members) {
+    await redis.srem(key, member);
+  }
+  if (retained.length > 0) {
+    await redis.sadd(
+      key,
+      ...retained.map((t) => serializeTrackedPushSubscription(t))
+    );
+  }
+
+  if (removed.length > 0) {
+    log.info("Cleaned up push subscriptions", {
+      userId,
+      scanned: result.scanned,
+      removed: result.removed,
+      failed: result.failed,
+    });
+  }
+
+  return result;
 }
 
 export async function dispatchTransactionApproval(
@@ -106,8 +147,14 @@ export async function dispatchTransactionApproval(
     }
   }
 
-  const subscriptions = await getUserSubscriptions(notification.userId);
-  for (const sub of subscriptions) {
+  const key = `${SUBSCRIPTIONS_NS}:${notification.userId}`;
+  const members = await redis.smembers(key);
+  const trackedList = members.map((m) => ({
+    raw: m,
+    tracked: parseTrackedPushSubscription(m),
+  }));
+
+  for (const { raw, tracked } of trackedList) {
     const shouldSend =
       !eventId ||
       (await checkAndMarkDispatched(redis, {
@@ -141,12 +188,15 @@ export async function dispatchTransactionApproval(
       ],
     };
     tasks.push(
-      sendPushNotification(sub, payload).catch((err) =>
+      sendPushNotification(tracked.subscription, payload).catch(async (err) => {
         log.error("Failed to send push notification", {
           error: err instanceof Error ? err.message : String(err),
           userId: notification.userId,
-        })
-      )
+        });
+        const updated = recordPushDeliveryFailure(tracked);
+        await redis.srem(key, raw);
+        await redis.sadd(key, serializeTrackedPushSubscription(updated));
+      })
     );
   }
 

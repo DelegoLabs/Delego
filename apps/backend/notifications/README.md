@@ -77,6 +77,23 @@ is substituted so every template renders coherently.
 - The RPC hard limit of 100 ledgers per `getEvents` request is respected by
   the listener, which advances the cursor by `processedLedger + 1` after
   each batch.
+
+## Push Subscription Cleanup (Issue #137)
+
+Push subscriptions are stored with delivery-health metadata (`failureCount`,
+`lastFailedAt`, `createdAt`). Call `cleanupUserPushSubscriptions(userId)`
+(or the pure `cleanupPushSubscriptions` helper in `push/index.ts`) to remove
+entries that exceed cleanup rules:
+
+| Rule | Default | Env override |
+|------|---------|--------------|
+| Max failed deliveries | 5 | `PUSH_MAX_FAILURES` |
+| Stale after last activity | 90 days | `PUSH_STALE_MS` (milliseconds) |
+
+`PushSubscriptionCleanupResult` reports `{ scanned, removed, failed }`.
+Legacy bare `PushSubscription` JSON members are still accepted and wrapped
+on read.
+
 ## Email Reliability and Retry Mechanism
 
 The notifications service implements resilient email delivery with automatic retry on transient failures and persistent tracking of failed emails.

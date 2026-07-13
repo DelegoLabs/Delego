@@ -23,6 +23,7 @@ import { xdr } from "@stellar/stellar-sdk";
 import { sendEmail } from "../email/index.js";
 import {
   sendPushNotification,
+  parseTrackedPushSubscription,
   type PushPayload,
   type PushSubscription,
 } from "../push/index.js";
@@ -754,7 +755,9 @@ async function getUserPushSubscriptions(
   if (!redis.smembers) return [];
   try {
     const members = await redis.smembers(`push:subscriptions:${userId}`);
-    return members.map((m) => JSON.parse(m) as PushSubscription);
+    return members.map(
+      (m) => parseTrackedPushSubscription(m).subscription
+    );
   } catch (err) {
     log.warn("Failed to read push subscriptions", {
       userId,
