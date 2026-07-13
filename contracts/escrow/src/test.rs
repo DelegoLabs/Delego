@@ -1,15 +1,21 @@
 #[cfg(test)]
 mod test {
-    use crate::{DataKey, EscrowContract, EscrowContractClient, EscrowError};
-    use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env, IntoVal};
+    use crate::{
+        DataKey, EscrowContract, EscrowContractClient, EscrowError, EscrowMetadataEvent,
+    };
+    use soroban_sdk::{
+        symbol_short,
+        testutils::{Address as _, Events},
+        Address, BytesN, Env, IntoVal, TryIntoVal,
+    };
 
-    fn setup_client(env: &Env) -> (EscrowContractClient<'_>, Address) {
+    fn setup_client(env: &Env) -> (EscrowContractClient<'_>, Address, Address) {
         let contract_id = env.register(EscrowContract, ());
         let client = EscrowContractClient::new(env, &contract_id);
         let admin = Address::generate(env);
         let treasury = Address::generate(env);
         client.initialize(&admin, &250u32, &treasury, &100i128, &1_000_000i128);
-        (client, admin)
+        (client, admin, contract_id)
     }
 
     #[test]
@@ -143,7 +149,7 @@ mod test {
     fn test_set_create_paused_success() {
         let env = Env::default();
         env.mock_all_auths();
-        let (client, admin) = setup_client(&env);
+        let (client, admin, _contract_id) = setup_client(&env);
 
         assert!(!client.get_create_paused());
 
@@ -160,7 +166,7 @@ mod test {
     fn test_set_create_paused_unauthorized() {
         let env = Env::default();
         env.mock_all_auths();
-        let (client, _admin) = setup_client(&env);
+        let (client, _admin, _contract_id) = setup_client(&env);
         let non_admin = Address::generate(&env);
 
         let res = client.try_set_create_paused(&non_admin, &true);
@@ -173,7 +179,7 @@ mod test {
     fn test_get_token_not_found() {
         let env = Env::default();
         env.mock_all_auths();
-        let (client, _admin) = setup_client(&env);
+        let (client, _admin, _contract_id) = setup_client(&env);
 
         let res = client.try_get_token(&999u64);
         assert_eq!(res, Err(Ok(EscrowError::NotFound)));
@@ -185,7 +191,7 @@ mod test {
     fn test_deposit_with_metadata_success() {
         let env = Env::default();
         env.mock_all_auths();
-        let (client, admin) = setup_client(&env);
+        let (client, admin, _contract_id) = setup_client(&env);
 
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
@@ -220,7 +226,7 @@ mod test {
     fn test_deposit_without_metadata() {
         let env = Env::default();
         env.mock_all_auths();
-        let (client, admin) = setup_client(&env);
+        let (client, admin, _contract_id) = setup_client(&env);
 
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
@@ -253,7 +259,7 @@ mod test {
     fn test_deposit_with_partial_metadata() {
         let env = Env::default();
         env.mock_all_auths();
-        let (client, admin) = setup_client(&env);
+        let (client, admin, _contract_id) = setup_client(&env);
 
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
@@ -287,10 +293,144 @@ mod test {
     fn test_get_escrow_metadata_not_found() {
         let env = Env::default();
         env.mock_all_auths();
-        let (client, _admin) = setup_client(&env);
+        let (client, _admin, _contract_id) = setup_client(&env);
 
         // Try to get metadata for non-existent escrow
         let res = client.try_get_escrow_metadata(&999u64);
         assert_eq!(res, Err(Ok(EscrowError::NotFound)));
+    }
+
+    // ─── Issue #175: Escrow Metadata Event Tests ─────────────────────────────
+
+    #[test]
+    fn test_deposit_with_metadata_emits_metadata_event() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        token_admin_client.mint(&buyer, &10000i128);
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[1u8; 32]);
+        let order_hash = BytesN::from_array(&env, &[2u8; 32]);
+        let schema = symbol_short!("order_v1");
+
+        client.deposit(
+            &buyer,
+            &seller,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &Some(order_hash.clone()),
+            &Some(schema.clone()),
+        );
+
+        let events = env.events().all();
+        let mut found = false;
+        for event in events.iter() {
+            let (contract, topics, value) = event;
+            if contract != contract_id || topics.len() != 2 {
+                continue;
+            }
+            let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+            let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
+            if t0 == symbol_short!("escrow") && t1 == symbol_short!("metadata") {
+                let evt: EscrowMetadataEvent = value.try_into_val(&env).unwrap();
+                assert_eq!(evt.escrow_id, order_id);
+                assert_eq!(evt.order_hash, order_hash);
+                assert_eq!(evt.schema, schema);
+                found = true;
+            }
+        }
+        assert!(found, "EscrowMetadataEvent not found in events");
+    }
+
+    #[test]
+    fn test_deposit_without_metadata_does_not_emit_metadata_event() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        token_admin_client.mint(&buyer, &10000i128);
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[1u8; 32]);
+
+        client.deposit(
+            &buyer,
+            &seller,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+
+        for event in env.events().all().iter() {
+            let (contract, topics, _value) = event;
+            if contract != contract_id || topics.len() != 2 {
+                continue;
+            }
+            let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+            let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
+            assert!(
+                !(t0 == symbol_short!("escrow") && t1 == symbol_short!("metadata")),
+                "EscrowMetadataEvent must not be emitted when metadata is absent"
+            );
+        }
+    }
+
+    #[test]
+    fn test_deposit_with_partial_metadata_does_not_emit_metadata_event() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        token_admin_client.mint(&buyer, &10000i128);
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[1u8; 32]);
+        let order_hash = BytesN::from_array(&env, &[2u8; 32]);
+
+        client.deposit(
+            &buyer,
+            &seller,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &Some(order_hash),
+            &None,
+        );
+
+        for event in env.events().all().iter() {
+            let (contract, topics, _value) = event;
+            if contract != contract_id || topics.len() != 2 {
+                continue;
+            }
+            let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+            let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
+            assert!(
+                !(t0 == symbol_short!("escrow") && t1 == symbol_short!("metadata")),
+                "EscrowMetadataEvent must not be emitted for partial metadata"
+            );
+        }
     }
 }

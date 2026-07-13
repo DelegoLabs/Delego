@@ -69,6 +69,18 @@ pub struct EscrowCreatedEvent {
     pub timeout_ledger: u32,
 }
 
+/// Emitted when escrow creation includes an off-chain order metadata hash.
+///
+/// `escrow_id` is the 32-byte order id so indexers can join contract events
+/// to off-chain order records (same correlation key as `ReleaseEligibility`).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowMetadataEvent {
+    pub escrow_id: BytesN<32>,
+    pub order_hash: BytesN<32>,
+    pub schema: Symbol,
+}
+
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct EscrowReleasedEvent {
@@ -766,15 +778,26 @@ impl EscrowContract {
             .persistent()
             .set(&DataKey::Escrow(last_id), &record);
 
-        // Store optional metadata if both order_hash and schema are provided
+        // Store optional metadata if both order_hash and schema are provided,
+        // and emit EscrowMetadataEvent so indexers can link contract state to
+        // off-chain order records (issue #175).
         if let (Some(hash), Some(sch)) = (order_hash, schema) {
             let metadata = EscrowMetadata {
-                order_hash: hash,
-                schema: sch,
+                order_hash: hash.clone(),
+                schema: sch.clone(),
             };
             env.storage()
                 .persistent()
                 .set(&DataKey::EscrowMetadata(last_id), &metadata);
+
+            env.events().publish(
+                (symbol_short!("escrow"), symbol_short!("metadata")),
+                EscrowMetadataEvent {
+                    escrow_id: order_id.clone(),
+                    order_hash: hash,
+                    schema: sch,
+                },
+            );
         }
 
         env.events().publish(
