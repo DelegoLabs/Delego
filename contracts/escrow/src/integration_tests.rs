@@ -750,6 +750,85 @@ fn test_get_receipt_not_found() {
     assert_eq!(result, Err(Ok(EscrowError::NotFound)));
 }
 
+// ── MerchantEscrowReceipt getter tests (get_merchant_receipt, issue #171) ─
+
+/// Success path: funded escrow is release-eligible before timeout.
+#[test]
+fn test_get_merchant_receipt_funded_state() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let eid = deposit_escrow(&t, 1000, 100);
+    let receipt = client.get_merchant_receipt(&eid);
+
+    assert_eq!(receipt.escrow_id, t.order_id());
+    assert_eq!(receipt.merchant, t.seller);
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.status, EscrowStatus::Funded);
+    assert!(receipt.release_eligible);
+}
+
+/// Success path: disputed escrow is not release-eligible.
+#[test]
+fn test_get_merchant_receipt_disputed_state() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.dispute(&eid, &t.buyer);
+
+    let receipt = client.get_merchant_receipt(&eid);
+    assert_eq!(receipt.escrow_id, t.order_id());
+    assert_eq!(receipt.merchant, t.seller);
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.status, EscrowStatus::Disputed);
+    assert!(!receipt.release_eligible);
+}
+
+/// Success path: released escrow is not release-eligible.
+#[test]
+fn test_get_merchant_receipt_released_state() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.release(&eid, &t.buyer, &t.seller);
+
+    let receipt = client.get_merchant_receipt(&eid);
+    assert_eq!(receipt.status, EscrowStatus::Released);
+    assert!(!receipt.release_eligible);
+    assert_eq!(receipt.merchant, t.seller);
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.escrow_id, t.order_id());
+}
+
+/// Success path: refunded escrow is not release-eligible.
+#[test]
+fn test_get_merchant_receipt_refunded_state() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let eid = deposit_escrow(&t, 1000, 100);
+    client.refund(&eid, &t.seller);
+
+    let receipt = client.get_merchant_receipt(&eid);
+    assert_eq!(receipt.status, EscrowStatus::Refunded);
+    assert!(!receipt.release_eligible);
+    assert_eq!(receipt.merchant, t.seller);
+    assert_eq!(receipt.buyer, t.buyer);
+    assert_eq!(receipt.escrow_id, t.order_id());
+}
+
+/// Failure path: NotFound for a non-existent escrow id.
+#[test]
+fn test_get_merchant_receipt_not_found() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let result = client.try_get_merchant_receipt(&999u64);
+    assert_eq!(result, Err(Ok(EscrowError::NotFound)));
+}
+
 #[test]
 fn test_version_callable_without_auth() {
     let env = Env::default();

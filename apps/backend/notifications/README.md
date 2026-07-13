@@ -77,6 +77,35 @@ is substituted so every template renders coherently.
 - The RPC hard limit of 100 ledgers per `getEvents` request is respected by
   the listener, which advances the cursor by `processedLedger + 1` after
   each batch.
+
+## Push Subscription Cleanup (Issue #137)
+
+Push subscriptions are stored with delivery-health metadata (`failureCount`,
+`lastFailedAt`, `createdAt`). Call `cleanupUserPushSubscriptions(userId)`
+(or the pure `cleanupPushSubscriptions` helper in `push/index.ts`) to remove
+entries that exceed cleanup rules:
+
+| Rule | Default | Env override |
+|------|---------|--------------|
+| Max failed deliveries | 5 | `PUSH_MAX_FAILURES` |
+| Stale after last activity | 90 days | `PUSH_STALE_MS` (milliseconds) |
+
+`PushSubscriptionCleanupResult` reports `{ scanned, removed, failed }`.
+Legacy bare `PushSubscription` JSON members are still accepted and wrapped
+on read.
+
+## Template Render Error Handling (Issue #136)
+
+`renderTemplate` / `renderNamedTemplate` return a `TemplateRenderResult`:
+
+```ts
+{ html?: string; text?: string; error?: string }
+```
+
+Every `{{placeholder}}` in the HTML must be present in `templateData` before
+send. Missing variables or missing template files produce `{ error }` and
+`sendEmail` refuses to dispatch a partially rendered message.
+
 ## Email Reliability and Retry Mechanism
 
 The notifications service implements resilient email delivery with automatic retry on transient failures and persistent tracking of failed emails.

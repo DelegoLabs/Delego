@@ -80,6 +80,12 @@ export function classifyError(error: unknown): ErrorClassification {
     if (message.includes("template") && message.includes("not found")) {
       return "permanent";
     }
+    if (
+      message.includes("missing required template variables") ||
+      message.includes("unsubstituted placeholders")
+    ) {
+      return "permanent";
+    }
 
     // Authentication errors (permanent)
     if (message.includes("api_key") || message.includes("credentials")) {

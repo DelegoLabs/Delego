@@ -1,18 +1,18 @@
 import sgMail from "@sendgrid/mail";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import { createLogger } from "@delego/utils";
 import { classifyError, calculateBackoffDelay } from "./errorClassifier.js";
 import { getRetryConfig } from "./config.js";
 import { logToDLQ } from "./dlq.js";
 import type { EmailDispatchJob } from "./types.js";
+import {
+  renderNamedTemplate,
+  type TemplateRenderResult,
+} from "../templates/index.js";
 
 const log = createLogger(
   "notifications:email",
   process.env.LOG_LEVEL ?? "info"
 );
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY ?? "";
 const FROM_EMAIL = process.env.FROM_EMAIL ?? "noreply@delego.app";
@@ -29,21 +29,17 @@ export interface EmailMessage {
 }
 
 export type { EmailDispatchJob } from "./types.js";
+export type { TemplateRenderResult };
 
-function renderTemplate(
+/**
+ * Render a notification template with structured error handling (issue #136).
+ * Does not send mail — callers must check `error` before dispatch.
+ */
+export function renderTemplate(
   templateName: string,
   data: Record<string, string>
-): string {
-  const templatePath = resolve(
-    __dirname,
-    "../templates",
-    `${templateName}.html`
-  );
-  let html = readFileSync(templatePath, "utf-8");
-  for (const [key, value] of Object.entries(data)) {
-    html = html.replaceAll(`{{${key}}}`, value);
-  }
-  return html;
+): TemplateRenderResult {
+  return renderNamedTemplate(templateName, data);
 }
 
 export async function sendEmail(message: EmailMessage): Promise<void> {
@@ -51,13 +47,19 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
     throw new Error("SENDGRID_API_KEY is not configured");
   }
 
-  const html = renderTemplate(message.templateName, message.templateData);
+  const rendered = renderTemplate(message.templateName, message.templateData);
+  if (rendered.error || !rendered.html) {
+    throw new Error(
+      rendered.error ??
+        `Failed to render template: ${message.templateName}`
+    );
+  }
 
   await sgMail.send({
     to: message.to,
     from: FROM_EMAIL,
     subject: message.subject,
-    html,
+    html: rendered.html,
   });
 }
 
