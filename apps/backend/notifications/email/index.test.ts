@@ -78,6 +78,23 @@ describe("sendEmailWithRetry", () => {
     expect(mockFailedNotification.FailedNotification.create).not.toHaveBeenCalled();
   });
 
+  it("does not send when template variables are missing (issue #136)", async () => {
+    const incompleteJob: EmailDispatchJob = {
+      ...baseJob,
+      payload: { orderId: "order-123", amount: "100 XLM" },
+    };
+
+    const result = await sendEmailWithRetry(incompleteJob, "Test Subject").catch(
+      (e) => e
+    );
+
+    expect(mockSgMail.default.send).not.toHaveBeenCalled();
+    expect(result.code).toBe("EMAIL_DISPATCH_FAILED");
+    expect(String(result.lastError?.message ?? result.lastError)).toContain(
+      "Missing required template variables"
+    );
+  });
+
   it("does not write to DLQ on success on retry attempt", async () => {
     // First attempt fails with transient error
     mockSgMail.default.send
@@ -304,6 +321,13 @@ describe("classifyError", () => {
 
     it("classifies template not found as permanent", () => {
       const error = new Error("Template not found");
+      expect(classifyError(error)).toBe("permanent");
+    });
+
+    it("classifies missing template variables as permanent", () => {
+      const error = new Error(
+        "Missing required template variables: approvalUrl"
+      );
       expect(classifyError(error)).toBe("permanent");
     });
 

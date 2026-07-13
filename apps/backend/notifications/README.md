@@ -94,6 +94,18 @@ entries that exceed cleanup rules:
 Legacy bare `PushSubscription` JSON members are still accepted and wrapped
 on read.
 
+## Template Render Error Handling (Issue #136)
+
+`renderTemplate` / `renderNamedTemplate` return a `TemplateRenderResult`:
+
+```ts
+{ html?: string; text?: string; error?: string }
+```
+
+Every `{{placeholder}}` in the HTML must be present in `templateData` before
+send. Missing variables or missing template files produce `{ error }` and
+`sendEmail` refuses to dispatch a partially rendered message.
+
 ## Email Reliability and Retry Mechanism
 
 The notifications service implements resilient email delivery with automatic retry on transient failures and persistent tracking of failed emails.
