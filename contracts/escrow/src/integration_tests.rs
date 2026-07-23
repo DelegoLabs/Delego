@@ -954,3 +954,146 @@ fn test_refund_after_partial_release_refunds_unreleased_only() {
     let record = escrow_client.get_escrow(&escrow_id);
     assert_eq!(record.status, EscrowStatus::Refunded);
 }
+
+// ── Issue #88: EscrowTimeoutView getter tests ────────────────────────────
+
+#[test]
+fn test_get_timeout_view_not_found() {
+    // Returns EscrowError::NotFound for an unknown escrow id.
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let res = client.try_get_timeout_view(&999u64);
+    assert_eq!(res, Err(Ok(EscrowError::NotFound)));
+}
+
+#[test]
+fn test_get_timeout_view_active_before_timeout() {
+    // Funded escrow before timeout: refundable must be false.
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let record = client.get_escrow(&escrow_id);
+
+    // Current ledger is before timeout_ledger at deposit time.
+    assert!(t.env.ledger().sequence() < record.timeout_ledger);
+
+    let view = client.get_timeout_view(&escrow_id);
+
+    assert_eq!(view.escrow_id, t.order_id());
+    assert_eq!(view.timeout_ledger, record.timeout_ledger);
+    assert_eq!(view.current_ledger, t.env.ledger().sequence());
+    assert!(!view.refundable);
+}
+
+#[test]
+fn test_get_timeout_view_active_at_timeout() {
+    // Funded escrow exactly at timeout: refundable must be true.
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let record = client.get_escrow(&escrow_id);
+
+    t.env.ledger().set_sequence_number(record.timeout_ledger);
+
+    let view = client.get_timeout_view(&escrow_id);
+
+    assert_eq!(view.timeout_ledger, record.timeout_ledger);
+    assert_eq!(view.current_ledger, record.timeout_ledger);
+    assert!(view.refundable);
+}
+
+#[test]
+fn test_get_timeout_view_active_past_timeout() {
+    // Funded escrow well past timeout: refundable must be true.
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let record = client.get_escrow(&escrow_id);
+
+    t.env.ledger().set_sequence_number(record.timeout_ledger + 500);
+
+    let view = client.get_timeout_view(&escrow_id);
+
+    assert_eq!(view.timeout_ledger, record.timeout_ledger);
+    assert!(view.current_ledger > view.timeout_ledger);
+    assert!(view.refundable);
+}
+
+#[test]
+fn test_get_timeout_view_released_state() {
+    // Released escrow: refundable must be false regardless of ledger.
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    client.release(&escrow_id, &t.buyer, &t.seller);
+
+    // Advance past timeout to ensure the only reason for false is the terminal state.
+    let record = client.get_escrow(&escrow_id);
+    t.env.ledger().set_sequence_number(record.timeout_ledger + 10);
+
+    let view = client.get_timeout_view(&escrow_id);
+
+    assert_eq!(view.escrow_id, t.order_id());
+    assert!(!view.refundable);
+}
+
+#[test]
+fn test_get_timeout_view_refunded_state() {
+    // Refunded escrow: refundable must be false.
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    client.refund(&escrow_id, &t.seller);
+
+    let record = client.get_escrow(&escrow_id);
+    t.env.ledger().set_sequence_number(record.timeout_ledger + 10);
+
+    let view = client.get_timeout_view(&escrow_id);
+
+    assert_eq!(view.escrow_id, t.order_id());
+    assert!(!view.refundable);
+}
+
+#[test]
+fn test_get_timeout_view_disputed_state() {
+    // Disputed escrow: refundable must be false even after timeout.
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    client.dispute(&escrow_id, &t.buyer);
+
+    let record = client.get_escrow(&escrow_id);
+    t.env.ledger().set_sequence_number(record.timeout_ledger + 10);
+
+    let view = client.get_timeout_view(&escrow_id);
+
+    assert_eq!(view.escrow_id, t.order_id());
+    assert!(!view.refundable);
+}
+
+#[test]
+fn test_get_timeout_view_does_not_mutate_state() {
+    // Calling the getter must not change the stored escrow record.
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let before = client.get_escrow(&escrow_id);
+
+    // Call past timeout — a mutating refund would change the status.
+    t.env.ledger().set_sequence_number(before.timeout_ledger + 5);
+    let _view = client.get_timeout_view(&escrow_id);
+
+    let after = client.get_escrow(&escrow_id);
+
+    assert_eq!(before.status, after.status);
+    assert_eq!(before.amount, after.amount);
+    assert_eq!(before.timeout_ledger, after.timeout_ledger);
+}
