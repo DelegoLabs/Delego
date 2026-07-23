@@ -385,3 +385,11 @@ export {
   type OrderPaymentStatus,
   type OrderLookupAdapter,
 } from "./order-lookup.js";
+
+export {
+  runCompensation,
+  DEFAULT_PURCHASE_COMPENSATION_STEPS,
+  type CompensationStep,
+  type CompensationResult,
+  type CompensationStatus,
+} from "./compensation.js";
