@@ -12,6 +12,7 @@ import {
   resolveKeySignerProvider,
   setKeySigner,
 } from "./vault.js";
+import { HsmKeySigner } from "./hsmSigner.js";
 
 describe("LocalFileKeySigner", () => {
   let vaultPath: string;
@@ -167,6 +168,21 @@ describe("createKeySigner", () => {
     expect(resolveKeySignerProvider()).toEqual({
       provider: "aws-kms",
       keyId: "alias/delego-signer",
+    });
+  });
+
+  it("selects the HSM signer when configured", () => {
+    process.env.WALLET_KEY_SIGNER_PROVIDER = "hsm";
+    process.env.WALLET_KEY_SIGNER_KEY_ID = "hsm-key";
+
+    const signer = createKeySigner(undefined, {
+      hsm: { enabled: false },
+    });
+
+    expect(signer).toBeInstanceOf(HsmKeySigner);
+    expect(resolveKeySignerProvider()).toEqual({
+      provider: "hsm",
+      keyId: "hsm-key",
     });
   });
 });
