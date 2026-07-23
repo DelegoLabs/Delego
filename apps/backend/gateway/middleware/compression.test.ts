@@ -135,8 +135,14 @@ describe("compressionMiddleware", () => {
   it("calls next() to continue the middleware chain", async () => {
     const middleware = compressionMiddleware();
     const req = makeReq("gzip");
+    // Provide a minimal but functional res so wrapResponse can bind write/end
     const res: any = new EventEmitter();
+    res.statusCode = 200;
     res.setHeader = () => {};
+    res.getHeader = () => undefined;
+    res.removeHeader = () => {};
+    res.write = () => true;
+    res.end = () => {};
 
     await new Promise<void>((resolve) => {
       middleware(req, res, () => {

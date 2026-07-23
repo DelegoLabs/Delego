@@ -49,6 +49,11 @@ function makeRes(): ServerResponse & { _body: string; _status: number } {
   res.setHeader = (k: string, v: string) => { res._headers[k] = v; };
   res.getHeader = (k: string) => res._headers[k];
   res.removeHeader = (_k: string) => {};
+  res.writeHead = (status: number, headers?: Record<string, string>) => {
+    res.statusCode = status;
+    res._status = status;
+    if (headers) Object.assign(res._headers, headers);
+  };
   res.write = (chunk: string) => { res._body += chunk; return true; };
   res.end = (chunk?: string) => {
     if (chunk) res._body += chunk;
