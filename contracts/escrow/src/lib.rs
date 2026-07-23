@@ -344,6 +344,29 @@ pub struct ReleaseEligibility {
     pub reason: Symbol,
 }
 
+/// Read-only timeout metadata for a single escrow (issue #88).
+///
+/// Returned by [`EscrowContract::get_timeout_view`].  All fields are
+/// derived from stored state and the current ledger sequence — the getter
+/// never mutates contract storage.
+///
+/// # Fields
+/// - `escrow_id`      — Numeric escrow identifier (matches `EscrowRecord.escrow_id`).
+/// - `timeout_ledger` — Ledger sequence at which the buyer-refund timeout expires.
+/// - `current_ledger` — Ledger sequence at the time this getter was invoked.
+/// - `refundable`     — `true` when `current_ledger >= timeout_ledger` **and** the
+///                      escrow is still in `Funded` status (buyer may refund).
+///                      `false` for terminal states (Released / Refunded) or when
+///                      the timeout has not yet been reached.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowTimeoutView {
+    pub escrow_id: BytesN<32>,
+    pub timeout_ledger: u32,
+    pub current_ledger: u32,
+    pub refundable: bool,
+}
+
 fn check_not_terminal(record: &EscrowRecord) -> Result<(), EscrowError> {
     match record.status {
         EscrowStatus::Released => Err(EscrowError::AlreadyReleased),
@@ -1457,6 +1480,46 @@ impl EscrowContract {
             eligible: false,
             reason: symbol_short!("noauth"),
         }
+    }
+
+    /// Read-only timeout metadata for a single escrow (issue #88).
+    ///
+    /// Returns the timeout ledger, the current ledger, and whether the buyer
+    /// is currently eligible to trigger a refund based purely on the timeout.
+    /// The getter does **not** mutate any contract state — safe to call at any
+    /// time without auth.
+    ///
+    /// `refundable` is `true` only when the escrow is still `Funded` **and**
+    /// `current_ledger >= timeout_ledger`.  Terminal states (`Released`,
+    /// `Refunded`) and disputed escrows always return `refundable: false`.
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::NotFound`] when no escrow exists for `escrow_id`.
+    pub fn get_timeout_view(
+        env: Env,
+        escrow_id: u64,
+    ) -> Result<EscrowTimeoutView, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+
+        let current_ledger = env.ledger().sequence();
+        let timeout_ledger = record.timeout_ledger;
+
+        // Only a Funded escrow can become refundable via timeout.
+        // Released, Refunded, and Disputed states are not refundable here.
+        let refundable = record.status == EscrowStatus::Funded
+            && current_ledger >= timeout_ledger;
+
+        Ok(EscrowTimeoutView {
+            escrow_id: record.order_id,
+            timeout_ledger,
+            current_ledger,
+            refundable,
+        })
     }
 
     fn validate_release_status(record: &EscrowRecord) -> Result<(), EscrowError> {
