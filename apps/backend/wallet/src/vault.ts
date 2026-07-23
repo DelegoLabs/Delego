@@ -10,6 +10,7 @@ import {
 } from "@aws-sdk/client-kms";
 import { Keypair, StrKey } from "@stellar/stellar-sdk";
 import { createLogger } from "@delego/utils";
+import { HsmKeySigner, type HsmKeySignerOptions } from "./hsmSigner.js";
 
 const log = createLogger("wallet:vault", process.env.LOG_LEVEL ?? "info");
 
@@ -363,7 +364,7 @@ export interface KeySigner {
 }
 
 export interface KeySignerProvider {
-  provider: "local" | "aws-kms" | "hashicorp-vault";
+  provider: "local" | "aws-kms" | "hashicorp-vault" | "hsm";
   keyId: string;
 }
 
@@ -382,6 +383,7 @@ const KEY_SIGNER_PROVIDERS = new Set<KeySignerProvider["provider"]>([
   "local",
   "aws-kms",
   "hashicorp-vault",
+  "hsm",
 ]);
 
 function parseKeySignerProvider(value: string | undefined): KeySignerProvider["provider"] {
@@ -685,6 +687,7 @@ export interface CreateKeySignerOptions {
   local?: LocalFileKeySignerOptions;
   aws?: AwsKmsKeySignerOptions;
   vault?: HashicorpVaultKeySignerOptions;
+  hsm?: HsmKeySignerOptions;
 }
 
 export function createKeySigner(
@@ -705,6 +708,12 @@ export function createKeySigner(
       return new HashicorpVaultKeySigner({
         defaultKeyId: config.keyId,
         ...options.vault,
+      });
+    case "hsm":
+      return new HsmKeySigner({
+        defaultKeyId: config.keyId,
+        fallbackVault: vaultService,
+        ...options.hsm,
       });
     default:
       throw new KeySignerError(
