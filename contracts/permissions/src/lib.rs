@@ -43,6 +43,8 @@ pub enum PermissionError {
     GrantsPaused = 11,
     /// Owner and delegate cannot be the same address
     SelfDelegationNotAllowed = 401,
+    /// Grant TTL expires at or before the current ledger sequence
+    ExpiryInPast = 301,
 }
 
 #[contracttype]
@@ -293,7 +295,16 @@ impl PermissionsContract {
             return Err(PermissionError::InvalidParam);
         }
 
-        let expires_at_ledger = env.ledger().sequence() + ttl_ledgers;
+        // Reject grants whose TTL would expire at or before the current ledger.
+        // A zero TTL means expires_at == current_ledger, which is already in the
+        // past relative to any future spend.  Overflow is also rejected.
+        let current_ledger = env.ledger().sequence();
+        let expires_at_ledger = current_ledger
+            .checked_add(ttl_ledgers)
+            .ok_or(PermissionError::ExpiryInPast)?;
+        if expires_at_ledger <= current_ledger {
+            return Err(PermissionError::ExpiryInPast);
+        }
 
         let record = PermissionRecord {
             owner: owner.clone(),
