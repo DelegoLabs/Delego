@@ -238,6 +238,17 @@ pub struct PermissionMetadata {
     pub schema: Symbol,
 }
 
+/// Read-only view of the merchant restriction configured under a delegation
+/// permission. `None` when the delegation pair has no permission record or
+/// the whitelist is empty.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MerchantRestriction {
+    pub owner: Address,
+    pub delegate: Address,
+    pub merchant: Option<Address>,
+}
+
 #[contracttype]
 pub enum DataKey {
     Permission(Address, Address),
@@ -877,6 +888,29 @@ impl PermissionsContract {
         env.storage()
             .persistent()
             .get(&DataKey::Metadata(owner, delegate))
+    }
+
+    /// Returns the merchant restriction configured under the spending
+    /// permission for the given delegation pair, or `None` when no
+    /// permission exists or the whitelist is empty.
+    ///
+    /// This is a read-only getter; it does not mutate allowance counters
+    /// or TTLs.
+    pub fn get_merchant_restriction(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> Option<MerchantRestriction> {
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
+        let record: PermissionRecord = env.storage().persistent().get(&key)?;
+
+        let merchant = record.allowed_merchants.get(0);
+
+        Some(MerchantRestriction {
+            owner,
+            delegate,
+            merchant,
+        })
     }
 
     /// Returns a compact receipt for an existing permission grant (issue #180).
