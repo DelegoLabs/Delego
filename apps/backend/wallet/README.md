@@ -72,6 +72,47 @@ Malformed keys and secret keys are rejected before processing.
 
 Retryable failures are rethrown as standard errors so BullMQ applies backoff. Terminal failures throw `UnrecoverableError` to stop retries immediately.
 
+## Multi-Signature Transaction Builder
+
+`signMultisigTx` in `stellar/account.ts` appends multiple cryptographic signatures to a Stellar transaction envelope without submitting it, so the payments and wallet queues can reuse the builder independently.
+
+### API
+
+```typescript
+import { signMultisigTx, MultisigTxRequest, MultisigTxResult } from "./stellar/account";
+
+const result: MultisigTxResult = await signMultisigTx({
+  xdr: "<base64-envelope>",          // Transaction envelope XDR to sign
+  signers: ["GABC...", "GDEF..."],   // Public keys whose vault secrets will sign
+  requiredWeight: 2,                 // Optional; defaults to signers.length
+});
+
+// result.signedXdr    — base64 envelope XDR with all signatures appended
+// result.signerCount  — number of distinct signatures added
+// result.thresholdMet — true when signerCount >= requiredWeight
+```
+
+### Behaviour
+
+- **Separation of signing and submission** — callers sign first and enqueue the resulting XDR separately; this keeps the builder reusable across the payments service and wallet queue.
+- **Deterministic / idempotent** — ED25519 signing is deterministic; re-calling `signMultisigTx` with the same inputs produces the same output, making retries safe.
+- **Deduplication** — duplicate entries in `signers` are collapsed so each vault key signs exactly once.
+- **Threshold validation** — `thresholdMet` is computed before returning. The caller decides whether to proceed with submission, request additional signers, or reject the envelope.
+
+### Error surface
+
+| Condition | Error message |
+|---|---|
+| `xdr` is empty | `"xdr is required"` |
+| `signers` is empty or all-blank | `"At least one signer is required"` |
+| XDR cannot be parsed | `"Invalid transaction XDR: <sdk message>"` |
+| Vault key missing for signer | `"Failed to load key for signer <pubkey>: <vault message>"` |
+| Vault key mismatch | `"Vault key mismatch: expected <pubkey> but retrieved key resolves to <actual>"` |
+
+### No new environment variables
+
+`signMultisigTx` reads keys from the existing encrypted file vault and resolves the network passphrase from the existing `STELLAR_NETWORK` variable. No additional configuration is required.
+
 ## HSM Key Signer Adapter
 
 Transaction building and signing are separated behind a `KeySigner` interface in `src/vault.ts`. The adapter never exposes raw private keys from provider implementations — callers pass opaque `keyId` values and receive signatures or public keys only.
