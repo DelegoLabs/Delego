@@ -1557,5 +1557,57 @@ mod test {
         assert_eq!(events.len(), 0);
     }
 
+    // ── Issue #101: Expiry-in-past validation ────────────────────────────────
+
+    #[test]
+    fn test_grant_rejects_zero_ttl() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        let res = client.try_grant(&owner, &delegate, &1000, &100, &merchants, &0);
+        assert_eq!(res, Err(Ok(crate::PermissionError::ExpiryInPast)));
+    }
+
+    #[test]
+    fn test_grant_allows_ttl_of_one() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        let res = client.try_grant(&owner, &delegate, &1000, &100, &merchants, &1);
+        assert_eq!(res, Ok(Ok(())));
+    }
+
+    #[test]
+    fn test_grant_rejects_overflowing_ttl() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        // Push the ledger to a non-zero value so that u32::MAX overflows.
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 10;
+        });
+
+        let merchants = Vec::<Address>::new(&env);
+        let res = client.try_grant(&owner, &delegate, &1000, &100, &merchants, &u32::MAX);
+        assert_eq!(res, Err(Ok(crate::PermissionError::ExpiryInPast)));
+    }
+
     
 }
