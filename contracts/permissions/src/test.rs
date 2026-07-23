@@ -1557,5 +1557,64 @@ mod test {
         assert_eq!(events.len(), 0);
     }
 
+    // ── get_merchant_restriction tests ──────────────────────────────────────
+
+    #[test]
+    fn test_get_merchant_restriction_none_when_no_permission() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let result = client.get_merchant_restriction(&owner, &delegate);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_merchant_restriction_some_after_grant() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        merchants.push_back(merchant.clone());
+
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        let restriction = client.get_merchant_restriction(&owner, &delegate);
+        assert!(restriction.is_some());
+        let r = restriction.unwrap();
+        assert_eq!(r.owner, owner);
+        assert_eq!(r.delegate, delegate);
+        assert_eq!(r.merchant, Some(merchant));
+    }
+
+    #[test]
+    fn test_get_merchant_restriction_none_when_empty_whitelist() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        let restriction = client.get_merchant_restriction(&owner, &delegate);
+        assert!(restriction.is_some());
+        let r = restriction.unwrap();
+        assert_eq!(r.owner, owner);
+        assert_eq!(r.delegate, delegate);
+        assert!(r.merchant.is_none());
+    }
     
 }
