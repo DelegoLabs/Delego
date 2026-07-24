@@ -1,5 +1,6 @@
 import { createLogger } from "@delego/utils";
 import { escrowService } from "../escrow/index.js";
+import { getTransactionFeeEstimate } from "../escrow/wallet-client.js";
 import { publishPaymentEvent } from "../events/index.js";
 
 const log = createLogger("payments:settlement", process.env.LOG_LEVEL ?? "info");
@@ -16,6 +17,96 @@ export interface SettlementResult {
   orderId: string;
   txHash: string;
   status: "submitted" | "confirmed" | "failed";
+}
+
+export interface SettlementDryRunResult {
+  orderId: string;
+  canSettle: boolean;
+  simulationFee?: string;
+  reason?: string;
+}
+
+/**
+ * Dry-run settlement validation and simulation path.
+ * Validates settlement inputs and simulates fee estimation without submitting
+ * transactions to the wallet/ledger queue or publishing completion events.
+ */
+export async function dryRunSettlement(
+  orderIdOrCommand: string | Partial<SettlementCommand>
+): Promise<SettlementDryRunResult> {
+  const orderId =
+    typeof orderIdOrCommand === "string"
+      ? orderIdOrCommand.trim()
+      : orderIdOrCommand?.orderId?.trim() ?? "";
+
+  log.info("Starting settlement dry-run simulation", { orderId });
+
+  if (!orderId) {
+    return {
+      orderId: "",
+      canSettle: false,
+      reason: "Invalid or missing order ID",
+    };
+  }
+
+  const sourceAddress = process.env.SETTLEMENT_SOURCE_ADDRESS;
+  if (!sourceAddress) {
+    log.warn("Dry-run failed: missing SETTLEMENT_SOURCE_ADDRESS", { orderId });
+    return {
+      orderId,
+      canSettle: false,
+      reason: "SETTLEMENT_SOURCE_ADDRESS environment variable is not configured",
+    };
+  }
+
+  try {
+    const escrowId =
+      (typeof orderIdOrCommand === "object" && orderIdOrCommand.escrowId) ||
+      (await resolveEscrowForOrder(orderId));
+    const releaseTo =
+      (typeof orderIdOrCommand === "object" && orderIdOrCommand.releaseTo) ||
+      (await resolveReleaseAddress(orderId));
+    const amountStroops =
+      (typeof orderIdOrCommand === "object" && orderIdOrCommand.amountStroops) ||
+      (await resolveSettlementAmount(orderId));
+
+    if (!escrowId || escrowId.trim() === "") {
+      return {
+        orderId,
+        canSettle: false,
+        reason: "Invalid or missing escrow ID",
+      };
+    }
+
+    // Simulate transaction fee estimation without submitting transaction to queue
+    const feeEstimate = await getTransactionFeeEstimate();
+    const simulationFee = String(feeEstimate.recommendedFeeStroops);
+
+    log.info("Settlement dry-run simulation successful", {
+      orderId,
+      escrowId,
+      releaseTo,
+      amountStroops,
+      simulationFee,
+    });
+
+    return {
+      orderId,
+      canSettle: true,
+      simulationFee,
+    };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    log.error("Settlement dry-run simulation failed", {
+      orderId,
+      error: reason,
+    });
+    return {
+      orderId,
+      canSettle: false,
+      reason,
+    };
+  }
 }
 
 export async function settleOrder(_orderId: string): Promise<void> {
