@@ -1,4 +1,6 @@
-import { parseBigIntString } from "@delego/utils";
+import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
+import { createLogger, parseBigIntString } from "@delego/utils";
 import {
   getEscrowContractId,
   isValidContractId,
@@ -684,3 +686,201 @@ export function validateRefundEscrowRequest(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Escrow Funding Lock Implementation (Issue #206 / Double-Funding Guard)
+// ---------------------------------------------------------------------------
+
+export interface EscrowFundingLock {
+  orderId: string;
+  lockToken: string;
+  ttlMs: number;
+  acquiredAt: string;
+  createdAt: number;
+}
+
+export const DEFAULT_ESCROW_LOCK_TTL_MS = 30000;
+const ESCROW_LOCK_PREFIX = "escrow:lock:funding:";
+const lockLog = createLogger("payments:lock", process.env.LOG_LEVEL ?? "info");
+
+/**
+ * Lua script for atomic lock release (deletes key only if token matches).
+ */
+const RELEASE_LOCK_LUA = `
+if redis.call("get", KEYS[1]) == ARGV[1] then
+  return redis.call("del", KEYS[1])
+else
+  return 0
+end
+`;
+
+export type LockRedisClient = {
+  set(key: string, value: string, pxFlag: "PX", ttl: number, nxFlag: "NX"): Promise<string | null>;
+  eval(script: string, numkeys: number, key: string, arg: string): Promise<number | string | null>;
+  del(key: string): Promise<number>;
+  get(key: string): Promise<string | null>;
+};
+
+let _lockRedisClient: LockRedisClient | null = null;
+const activeFundingLocks = new Map<string, EscrowFundingLock>();
+const inMemoryLockStore = new Map<string, { token: string; expiresAt: number; lock: EscrowFundingLock }>();
+
+function makeInMemoryLockRedis(): LockRedisClient {
+  return {
+    async set(key: string, value: string, _pxFlag: "PX", ttl: number, _nxFlag: "NX"): Promise<string | null> {
+      const now = Date.now();
+      const existing = inMemoryLockStore.get(key);
+      if (existing && existing.expiresAt > now) {
+        return null;
+      }
+      const orderId = key.replace(ESCROW_LOCK_PREFIX, "");
+      const lock: EscrowFundingLock = {
+        orderId,
+        lockToken: value,
+        ttlMs: ttl,
+        acquiredAt: new Date(now).toISOString(),
+        createdAt: now,
+      };
+      inMemoryLockStore.set(key, { token: value, expiresAt: now + ttl, lock });
+      return "OK";
+    },
+    async eval(_script: string, _numkeys: number, key: string, arg: string): Promise<number> {
+      const existing = inMemoryLockStore.get(key);
+      if (existing && existing.token === arg) {
+        inMemoryLockStore.delete(key);
+        return 1;
+      }
+      return 0;
+    },
+    async del(key: string): Promise<number> {
+      const existed = inMemoryLockStore.has(key);
+      inMemoryLockStore.delete(key);
+      return existed ? 1 : 0;
+    },
+    async get(key: string): Promise<string | null> {
+      const now = Date.now();
+      const existing = inMemoryLockStore.get(key);
+      if (!existing) return null;
+      if (existing.expiresAt <= now) {
+        inMemoryLockStore.delete(key);
+        return null;
+      }
+      return existing.token;
+    },
+  };
+}
+
+function getLockRedisClient(): LockRedisClient {
+  if (_lockRedisClient) return _lockRedisClient;
+
+  const isTest = process.env.NODE_ENV === "test";
+  const useMock = isTest || process.env.MOCK_REDIS === "true" || process.env.CI === "true";
+
+  if (useMock) {
+    lockLog.info("Using in-memory Redis stub for escrow funding locks");
+    _lockRedisClient = makeInMemoryLockRedis();
+  } else {
+    try {
+      const _require = createRequire(import.meta.url);
+      const { Redis } = _require("ioredis") as any;
+      _lockRedisClient = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
+    } catch {
+      lockLog.warn("ioredis fallback to in-memory lock store");
+      _lockRedisClient = makeInMemoryLockRedis();
+    }
+  }
+
+  return _lockRedisClient!;
+}
+
+export function _setLockRedisClientForTesting(client: LockRedisClient): void {
+  _lockRedisClient = client;
+  activeFundingLocks.clear();
+  inMemoryLockStore.clear();
+}
+
+export function _resetLockRedisClient(): void {
+  _lockRedisClient = null;
+  activeFundingLocks.clear();
+  inMemoryLockStore.clear();
+}
+
+export function getFundingLock(orderId: string): EscrowFundingLock | null {
+  const cleanOrderId = orderId.trim();
+  const lock = activeFundingLocks.get(cleanOrderId);
+  if (!lock) return null;
+  if (Date.now() > lock.createdAt + lock.ttlMs) {
+    activeFundingLocks.delete(cleanOrderId);
+    return null;
+  }
+  return lock;
+}
+
+/**
+ * Sets Redis lock using SETNX with TTL (SET key lockToken PX ttlMs NX).
+ * Returns true if lock was acquired, false if order is already locked.
+ */
+export async function acquireLock(
+  orderId: string,
+  ttlMs: number = Number(process.env.ESCROW_LOCK_TTL_MS ?? DEFAULT_ESCROW_LOCK_TTL_MS),
+  lockToken?: string
+): Promise<boolean> {
+  const cleanOrderId = orderId.trim();
+  if (!cleanOrderId) return false;
+
+  const token = lockToken ?? randomUUID();
+  const lockKey = `${ESCROW_LOCK_PREFIX}${cleanOrderId}`;
+  const redis = getLockRedisClient();
+  const now = Date.now();
+
+  try {
+    const res = await redis.set(lockKey, token, "PX", ttlMs, "NX");
+    if (res === "OK" || res === "1" || (res as unknown) === 1) {
+      const lockObj: EscrowFundingLock = {
+        orderId: cleanOrderId,
+        lockToken: token,
+        ttlMs,
+        acquiredAt: new Date(now).toISOString(),
+        createdAt: now,
+      };
+      activeFundingLocks.set(cleanOrderId, lockObj);
+      lockLog.info("Escrow funding lock acquired", { orderId: cleanOrderId, lockToken: token, ttlMs });
+      return true;
+    }
+    lockLog.warn("Escrow funding lock acquisition rejected (already locked)", { orderId: cleanOrderId });
+    return false;
+  } catch (err) {
+    lockLog.error("Error acquiring escrow funding lock", { orderId: cleanOrderId, error: err instanceof Error ? err.message : String(err) });
+    return false;
+  }
+}
+
+/**
+ * Scripted lock deletion via Lua script (or direct del if token matches).
+ */
+export async function releaseLock(
+  orderId: string,
+  lockToken?: string
+): Promise<void> {
+  const cleanOrderId = orderId.trim();
+  if (!cleanOrderId) return;
+
+  const lockKey = `${ESCROW_LOCK_PREFIX}${cleanOrderId}`;
+  const activeLock = activeFundingLocks.get(cleanOrderId);
+  const tokenToRelease = lockToken ?? activeLock?.lockToken;
+
+  const redis = getLockRedisClient();
+  try {
+    if (tokenToRelease) {
+      await redis.eval(RELEASE_LOCK_LUA, 1, lockKey, tokenToRelease);
+    } else {
+      await redis.del(lockKey);
+    }
+    activeFundingLocks.delete(cleanOrderId);
+    lockLog.info("Escrow funding lock released", { orderId: cleanOrderId });
+  } catch (err) {
+    lockLog.error("Error releasing escrow funding lock", { orderId: cleanOrderId, error: err instanceof Error ? err.message : String(err) });
+    activeFundingLocks.delete(cleanOrderId);
+  }
+}
+
