@@ -43,6 +43,10 @@ pub enum PermissionError {
     GrantsPaused = 11,
     /// Owner and delegate cannot be the same address
     SelfDelegationNotAllowed = 401,
+    /// Fewer valid owner signatures were provided than the configured threshold
+    InsufficientSignatures = 402,
+    /// Metadata schema is not in the approved schema registry
+    UnknownSchema = 403,
 }
 
 #[contracttype]
@@ -66,6 +70,55 @@ pub struct PermissionRecord {
     pub status: PermissionStatus,
     pub expires_at_ledger: u32,
     pub created_at: u64,
+}
+
+/// A delegation permission jointly controlled by multiple owners (issue #326).
+///
+/// Spends require signatures from at least `threshold` of `owners`. Keyed in
+/// storage by `(owners[0], delegate)` — see `DataKey::MultiPermission`.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MultiOwnerPermission {
+    pub owners: Vec<Address>,
+    pub threshold: u32,
+    pub delegate: Address,
+    pub limit_total: i128,
+    pub spent: i128,
+    pub limit_per_tx: i128,
+    pub allowed_merchants: Vec<Address>,
+    pub status: PermissionStatus,
+    pub expires_at_ledger: u32,
+    pub created_at: u64,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct MultiOwnerGrantedEvent {
+    pub primary_owner: Address,
+    pub delegate: Address,
+    pub owner_count: u32,
+    pub threshold: u32,
+    pub total_limit: i128,
+}
+
+/// Emitted after a multi-owner delegated spend is successfully recorded (issue #326).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct MultiOwnerSpendEvent {
+    pub primary_owner: Address,
+    pub delegate: Address,
+    pub merchant: Address,
+    pub amount: i128,
+    pub remaining: i128,
+    pub signer_count: u32,
+}
+
+/// Emitted when an admin registers a new approved metadata schema (issue #328).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct SchemaRegisteredEvent {
+    pub admin: Address,
+    pub schema: Symbol,
 }
 
 /// Lightweight config for multi-merchant whitelisting and allowance tracking.
@@ -259,6 +312,10 @@ pub enum DataKey {
     Metadata(Address, Address),
     /// Instance-level flag: when true, grant() allows owner == delegate.
     AllowSelfDelegation,
+    /// Multi-owner permission, keyed by (owners[0], delegate).
+    MultiPermission(Address, Address),
+    /// Instance-level list of approved `PermissionMetadata.schema` identifiers.
+    SchemaRegistry,
 }
 
 #[contract]
@@ -462,6 +519,203 @@ impl PermissionsContract {
         );
 
         Ok(())
+    }
+
+    /// Grant a delegation jointly controlled by multiple owners (issue #326).
+    ///
+    /// `owners` must be non-empty and contain no duplicates. `threshold` is
+    /// the minimum number of owner signatures required to authorize a spend
+    /// (1 <= threshold <= owners.len()). The caller must be one of `owners`.
+    /// Stored keyed by `(owners[0], delegate)`.
+    pub fn grant_multi_owner(
+        env: Env,
+        caller: Address,
+        owners: Vec<Address>,
+        delegate: Address,
+        limit_total: i128,
+        limit_per_tx: i128,
+        allowed_merchants: Vec<Address>,
+        ttl_ledgers: u32,
+        threshold: u32,
+    ) -> Result<(), PermissionError> {
+        caller.require_auth();
+
+        if owners.len() == 0 || !owners.contains(&caller) {
+            return Err(PermissionError::Unauthorized);
+        }
+        if threshold == 0 || threshold > owners.len() {
+            return Err(PermissionError::InvalidParam);
+        }
+        if limit_per_tx <= 0 || limit_total < limit_per_tx {
+            return Err(PermissionError::InvalidParam);
+        }
+
+        let mut unique_owners: Vec<Address> = Vec::new(&env);
+        for owner in owners.iter() {
+            if unique_owners.contains(&owner) {
+                return Err(PermissionError::InvalidParam);
+            }
+            unique_owners.push_back(owner);
+        }
+
+        let primary_owner = unique_owners.get(0).unwrap();
+        let expires_at_ledger = env.ledger().sequence() + ttl_ledgers;
+
+        let record = MultiOwnerPermission {
+            owners: unique_owners.clone(),
+            threshold,
+            delegate: delegate.clone(),
+            limit_total,
+            spent: 0,
+            limit_per_tx,
+            allowed_merchants,
+            status: PermissionStatus::Active,
+            expires_at_ledger,
+            created_at: env.ledger().timestamp(),
+        };
+
+        env.storage().persistent().set(
+            &DataKey::MultiPermission(primary_owner.clone(), delegate.clone()),
+            &record,
+        );
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("mgrant")),
+            MultiOwnerGrantedEvent {
+                primary_owner,
+                delegate,
+                owner_count: unique_owners.len(),
+                threshold,
+                total_limit: limit_total,
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Dry-run validation of a multi-owner spend, identical to `can_spend`
+    /// but requiring `threshold`-of-`owners` valid signers instead of a
+    /// single delegate-authorized owner (issue #326).
+    pub fn can_spend_multi(
+        env: Env,
+        primary_owner: Address,
+        delegate: Address,
+        signers: Vec<Address>,
+        amount: i128,
+        merchant: Address,
+    ) -> Result<(), PermissionError> {
+        let key = DataKey::MultiPermission(primary_owner, delegate);
+        let record: MultiOwnerPermission = match env.storage().persistent().get(&key) {
+            Some(r) => r,
+            None => return Err(PermissionError::NotFound),
+        };
+
+        match record.status {
+            PermissionStatus::Active => {}
+            PermissionStatus::Paused => return Err(PermissionError::PermissionPaused),
+            PermissionStatus::Expired => return Err(PermissionError::Expired),
+            PermissionStatus::Revoked => return Err(PermissionError::Unauthorized),
+        }
+
+        if env.ledger().sequence() >= record.expires_at_ledger {
+            return Err(PermissionError::Expired);
+        }
+
+        let mut counted: Vec<Address> = Vec::new(&env);
+        let mut valid_signers: u32 = 0;
+        for signer in signers.iter() {
+            if record.owners.contains(&signer) && !counted.contains(&signer) {
+                counted.push_back(signer);
+                valid_signers += 1;
+            }
+        }
+        if valid_signers < record.threshold {
+            return Err(PermissionError::InsufficientSignatures);
+        }
+
+        if amount > record.limit_per_tx {
+            return Err(PermissionError::ExceedsPerTxLimit);
+        }
+
+        let remaining = record.limit_total - record.spent;
+        if amount > remaining {
+            return Err(PermissionError::ExceedsTotalLimit);
+        }
+
+        if record.allowed_merchants.len() > 0 {
+            let mut allowed = false;
+            for m in record.allowed_merchants.iter() {
+                if m == merchant {
+                    allowed = true;
+                    break;
+                }
+            }
+            if !allowed {
+                return Err(PermissionError::MerchantNotAllowed);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Execute a multi-owner delegated spend. Requires the delegate's
+    /// authorization plus authorization from each address in `signers`; at
+    /// least `threshold` of `signers` must be registered owners (issue #326).
+    pub fn execute_spend_multi(
+        env: Env,
+        primary_owner: Address,
+        delegate: Address,
+        signers: Vec<Address>,
+        amount: i128,
+        merchant: Address,
+    ) -> Result<(), PermissionError> {
+        delegate.require_auth();
+        for signer in signers.iter() {
+            signer.require_auth();
+        }
+
+        Self::can_spend_multi(
+            env.clone(),
+            primary_owner.clone(),
+            delegate.clone(),
+            signers.clone(),
+            amount,
+            merchant.clone(),
+        )?;
+
+        let key = DataKey::MultiPermission(primary_owner.clone(), delegate.clone());
+        let mut record: MultiOwnerPermission = env.storage().persistent().get(&key).unwrap();
+
+        record.spent += amount;
+        env.storage().persistent().set(&key, &record);
+
+        let remaining = record.limit_total - record.spent;
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("mspent")),
+            MultiOwnerSpendEvent {
+                primary_owner,
+                delegate,
+                merchant,
+                amount,
+                remaining,
+                signer_count: signers.len(),
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Read-only getter for a multi-owner permission record.
+    pub fn get_multi_permission(
+        env: Env,
+        primary_owner: Address,
+        delegate: Address,
+    ) -> Result<MultiOwnerPermission, PermissionError> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::MultiPermission(primary_owner, delegate))
+            .ok_or(PermissionError::NotFound)
     }
 
     /// Dry-run a spend and report whether it would succeed, without mutating state.
@@ -843,7 +1097,51 @@ impl PermissionsContract {
         Ok(())
     }
 
+    /// Register an approved `PermissionMetadata.schema` identifier. Admin-only (issue #328).
+    pub fn register_schema(env: Env, admin: Address, schema: Symbol) -> Result<(), PermissionError> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+        if admin != stored_admin {
+            return Err(PermissionError::Unauthorized);
+        }
+
+        let mut registry: Vec<Symbol> = env
+            .storage()
+            .instance()
+            .get(&DataKey::SchemaRegistry)
+            .unwrap_or_else(|| Vec::new(&env));
+        if !registry.contains(&schema) {
+            registry.push_back(schema.clone());
+            env.storage()
+                .instance()
+                .set(&DataKey::SchemaRegistry, &registry);
+        }
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("schemreg")),
+            SchemaRegisteredEvent { admin, schema },
+        );
+
+        Ok(())
+    }
+
+    /// Returns the list of approved metadata schema identifiers (issue #328).
+    pub fn get_registered_schemas(env: Env) -> Vec<Symbol> {
+        env.storage()
+            .instance()
+            .get(&DataKey::SchemaRegistry)
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
     /// Grants a permission and stores optional metadata hash (issue #181).
+    ///
+    /// When `metadata` is provided, its `schema` must already be registered
+    /// via `register_schema` — unregistered schemas are rejected with
+    /// `PermissionError::UnknownSchema` and no grant is recorded (issue #328).
     pub fn grant_with_metadata(
         env: Env,
         owner: Address,
@@ -854,6 +1152,17 @@ impl PermissionsContract {
         ttl_ledgers: u32,
         metadata: Option<PermissionMetadata>,
     ) -> Result<(), PermissionError> {
+        if let Some(ref m) = metadata {
+            let registry: Vec<Symbol> = env
+                .storage()
+                .instance()
+                .get(&DataKey::SchemaRegistry)
+                .unwrap_or_else(|| Vec::new(&env));
+            if !registry.contains(&m.schema) {
+                return Err(PermissionError::UnknownSchema);
+            }
+        }
+
         Self::grant(
             env.clone(),
             owner.clone(),
