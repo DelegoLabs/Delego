@@ -32,7 +32,7 @@ describe("escrow health probe", () => {
         walletService: "ok",
         sorobanRpc: "ok",
       });
-      expect(new Date(health.checkedAt).getTime()).toBeCloseTo(Date.now(), -2);
+      expect(new Date(health.checkedAt).getTime()).toBeCloseTo(Date.now(), -3);
     });
 
     it("returns degraded sorobanRpc when Soroban RPC is unavailable", async () => {

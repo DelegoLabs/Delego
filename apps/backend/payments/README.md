@@ -2,18 +2,16 @@
 
 Delego **payments** service.
 
-## Features
+### Escrow Funding Lock & Double-Funding Prevention
 
-### Dynamic Fee Estimation
+Protects checkout workflows against race conditions and concurrent deposit attempts on the same order.
 
-Dynamically fetches transaction fees from Stellar Horizon based on current network congestion. Prevents transaction failures during periods of high network activity.
+- **Atomic Redis Locks**: Uses atomic `SET key lockToken PX ttlMs NX` locks (`escrow:lock:funding:<orderId>`) to prevent duplicate in-flight funding operations.
+- **Scripted Release**: Executes an atomic Lua script (`RELEASE_LOCK_LUA`) to ensure lock deletion is only performed by the acquiring lock token.
+- **Defense in Depth**: Backed by database unique constraints on `payment_records(order_id)` and `escrow_funding_locks(order_id)` (`010_escrow_funding_locks.sql`).
+- **Conflict Responses**: Rejects duplicate concurrent requests with an HTTP `409 Conflict` envelope (`DUPLICATE_FUNDING_REQUEST`) without queuing duplicate blockchain transactions.
 
-- **Smart Caching**: 30-second TTL reduces API load while keeping fees fresh
-- **Automatic Fallback**: Uses safe minimum fees (100 stroops) when Horizon is unavailable
-- **Network Aware**: Supports testnet, mainnet, and futurenet with intelligent defaults
-- **Observable**: Logs fee source and estimates for monitoring
-
-See [FEE_ESTIMATION.md](./escrow/FEE_ESTIMATION.md) for detailed documentation.
+See `validation.ts` (`acquireLock`, `releaseLock`) for technical specifications.
 
 ## Development
 
@@ -63,8 +61,14 @@ STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
 # Wallet service endpoint
 WALLET_URL=http://localhost:3012
 
-# PostgreSQL (processed contract events / payment records)
+# PostgreSQL (processed contract events / payment records / funding locks)
 DATABASE_URL=postgresql://delego:delego@localhost:5432/delego
+
+# Redis URL for streaming events and funding locks
+REDIS_URL=redis://localhost:6379
+
+# Escrow Funding Lock TTL in milliseconds (default: 30000)
+ESCROW_LOCK_TTL_MS=30000
 
 # Soroban RPC (escrow contract reads; optional, network-aware default)
 SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
@@ -78,4 +82,7 @@ SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
   - `FEE_ESTIMATION.md`: Comprehensive fee estimation guide
 - **events/**: Event-driven payment workflows
 - **settlement/**: Settlement and reconciliation logic
-- **src/**: Core payment service logic
+- **src/**: Core payment service logic and HTTP route handlers
+  - `validation.ts`: Escrow funding lock definitions (`acquireLock`, `releaseLock`, `EscrowFundingLock`) and payload validators
+  - `routes.ts`: Payment routes with 409 `DUPLICATE_FUNDING_REQUEST` concurrency protections
+

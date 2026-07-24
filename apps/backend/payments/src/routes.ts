@@ -3,6 +3,8 @@ import { route, json, type Route } from "@delego/utils";
 import { escrowService } from "../escrow/index.js";
 import { getPaymentsHealth } from "../escrow/health.js";
 import {
+  acquireLock,
+  releaseLock,
   validateDepositRequest,
   validateEscrowContractConfig,
   validateIdempotencyKey,
@@ -49,6 +51,15 @@ function sendOperationError(res: ServerResponse, code: string, err: unknown): vo
   });
 }
 
+function isDuplicateKeyError(err: unknown): boolean {
+  if (typeof err === "object" && err !== null) {
+    const code = (err as { code?: string }).code;
+    const message = (err as { message?: string }).message ?? "";
+    return code === "23505" || message.includes("duplicate key") || message.includes("unique constraint");
+  }
+  return false;
+}
+
 async function ensureContractConfig(res: ServerResponse): Promise<boolean> {
   const config = validateEscrowContractConfig();
   if (!config.ok) {
@@ -90,6 +101,7 @@ export function registerRoutes(): Route[] {
     }),
 
     route("POST", "/escrow/deposit", async (req, res) => {
+      let lockedOrderId: string | undefined;
       try {
         const idempotency = validateIdempotencyKey(req.headers as Record<string, string | string[] | undefined>, "/escrow/deposit");
         if (!idempotency.ok) {
@@ -104,6 +116,22 @@ export function registerRoutes(): Route[] {
         }
         if (!(await ensureContractConfig(res))) return;
 
+        if (validated.value.orderId) {
+          lockedOrderId = validated.value.orderId;
+          const acquired = await acquireLock(lockedOrderId);
+          if (!acquired) {
+            json(res, 409, {
+              data: null,
+              error: {
+                code: "DUPLICATE_FUNDING_REQUEST",
+                message: `Escrow deposit is already in progress for order ${lockedOrderId}`,
+                details: { orderId: lockedOrderId },
+              },
+            });
+            return;
+          }
+        }
+
         const result = await escrowService.deposit(validated.value);
         json(res, 200, { data: result, error: null });
       } catch (err) {
@@ -114,9 +142,25 @@ export function registerRoutes(): Route[] {
           });
           return;
         }
+        if (isDuplicateKeyError(err)) {
+          json(res, 409, {
+            data: null,
+            error: {
+              code: "DUPLICATE_FUNDING_REQUEST",
+              message: "Escrow deposit record already exists for this order",
+              details: { orderId: lockedOrderId },
+            },
+          });
+          return;
+        }
         sendOperationError(res, "ESCROW_DEPOSIT_FAILED", err);
+      } finally {
+        if (lockedOrderId) {
+          await releaseLock(lockedOrderId);
+        }
       }
     }),
+
 
     route("POST", "/escrow/:escrowId/release", async (req, res, params) => {
       try {
