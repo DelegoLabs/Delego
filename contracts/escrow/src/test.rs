@@ -433,4 +433,193 @@ mod test {
             );
         }
     }
+
+    // ─── Merchant Escrow Cancellation Tests ──────────────────────────────────
+
+    #[test]
+    fn test_merchant_cancel_created_escrow_success() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[7u8; 32]);
+        let reason = symbol_short!("out_stock");
+
+        let escrow_id = client.create(
+            &buyer,
+            &seller,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+
+        let record = client.get_escrow(&escrow_id);
+        assert_eq!(record.status, crate::EscrowStatus::Created);
+
+        let cancelled = client.cancel(&escrow_id, &seller, &reason);
+        assert!(cancelled);
+
+        // Verify EscrowCancelledEvent emission (retrieve events right after contract call)
+        let events = env.events().all();
+
+        let updated_record = client.get_escrow(&escrow_id);
+        assert_eq!(updated_record.status, crate::EscrowStatus::Cancelled);
+
+        let mut found = false;
+        for event in events.iter() {
+            let (c_id, topics, value) = event;
+            if c_id != contract_id || topics.len() != 2 {
+                continue;
+            }
+            let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+            let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
+            if t0 == symbol_short!("escrow") && t1 == symbol_short!("cancelled") {
+                let evt: crate::EscrowCancelledEvent = value.try_into_val(&env).unwrap();
+                assert_eq!(evt.escrow_id, order_id);
+                assert_eq!(evt.cancelled_by, seller);
+                assert_eq!(evt.reason, reason);
+                found = true;
+            }
+        }
+        assert!(found, "EscrowCancelledEvent was not emitted");
+    }
+
+    #[test]
+    fn test_cancel_unauthorized_caller_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let random_caller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[8u8; 32]);
+        let reason = symbol_short!("no_stock");
+
+        let escrow_id = client.create(
+            &buyer,
+            &seller,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+
+        let res = client.try_cancel(&escrow_id, &random_caller, &reason);
+        assert_eq!(res, Err(Ok(EscrowError::Unauthorized)));
+    }
+
+    #[test]
+    fn test_cancel_after_funded_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        token_admin_client.mint(&buyer, &10000i128);
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[9u8; 32]);
+        let reason = symbol_short!("too_late");
+
+        let escrow_id = client.deposit(
+            &buyer,
+            &seller,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+
+        let record = client.get_escrow(&escrow_id);
+        assert_eq!(record.status, crate::EscrowStatus::Funded);
+
+        let res = client.try_cancel(&escrow_id, &seller, &reason);
+        assert_eq!(res, Err(Ok(EscrowError::AlreadyFunded)));
+    }
+
+    #[test]
+    fn test_cancel_already_cancelled_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[10u8; 32]);
+        let reason = symbol_short!("duplicate");
+
+        let escrow_id = client.create(
+            &buyer,
+            &seller,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+
+        client.cancel(&escrow_id, &seller, &reason);
+
+        let res = client.try_cancel(&escrow_id, &seller, &reason);
+        assert_eq!(res, Err(Ok(EscrowError::AlreadyCancelled)));
+    }
+
+    #[test]
+    fn test_funding_cancelled_escrow_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[11u8; 32]);
+        let reason = symbol_short!("cancelled");
+
+        let escrow_id = client.create(
+            &buyer,
+            &seller,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+
+        client.cancel(&escrow_id, &seller, &reason);
+
+        let res = client.try_fund(&escrow_id, &buyer);
+        assert_eq!(res, Err(Ok(EscrowError::AlreadyCancelled)));
+    }
 }

@@ -1097,3 +1097,51 @@ fn test_get_timeout_view_does_not_mutate_state() {
     assert_eq!(before.amount, after.amount);
     assert_eq!(before.timeout_ledger, after.timeout_ledger);
 }
+
+// ── Merchant Escrow Cancellation Integration Test ─────────────────────────
+
+#[test]
+fn test_cancellation_full_lifecycle() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let reason = symbol_short!("out_stock");
+
+    // Merchant creates escrow without funding
+    let escrow_id = escrow_client.create(
+        &t.buyer,
+        &t.seller,
+        &t.token_contract_id,
+        &1000i128,
+        &t.order_id(),
+        &100u32,
+        &None,
+        &None,
+    );
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.status, EscrowStatus::Created);
+
+    // Balances remain untouched
+    assert_eq!(token_client.balance(&t.buyer), 10000);
+    assert_eq!(token_client.balance(&t.escrow_contract_id), 0);
+
+    // Merchant cancels escrow
+    assert!(escrow_client.cancel(&escrow_id, &t.seller, &reason));
+
+    let record_after = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record_after.status, EscrowStatus::Cancelled);
+
+    // Attempting to fund cancelled escrow fails
+    assert_eq!(
+        escrow_client.try_fund(&escrow_id, &t.buyer),
+        Err(Ok(EscrowError::AlreadyCancelled))
+    );
+
+    // Attempting to release cancelled escrow fails
+    assert_eq!(
+        escrow_client.try_release(&escrow_id, &t.buyer, &t.seller),
+        Err(Ok(EscrowError::AlreadyCancelled))
+    );
+}
