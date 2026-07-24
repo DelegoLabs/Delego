@@ -95,6 +95,90 @@ fn test_resume_active_fails() {
 }
 
 #[test]
+fn test_sweep_expired_updates_expired_delegations() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    env.ledger().set_sequence_number(100);
+    let label = Symbol::new(&env, "Agent_Y");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &100);
+
+    env.ledger().set_sequence_number(300);
+
+    let mut ids = Vec::new(&env);
+    ids.push_back(id);
+    let swept = client.sweep_expired(&ids);
+
+    assert_eq!(swept.len(), 1);
+    assert_eq!(swept.get(0).unwrap(), id);
+
+    let record = client.get_delegation(&id);
+    assert_eq!(record.status, DelegationStatus::Expired);
+}
+
+#[test]
+fn test_sweep_expired_is_noop_for_non_expired() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    env.ledger().set_sequence_number(100);
+    let label = Symbol::new(&env, "Agent_Y");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+
+    let mut ids = Vec::new(&env);
+    ids.push_back(id);
+    let swept = client.sweep_expired(&ids);
+
+    assert_eq!(swept.len(), 0);
+    let record = client.get_delegation(&id);
+    assert_eq!(record.status, DelegationStatus::Active);
+}
+
+#[test]
+fn test_sweep_expired_skips_revoked_and_unknown_ids() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    env.ledger().set_sequence_number(100);
+    let label = Symbol::new(&env, "Agent_Y");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &100);
+    client.revoke_delegation(&id);
+
+    env.ledger().set_sequence_number(300);
+
+    let mut ids = Vec::new(&env);
+    ids.push_back(id);
+    ids.push_back(999u64);
+    let swept = client.sweep_expired(&ids);
+
+    assert_eq!(swept.len(), 0);
+    let record = client.get_delegation(&id);
+    assert_eq!(record.status, DelegationStatus::Revoked);
+}
+
+#[test]
+fn test_get_expired_delegations_returns_correct_list() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    env.ledger().set_sequence_number(100);
+    let expiring_label = Symbol::new(&env, "Expiring");
+    let active_label = Symbol::new(&env, "Active");
+
+    let expiring_id =
+        client.create_delegation(&owner, &agent_id, &permissions_contract, &expiring_label, &100);
+    let active_id =
+        client.create_delegation(&owner, &agent_id, &permissions_contract, &active_label, &1000);
+
+    env.ledger().set_sequence_number(300);
+
+    let expired = client.get_expired_delegations(&owner);
+    assert_eq!(expired.len(), 1);
+    assert_eq!(expired.get(0).unwrap().id, expiring_id);
+    assert_ne!(expired.get(0).unwrap().id, active_id);
+}
+
+#[test]
 fn test_multiple_delegations_per_owner() {
     let (env, client, _, owner, agent_id, permissions_contract) = setup();
     env.mock_all_auths();

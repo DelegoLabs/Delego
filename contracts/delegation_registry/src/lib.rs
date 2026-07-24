@@ -1,5 +1,7 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, Symbol, Vec};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol, Vec,
+};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -30,6 +32,15 @@ pub enum DataKey {
     NextId,
     Delegation(u64),
     UserDelegations(Address),
+}
+
+/// Emitted for each delegation transitioned to `Expired` by `sweep_expired`.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct DelegationExpiredEvent {
+    pub delegation_id: u64,
+    pub owner: Address,
+    pub agent_id: BytesN<32>,
 }
 
 #[contract]
@@ -212,6 +223,79 @@ impl DelegationRegistry {
         }
 
         true
+    }
+
+    /// Sweeps a caller-supplied batch of delegation ids, transitioning any
+    /// that have passed their `expires_at_ledger` into `Expired` status.
+    ///
+    /// Callable by anyone: it only advances delegations that have already
+    /// expired according to on-chain state, so there is nothing to
+    /// authorize. Ids that don't exist, aren't yet expired, or are already
+    /// `Expired`/`Revoked` are silently skipped, making repeated sweeps of
+    /// the same batch safe and gas-efficient.
+    ///
+    /// Returns the ids that were actually swept.
+    pub fn sweep_expired(env: Env, delegation_ids: Vec<u64>) -> Vec<u64> {
+        let current_ledger = env.ledger().sequence();
+        let mut swept = Vec::new(&env);
+
+        for id in delegation_ids.iter() {
+            let key = DataKey::Delegation(id);
+            if let Some(mut record) = env.storage().persistent().get::<_, DelegationRecord>(&key)
+            {
+                let already_terminal = record.status == DelegationStatus::Expired
+                    || record.status == DelegationStatus::Revoked;
+                if !already_terminal && current_ledger >= record.expires_at_ledger {
+                    record.status = DelegationStatus::Expired;
+                    env.storage().persistent().set(&key, &record);
+
+                    env.events().publish(
+                        (symbol_short!("deleg"), symbol_short!("expired")),
+                        DelegationExpiredEvent {
+                            delegation_id: id,
+                            owner: record.owner.clone(),
+                            agent_id: record.agent_id.clone(),
+                        },
+                    );
+
+                    swept.push_back(id);
+                }
+            }
+        }
+
+        swept
+    }
+
+    /// Returns all delegations owned by `owner` that are currently expired.
+    ///
+    /// A delegation is considered expired here when the current ledger has
+    /// passed `expires_at_ledger`, regardless of whether `sweep_expired` has
+    /// already updated its stored status — this lets callers discover sweep
+    /// candidates as well as already-swept delegations in one call.
+    pub fn get_expired_delegations(env: Env, owner: Address) -> Vec<DelegationRecord> {
+        let current_ledger = env.ledger().sequence();
+        let user_dels = env
+            .storage()
+            .persistent()
+            .get::<_, Vec<u64>>(&DataKey::UserDelegations(owner))
+            .unwrap_or(Vec::new(&env));
+
+        let mut expired = Vec::new(&env);
+        for id in user_dels.iter() {
+            if let Some(record) = env
+                .storage()
+                .persistent()
+                .get::<_, DelegationRecord>(&DataKey::Delegation(id))
+            {
+                let is_expired = record.status == DelegationStatus::Expired
+                    || (record.status != DelegationStatus::Revoked
+                        && current_ledger >= record.expires_at_ledger);
+                if is_expired {
+                    expired.push_back(record);
+                }
+            }
+        }
+        expired
     }
 }
 

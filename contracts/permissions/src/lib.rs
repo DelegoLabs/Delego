@@ -41,6 +41,10 @@ pub enum PermissionError {
     AlreadyActive = 10,
     /// New grants are globally paused by admin
     GrantsPaused = 11,
+    /// Referenced parent permission does not exist
+    ParentNotFound = 12,
+    /// Child grant/spend exceeds the bounds of its parent permission
+    ExceedsParentLimit = 13,
     /// Owner and delegate cannot be the same address
     SelfDelegationNotAllowed = 401,
 }
@@ -66,6 +70,14 @@ pub struct PermissionRecord {
     pub status: PermissionStatus,
     pub expires_at_ledger: u32,
     pub created_at: u64,
+    /// Owner half of the parent permission's `(owner, delegate)` key, for
+    /// permissions created via `grant_child`. `None` for top-level grants.
+    pub parent_owner: Option<Address>,
+    /// Delegate half of the parent permission's `(owner, delegate)` key,
+    /// for permissions created via `grant_child`. `None` for top-level
+    /// grants. Together with `parent_owner`, this forms the reference the
+    /// issue describes as `parent_permission`.
+    pub parent_delegate: Option<Address>,
 }
 
 /// Lightweight config for multi-merchant whitelisting and allowance tracking.
@@ -259,6 +271,9 @@ pub enum DataKey {
     Metadata(Address, Address),
     /// Instance-level flag: when true, grant() allows owner == delegate.
     AllowSelfDelegation,
+    /// Child delegate addresses granted under a permission via
+    /// `grant_child`, keyed by that permission's own `(owner, delegate)`.
+    Children(Address, Address),
 }
 
 #[contract]
@@ -316,6 +331,8 @@ impl PermissionsContract {
             status: PermissionStatus::Active,
             expires_at_ledger,
             created_at: env.ledger().timestamp(),
+            parent_owner: None,
+            parent_delegate: None,
         };
 
         env.storage().persistent().set(
@@ -347,6 +364,124 @@ impl PermissionsContract {
         Ok(())
     }
 
+    /// Grants a child permission under an existing permission, for agent
+    /// hierarchies where a delegate needs to sub-delegate part of its own
+    /// allowance to another agent (issue #332).
+    ///
+    /// Must be called by `parent_delegate` — the delegate of the parent
+    /// permission `(parent_owner, parent_delegate)` — acting as the
+    /// "owner" of the new child permission. The child is bounded by the
+    /// parent: its `limit_total` cannot exceed the parent's remaining
+    /// allowance, its `limit_per_tx` cannot exceed the parent's per-tx
+    /// limit, and its expiry is clamped to the parent's expiry.
+    ///
+    /// # Errors
+    /// - [`PermissionError::ParentNotFound`] if the parent permission
+    ///   doesn't exist.
+    /// - [`PermissionError::PermissionPaused`] / [`PermissionError::Expired`]
+    ///   if the parent isn't currently active.
+    /// - [`PermissionError::ExceedsParentLimit`] if the requested child
+    ///   limits exceed what the parent can back.
+    pub fn grant_child(
+        env: Env,
+        parent_owner: Address,
+        parent_delegate: Address,
+        child_delegate: Address,
+        limit_total: i128,
+        limit_per_tx: i128,
+        allowed_merchants: Vec<Address>,
+        ttl_ledgers: u32,
+    ) -> Result<(), PermissionError> {
+        parent_delegate.require_auth();
+
+        if let Some(state) = env
+            .storage()
+            .instance()
+            .get::<DataKey, PermissionPauseState>(&DataKey::GrantPauseState)
+        {
+            if state.grants_paused {
+                return Err(PermissionError::GrantsPaused);
+            }
+        }
+
+        let allow_self: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::AllowSelfDelegation)
+            .unwrap_or(false);
+        if !allow_self && parent_delegate == child_delegate {
+            return Err(PermissionError::SelfDelegationNotAllowed);
+        }
+
+        if limit_per_tx <= 0 || limit_total < limit_per_tx {
+            return Err(PermissionError::InvalidParam);
+        }
+
+        let parent_key = DataKey::Permission(parent_owner.clone(), parent_delegate.clone());
+        let parent_record: PermissionRecord = env
+            .storage()
+            .persistent()
+            .get(&parent_key)
+            .ok_or(PermissionError::ParentNotFound)?;
+
+        if parent_record.status != PermissionStatus::Active {
+            return Err(PermissionError::PermissionPaused);
+        }
+        if env.ledger().sequence() >= parent_record.expires_at_ledger {
+            return Err(PermissionError::Expired);
+        }
+
+        let parent_remaining = parent_record.limit_total - parent_record.spent;
+        if limit_total > parent_remaining || limit_per_tx > parent_record.limit_per_tx {
+            return Err(PermissionError::ExceedsParentLimit);
+        }
+
+        let requested_expiry = env.ledger().sequence() + ttl_ledgers;
+        let expires_at_ledger = requested_expiry.min(parent_record.expires_at_ledger);
+
+        let record = PermissionRecord {
+            owner: parent_delegate.clone(),
+            delegate: child_delegate.clone(),
+            limit_total,
+            spent: 0,
+            limit_per_tx,
+            allowed_merchants: allowed_merchants.clone(),
+            status: PermissionStatus::Active,
+            expires_at_ledger,
+            created_at: env.ledger().timestamp(),
+            parent_owner: Some(parent_owner.clone()),
+            parent_delegate: Some(parent_delegate.clone()),
+        };
+
+        let child_key = DataKey::Permission(parent_delegate.clone(), child_delegate.clone());
+        env.storage().persistent().set(&child_key, &record);
+
+        let children_key = DataKey::Children(parent_owner, parent_delegate.clone());
+        let mut children: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&children_key)
+            .unwrap_or_else(|| Vec::new(&env));
+        if !children.contains(&child_delegate) {
+            children.push_back(child_delegate.clone());
+            env.storage().persistent().set(&children_key, &children);
+        }
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("granted")),
+            PermissionGrantedEvent {
+                owner: parent_delegate,
+                delegate: child_delegate,
+                per_tx_limit: limit_per_tx,
+                total_limit: limit_total,
+                expires_at_ledger,
+                merchant_count: allowed_merchants.len(),
+            },
+        );
+
+        Ok(())
+    }
+
     pub fn revoke(env: Env, owner: Address, delegate: Address) -> Result<(), PermissionError> {
         owner.require_auth();
 
@@ -364,12 +499,52 @@ impl PermissionsContract {
 
             env.events().publish(
                 (symbol_short!("perm"), symbol_short!("revoked")),
-                PermissionRevokedEvent { owner, delegate },
+                PermissionRevokedEvent {
+                    owner: owner.clone(),
+                    delegate: delegate.clone(),
+                },
             );
+
+            // Cascade: revoking a permission also revokes every child
+            // permission granted under it (issue #332).
+            Self::revoke_children(&env, &owner, &delegate);
 
             Ok(())
         } else {
             Err(PermissionError::NotFound)
+        }
+    }
+
+    /// Recursively revokes every child permission granted under
+    /// `(owner, delegate)` via `grant_child`.
+    fn revoke_children(env: &Env, owner: &Address, delegate: &Address) {
+        let children_key = DataKey::Children(owner.clone(), delegate.clone());
+        let children: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&children_key)
+            .unwrap_or_else(|| Vec::new(env));
+
+        for child_delegate in children.iter() {
+            let child_key = DataKey::Permission(delegate.clone(), child_delegate.clone());
+            if let Some(mut child_record) = env
+                .storage()
+                .persistent()
+                .get::<DataKey, PermissionRecord>(&child_key)
+            {
+                if child_record.status != PermissionStatus::Revoked {
+                    child_record.status = PermissionStatus::Revoked;
+                    env.storage().persistent().set(&child_key, &child_record);
+                    env.events().publish(
+                        (symbol_short!("perm"), symbol_short!("revoked")),
+                        PermissionRevokedEvent {
+                            owner: delegate.clone(),
+                            delegate: child_delegate.clone(),
+                        },
+                    );
+                }
+                Self::revoke_children(env, delegate, &child_delegate);
+            }
         }
     }
 
@@ -445,6 +620,11 @@ impl PermissionsContract {
         let mut record: PermissionRecord = env.storage().persistent().get(&key).unwrap();
 
         record.spent += amount;
+        let mut next_parent = match (record.parent_owner.clone(), record.parent_delegate.clone())
+        {
+            (Some(p_owner), Some(p_delegate)) => Some((p_owner, p_delegate)),
+            _ => None,
+        };
         env.storage().persistent().set(&key, &record);
 
         let remaining = record.limit_total - record.spent;
@@ -460,6 +640,33 @@ impl PermissionsContract {
                 remaining,
             },
         );
+
+        // Walk the parent chain, deducting the same amount from each
+        // ancestor's allowance so a child's spend is also reflected against
+        // the allowance it was carved out of (issue #332).
+        while let Some((p_owner, p_delegate)) = next_parent {
+            let parent_key = DataKey::Permission(p_owner, p_delegate);
+            let mut parent_record: PermissionRecord = env
+                .storage()
+                .persistent()
+                .get(&parent_key)
+                .ok_or(PermissionError::ParentNotFound)?;
+
+            let parent_remaining = parent_record.limit_total - parent_record.spent;
+            if amount > parent_remaining {
+                return Err(PermissionError::ExceedsParentLimit);
+            }
+
+            parent_record.spent += amount;
+            next_parent = match (
+                parent_record.parent_owner.clone(),
+                parent_record.parent_delegate.clone(),
+            ) {
+                (Some(p_owner), Some(p_delegate)) => Some((p_owner, p_delegate)),
+                _ => None,
+            };
+            env.storage().persistent().set(&parent_key, &parent_record);
+        }
 
         Ok(())
     }

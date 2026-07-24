@@ -2,7 +2,7 @@
 
 use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus, EscrowTerminalState};
 use soroban_sdk::{
-    symbol_short, testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
+    symbol_short, testutils::{Address as _, Events, Ledger, MockAuth, MockAuthInvoke},
     Address, BytesN, Env, IntoVal,
 };
 
@@ -1143,5 +1143,163 @@ fn test_cancellation_full_lifecycle() {
     assert_eq!(
         escrow_client.try_release(&escrow_id, &t.buyer, &t.seller),
         Err(Ok(EscrowError::AlreadyCancelled))
+    );
+}
+
+// ── Escrow State Snapshot Tests (issue #329) ───────────────────────────────
+
+#[test]
+fn test_get_escrow_snapshot_not_found() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let res = client.try_get_escrow_snapshot(&999u64);
+    assert_eq!(res, Err(Ok(EscrowError::NotFound)));
+}
+
+#[test]
+fn test_get_escrow_snapshot_returns_all_fields() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let record = client.get_escrow(&escrow_id);
+    let fee_config = client.get_fee_config();
+
+    let snapshot = client.get_escrow_snapshot(&escrow_id);
+
+    assert_eq!(snapshot.record, record);
+    assert_eq!(snapshot.fee_config, fee_config);
+    assert_eq!(snapshot.current_ledger, t.env.ledger().sequence());
+    assert!(!snapshot.timed_out);
+    assert!(snapshot.release_eligible);
+}
+
+#[test]
+fn test_get_escrow_snapshot_reflects_current_timeout_status() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let record = client.get_escrow(&escrow_id);
+
+    t.env.ledger().set_sequence_number(record.timeout_ledger + 5);
+
+    let snapshot = client.get_escrow_snapshot(&escrow_id);
+
+    assert!(snapshot.timed_out);
+    assert!(!snapshot.release_eligible);
+    assert_eq!(snapshot.current_ledger, record.timeout_ledger + 5);
+}
+
+#[test]
+fn test_get_escrow_snapshot_is_read_only() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let before = client.get_escrow(&escrow_id);
+
+    t.env.ledger().set_sequence_number(before.timeout_ledger + 5);
+    let _snapshot = client.get_escrow_snapshot(&escrow_id);
+
+    let after = client.get_escrow(&escrow_id);
+    assert_eq!(before.status, after.status);
+    assert_eq!(before.amount, after.amount);
+    assert_eq!(before.released_amount, after.released_amount);
+}
+
+// ── Escrow Compound Release / Yield Accrual Tests (issue #331) ────────────
+
+#[test]
+fn test_no_yield_config_means_zero_yield() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    let view = client.get_accrued_yield(&escrow_id);
+    assert_eq!(view.accrued_yield, 0);
+    assert_eq!(view.apr_bps, 0);
+}
+
+#[test]
+fn test_yield_calculation_for_30_day_escrow() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 10_000, 100_000);
+    let lending_contract = Address::generate(&t.env);
+
+    // 10% APR.
+    let apr_bps = 1_000u32;
+    assert!(client.set_yield_config(&t.admin, &escrow_id, &lending_contract, &apr_bps));
+
+    // Advance 30 days.
+    let thirty_days_secs = 30 * 24 * 60 * 60;
+    t.env.ledger().with_mut(|li| {
+        li.timestamp += thirty_days_secs;
+    });
+
+    let view = client.get_accrued_yield(&escrow_id);
+    // amount * apr_bps * held_seconds / (10_000 * seconds_per_year)
+    let expected = (10_000i128 * apr_bps as i128 * thirty_days_secs as i128)
+        / (10_000i128 * 31_536_000i128);
+    assert_eq!(view.accrued_yield, expected);
+    assert_eq!(view.apr_bps, apr_bps);
+}
+
+#[test]
+fn test_yield_distribution_on_release() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 10_000, 100_000);
+    let lending_contract = Address::generate(&t.env);
+    let apr_bps = 1_000u32;
+    client.set_yield_config(&t.admin, &escrow_id, &lending_contract, &apr_bps);
+
+    let thirty_days_secs = 30 * 24 * 60 * 60;
+    t.env.ledger().with_mut(|li| {
+        li.timestamp += thirty_days_secs;
+    });
+
+    let expected_yield = client.get_accrued_yield(&escrow_id).accrued_yield;
+    assert!(expected_yield > 0);
+
+    assert!(client.release(&escrow_id, &t.buyer, &t.seller));
+
+    let events = t.env.events().all();
+    let mut found = false;
+    for event in events.iter() {
+        let (contract, topics, value) = event;
+        if contract != t.escrow_contract_id || topics.len() != 2 {
+            continue;
+        }
+        let t0: soroban_sdk::Symbol = topics.get(0).unwrap().into_val(&t.env);
+        let t1: soroban_sdk::Symbol = topics.get(1).unwrap().into_val(&t.env);
+        if t0 == symbol_short!("escrow") && t1 == symbol_short!("yield") {
+            let decoded: crate::EscrowYieldAccruedEvent = value.into_val(&t.env);
+            assert_eq!(decoded.escrow_id, escrow_id);
+            assert_eq!(decoded.seller, t.seller);
+            assert_eq!(decoded.yield_amount, expected_yield);
+            assert_eq!(decoded.held_seconds, thirty_days_secs);
+            found = true;
+        }
+    }
+    assert!(found, "EscrowYieldAccruedEvent not found in events");
+}
+
+#[test]
+fn test_set_yield_config_rejects_invalid_apr() {
+    let t = TestEnv::setup();
+    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let lending_contract = Address::generate(&t.env);
+
+    assert_eq!(
+        client.try_set_yield_config(&t.admin, &escrow_id, &lending_contract, &10_001u32),
+        Err(Ok(EscrowError::InvalidYieldConfig))
     );
 }
