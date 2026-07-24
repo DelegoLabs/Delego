@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-    use crate::{PermissionError, PermissionsContract, PermissionsContractClient};
+    use crate::{PermissionError, PermissionStatus, PermissionsContract, PermissionsContractClient};
     use soroban_sdk::{
         testutils::{Address as _, Events, Ledger},
         Address, Env, TryIntoVal, Vec,
@@ -1616,5 +1616,158 @@ mod test {
         assert_eq!(r.delegate, delegate);
         assert!(r.merchant.is_none());
     }
-    
+
+    // ── Permission Inheritance Chain tests (issue #332) ─────────────────────
+
+    #[test]
+    fn test_grant_child_inherits_parent_limits() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let parent_delegate = Address::generate(&env);
+        let child_delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &parent_delegate, &1000, &200, &merchants, &10000);
+
+        // Child total exceeding the parent's remaining allowance is rejected.
+        assert_eq!(
+            client.try_grant_child(
+                &owner,
+                &parent_delegate,
+                &child_delegate,
+                &2000,
+                &100,
+                &merchants,
+                &5000
+            ),
+            Err(Ok(PermissionError::ExceedsParentLimit))
+        );
+
+        // Child per-tx limit exceeding the parent's per-tx limit is rejected.
+        assert_eq!(
+            client.try_grant_child(
+                &owner,
+                &parent_delegate,
+                &child_delegate,
+                &500,
+                &300,
+                &merchants,
+                &5000
+            ),
+            Err(Ok(PermissionError::ExceedsParentLimit))
+        );
+
+        // Within parent bounds succeeds and the child record links to the parent.
+        client.grant_child(
+            &owner,
+            &parent_delegate,
+            &child_delegate,
+            &500,
+            &100,
+            &merchants,
+            &5000,
+        );
+
+        let child = client.get_permission(&parent_delegate, &child_delegate);
+        assert_eq!(child.limit_total, 500);
+        assert_eq!(child.limit_per_tx, 100);
+        assert_eq!(child.parent_owner, Some(owner));
+        assert_eq!(child.parent_delegate, Some(parent_delegate));
+    }
+
+    #[test]
+    fn test_grant_child_missing_parent_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let parent_delegate = Address::generate(&env);
+        let child_delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        assert_eq!(
+            client.try_grant_child(
+                &owner,
+                &parent_delegate,
+                &child_delegate,
+                &500,
+                &100,
+                &merchants,
+                &5000
+            ),
+            Err(Ok(PermissionError::ParentNotFound))
+        );
+    }
+
+    #[test]
+    fn test_child_spend_deducts_from_parent() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let parent_delegate = Address::generate(&env);
+        let child_delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &parent_delegate, &1000, &200, &merchants, &10000);
+        client.grant_child(
+            &owner,
+            &parent_delegate,
+            &child_delegate,
+            &500,
+            &100,
+            &merchants,
+            &5000,
+        );
+
+        client.execute_spend(&parent_delegate, &child_delegate, &50, &merchant);
+
+        let child = client.get_permission(&parent_delegate, &child_delegate);
+        assert_eq!(child.spent, 50);
+
+        let parent = client.get_permission(&owner, &parent_delegate);
+        assert_eq!(parent.spent, 50);
+    }
+
+    #[test]
+    fn test_revoking_parent_revokes_children() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let parent_delegate = Address::generate(&env);
+        let child_delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &parent_delegate, &1000, &200, &merchants, &10000);
+        client.grant_child(
+            &owner,
+            &parent_delegate,
+            &child_delegate,
+            &500,
+            &100,
+            &merchants,
+            &5000,
+        );
+
+        client.revoke(&owner, &parent_delegate);
+
+        let parent = client.get_permission(&owner, &parent_delegate);
+        assert_eq!(parent.status, PermissionStatus::Revoked);
+
+        let child = client.get_permission(&parent_delegate, &child_delegate);
+        assert_eq!(child.status, PermissionStatus::Revoked);
+    }
+
 }

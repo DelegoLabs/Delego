@@ -37,6 +37,20 @@ impl EscrowTerminalState {
     }
 }
 
+/// Optional yield accrual configuration for an escrow (issue #331).
+///
+/// References an external lending contract that funds are notionally
+/// deposited with while escrowed, and the annual rate at which yield
+/// accrues for as long as the escrow remains held.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct YieldConfig {
+    /// Lending contract the escrowed funds notionally earn yield through.
+    pub lending_contract: Address,
+    /// Annual yield rate in basis points (e.g., 500 = 5% APR).
+    pub apr_bps: u32,
+}
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EscrowRecord {
@@ -99,6 +113,18 @@ pub struct EscrowReleasedEvent {
     pub seller: Address,
     pub amount: i128,
     pub released_by: Address,
+}
+
+/// Emitted alongside the release event when a fully-released escrow had a
+/// `YieldConfig` set, reporting the yield accrued over its holding period
+/// (issue #331).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowYieldAccruedEvent {
+    pub escrow_id: u64,
+    pub seller: Address,
+    pub yield_amount: i128,
+    pub held_seconds: u64,
 }
 
 #[contracttype]
@@ -238,6 +264,7 @@ pub enum DataKey {
     TokenEnabled(Address),
     PauseState,
     EscrowMetadata(u64),
+    EscrowYieldConfig(u64),
 }
 
 #[contracterror]
@@ -302,6 +329,8 @@ pub enum EscrowError {
     AlreadyCancelled = 27,
     /// Escrow has already been funded
     AlreadyFunded = 28,
+    /// Yield APR exceeds the maximum allowed (10000 bps = 100%)
+    InvalidYieldConfig = 29,
 }
 
 /// Compact receipt returned to buyers after escrow creation via `get_receipt`.
@@ -381,6 +410,34 @@ pub struct EscrowTimeoutView {
     pub current_ledger: u32,
     pub refundable: bool,
 }
+
+/// Complete read-only state snapshot for an escrow, returned by
+/// `get_escrow_snapshot` (issue #329) so off-chain indexers can audit an
+/// escrow's full state in a single call instead of replaying its event
+/// history.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowSnapshot {
+    pub record: EscrowRecord,
+    pub fee_config: FeeConfig,
+    pub current_ledger: u32,
+    pub timed_out: bool,
+    pub release_eligible: bool,
+}
+
+/// Read-only view of the yield an escrow has accrued so far, returned by
+/// `get_accrued_yield` (issue #331).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowYieldView {
+    pub escrow_id: u64,
+    pub accrued_yield: i128,
+    pub apr_bps: u32,
+}
+
+/// Seconds in a 365-day year, used to prorate `YieldConfig::apr_bps` down to
+/// the actual holding period of an escrow.
+const SECONDS_PER_YEAR: i128 = 31_536_000;
 
 fn check_not_terminal(record: &EscrowRecord) -> Result<(), EscrowError> {
     match record.status {
@@ -1045,6 +1102,25 @@ impl EscrowContract {
             },
         );
 
+        if fully_released {
+            let yield_config: Option<YieldConfig> = env
+                .storage()
+                .persistent()
+                .get(&DataKey::EscrowYieldConfig(escrow_id));
+            if let Some(cfg) = &yield_config {
+                let (yield_amount, held_seconds) = Self::compute_yield(&record, Some(cfg), &env);
+                env.events().publish(
+                    (symbol_short!("escrow"), symbol_short!("yield")),
+                    EscrowYieldAccruedEvent {
+                        escrow_id,
+                        seller: record.seller.clone(),
+                        yield_amount,
+                        held_seconds,
+                    },
+                );
+            }
+        }
+
         Ok(PartialReleaseResult {
             released: release_amount,
             remaining: new_remaining,
@@ -1316,6 +1392,113 @@ impl EscrowContract {
             buyer: record.buyer,
             status: record.status,
             release_eligible,
+        })
+    }
+
+    /// Read-only complete state snapshot of an escrow (issue #329).
+    ///
+    /// Aggregates the full escrow record, the fee configuration applied to
+    /// it, and computed fields (current timeout status and release
+    /// eligibility) in a single call, so off-chain indexers and auditors
+    /// don't have to replay contract events to reconstruct current state.
+    /// Never mutates storage.
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::NotFound`] when no escrow exists for `escrow_id`.
+    pub fn get_escrow_snapshot(env: Env, escrow_id: u64) -> Result<EscrowSnapshot, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+
+        let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
+        let current_ledger = env.ledger().sequence();
+        let timed_out =
+            record.status == EscrowStatus::Funded && current_ledger >= record.timeout_ledger;
+        let release_eligible = Self::release_block_reason(env.clone(), &record).is_none();
+
+        Ok(EscrowSnapshot {
+            record,
+            fee_config,
+            current_ledger,
+            timed_out,
+            release_eligible,
+        })
+    }
+
+    /// Configure optional yield accrual for an escrow (issue #331). Admin-only.
+    ///
+    /// `apr_bps` is the annual yield rate in basis points (max 10000 = 100%).
+    /// Yield is prorated by the actual time the escrow is held and reported
+    /// via [`EscrowYieldAccruedEvent`] when the escrow is fully released.
+    ///
+    /// # Errors
+    /// - [`EscrowError::Unauthorized`] if `admin` is not an escrow admin.
+    /// - [`EscrowError::InvalidYieldConfig`] if `apr_bps` exceeds 10000.
+    /// - [`EscrowError::NotFound`] if `escrow_id` does not exist.
+    /// - Any terminal-state error from [`check_not_terminal`] once the
+    ///   escrow has already been released, refunded, or cancelled.
+    pub fn set_yield_config(
+        env: Env,
+        admin: Address,
+        escrow_id: u64,
+        lending_contract: Address,
+        apr_bps: u32,
+    ) -> Result<bool, EscrowError> {
+        admin.require_auth();
+        if !Self::is_admin(env.clone(), admin.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+        if apr_bps > 10_000 {
+            return Err(EscrowError::InvalidYieldConfig);
+        }
+
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+        check_not_terminal(&record)?;
+
+        env.storage().persistent().set(
+            &DataKey::EscrowYieldConfig(escrow_id),
+            &YieldConfig {
+                lending_contract,
+                apr_bps,
+            },
+        );
+
+        Ok(true)
+    }
+
+    /// Read-only view of the yield an escrow has accrued so far, based on
+    /// the time it has been held (issue #331). Returns zero accrued yield
+    /// when no `YieldConfig` is set. Never mutates storage.
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::NotFound`] when no escrow exists for `escrow_id`.
+    pub fn get_accrued_yield(env: Env, escrow_id: u64) -> Result<EscrowYieldView, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+
+        let yield_config: Option<YieldConfig> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::EscrowYieldConfig(escrow_id));
+        let apr_bps = yield_config.as_ref().map(|c| c.apr_bps).unwrap_or(0);
+        let (accrued_yield, _) = Self::compute_yield(&record, yield_config.as_ref(), &env);
+
+        Ok(EscrowYieldView {
+            escrow_id,
+            accrued_yield,
+            apr_bps,
         })
     }
 
@@ -1675,6 +1858,21 @@ impl EscrowContract {
         }
 
         Ok(())
+    }
+
+    /// Computes yield accrued on an escrow's principal for the time it has
+    /// been held, based on the given `YieldConfig` APR. Returns
+    /// `(yield_amount, held_seconds)`; `(0, 0)` when no yield config is set.
+    fn compute_yield(record: &EscrowRecord, yield_config: Option<&YieldConfig>, env: &Env) -> (i128, u64) {
+        match yield_config {
+            Some(cfg) => {
+                let held_seconds = env.ledger().timestamp().saturating_sub(record.created_at);
+                let yield_amount = (record.amount * cfg.apr_bps as i128 * held_seconds as i128)
+                    / (10_000i128 * SECONDS_PER_YEAR);
+                (yield_amount, held_seconds)
+            }
+            None => (0, 0),
+        }
     }
 
     fn release_block_reason(env: Env, record: &EscrowRecord) -> Option<Symbol> {

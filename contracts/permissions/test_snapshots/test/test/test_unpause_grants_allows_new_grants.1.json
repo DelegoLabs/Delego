@@ -352,6 +352,18 @@
                     },
                     {
                       "key": {
+                        "symbol": "parent_delegate"
+                      },
+                      "val": "void"
+                    },
+                    {
+                      "key": {
+                        "symbol": "parent_owner"
+                      },
+                      "val": "void"
+                    },
+                    {
+                      "key": {
                         "symbol": "spent"
                       },
                       "val": {
