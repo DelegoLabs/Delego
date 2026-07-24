@@ -43,6 +43,8 @@ pub enum PermissionError {
     GrantsPaused = 11,
     /// Owner and delegate cannot be the same address
     SelfDelegationNotAllowed = 401,
+    /// Admin has not configured an inactivity threshold yet
+    InactivityThresholdNotSet = 12,
 }
 
 #[contracttype]
@@ -238,6 +240,18 @@ pub struct PermissionMetadata {
     pub schema: Symbol,
 }
 
+/// Immutable, append-only audit log entry recording a permission state
+/// transition (issue #359). Entries are never modified or removed once
+/// written — only `append_audit_log` (private) writes to this storage, and
+/// it only ever appends.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuditLogEntry {
+    pub timestamp: u64,
+    pub actor: Address,
+    pub action: Symbol,
+}
+
 /// Read-only view of the merchant restriction configured under a delegation
 /// permission. `None` when the delegation pair has no permission record or
 /// the whitelist is empty.
@@ -259,6 +273,10 @@ pub enum DataKey {
     Metadata(Address, Address),
     /// Instance-level flag: when true, grant() allows owner == delegate.
     AllowSelfDelegation,
+    /// Admin-configured inactivity threshold (seconds) used by `sweep_inactive`.
+    InactivityThreshold,
+    /// Append-only audit log of state transitions for a delegation pair.
+    AuditLog(Address, Address),
 }
 
 #[contract]
@@ -338,11 +356,13 @@ impl PermissionsContract {
          env.events().publish(
             (symbol_short!("perm"), symbol_short!("merc_list")),
             MerchantWhitelistChangedEvent {
-                owner,
-                delegate,
+                owner: owner.clone(),
+                delegate: delegate.clone(),
                 merchant_count: allowed_merchants.len(),
             },
         );
+
+        Self::append_audit_log(&env, &owner, &delegate, owner.clone(), symbol_short!("granted"));
 
         Ok(())
     }
@@ -364,8 +384,13 @@ impl PermissionsContract {
 
             env.events().publish(
                 (symbol_short!("perm"), symbol_short!("revoked")),
-                PermissionRevokedEvent { owner, delegate },
+                PermissionRevokedEvent {
+                    owner: owner.clone(),
+                    delegate: delegate.clone(),
+                },
             );
+
+            Self::append_audit_log(&env, &owner, &delegate, owner.clone(), symbol_short!("revoked"));
 
             Ok(())
         } else {
@@ -696,6 +721,8 @@ impl PermissionsContract {
             },
         );
 
+        Self::append_audit_log(&env, &owner, &delegate, owner.clone(), symbol_short!("paused"));
+
         Ok(())
     }
 
@@ -719,10 +746,12 @@ impl PermissionsContract {
             (symbol_short!("perm"), symbol_short!("resumed")),
             PermissionResumedEvent {
                 owner: owner.clone(),
-                delegate,
-                resumed_by: owner,
+                delegate: delegate.clone(),
+                resumed_by: owner.clone(),
             },
         );
+
+        Self::append_audit_log(&env, &owner, &delegate, owner.clone(), symbol_short!("resumed"));
 
         Ok(())
     }
@@ -812,6 +841,100 @@ impl PermissionsContract {
                 grants_paused: false,
                 updated_at_ledger: 0,
             })
+    }
+
+    /// Configure the inactivity threshold (in seconds) used by `sweep_inactive`.
+    /// Admin-only (issue #338).
+    pub fn set_inactivity_threshold(
+        env: Env,
+        admin: Address,
+        threshold_seconds: u64,
+    ) -> Result<(), PermissionError> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+        if admin != stored_admin {
+            return Err(PermissionError::Unauthorized);
+        }
+        if threshold_seconds == 0 {
+            return Err(PermissionError::InvalidParam);
+        }
+        env.storage()
+            .instance()
+            .set(&DataKey::InactivityThreshold, &threshold_seconds);
+        Ok(())
+    }
+
+    /// Read the currently configured inactivity threshold (seconds). Returns
+    /// `0` when the admin has not configured one yet.
+    pub fn get_inactivity_threshold(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&DataKey::InactivityThreshold)
+            .unwrap_or(0)
+    }
+
+    /// Auto-revoke a permission that has never been spent against and has sat
+    /// idle past the configured inactivity threshold (issue #338).
+    ///
+    /// Reclaims on-chain storage from grants that were created but never
+    /// used. Callable by anyone — the eligibility rules (zero spend, elapsed
+    /// threshold, still `Active`) are the sole gate, not caller identity.
+    ///
+    /// Returns `Ok(true)` when the permission was revoked, `Ok(false)` when
+    /// it exists but is not (yet) eligible (has spend, isn't `Active`, or the
+    /// threshold hasn't elapsed). Returns `Err(NotFound)` when no permission
+    /// exists for the pair, and `Err(InactivityThresholdNotSet)` when the
+    /// admin has not configured a threshold.
+    pub fn sweep_inactive(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+        caller: Address,
+    ) -> Result<bool, PermissionError> {
+        caller.require_auth();
+
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
+        let mut record: PermissionRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(PermissionError::NotFound)?;
+
+        if record.status != PermissionStatus::Active || record.spent != 0 {
+            return Ok(false);
+        }
+
+        let threshold = Self::get_inactivity_threshold(env.clone());
+        if threshold == 0 {
+            return Err(PermissionError::InactivityThresholdNotSet);
+        }
+
+        let inactive_since = record.created_at + threshold;
+        if env.ledger().timestamp() < inactive_since {
+            return Ok(false);
+        }
+
+        record.status = PermissionStatus::Revoked;
+        env.storage().persistent().set(&key, &record);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::PendingDecrement(owner.clone(), delegate.clone()));
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("autorevk")),
+            PermissionRevokedEvent {
+                owner: owner.clone(),
+                delegate: delegate.clone(),
+            },
+        );
+
+        Self::append_audit_log(&env, &owner, &delegate, caller, symbol_short!("autorevk"));
+
+        Ok(true)
     }
 
     /// Returns contract name and semantic version for deployment verification (issue #103).
@@ -937,6 +1060,33 @@ impl PermissionsContract {
             expires_at_ledger: record.expires_at_ledger,
             active,
         })
+    }
+
+    /// Returns the full, chronologically-ordered audit trail for a delegation
+    /// pair (issue #359). Empty when no state transitions have occurred yet.
+    pub fn get_audit_log(env: Env, owner: Address, delegate: Address) -> Vec<AuditLogEntry> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::AuditLog(owner, delegate))
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Appends an entry to a delegation pair's audit log. Private and
+    /// append-only: no public function ever modifies or removes an existing
+    /// entry, so the log is immutable once written.
+    fn append_audit_log(env: &Env, owner: &Address, delegate: &Address, actor: Address, action: Symbol) {
+        let key = DataKey::AuditLog(owner.clone(), delegate.clone());
+        let mut log: Vec<AuditLogEntry> = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| Vec::new(env));
+        log.push_back(AuditLogEntry {
+            timestamp: env.ledger().timestamp(),
+            actor,
+            action,
+        });
+        env.storage().persistent().set(&key, &log);
     }
 }
 

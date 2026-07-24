@@ -4,7 +4,8 @@
 
 #![no_std]
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol,
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
+    InvokeError, Symbol,
 };
 
 #[contracttype]
@@ -46,6 +47,7 @@ pub struct EscrowRecord {
     pub token: Address,
     pub amount: i128,
     pub released_amount: i128,
+    pub refunded_amount: i128,
     pub status: EscrowStatus,
     pub order_id: BytesN<32>,
     pub created_at: u64,
@@ -58,6 +60,27 @@ pub struct PartialReleaseResult {
     pub released: i128,
     pub remaining: i128,
     pub fully_released: bool,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PartialRefundResult {
+    pub refunded: i128,
+    pub remaining: i128,
+    pub fully_refunded: bool,
+}
+
+/// Configured external condition that gates release of an escrow via
+/// `evaluate_and_release` (issue #339).
+///
+/// `oracle_contract` must expose a `resolve(condition_type: Symbol) -> bool`
+/// function. `evaluate_and_release` calls it and only releases funds when it
+/// returns `true`.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReleaseCondition {
+    pub condition_type: Symbol,
+    pub oracle_contract: Address,
 }
 
 #[contracttype]
@@ -107,7 +130,16 @@ pub struct EscrowRefundedEvent {
     pub escrow_id: u64,
     pub buyer: Address,
     pub amount: i128,
+    pub remaining: i128,
     pub refunded_by: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct ReleaseConditionSetEvent {
+    pub escrow_id: u64,
+    pub condition_type: Symbol,
+    pub oracle_contract: Address,
 }
 
 #[contracttype]
@@ -238,6 +270,7 @@ pub enum DataKey {
     TokenEnabled(Address),
     PauseState,
     EscrowMetadata(u64),
+    ReleaseCondition(u64),
 }
 
 #[contracterror]
@@ -302,6 +335,12 @@ pub enum EscrowError {
     AlreadyCancelled = 27,
     /// Escrow has already been funded
     AlreadyFunded = 28,
+    /// No release condition has been configured for this escrow
+    ReleaseConditionNotSet = 29,
+    /// The oracle contract call failed, trapped, or returned an unexpected value
+    OracleCallFailed = 30,
+    /// The configured release condition has not been satisfied
+    ConditionNotMet = 31,
 }
 
 /// Compact receipt returned to buyers after escrow creation via `get_receipt`.
@@ -819,6 +858,7 @@ impl EscrowContract {
             token: token.clone(),
             amount,
             released_amount: 0,
+            refunded_amount: 0,
             status: EscrowStatus::Created,
             order_id: order_id.clone(),
             created_at: env.ledger().timestamp(),
@@ -995,7 +1035,7 @@ impl EscrowContract {
         caller.require_auth();
 
         let key = DataKey::Escrow(escrow_id);
-        let mut record: EscrowRecord = match env.storage().persistent().get(&key) {
+        let record: EscrowRecord = match env.storage().persistent().get(&key) {
             Some(rec) => rec,
             None => return Err(EscrowError::NotFound),
         };
@@ -1010,6 +1050,21 @@ impl EscrowContract {
             return Err(EscrowError::InvalidStatus);
         }
         Self::validate_release_status(&record)?;
+
+        Self::execute_release(&env, escrow_id, &key, record, caller, release_amount)
+    }
+
+    /// Shared release logic used by both `partial_release` and
+    /// `evaluate_and_release`. Callers are responsible for their own
+    /// authorization checks before invoking this.
+    fn execute_release(
+        env: &Env,
+        escrow_id: u64,
+        key: &DataKey,
+        mut record: EscrowRecord,
+        caller: Address,
+        release_amount: i128,
+    ) -> Result<PartialReleaseResult, EscrowError> {
         if release_amount <= 0 {
             return Err(EscrowError::ZeroAmount);
         }
@@ -1019,7 +1074,7 @@ impl EscrowContract {
             return Err(EscrowError::InsufficientEscrowBalance);
         }
 
-        let token_client = soroban_sdk::token::Client::new(&env, &record.token);
+        let token_client = soroban_sdk::token::Client::new(env, &record.token);
         token_client.transfer(
             &env.current_contract_address(),
             &record.seller,
@@ -1033,7 +1088,7 @@ impl EscrowContract {
             record.status = EscrowStatus::Released;
         }
 
-        env.storage().persistent().set(&key, &record);
+        env.storage().persistent().set(key, &record);
 
         env.events().publish(
             (symbol_short!("escrow"), symbol_short!("released")),
@@ -1076,7 +1131,30 @@ impl EscrowContract {
 
     /// Refund escrowed funds to the buyer.
     /// Seller or admin may refund at any time; the buyer may refund after timeout.
+    /// Refunds the full remaining (unreleased, unrefunded) balance.
     pub fn refund(env: Env, escrow_id: u64, caller: Address) -> Result<bool, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        let remaining = record.amount - record.released_amount - record.refunded_amount;
+        Self::partial_refund(env, escrow_id, caller, remaining)?;
+        Ok(true)
+    }
+
+    /// Refund a partial amount to the buyer.
+    /// `refund_amount` must be <= (record.amount - record.released_amount - record.refunded_amount).
+    /// Status remains `Funded` unless the refund exhausts the remaining balance, in
+    /// which case status becomes `Refunded`.
+    /// Seller or admin may refund at any time; the buyer may refund after timeout.
+    pub fn partial_refund(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+        refund_amount: i128,
+    ) -> Result<PartialRefundResult, EscrowError> {
         caller.require_auth();
 
         let key = DataKey::Escrow(escrow_id);
@@ -1103,7 +1181,14 @@ impl EscrowContract {
             return Err(EscrowError::Unauthorized);
         }
 
-        let refund_amount = record.amount - record.released_amount;
+        if refund_amount <= 0 {
+            return Err(EscrowError::ZeroAmount);
+        }
+
+        let remaining = record.amount - record.released_amount - record.refunded_amount;
+        if refund_amount > remaining {
+            return Err(EscrowError::InsufficientEscrowBalance);
+        }
 
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
         token_client.transfer(
@@ -1112,7 +1197,13 @@ impl EscrowContract {
             &refund_amount,
         );
 
-        record.status = EscrowStatus::Refunded;
+        record.refunded_amount += refund_amount;
+        let new_remaining = record.amount - record.released_amount - record.refunded_amount;
+        let fully_refunded = new_remaining == 0;
+        if fully_refunded {
+            record.status = EscrowStatus::Refunded;
+        }
+
         env.storage().persistent().set(&key, &record);
 
         env.events().publish(
@@ -1121,11 +1212,128 @@ impl EscrowContract {
                 escrow_id,
                 buyer: record.buyer.clone(),
                 amount: refund_amount,
+                remaining: new_remaining,
                 refunded_by: caller,
             },
         );
 
+        Ok(PartialRefundResult {
+            refunded: refund_amount,
+            remaining: new_remaining,
+            fully_refunded,
+        })
+    }
+
+    /// Configure a conditional release for an escrow, gated on an external oracle
+    /// contract (issue #339). Callable by the buyer, seller, or admin while the
+    /// escrow is not in a terminal state.
+    ///
+    /// `oracle_contract` must implement `resolve(condition_type: Symbol) -> bool`.
+    /// `evaluate_and_release` calls this function and releases funds to the
+    /// seller only when it returns `true`.
+    pub fn set_release_condition(
+        env: Env,
+        caller: Address,
+        escrow_id: u64,
+        condition_type: Symbol,
+        oracle_contract: Address,
+    ) -> Result<bool, EscrowError> {
+        caller.require_auth();
+
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        if caller != record.buyer
+            && caller != record.seller
+            && !Self::is_admin(env.clone(), caller.clone())
+        {
+            return Err(EscrowError::Unauthorized);
+        }
+
+        check_not_terminal(&record)?;
+
+        env.storage().persistent().set(
+            &DataKey::ReleaseCondition(escrow_id),
+            &ReleaseCondition {
+                condition_type: condition_type.clone(),
+                oracle_contract: oracle_contract.clone(),
+            },
+        );
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("condset")),
+            ReleaseConditionSetEvent {
+                escrow_id,
+                condition_type,
+                oracle_contract,
+            },
+        );
+
         Ok(true)
+    }
+
+    /// Read-only getter for the release condition configured on an escrow.
+    pub fn get_release_condition(env: Env, escrow_id: u64) -> Result<ReleaseCondition, EscrowError> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::ReleaseCondition(escrow_id))
+            .ok_or(EscrowError::ReleaseConditionNotSet)
+    }
+
+    /// Query the configured oracle and release the full remaining balance to the
+    /// seller if the condition it reports is met (issue #339).
+    ///
+    /// Any caller may trigger evaluation once a condition has been configured via
+    /// `set_release_condition` — authorization to move funds comes from the
+    /// oracle's answer, not from the caller's identity. The oracle call is made
+    /// via `try_invoke_contract` so a missing contract, a wrong/missing
+    /// `resolve` function, or a panic inside the oracle all surface as
+    /// `EscrowError::OracleCallFailed` instead of aborting this transaction.
+    pub fn evaluate_and_release(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+    ) -> Result<PartialReleaseResult, EscrowError> {
+        caller.require_auth();
+
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        check_not_terminal(&record)?;
+        if record.status != EscrowStatus::Funded {
+            return Err(EscrowError::InvalidStatus);
+        }
+
+        let condition: ReleaseCondition = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ReleaseCondition(escrow_id))
+            .ok_or(EscrowError::ReleaseConditionNotSet)?;
+
+        let args = soroban_sdk::vec![&env, condition.condition_type.to_val()];
+        let call_result = env.try_invoke_contract::<bool, InvokeError>(
+            &condition.oracle_contract,
+            &symbol_short!("resolve"),
+            args,
+        );
+
+        let condition_met = match call_result {
+            Ok(Ok(met)) => met,
+            _ => return Err(EscrowError::OracleCallFailed),
+        };
+
+        if !condition_met {
+            return Err(EscrowError::ConditionNotMet);
+        }
+
+        let remaining = record.amount - record.released_amount;
+        Self::execute_release(&env, escrow_id, &key, record, caller, remaining)
     }
 
     /// Mark the escrow as disputed. Only the buyer or seller may call.

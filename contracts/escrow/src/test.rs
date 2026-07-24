@@ -63,6 +63,8 @@ mod test {
         let key_pause: soroban_sdk::Val = DataKey::PauseState.into_val(&env);
         let key_metadata_0: soroban_sdk::Val = DataKey::EscrowMetadata(0u64).into_val(&env);
         let key_metadata_1: soroban_sdk::Val = DataKey::EscrowMetadata(1u64).into_val(&env);
+        let key_condition_0: soroban_sdk::Val = DataKey::ReleaseCondition(0u64).into_val(&env);
+        let key_condition_1: soroban_sdk::Val = DataKey::ReleaseCondition(1u64).into_val(&env);
 
         let all_keys: &[soroban_sdk::Val] = &[
             key_admin,
@@ -81,6 +83,8 @@ mod test {
             key_pause,
             key_metadata_0,
             key_metadata_1,
+            key_condition_0,
+            key_condition_1,
         ];
 
         // Assert every key is unique by comparing raw val representations
