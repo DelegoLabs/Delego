@@ -1,6 +1,7 @@
 import type { IncomingMessage } from "node:http";
 import { route, json, isValidStellarPublicKey, validatePublicKeyMiddleware, type Route } from "@delego/utils";
 import { accountService } from "../stellar/account.js";
+import { mergeAccount, previewMerge } from "../stellar/recovery.js";
 import { transactionService } from "../transactions/index.js";
 import { vaultService } from "./vault.js";
 import type { StellarNetwork } from "@delego/types";
@@ -204,6 +205,91 @@ export function registerRoutes(): Route[] {
         json(res, 400, {
           data: null,
           error: { code: "SUBMISSION_FAILED", message: err.message },
+        });
+      }
+    }),
+
+    // Merge (recover) deprecated account into destination
+    route("POST", "/api/v1/wallet/merge", async (req, res) => {
+      try {
+        const body = await readJsonBody<{
+          sourceAddress: string;
+          destinationAddress: string;
+          network?: StellarNetwork;
+        }>(req);
+
+        if (!body.sourceAddress || !body.destinationAddress) {
+          json(res, 400, {
+            data: null,
+            error: { code: "BAD_REQUEST", message: "sourceAddress and destinationAddress are required" },
+          });
+          return;
+        }
+        if (!isValidStellarPublicKey(body.sourceAddress)) {
+          json(res, 400, {
+            data: null,
+            error: { code: "BAD_REQUEST", message: "Invalid source Stellar address format" },
+          });
+          return;
+        }
+        if (!isValidStellarPublicKey(body.destinationAddress)) {
+          json(res, 400, {
+            data: null,
+            error: { code: "BAD_REQUEST", message: "Invalid destination Stellar address format" },
+          });
+          return;
+        }
+
+        const result = await mergeAccount({
+          sourceAddress: body.sourceAddress,
+          destinationAddress: body.destinationAddress,
+          network: body.network,
+        });
+
+        json(res, 200, { data: result, error: null });
+      } catch (err: any) {
+        log.error("POST merge account error", { error: err.message });
+        json(res, 400, {
+          data: null,
+          error: { code: "MERGE_FAILED", message: err.message },
+        });
+      }
+    }),
+
+    // Preview merge amount without executing
+    route("POST", "/api/v1/wallet/merge/preview", async (req, res) => {
+      try {
+        const body = await readJsonBody<{
+          sourceAddress: string;
+          network?: StellarNetwork;
+        }>(req);
+
+        if (!body.sourceAddress) {
+          json(res, 400, {
+            data: null,
+            error: { code: "BAD_REQUEST", message: "sourceAddress is required" },
+          });
+          return;
+        }
+        if (!isValidStellarPublicKey(body.sourceAddress)) {
+          json(res, 400, {
+            data: null,
+            error: { code: "BAD_REQUEST", message: "Invalid Stellar address format" },
+          });
+          return;
+        }
+
+        const preview = await previewMerge({
+          sourceAddress: body.sourceAddress,
+          network: body.network,
+        });
+
+        json(res, 200, { data: preview, error: null });
+      } catch (err: any) {
+        log.error("POST merge preview error", { error: err.message });
+        json(res, 400, {
+          data: null,
+          error: { code: "PREVIEW_FAILED", message: err.message },
         });
       }
     }),
