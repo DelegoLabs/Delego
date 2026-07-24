@@ -51,8 +51,14 @@ export function mapSimulationResult(
 
     if (response.transactionData) {
       try {
-        const data = response.transactionData.build();
-        result.footprint = data.toXDR().toString("base64");
+        const txData = response.transactionData as any;
+        if (typeof txData.build === "function") {
+          result.footprint = txData.build().toXDR().toString("base64");
+        } else if (typeof txData.toXDR === "function") {
+          result.footprint = txData.toXDR().toString("base64");
+        } else if (typeof txData === "string") {
+          result.footprint = txData;
+        }
       } catch {
         // footprint extraction failed — leave unset
       }
@@ -106,11 +112,12 @@ export class SorobanTransactionSimulator {
     simulationResponse: SimulateTransactionResponse
   ): any {
     if (SorobanRpc.Api.isSimulationSuccess(simulationResponse) && simulationResponse.transactionData) {
-      const sorobanTransactionData = simulationResponse.transactionData.build();
-      const resources = sorobanTransactionData.resources();
+      const txData = simulationResponse.transactionData as any;
+      const sorobanTransactionData = typeof txData.build === "function" ? txData.build() : txData;
+      const resources = sorobanTransactionData.resources ? sorobanTransactionData.resources() : undefined;
       return {
-        cpu: resources.instructions().toString(),
-        memory: resources.writeBytes().toString(),
+        cpu: resources?.instructions ? resources.instructions().toString() : "0",
+        memory: resources?.writeBytes ? resources.writeBytes().toString() : "0",
       };
     }
     return {};

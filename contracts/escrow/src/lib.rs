@@ -10,10 +10,12 @@ use soroban_sdk::{
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EscrowStatus {
+    Created,
     Funded,
     Released,
     Refunded,
     Disputed,
+    Cancelled,
 }
 
 #[contracttype]
@@ -29,6 +31,7 @@ impl EscrowTerminalState {
         match status {
             EscrowStatus::Released => Some(EscrowTerminalState::Released),
             EscrowStatus::Refunded => Some(EscrowTerminalState::Refunded),
+            EscrowStatus::Cancelled => Some(EscrowTerminalState::Cancelled),
             _ => None,
         }
     }
@@ -79,6 +82,14 @@ pub struct EscrowMetadataEvent {
     pub escrow_id: BytesN<32>,
     pub order_hash: BytesN<32>,
     pub schema: Symbol,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowCancelledEvent {
+    pub escrow_id: BytesN<32>,
+    pub cancelled_by: Address,
+    pub reason: Symbol,
 }
 
 #[contracttype]
@@ -287,6 +298,10 @@ pub enum EscrowError {
     InvalidReleaseRecipient = 201,
     /// New escrow creation is currently paused by admin
     CreationPaused = 26,
+    /// Escrow has already been cancelled
+    AlreadyCancelled = 27,
+    /// Escrow has already been funded
+    AlreadyFunded = 28,
 }
 
 /// Compact receipt returned to buyers after escrow creation via `get_receipt`.
@@ -371,6 +386,7 @@ fn check_not_terminal(record: &EscrowRecord) -> Result<(), EscrowError> {
     match record.status {
         EscrowStatus::Released => Err(EscrowError::AlreadyReleased),
         EscrowStatus::Refunded => Err(EscrowError::AlreadyRefunded),
+        EscrowStatus::Cancelled => Err(EscrowError::AlreadyCancelled),
         _ => Ok(()),
     }
 }
@@ -739,11 +755,11 @@ impl EscrowContract {
             .unwrap_or_else(|| soroban_sdk::Vec::new(&env))
     }
 
-    /// Deposit funds into escrow for an order.
+    /// Create an escrow in unfunded `Created` status.
     ///
     /// Optional metadata parameters (order_hash and schema) can be provided to store
     /// a hash of off-chain order details for later verification.
-    pub fn deposit(
+    pub fn create(
         env: Env,
         buyer: Address,
         seller: Address,
@@ -785,9 +801,6 @@ impl EscrowContract {
             return Err(EscrowError::AmountAboveMax);
         }
 
-        let token_client = soroban_sdk::token::Client::new(&env, &token);
-        token_client.transfer(&buyer, &env.current_contract_address(), &amount);
-
         let mut last_id: u64 = env
             .storage()
             .instance()
@@ -806,7 +819,7 @@ impl EscrowContract {
             token: token.clone(),
             amount,
             released_amount: 0,
-            status: EscrowStatus::Funded,
+            status: EscrowStatus::Created,
             order_id: order_id.clone(),
             created_at: env.ledger().timestamp(),
             timeout_ledger,
@@ -816,9 +829,6 @@ impl EscrowContract {
             .persistent()
             .set(&DataKey::Escrow(last_id), &record);
 
-        // Store optional metadata if both order_hash and schema are provided,
-        // and emit EscrowMetadataEvent so indexers can link contract state to
-        // off-chain order records (issue #175).
         if let (Some(hash), Some(sch)) = (order_hash, schema) {
             let metadata = EscrowMetadata {
                 order_hash: hash.clone(),
@@ -852,6 +862,125 @@ impl EscrowContract {
         );
 
         Ok(last_id)
+    }
+
+    /// Fund an existing escrow that is in `Created` status.
+    pub fn fund(env: Env, escrow_id: u64, buyer: Address) -> Result<bool, EscrowError> {
+        buyer.require_auth();
+
+        let key = DataKey::Escrow(escrow_id);
+        let mut record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        if buyer != record.buyer {
+            return Err(EscrowError::Unauthorized);
+        }
+
+        if record.status == EscrowStatus::Funded {
+            return Err(EscrowError::AlreadyFunded);
+        }
+
+        if record.status == EscrowStatus::Cancelled {
+            return Err(EscrowError::AlreadyCancelled);
+        }
+
+        if record.status != EscrowStatus::Created {
+            return Err(EscrowError::InvalidStatus);
+        }
+
+        let token_client = soroban_sdk::token::Client::new(&env, &record.token);
+        token_client.transfer(&buyer, &env.current_contract_address(), &record.amount);
+
+        record.status = EscrowStatus::Funded;
+        env.storage().persistent().set(&key, &record);
+
+        Ok(true)
+    }
+
+    /// Cancel an escrow that has been created but not yet funded.
+    /// Only the merchant (seller) may call.
+    pub fn cancel(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+        reason: Symbol,
+    ) -> Result<bool, EscrowError> {
+        caller.require_auth();
+
+        let key = DataKey::Escrow(escrow_id);
+        let mut record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        if caller != record.seller {
+            return Err(EscrowError::Unauthorized);
+        }
+
+        if record.status == EscrowStatus::Funded {
+            return Err(EscrowError::AlreadyFunded);
+        }
+
+        if record.status == EscrowStatus::Cancelled {
+            return Err(EscrowError::AlreadyCancelled);
+        }
+
+        if record.status != EscrowStatus::Created {
+            return Err(EscrowError::InvalidStatus);
+        }
+
+        record.status = EscrowStatus::Cancelled;
+        env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("cancelled")),
+            EscrowCancelledEvent {
+                escrow_id: record.order_id.clone(),
+                cancelled_by: caller,
+                reason,
+            },
+        );
+
+        Ok(true)
+    }
+
+    /// Deposit funds into escrow for an order.
+    /// Combined convenience call: creates an escrow and immediately funds it.
+    pub fn deposit(
+        env: Env,
+        buyer: Address,
+        seller: Address,
+        token: Address,
+        amount: i128,
+        order_id: BytesN<32>,
+        timeout_ledgers: u32,
+        order_hash: Option<BytesN<32>>,
+        schema: Option<Symbol>,
+    ) -> Result<u64, EscrowError> {
+        let escrow_id = Self::create(
+            env.clone(),
+            buyer.clone(),
+            seller,
+            token.clone(),
+            amount,
+            order_id,
+            timeout_ledgers,
+            order_hash,
+            schema,
+        )?;
+
+        let key = DataKey::Escrow(escrow_id);
+        let mut record: EscrowRecord = env.storage().persistent().get(&key).unwrap();
+
+        let token_client = soroban_sdk::token::Client::new(&env, &token);
+        token_client.transfer(&buyer, &env.current_contract_address(), &amount);
+
+        record.status = EscrowStatus::Funded;
+        env.storage().persistent().set(&key, &record);
+
+        Ok(escrow_id)
     }
 
     /// Release a partial amount to the seller.
@@ -1437,6 +1566,20 @@ impl EscrowContract {
                 reason: symbol_short!("refunded"),
             };
         }
+        if record.status == EscrowStatus::Cancelled {
+            return RefundEligibility {
+                escrow_id,
+                eligible: false,
+                reason: symbol_short!("cancelled"),
+            };
+        }
+        if record.status == EscrowStatus::Created {
+            return RefundEligibility {
+                escrow_id,
+                eligible: false,
+                reason: symbol_short!("unfunded"),
+            };
+        }
         if record.status == EscrowStatus::Disputed {
             return RefundEligibility {
                 escrow_id,
@@ -1543,9 +1686,11 @@ impl EscrowContract {
                     None
                 }
             }
+            EscrowStatus::Created => Some(symbol_short!("unfunded")),
             EscrowStatus::Released => Some(symbol_short!("released")),
             EscrowStatus::Refunded => Some(symbol_short!("refunded")),
             EscrowStatus::Disputed => Some(symbol_short!("disputed")),
+            EscrowStatus::Cancelled => Some(symbol_short!("cancelled")),
         }
     }
 

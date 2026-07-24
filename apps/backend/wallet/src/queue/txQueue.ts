@@ -20,6 +20,7 @@ import {
   classifySubmissionFailure,
   type SubmissionFailure,
 } from "./submissionFailure.js";
+import { SorobanTransactionSimulator, readSorobanRpcConfig } from "../sorobanSimulator.js";
 
 export { classifySubmissionFailure, type SubmissionFailure } from "./submissionFailure.js";
 
@@ -444,13 +445,34 @@ async function executeTxJob(
       .setTimeout(30)
       .build();
 
-    // 5. Simulate to construct Soroban footprint details
-    log.info("Simulating transaction to estimate gas and footprint...");
-    const simRes = await rpcServer.simulateTransaction(tx);
+    // 5. Simulate to construct Soroban footprint details using SorobanTransactionSimulator
+    const simulatorConfig = readSorobanRpcConfig();
+    const simulator = new SorobanTransactionSimulator(simulatorConfig);
+    
+    log.info("Simulating transaction to estimate gas and footprint...", {
+      rpcUrl: simulatorConfig.rpcUrl,
+      timeoutMs: simulatorConfig.timeoutMs,
+      maxRetries: simulatorConfig.maxRetries
+    });
+    
+    const simRes = await simulator.simulateTransaction(tx);
 
     if (!rpc.Api.isSimulationSuccess(simRes)) {
-      throw new Error(`Transaction simulation failed: ${JSON.stringify(simRes)}`);
+      const failureReasons = simulator.detectFailureReasons(simRes);
+      log.error("Transaction simulation failed", {
+        reasons: failureReasons,
+        error: simRes.error || "Unknown error"
+      });
+      throw new Error(`Transaction simulation failed: ${failureReasons.join(", ") || JSON.stringify(simRes)}`);
     }
+
+    // Log simulation success details for debugging
+    const feeEstimates = simulator.extractFeeEstimates(simRes);
+    log.info("Transaction simulation succeeded", {
+      minResourceFee: simRes.minResourceFee,
+      cpuInstructions: feeEstimates.cpu,
+      memoryBytes: feeEstimates.memory
+    });
 
     // 6. Assemble transaction with footprints and sign
     tx = rpc.assembleTransaction(tx, simRes).build();
@@ -787,3 +809,11 @@ export async function closeQueue() {
     redisClient = null;
   }
 }
+
+export {
+  submitTransactionBatch,
+  estimateBatchGas,
+  type BatchGasEstimate,
+  type BatchSubmissionResult,
+} from "../batchSubmitter.js";
+

@@ -12,6 +12,10 @@
  */
 
 import { assertValidSnapshot, SNAPSHOT_VERSION } from "./snapshot-validator.js";
+import {
+  recordWorkflowEvent,
+  getWorkflowEventStore,
+} from "../src/events/eventStore.js";
 import type {
   PurchaseContext,
   PurchaseEvent,
@@ -139,6 +143,35 @@ export class PurchaseWorkflowMachine {
     return machine;
   }
 
+  /**
+   * Replay events from the event store to reconstruct the current state.
+   * This provides complete state reconstruction without requiring a snapshot.
+   *
+   * @param workflowId - The workflow ID to replay events for.
+   * @param initialContext - The initial context used when the workflow was created.
+   * @param onTransition - Optional hook called on each transition.
+   */
+  static async fromEventReplay(
+    workflowId: string,
+    initialContext: Pick<PurchaseContext, "workflowId" | "delegationId" | "userId">,
+    onTransition?: TransitionHook
+  ): Promise<PurchaseWorkflowMachine> {
+    const store = getWorkflowEventStore();
+    const events = await store.getEvents(workflowId);
+
+    if (events.length === 0) {
+      throw new Error(`No events found for workflow ${workflowId}`);
+    }
+
+    const machine = new PurchaseWorkflowMachine(initialContext, onTransition);
+
+    for (const event of events) {
+      await machine.send(event.payload as PurchaseEvent);
+    }
+
+    return machine;
+  }
+
   get currentState(): PurchaseState {
     return this.snapshot.currentState;
   }
@@ -187,6 +220,28 @@ export class PurchaseWorkflowMachine {
 
     if (this.onTransition) {
       await this.onTransition(record);
+    }
+
+    // Event sourcing: record every transition to the event store
+    try {
+      await recordWorkflowEvent({
+        workflowId: this.snapshot.workflowId,
+        eventType: event.type,
+        payload: event,
+        fromState: record.fromState,
+        toState: record.toState,
+        metadata: {
+          snapshotVersion: this.snapshot.version,
+        },
+      });
+    } catch (err: any) {
+      // Event recording is best-effort; don't fail the transition
+      // but log a warning for observability.
+      console.warn("Failed to record workflow event", {
+        workflowId: this.snapshot.workflowId,
+        eventType: event.type,
+        error: err.message,
+      });
     }
 
     return this.getSnapshot();

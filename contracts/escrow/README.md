@@ -8,7 +8,10 @@ Soroban smart contract for holding purchase funds until fulfillment.
 |---|---|---|
 | `initialize` | — | Set admin, fee config, and amount limits |
 | `version` | — | Return contract name and semver |
-| `deposit` | buyer | Lock buyer funds for an order |
+| `create` | — | Create an unfunded escrow record in `Created` status |
+| `fund` | buyer | Fund an existing `Created` escrow |
+| `cancel` | seller (merchant) | Cancel an unfunded `Created` escrow |
+| `deposit` | buyer | Lock buyer funds for an order (convenience `create` + `fund`) |
 | `release` | buyer / admin | Transfer full remaining balance to seller |
 | `partial_release` | buyer / admin | Transfer a partial amount to seller |
 | `refund` | seller / admin / buyer (after timeout) | Return funds to buyer |
@@ -81,12 +84,40 @@ pub struct EscrowTimeoutView {
 storage) and `env.ledger().sequence()`. No new keys, migrations, or environment
 variables are required.
 
+## Merchant Cancellation
+
+Merchants (sellers) may cancel an escrow that has been created but not yet funded (`status == Created`).
+Cancellation transitions the escrow to `EscrowStatus::Cancelled` (a terminal state) and emits `EscrowCancelledEvent`.
+
+```rust
+pub fn cancel(env: Env, escrow_id: u64, caller: Address, reason: Symbol) -> Result<bool, EscrowError>
+```
+
+### `EscrowCancelledEvent`
+
+```rust
+pub struct EscrowCancelledEvent {
+    pub escrow_id: BytesN<32>,   // 32-byte order id
+    pub cancelled_by: Address,   // merchant address
+    pub reason: Symbol,         // short cancellation reason symbol
+}
+```
+
+### Errors
+
+| Code | Meaning |
+|---|---|
+| `EscrowError::AlreadyFunded` (28) | Cannot cancel an escrow after funds are locked |
+| `EscrowError::AlreadyCancelled` (27) | Escrow has already been cancelled |
+| `EscrowError::Unauthorized` (3) | Caller is not the merchant (`seller`) |
+
 ## Events
 
 | Topic tuple | Payload struct | Emitted by |
 |---|---|---|
-| `("escrow", "created")` | `EscrowCreatedEvent` | `deposit` |
-| `("escrow", "metadata")` | `EscrowMetadataEvent` | `deposit` (when metadata supplied) |
+| `("escrow", "created")` | `EscrowCreatedEvent` | `create` / `deposit` |
+| `("escrow", "metadata")` | `EscrowMetadataEvent` | `create` / `deposit` (when metadata supplied) |
+| `("escrow", "cancelled")` | `EscrowCancelledEvent` | `cancel` |
 | `("escrow", "released")` | `EscrowReleasedEvent` | `partial_release` / `release` |
 | `("escrow", "refunded")` | `EscrowRefundedEvent` | `refund` |
 | `("escrow", "disputed")` | `EscrowDisputedEvent` | `dispute` |

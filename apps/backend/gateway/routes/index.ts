@@ -17,6 +17,7 @@ import {
 } from "./delegations.js";
 import { getWalletHandler } from "./wallets.js";
 import { rateLimitMetricsHandler } from "./admin.js";
+import { swaggerHandler } from "../src/swagger.js";
 
 /** Register all gateway routes */
 export function registerRoutes(): Route[] {
@@ -35,5 +36,8 @@ export function registerRoutes(): Route[] {
     route("GET", "/api/v1/wallets/:walletId", getWalletHandler),
     // Admin — rate-limit dashboard (#340)
     route("GET", "/api/v1/admin/rate-limit/metrics", rateLimitMetricsHandler),
+    // Swagger UI (#352)
+    route("GET", "/api/docs", swaggerHandler),
+    route("GET", "/api/docs/openapi.json", swaggerHandler),
   ];
 }
