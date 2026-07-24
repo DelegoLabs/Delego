@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import { rpc as SorobanRpc } from "@stellar/stellar-sdk";
 import { createLogger } from "@delego/utils";
 import { getWalletUrl } from "./config.js";
+import { getEscrowCircuitBreaker, type CircuitBreakerStats } from "./circuitBreaker.js";
 
 const log = createLogger("payments:escrow:health", process.env.LOG_LEVEL ?? "info");
 
@@ -9,6 +10,7 @@ export interface PaymentsHealth {
   database: string;
   walletService: string;
   sorobanRpc: string;
+  circuitBreaker: CircuitBreakerStats;
   checkedAt: string;
 }
 
@@ -154,6 +156,7 @@ export async function getPaymentsHealth(
     database,
     walletService,
     sorobanRpc,
+    circuitBreaker: getEscrowCircuitBreaker().getStats(),
     checkedAt: new Date().toISOString(),
   };
 }
