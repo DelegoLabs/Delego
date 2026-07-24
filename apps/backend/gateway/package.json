@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
+    "@types/express": "^5.0.6",
     "@types/ioredis-mock": "^8.2.7",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.0.0",

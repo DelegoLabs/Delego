@@ -2,8 +2,6 @@
 import { 
   type UserNotificationPreferences, 
   type NotificationEventType,
-  type NotificationChannel,
-  shouldSendNotification,
   getEnabledChannels
 } from "./preferences.js";
 

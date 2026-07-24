@@ -135,7 +135,7 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
             xdr: xdr.ScVal.scvVoid().toXDR("base64")
           }
         ],
-        transactionData: validTransactionDataStr
+        transactionData: Object.assign(mockSorobanData, { build: () => mockSorobanData })
       };
     };
 
@@ -191,7 +191,7 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
             xdr: xdr.ScVal.scvVoid().toXDR("base64")
           }
         ],
-        transactionData: validTransactionDataStr
+        transactionData: Object.assign(mockSorobanData, { build: () => mockSorobanData })
       };
     };
 
@@ -258,7 +258,7 @@ describe("Wallet Transaction Queue & Sequence Sync", () => {
             xdr: xdr.ScVal.scvVoid().toXDR("base64")
           }
         ],
-        transactionData: validTransactionDataStr
+        transactionData: Object.assign(mockSorobanData, { build: () => mockSorobanData })
       };
     };
 

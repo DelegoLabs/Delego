@@ -10,7 +10,6 @@ import {
   replayWorkflowEvents,
   cleanupOldEvents,
   setWorkflowEventStore,
-  getWorkflowEventStore,
 } from "./eventStore.js";
 
 describe("WorkflowEventStore", () => {
@@ -47,7 +46,6 @@ describe("WorkflowEventStore", () => {
 
   describe("getEvents", () => {
     it("returns events ordered by recordedAt", async () => {
-      const now = new Date();
       await store.record(createWorkflowEventRecord({
         workflowId: "wf-1",
         eventType: "PRODUCT_FOUND",

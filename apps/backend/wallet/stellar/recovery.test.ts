@@ -8,7 +8,7 @@ import * as fs from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Keypair } from "@stellar/stellar-sdk";
 
-import { VaultService } from "../../src/vault.js";
+import { VaultService } from "../src/vault.js";
 import { mergeAccount, previewMerge } from "./recovery.js";
 
 let vaultPath: string;

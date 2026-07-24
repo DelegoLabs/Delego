@@ -51,7 +51,7 @@ const SWAGGER_UI_HTML = `<!DOCTYPE html>
 export function swaggerHandler(
   req: IncomingMessage,
   res: ServerResponse,
-  params: Record<string, string>
+  _params: Record<string, string>
 ): void {
   const url = req.url ?? "";
 
