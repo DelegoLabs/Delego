@@ -160,6 +160,24 @@ pub struct EscrowPauseState {
     pub updated_at_ledger: u32,
 }
 
+/// Emitted when the contract is upgraded to new wasm code (issue #325).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct ContractUpgradedEvent {
+    pub admin: Address,
+    pub previous_semver: Symbol,
+    pub new_wasm_hash: BytesN<32>,
+}
+
+/// Emitted when the multi-treasury fee distribution is updated (issue #327).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct FeeDistributionSetEvent {
+    pub admin: Address,
+    pub treasury_count: u32,
+    pub total_bps: u32,
+}
+
 /// Optional metadata hash stored on escrow creation for off-chain order verification.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -184,6 +202,17 @@ pub struct FeeConfig {
     pub fee_bps: u32,
     /// Address that receives the fee
     pub treasury: Address,
+}
+
+/// One treasury's share of the release fee, used by [`FeeConfig`]'s
+/// multi-treasury successor configured via `set_fee_distribution`.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TreasuryShare {
+    /// Address that receives this share of the fee
+    pub treasury: Address,
+    /// Share in basis points (e.g., 250 = 2.5%)
+    pub bps: u32,
 }
 
 #[contracttype]
@@ -238,6 +267,10 @@ pub enum DataKey {
     TokenEnabled(Address),
     PauseState,
     EscrowMetadata(u64),
+    /// Set to `true` the first time the contract is upgraded via `upgrade`.
+    MigrationFlag,
+    /// Optional multi-treasury fee split configured via `set_fee_distribution`.
+    FeeDistribution,
 }
 
 #[contracterror]
@@ -438,6 +471,51 @@ impl EscrowContract {
         }
     }
 
+    /// Read-only version check for backend services to call before
+    /// interacting with the contract (issue #325). Equivalent to `version`.
+    pub fn check_version(env: Env) -> ContractVersion {
+        Self::version(env)
+    }
+
+    /// Upgrade the contract to new wasm code. Admin-only.
+    ///
+    /// Persistent storage (escrows, admin list, fee config, …) is keyed by
+    /// contract instance and is unaffected by an upgrade — only the
+    /// executable code changes, so existing escrows remain functional
+    /// afterwards. Sets the migration flag and emits
+    /// [`ContractUpgradedEvent`] so backend services can detect the version
+    /// change.
+    pub fn upgrade(env: Env, admin: Address, new_wasm_hash: BytesN<32>) -> Result<bool, EscrowError> {
+        admin.require_auth();
+        if !Self::is_admin(env.clone(), admin.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+
+        let previous_semver = Self::version(env.clone()).semver;
+
+        env.storage().instance().set(&DataKey::MigrationFlag, &true);
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("upgraded")),
+            ContractUpgradedEvent {
+                admin,
+                previous_semver,
+                new_wasm_hash: new_wasm_hash.clone(),
+            },
+        );
+
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+
+        Ok(true)
+    }
+
+    /// Returns true once the contract has been upgraded at least once via `upgrade`.
+    pub fn is_migrated(env: Env) -> bool {
+        env.storage()
+            .instance()
+            .get(&DataKey::MigrationFlag)
+            .unwrap_or(false)
+    }
+
     /// Set the escrow amount limits. Admin-only.
     pub fn set_limits(
         env: Env,
@@ -619,15 +697,9 @@ impl EscrowContract {
 
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
         if release_to_seller {
-            let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
-            let fee_bps = fee_config.fee_bps as i128;
-            let fee = (record.amount / 10_000i128) * fee_bps
-                + ((record.amount % 10_000i128) * fee_bps) / 10_000i128;
+            let fee = Self::distribute_fee(&env, &token_client, record.amount);
             let seller_amount = record.amount - fee;
 
-            if fee > 0 {
-                token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
-            }
             token_client.transfer(
                 &env.current_contract_address(),
                 &record.seller,
@@ -677,6 +749,96 @@ impl EscrowContract {
     /// Get the current fee configuration.
     pub fn get_fee_config(env: Env) -> FeeConfig {
         env.storage().instance().get(&DataKey::FeeConfig).unwrap()
+    }
+
+    /// Configure the release fee to be split across multiple treasuries. Admin-only.
+    ///
+    /// The combined `bps` across all shares must not exceed 1000 (10%). Once
+    /// set, `resolve_dispute` and `resolve_dispute_quorum` pay each treasury
+    /// its configured share instead of the single treasury in `FeeConfig`.
+    /// Passing an empty vector reverts to the single-treasury `FeeConfig`.
+    pub fn set_fee_distribution(
+        env: Env,
+        admin: Address,
+        shares: soroban_sdk::Vec<TreasuryShare>,
+    ) -> Result<bool, EscrowError> {
+        admin.require_auth();
+        if !Self::is_admin(env.clone(), admin.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+
+        let mut total_bps: u32 = 0;
+        for share in shares.iter() {
+            total_bps = total_bps
+                .checked_add(share.bps)
+                .ok_or(EscrowError::InvalidFeeBps)?;
+        }
+        if total_bps > 1000 {
+            return Err(EscrowError::InvalidFeeBps);
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::FeeDistribution, &shares);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("feedist")),
+            FeeDistributionSetEvent {
+                admin,
+                treasury_count: shares.len(),
+                total_bps,
+            },
+        );
+
+        Ok(true)
+    }
+
+    /// Get the current multi-treasury fee distribution. Empty when unset
+    /// (i.e. the single-treasury `FeeConfig` is in effect).
+    pub fn get_fee_distribution(env: Env) -> soroban_sdk::Vec<TreasuryShare> {
+        env.storage()
+            .instance()
+            .get(&DataKey::FeeDistribution)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env))
+    }
+
+    /// Computes and transfers the release fee out of `amount`, splitting it
+    /// across the configured multi-treasury distribution when one is set,
+    /// falling back to the single-treasury `FeeConfig` otherwise. Returns
+    /// the total fee amount deducted.
+    fn distribute_fee(
+        env: &Env,
+        token_client: &soroban_sdk::token::Client,
+        amount: i128,
+    ) -> i128 {
+        let shares: soroban_sdk::Vec<TreasuryShare> = env
+            .storage()
+            .instance()
+            .get(&DataKey::FeeDistribution)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(env));
+
+        if shares.len() > 0 {
+            let mut total_fee: i128 = 0;
+            for share in shares.iter() {
+                let bps = share.bps as i128;
+                let fee =
+                    (amount / 10_000i128) * bps + ((amount % 10_000i128) * bps) / 10_000i128;
+                if fee > 0 {
+                    token_client.transfer(&env.current_contract_address(), &share.treasury, &fee);
+                    total_fee += fee;
+                }
+            }
+            total_fee
+        } else {
+            let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
+            let fee_bps = fee_config.fee_bps as i128;
+            let fee = (amount / 10_000i128) * fee_bps
+                + ((amount % 10_000i128) * fee_bps) / 10_000i128;
+            if fee > 0 {
+                token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
+            }
+            fee
+        }
     }
 
     /// Add a token to the escrow whitelist. Admin-only.
@@ -1185,15 +1347,9 @@ impl EscrowContract {
 
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
         if release_to_seller {
-            let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
-            let fee_bps = fee_config.fee_bps as i128;
-            let fee = (record.amount / 10_000i128) * fee_bps
-                + ((record.amount % 10_000i128) * fee_bps) / 10_000i128;
+            let fee = Self::distribute_fee(&env, &token_client, record.amount);
             let seller_amount = record.amount - fee;
 
-            if fee > 0 {
-                token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
-            }
             token_client.transfer(
                 &env.current_contract_address(),
                 &record.seller,
