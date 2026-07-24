@@ -955,6 +955,284 @@ fn test_refund_after_partial_release_refunds_unreleased_only() {
     assert_eq!(record.status, EscrowStatus::Refunded);
 }
 
+// ── Issue #337: Partial refund tests ─────────────────────────────────────
+
+#[test]
+fn test_partial_refund_returns_specified_amount() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let amount = 1000i128;
+    let escrow_id = deposit_escrow(&t, amount, 100);
+
+    let result = escrow_client.partial_refund(&escrow_id, &t.seller, &400);
+    assert_eq!(result.refunded, 400);
+    assert_eq!(result.remaining, 600);
+    assert!(!result.fully_refunded);
+
+    assert_eq!(token_client.balance(&t.buyer), 9400);
+    assert_eq!(token_client.balance(&t.escrow_contract_id), 600);
+}
+
+#[test]
+fn test_partial_refund_status_unchanged_if_not_fully_refunded() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let amount = 1000i128;
+    let escrow_id = deposit_escrow(&t, amount, 100);
+
+    escrow_client.partial_refund(&escrow_id, &t.seller, &400);
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.status, EscrowStatus::Funded);
+    assert_eq!(record.refunded_amount, 400);
+}
+
+#[test]
+fn test_partial_refund_full_remaining_sets_refunded_status() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let amount = 1000i128;
+    let escrow_id = deposit_escrow(&t, amount, 100);
+
+    escrow_client.partial_refund(&escrow_id, &t.seller, &400);
+    let result = escrow_client.partial_refund(&escrow_id, &t.seller, &600);
+
+    assert_eq!(result.refunded, 600);
+    assert_eq!(result.remaining, 0);
+    assert!(result.fully_refunded);
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.status, EscrowStatus::Refunded);
+    assert_eq!(record.refunded_amount, 1000);
+    assert_eq!(token_client.balance(&t.buyer), 10000);
+    assert_eq!(token_client.balance(&t.escrow_contract_id), 0);
+}
+
+#[test]
+fn test_partial_refund_exceeds_remaining_balance_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    escrow_client.partial_refund(&escrow_id, &t.seller, &400);
+
+    assert_eq!(
+        escrow_client.try_partial_refund(&escrow_id, &t.seller, &601),
+        Err(Ok(EscrowError::InsufficientEscrowBalance))
+    );
+}
+
+#[test]
+fn test_partial_refund_zero_amount_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert_eq!(
+        escrow_client.try_partial_refund(&escrow_id, &t.seller, &0),
+        Err(Ok(EscrowError::ZeroAmount))
+    );
+}
+
+#[test]
+fn test_partial_refund_buyer_before_timeout_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert_eq!(
+        escrow_client.try_partial_refund(&escrow_id, &t.buyer, &400),
+        Err(Ok(EscrowError::TimeoutNotReached))
+    );
+}
+
+#[test]
+fn test_partial_refund_alongside_partial_release() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let amount = 1000i128;
+    let escrow_id = deposit_escrow(&t, amount, 100);
+
+    escrow_client.partial_release(&escrow_id, &t.buyer, &300);
+    let result = escrow_client.partial_refund(&escrow_id, &t.seller, &700);
+
+    assert_eq!(result.remaining, 0);
+    assert!(result.fully_refunded);
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.status, EscrowStatus::Refunded);
+    assert_eq!(token_client.balance(&t.seller), 300);
+    assert_eq!(token_client.balance(&t.buyer), 9700);
+    assert_eq!(token_client.balance(&t.escrow_contract_id), 0);
+}
+
+#[test]
+fn test_full_refund_via_refund_still_works() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let amount = 1000i128;
+    let escrow_id = deposit_escrow(&t, amount, 100);
+
+    assert!(escrow_client.refund(&escrow_id, &t.seller));
+
+    assert_eq!(token_client.balance(&t.buyer), 10000);
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.status, EscrowStatus::Refunded);
+    assert_eq!(record.refunded_amount, 1000);
+}
+
+// ── Issue #339: Oracle conditional release tests ─────────────────────────
+
+mod true_oracle {
+    use soroban_sdk::{contract, contractimpl, Env, Symbol};
+
+    #[contract]
+    pub struct TrueOracle;
+
+    #[contractimpl]
+    impl TrueOracle {
+        pub fn resolve(_env: Env, _condition_type: Symbol) -> bool {
+            true
+        }
+    }
+}
+
+mod false_oracle {
+    use soroban_sdk::{contract, contractimpl, Env, Symbol};
+
+    #[contract]
+    pub struct FalseOracle;
+
+    #[contractimpl]
+    impl FalseOracle {
+        pub fn resolve(_env: Env, _condition_type: Symbol) -> bool {
+            false
+        }
+    }
+}
+
+mod failing_oracle {
+    use soroban_sdk::{contract, contractimpl, Env, Symbol};
+
+    #[contract]
+    pub struct FailingOracle;
+
+    #[contractimpl]
+    impl FailingOracle {
+        pub fn resolve(_env: Env, _condition_type: Symbol) -> bool {
+            panic!("oracle unavailable");
+        }
+    }
+}
+
+use failing_oracle::FailingOracle;
+use false_oracle::FalseOracle;
+use true_oracle::TrueOracle;
+
+#[test]
+fn test_set_release_condition_and_get() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let oracle_id = t.env.register(TrueOracle, ());
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let condition_type = symbol_short!("shipped");
+
+    assert!(escrow_client.set_release_condition(
+        &t.seller,
+        &escrow_id,
+        &condition_type,
+        &oracle_id
+    ));
+
+    let condition = escrow_client.get_release_condition(&escrow_id);
+    assert_eq!(condition.condition_type, condition_type);
+    assert_eq!(condition.oracle_contract, oracle_id);
+}
+
+#[test]
+fn test_evaluate_and_release_when_oracle_returns_true() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+    let oracle_id = t.env.register(TrueOracle, ());
+
+    let amount = 1000i128;
+    let escrow_id = deposit_escrow(&t, amount, 100);
+    let condition_type = symbol_short!("shipped");
+    escrow_client.set_release_condition(&t.seller, &escrow_id, &condition_type, &oracle_id);
+
+    let result = escrow_client.evaluate_and_release(&escrow_id, &t.agent);
+    assert_eq!(result.released, amount);
+    assert!(result.fully_released);
+
+    assert_eq!(token_client.balance(&t.seller), amount);
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.status, EscrowStatus::Released);
+}
+
+#[test]
+fn test_evaluate_and_release_blocked_when_oracle_returns_false() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let oracle_id = t.env.register(FalseOracle, ());
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let condition_type = symbol_short!("shipped");
+    escrow_client.set_release_condition(&t.seller, &escrow_id, &condition_type, &oracle_id);
+
+    assert_eq!(
+        escrow_client.try_evaluate_and_release(&escrow_id, &t.agent),
+        Err(Ok(EscrowError::ConditionNotMet))
+    );
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.status, EscrowStatus::Funded);
+}
+
+#[test]
+fn test_evaluate_and_release_blocked_when_oracle_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let oracle_id = t.env.register(FailingOracle, ());
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let condition_type = symbol_short!("shipped");
+    escrow_client.set_release_condition(&t.seller, &escrow_id, &condition_type, &oracle_id);
+
+    assert_eq!(
+        escrow_client.try_evaluate_and_release(&escrow_id, &t.agent),
+        Err(Ok(EscrowError::OracleCallFailed))
+    );
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.status, EscrowStatus::Funded);
+}
+
+#[test]
+fn test_evaluate_and_release_without_condition_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert_eq!(
+        escrow_client.try_evaluate_and_release(&escrow_id, &t.agent),
+        Err(Ok(EscrowError::ReleaseConditionNotSet))
+    );
+}
+
 // ── Issue #88: EscrowTimeoutView getter tests ────────────────────────────
 
 #[test]

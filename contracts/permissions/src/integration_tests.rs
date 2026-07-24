@@ -401,3 +401,168 @@ fn test_decrease_allowance_timelock_blocked() {
 
     client.execute_decrease_allowance(&t.buyer, &t.agent);
 }
+
+// ── Issue #338: Time-based inactivity auto-revocation tests ─────────────
+
+#[test]
+fn test_set_inactivity_threshold_admin_configures() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+    client.set_admin(&t.admin);
+
+    assert_eq!(client.get_inactivity_threshold(), 0);
+
+    client.set_inactivity_threshold(&t.admin, &604800u64);
+
+    assert_eq!(client.get_inactivity_threshold(), 604800u64);
+}
+
+#[test]
+fn test_set_inactivity_threshold_non_admin_fails() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+    client.set_admin(&t.admin);
+
+    let non_admin = Address::generate(&t.env);
+    assert_eq!(
+        client.try_set_inactivity_threshold(&non_admin, &604800u64),
+        Err(Ok(PermissionError::Unauthorized))
+    );
+}
+
+#[test]
+fn test_sweep_inactive_revokes_after_threshold() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+    client.set_admin(&t.admin);
+    client.set_inactivity_threshold(&t.admin, &604800u64); // 7 days
+
+    let merchants = Vec::<Address>::new(&t.env);
+    client.grant(&t.buyer, &t.agent, &1000, &100, &merchants, &36000);
+
+    t.env
+        .ledger()
+        .set_timestamp(t.env.ledger().timestamp() + 604801);
+
+    let revoked = client.sweep_inactive(&t.buyer, &t.agent, &t.seller);
+    assert!(revoked);
+
+    let record = client.get_permission(&t.buyer, &t.agent);
+    assert_eq!(record.status, crate::PermissionStatus::Revoked);
+}
+
+#[test]
+fn test_sweep_inactive_does_not_affect_permission_with_spend() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+    client.set_admin(&t.admin);
+    client.set_inactivity_threshold(&t.admin, &604800u64);
+
+    let merchant = Address::generate(&t.env);
+    let mut merchants = Vec::<Address>::new(&t.env);
+    merchants.push_back(merchant.clone());
+    client.grant(&t.buyer, &t.agent, &1000, &100, &merchants, &36000);
+
+    client.execute_spend(&t.buyer, &t.agent, &50, &merchant);
+
+    t.env
+        .ledger()
+        .set_timestamp(t.env.ledger().timestamp() + 604801);
+
+    let revoked = client.sweep_inactive(&t.buyer, &t.agent, &t.seller);
+    assert!(!revoked);
+
+    let record = client.get_permission(&t.buyer, &t.agent);
+    assert_eq!(record.status, crate::PermissionStatus::Active);
+}
+
+#[test]
+fn test_sweep_inactive_before_threshold_not_revoked() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+    client.set_admin(&t.admin);
+    client.set_inactivity_threshold(&t.admin, &604800u64);
+
+    let merchants = Vec::<Address>::new(&t.env);
+    client.grant(&t.buyer, &t.agent, &1000, &100, &merchants, &36000);
+
+    // Only 1 day elapsed, threshold is 7 days.
+    t.env.ledger().set_timestamp(t.env.ledger().timestamp() + 86400);
+
+    let revoked = client.sweep_inactive(&t.buyer, &t.agent, &t.seller);
+    assert!(!revoked);
+
+    let record = client.get_permission(&t.buyer, &t.agent);
+    assert_eq!(record.status, crate::PermissionStatus::Active);
+}
+
+#[test]
+fn test_sweep_inactive_without_configured_threshold_fails() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let merchants = Vec::<Address>::new(&t.env);
+    client.grant(&t.buyer, &t.agent, &1000, &100, &merchants, &36000);
+
+    assert_eq!(
+        client.try_sweep_inactive(&t.buyer, &t.agent, &t.seller),
+        Err(Ok(PermissionError::InactivityThresholdNotSet))
+    );
+}
+
+// ── Issue #359: Immutable permission audit log tests ─────────────────────
+
+#[test]
+fn test_audit_log_records_state_transitions() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let merchants = Vec::<Address>::new(&t.env);
+    client.grant(&t.buyer, &t.agent, &1000, &100, &merchants, &36000);
+    client.pause(&t.buyer, &t.agent);
+    client.resume(&t.buyer, &t.agent);
+    client.revoke(&t.buyer, &t.agent);
+
+    let log = client.get_audit_log(&t.buyer, &t.agent);
+    assert_eq!(log.len(), 4);
+
+    assert_eq!(log.get(0).unwrap().action, soroban_sdk::symbol_short!("granted"));
+    assert_eq!(log.get(1).unwrap().action, soroban_sdk::symbol_short!("paused"));
+    assert_eq!(log.get(2).unwrap().action, soroban_sdk::symbol_short!("resumed"));
+    assert_eq!(log.get(3).unwrap().action, soroban_sdk::symbol_short!("revoked"));
+
+    for entry in log.iter() {
+        assert_eq!(entry.actor, t.buyer);
+    }
+}
+
+#[test]
+fn test_audit_log_empty_for_unknown_pair() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let log = client.get_audit_log(&t.buyer, &t.agent);
+    assert_eq!(log.len(), 0);
+}
+
+#[test]
+fn test_audit_log_records_auto_revocation() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+    client.set_admin(&t.admin);
+    client.set_inactivity_threshold(&t.admin, &604800u64);
+
+    let merchants = Vec::<Address>::new(&t.env);
+    client.grant(&t.buyer, &t.agent, &1000, &100, &merchants, &36000);
+
+    t.env
+        .ledger()
+        .set_timestamp(t.env.ledger().timestamp() + 604801);
+    client.sweep_inactive(&t.buyer, &t.agent, &t.seller);
+
+    let log = client.get_audit_log(&t.buyer, &t.agent);
+    assert_eq!(log.len(), 2);
+    assert_eq!(log.get(0).unwrap().action, soroban_sdk::symbol_short!("granted"));
+    assert_eq!(log.get(1).unwrap().action, soroban_sdk::symbol_short!("autorevk"));
+    assert_eq!(log.get(1).unwrap().actor, t.seller);
+}
