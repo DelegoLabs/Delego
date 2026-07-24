@@ -6,7 +6,7 @@
  * with proper authorization checks and audit logging.
  */
 
-import { Keypair, Horizon, TransactionBuilder, Operation, Networks, Asset } from "@stellar/stellar-sdk";
+import { Keypair, Horizon, TransactionBuilder, Operation, Networks } from "@stellar/stellar-sdk";
 import type { StellarNetwork } from "@delego/types";
 import { vaultService } from "../src/vault.js";
 import { createLogger } from "@delego/utils";

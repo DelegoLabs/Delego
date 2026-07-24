@@ -48,6 +48,175 @@ function getPool(): Pool {
   return new Pool({ connectionString: process.env.DATABASE_URL });
 }
 
+// ─── #54 Workflow State Persistence ─────────────────────────────────────────
+
+export interface WorkflowSnapshot {
+  orderId: string;
+  userId: string;
+  state: string;
+  context: Record<string, unknown>;
+  version: number;
+  updatedAt: string;
+}
+
+/**
+ * Persists current XState purchase workflow state and context to PostgreSQL using optimistic versioning.
+ */
+export async function persistWorkflowState(
+  orderId: string,
+  state: string,
+  context: object,
+  expectedVersion?: number,
+  userId?: string
+): Promise<WorkflowSnapshot> {
+  const pool = getPool();
+  const uid = (context as any)?.userId ?? userId ?? "00000000-0000-0000-0000-000000000000";
+  const jsonContext = JSON.stringify(context);
+
+  if (expectedVersion !== undefined && expectedVersion !== null) {
+    const updateRes = await pool.query<{
+      order_id: string;
+      user_id: string;
+      state: string;
+      context: Record<string, unknown>;
+      version: number;
+      updated_at: Date;
+    }>(
+      `UPDATE purchase_workflows
+       SET state = $2, context = $3, version = version + 1, updated_at = CURRENT_TIMESTAMP
+       WHERE order_id = $1 AND version = $4
+       RETURNING order_id, user_id, state, context, version, updated_at`,
+      [orderId, state, jsonContext, expectedVersion]
+    );
+
+    if (updateRes.rowCount === 0) {
+      const existing = await pool.query(`SELECT version FROM purchase_workflows WHERE order_id = $1`, [orderId]);
+      if (existing.rowCount && existing.rowCount > 0) {
+        throw new Error(`Optimistic locking conflict: workflow ${orderId} version mismatch (expected ${expectedVersion})`);
+      }
+      const insertRes = await pool.query<{
+        order_id: string;
+        user_id: string;
+        state: string;
+        context: Record<string, unknown>;
+        version: number;
+        updated_at: Date;
+      }>(
+        `INSERT INTO purchase_workflows (order_id, user_id, state, context, version, updated_at)
+         VALUES ($1, $2, $3, $4, 1, CURRENT_TIMESTAMP)
+         RETURNING order_id, user_id, state, context, version, updated_at`,
+        [orderId, uid, state, jsonContext]
+      );
+      const row = insertRes.rows[0];
+      return {
+        orderId: row.order_id,
+        userId: row.user_id,
+        state: row.state,
+        context: row.context,
+        version: row.version,
+        updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+      };
+    }
+
+    const row = updateRes.rows[0];
+    return {
+      orderId: row.order_id,
+      userId: row.user_id,
+      state: row.state,
+      context: row.context,
+      version: row.version,
+      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+    };
+  } else {
+    const upsertRes = await pool.query<{
+      order_id: string;
+      user_id: string;
+      state: string;
+      context: Record<string, unknown>;
+      version: number;
+      updated_at: Date;
+    }>(
+      `INSERT INTO purchase_workflows (order_id, user_id, state, context, version, updated_at)
+       VALUES ($1, $2, $3, $4, 1, CURRENT_TIMESTAMP)
+       ON CONFLICT (order_id) DO UPDATE
+       SET state = EXCLUDED.state, context = EXCLUDED.context, version = purchase_workflows.version + 1, updated_at = CURRENT_TIMESTAMP
+       RETURNING order_id, user_id, state, context, version, updated_at`,
+      [orderId, uid, state, jsonContext]
+    );
+    const row = upsertRes.rows[0];
+    return {
+      orderId: row.order_id,
+      userId: row.user_id,
+      state: row.state,
+      context: row.context,
+      version: row.version,
+      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+    };
+  }
+}
+
+/**
+ * Retrieves persisted workflow state and context for recovery on orchestrator restart.
+ */
+export async function recoverWorkflowState(
+  orderId: string
+): Promise<{ state: string; context: object; orderId: string; userId: string; version: number; updatedAt: string } | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<{
+    order_id: string;
+    user_id: string;
+    state: string;
+    context: Record<string, unknown>;
+    version: number;
+    updated_at: Date;
+  }>(
+    `SELECT order_id, user_id, state, context, version, updated_at
+     FROM purchase_workflows
+     WHERE order_id = $1`,
+    [orderId]
+  );
+
+  if (!rows[0]) return null;
+  const r = rows[0];
+  return {
+    orderId: r.order_id,
+    userId: r.user_id,
+    state: r.state,
+    context: r.context,
+    version: r.version,
+    updatedAt: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
+  };
+}
+
+/**
+ * Recovers all in-progress / unfinished purchase workflows during orchestrator startup.
+ */
+export async function recoverUnfinishedWorkflows(): Promise<WorkflowSnapshot[]> {
+  const pool = getPool();
+  const { rows } = await pool.query<{
+    order_id: string;
+    user_id: string;
+    state: string;
+    context: Record<string, unknown>;
+    version: number;
+    updated_at: Date;
+  }>(
+    `SELECT order_id, user_id, state, context, version, updated_at
+     FROM purchase_workflows
+     WHERE state NOT IN ('COMPLETED', 'CANCELLED', 'FAILED', 'Completed', 'Refunded')
+     ORDER BY updated_at ASC`
+  );
+
+  return rows.map((r) => ({
+    orderId: r.order_id,
+    userId: r.user_id,
+    state: r.state,
+    context: r.context,
+    version: r.version,
+    updatedAt: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
+  }));
+}
+
 /**
  * Simulated on-chain escrow state lookup.
  * In production this would query the Soroban escrow contract via the wallet service.
@@ -198,8 +367,14 @@ async function main(): Promise<void> {
   await connectSagaDb();
   await checkoutSagaCoordinator.recoverAll();
 
-  log.info("Starting orchestrator", { port });
+  try {
+    const unfinished = await recoverUnfinishedWorkflows();
+    log.info("Recovered unfinished purchase workflows during startup", { count: unfinished.length });
+  } catch (err) {
+    log.warn("Failed to recover unfinished purchase workflows during startup", { error: (err as Error).message });
+  }
 
+  log.info("Starting orchestrator", { port });
   startHttpServer({
     port,
     serviceName: SERVICE_NAME,
@@ -237,9 +412,6 @@ async function main(): Promise<void> {
         }
 
         try {
-          // Derived from orderId (not generateId()) so retried checkout requests for the same
-          // order reuse the same saga and SagaCoordinator.run()'s idempotency actually applies —
-          // otherwise every retry would start a fresh saga and could double-deposit escrow.
           const sagaId = `checkout:${input.orderId}`;
           const result = await checkoutWorkflow(input as CheckoutWorkflowInput, checkoutSagaCoordinator, sagaId);
           json(res, result.status === "completed" ? 200 : 502, {
@@ -317,7 +489,7 @@ main().catch((err) => {
   process.exitCode = 1;
 });
 
-// Export workflows and state machine for internal use (issue #7)
+// Export workflows and state machine for internal use (issue #7 & #54)
 export { RedisPublisher } from "./pubsub/index.js";
 export type { PublishResult, RedisClient } from "./pubsub/index.js";
 
@@ -326,4 +498,7 @@ export { checkoutWorkflow } from "../workflows/checkout/index.js";
 export { publishWorkflowEvent, createWorkflowCorrelationId } from "./workflow-events.js";
 export type { WorkflowEventEnvelope } from "./workflow-events.js";
 export { PurchaseWorkflowMachine } from "../state/index.js";
-export type { WorkflowSnapshot, PurchaseState, PurchaseEvent } from "../state/index.js";
+export type { PurchaseState, PurchaseEvent } from "../state/index.js";
+
+
+

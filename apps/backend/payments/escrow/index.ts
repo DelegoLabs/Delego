@@ -1,7 +1,7 @@
 import { createLogger } from "@delego/utils";
 import { getEscrowContractId } from "./config.js";
 import { submitContractCall } from "./wallet-client.js";
-import { getEscrowCircuitBreaker, CircuitBreakerOpenError } from "./circuitBreaker.js";
+import { getEscrowCircuitBreaker } from "./circuitBreaker.js";
 import type {
   DepositEscrowParams,
   EscrowOperationResult,

@@ -229,3 +229,9 @@ export const accountService: AccountService = {
     }
   },
 };
+
+export {
+  validateStellarNetworkConfig,
+  type StellarNetworkConfig,
+} from "./networkConfig.js";
+

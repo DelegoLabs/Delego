@@ -79,7 +79,7 @@ export class InMemoryWorkflowEventStore implements WorkflowEventStore {
 
   async cleanup(retentionCutoff: Date): Promise<number> {
     const before = this.events.length;
-    this.events = this.events.filter((e) => e.recordedAt >= retentionCutoff);
+    this.events = this.events.filter((e) => e.recordedAt.getTime() >= retentionCutoff.getTime());
     return before - this.events.length;
   }
 }
@@ -203,7 +203,9 @@ export async function replayFromStore(
  */
 export async function cleanupOldEvents(retentionDays: number = 30): Promise<number> {
   const store = getWorkflowEventStore();
-  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+  // Add 1ms to ensure events recorded at exactly the cutoff boundary are removed
+  const cutoffMs = Date.now() - retentionDays * 24 * 60 * 60 * 1000 + 1;
+  const cutoff = new Date(cutoffMs);
   const removed = await store.cleanup(cutoff);
 
   if (removed > 0) {

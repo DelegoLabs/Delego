@@ -809,3 +809,11 @@ export async function closeQueue() {
     redisClient = null;
   }
 }
+
+export {
+  submitTransactionBatch,
+  estimateBatchGas,
+  type BatchGasEstimate,
+  type BatchSubmissionResult,
+} from "../batchSubmitter.js";
+
