@@ -14,7 +14,7 @@
  *  - Errors are logged-and-skipped: a single bad event never halts the cursor.
  */
 import { createLogger } from "@delego/utils";
-import { xdr, SorobanRpc } from "@stellar/stellar-sdk";
+import { xdr } from "@stellar/stellar-sdk";
 import { sendEmail } from "../email/index.js";
 import {
   sendPushNotification,
@@ -85,7 +85,7 @@ export interface RawEscrowRpcEvent {
 
 /** Minimal Redis interface required by the listener. */
 export interface EscrowEventRedis {
-  set(key: string, value: string, ...args: Array<string | number>): Promise<unknown>;
+  set(key: string, value: string, ...args: unknown[]): Promise<unknown>;
   get(key: string): Promise<string | null>;
   smembers?(key: string): Promise<string[]>;
 }
@@ -118,8 +118,6 @@ const TOPIC_TO_EVENT_TYPE: Readonly<Record<EscrowTopicName, EscrowEventType>> = 
   refunded: "escrow_refunded",
   disputed: "escrow_disputed",
 };
-
-const KNOWN_ESCROW_TOPICS: ReadonlySet<string> = new Set(Object.keys(TOPIC_TO_EVENT_TYPE));
 
 export function mapEscrowTopicToEventType(topicName: string): EscrowEventType | null {
   return TOPIC_TO_EVENT_TYPE[topicName as EscrowTopicName] ?? null;
@@ -338,8 +336,15 @@ async function dispatchEscrowNotification(
         deps.sendEmailFn({
           to: target.email,
           subject,
-          text: body,
-          html: `<p>${body.replace(/\n/g, "<br>")}</p>`,
+          templateName: "escrow-notification",
+          templateData: {
+            subject,
+            body,
+            orderId: event.escrowId,
+            amount: event.amountStroops,
+            merchant: event.seller,
+            buyer: event.buyer,
+          },
         }).catch((err: unknown) =>
           log.error("Failed to send escrow email notification", {
             error: err instanceof Error ? err.message : String(err),
@@ -428,8 +433,8 @@ export function startEscrowEventListener(
 ): { stop(): Promise<void> } {
   const { createRequire } = require("node:module") as typeof import("node:module");
   const require_ = createRequire(import.meta.url);
-  const { SorobanRpc: SorobanRpcModule } = require_("@stellar/stellar-sdk") as typeof import("@stellar/stellar-sdk");
-  const server = new SorobanRpcModule.Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
+  const { rpc: rpcModule } = require_("@stellar/stellar-sdk") as typeof import("@stellar/stellar-sdk");
+  const server = new rpcModule.Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
 
   const Redis = (require_("ioredis") as { Redis: typeof import("ioredis").Redis }).Redis;
   const redisDefault = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true });
@@ -442,7 +447,7 @@ export function startEscrowEventListener(
     depsIn.walletLookup ??
     (() => {
       const adapter = getWalletLookupAdapter();
-      return (address: string) => adapter.lookupByStellarAddress(address);
+      return (address: string) => adapter.lookupByWalletAddress(address);
     })();
 
   const sendEmailFn = depsIn.sendEmailFn ?? sendEmail;

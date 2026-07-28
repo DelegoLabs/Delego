@@ -32,7 +32,7 @@ export function loadTranslations(locale: string): Translations {
   const cached = translationCache.get(normalisedLocale);
   if (cached) return cached;
 
-  const enTranslations = _loadLocaleFile("en");
+  const enTranslations = _loadLocaleFile("en") ?? {};
 
   if (normalisedLocale === "en") {
     translationCache.set("en", enTranslations);
