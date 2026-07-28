@@ -321,6 +321,9 @@ importers:
       qrcode:
         specifier: ^1.5.3
         version: 1.5.4
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
       react:
         specifier: ^19.0.0
         version: 19.2.7
