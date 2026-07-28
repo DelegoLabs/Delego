@@ -32,7 +32,10 @@ export function loadTranslations(locale: string): Translations {
   const cached = translationCache.get(normalisedLocale);
   if (cached) return cached;
 
-  const enTranslations = _loadLocaleFile("en") ?? {};
+  // English is the fallback of last resort; if the bundled `en.json` file is
+  // missing or malformed we still need to return a usable (empty) dictionary
+  // so the rest of the call chain can proceed without a nullable value.
+  const enTranslations: Translations = _loadLocaleFile("en") ?? {};
 
   if (normalisedLocale === "en") {
     translationCache.set("en", enTranslations);

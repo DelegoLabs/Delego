@@ -46,6 +46,19 @@ export interface RefundResult {
   amount: string;
 }
 
+export interface DisputeEscrowParams {
+  escrowId: string;
+  escrowContractId: string;
+  callerAddress: string;
+}
+
+export interface DisputeResult {
+  txHash: string;
+  ledger: number;
+  status: "disputed" | "failed";
+  disputedBy: string;
+}
+
 export interface EscrowStatusResult {
   escrowId: string;
   buyer: string;
@@ -59,6 +72,7 @@ export interface EscrowCoordinator {
   fundEscrow(params: FundEscrowParams): Promise<FundEscrowResult>;
   releaseEscrow(params: ReleaseEscrowParams): Promise<ReleaseResult>;
   refundEscrow(params: RefundEscrowParams): Promise<RefundResult>;
+  disputeEscrow(params: DisputeEscrowParams): Promise<DisputeResult>;
   getEscrowStatus(escrowId: string): Promise<EscrowStatusResult>;
 }
 
@@ -67,6 +81,7 @@ export type PaymentRecordStatus =
   | "funded"
   | "released"
   | "refunded"
+  | "disputed"
   | "failed";
 
 export interface PaymentRecord {
@@ -82,6 +97,7 @@ export interface PaymentRecord {
   fundTxHash: string | null;
   releaseTxHash: string | null;
   refundTxHash: string | null;
+  disputeTxHash: string | null;
   failureReason: string | null;
   createdAt: Date;
   updatedAt: Date;

@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import type { User, UserPreferences } from "@delego/types";
-import { ProfileForm, type ProfileFormValues } from "../../components/settings/ProfileForm";
+import {
+  ProfileForm,
+  type ProfileFormValues,
+} from "../../components/settings/ProfileForm";
 import {
   PreferencesForm,
   type PreferencesFormValues,
@@ -34,7 +37,7 @@ const PLACEHOLDER_PREFERENCES: UserPreferences = {
 export default function SettingsPage() {
   const [user, setUser] = useState<User>(PLACEHOLDER_USER);
   const [preferences, setPreferences] = useState<UserPreferences>(
-    PLACEHOLDER_PREFERENCES,
+    PLACEHOLDER_PREFERENCES
   );
 
   const handleSaveProfile = async (values: ProfileFormValues) => {

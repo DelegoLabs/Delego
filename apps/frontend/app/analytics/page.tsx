@@ -63,10 +63,14 @@ export default function AnalyticsPage() {
                       </span>
                     </td>
                     <td>
-                      {(Number(del.policy.maxPerTransaction) / 10_000_000).toFixed(2)} XLM
+                      {(
+                        Number(del.policy.maxPerTransaction) / 10_000_000
+                      ).toFixed(2)}{" "}
+                      XLM
                     </td>
                     <td>
-                      {(Number(del.policy.maxTotal) / 10_000_000).toFixed(2)} XLM
+                      {(Number(del.policy.maxTotal) / 10_000_000).toFixed(2)}{" "}
+                      XLM
                     </td>
                     <td>{del.policy.expiresAt ?? "Never"}</td>
                   </tr>
@@ -83,9 +87,13 @@ export default function AnalyticsPage() {
         ) : (
           <div className="utilization-bars">
             {delegations.map((del) => {
-              const utilization = del.policy.maxTotal > 0n
-                ? Number((del.policy.maxPerTransaction * 100n) / del.policy.maxTotal)
-                : 0;
+              const utilization =
+                del.policy.maxTotal > 0n
+                  ? Number(
+                      (del.policy.maxPerTransaction * 100n) /
+                        del.policy.maxTotal
+                    )
+                  : 0;
               return (
                 <div key={del.id} className="utilization-row">
                   <span className="utilization-label">{del.agentId}</span>

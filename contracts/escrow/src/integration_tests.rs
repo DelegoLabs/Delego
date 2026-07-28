@@ -2,7 +2,7 @@
 
 use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus, EscrowTerminalState};
 use soroban_sdk::{
-    symbol_short, testutils::{Address as _, Events, Ledger, MockAuth, MockAuthInvoke},
+    symbol_short, testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
     Address, BytesN, Env, IntoVal,
 };
 
@@ -1292,7 +1292,9 @@ fn test_get_timeout_view_active_past_timeout() {
     let escrow_id = deposit_escrow(&t, 1000, 100);
     let record = client.get_escrow(&escrow_id);
 
-    t.env.ledger().set_sequence_number(record.timeout_ledger + 500);
+    t.env
+        .ledger()
+        .set_sequence_number(record.timeout_ledger + 500);
 
     let view = client.get_timeout_view(&escrow_id);
 
@@ -1312,7 +1314,9 @@ fn test_get_timeout_view_released_state() {
 
     // Advance past timeout to ensure the only reason for false is the terminal state.
     let record = client.get_escrow(&escrow_id);
-    t.env.ledger().set_sequence_number(record.timeout_ledger + 10);
+    t.env
+        .ledger()
+        .set_sequence_number(record.timeout_ledger + 10);
 
     let view = client.get_timeout_view(&escrow_id);
 
@@ -1330,7 +1334,9 @@ fn test_get_timeout_view_refunded_state() {
     client.refund(&escrow_id, &t.seller);
 
     let record = client.get_escrow(&escrow_id);
-    t.env.ledger().set_sequence_number(record.timeout_ledger + 10);
+    t.env
+        .ledger()
+        .set_sequence_number(record.timeout_ledger + 10);
 
     let view = client.get_timeout_view(&escrow_id);
 
@@ -1348,7 +1354,9 @@ fn test_get_timeout_view_disputed_state() {
     client.dispute(&escrow_id, &t.buyer);
 
     let record = client.get_escrow(&escrow_id);
-    t.env.ledger().set_sequence_number(record.timeout_ledger + 10);
+    t.env
+        .ledger()
+        .set_sequence_number(record.timeout_ledger + 10);
 
     let view = client.get_timeout_view(&escrow_id);
 
@@ -1366,7 +1374,9 @@ fn test_get_timeout_view_does_not_mutate_state() {
     let before = client.get_escrow(&escrow_id);
 
     // Call past timeout — a mutating refund would change the status.
-    t.env.ledger().set_sequence_number(before.timeout_ledger + 5);
+    t.env
+        .ledger()
+        .set_sequence_number(before.timeout_ledger + 5);
     let _view = client.get_timeout_view(&escrow_id);
 
     let after = client.get_escrow(&escrow_id);
@@ -1446,13 +1456,15 @@ fn test_extend_timeout_via_quorum_reaches_threshold() {
     let before = escrow_client.get_escrow(&escrow_id);
 
     // First vote: quorum not yet reached, timeout unchanged.
-    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    let applied =
+        escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
     assert!(!applied);
     let mid = escrow_client.get_escrow(&escrow_id);
     assert_eq!(mid.timeout_ledger, before.timeout_ledger);
 
     // Second matching vote reaches the threshold and extends the timeout.
-    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(1).unwrap(), &50u32);
+    let applied =
+        escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(1).unwrap(), &50u32);
     assert!(applied);
     let after = escrow_client.get_escrow(&escrow_id);
     assert_eq!(after.timeout_ledger, before.timeout_ledger + 50);
@@ -1471,7 +1483,8 @@ fn test_extend_timeout_via_quorum_fails_without_sufficient_votes() {
     let escrow_id = deposit_escrow(&t, 1000, 100);
     let before = escrow_client.get_escrow(&escrow_id);
 
-    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    let applied =
+        escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
     assert!(!applied);
 
     let after = escrow_client.get_escrow(&escrow_id);
@@ -1504,7 +1517,8 @@ fn test_extend_timeout_via_quorum_rejects_duplicate_vote() {
 
     let escrow_id = deposit_escrow(&t, 1000, 100);
 
-    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    let applied =
+        escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
     assert!(!applied);
 
     assert_eq!(
@@ -1551,7 +1565,9 @@ fn test_fund_pool_increases_balance() {
     let newer_balance = escrow_client.fund_pool(&funder, &t.token_contract_id, &500);
     assert_eq!(newer_balance, 2500);
     assert_eq!(
-        escrow_client.get_liquidity_pool(&t.token_contract_id).balance,
+        escrow_client
+            .get_liquidity_pool(&t.token_contract_id)
+            .balance,
         2500
     );
 }
@@ -1662,7 +1678,9 @@ fn test_withdraw_from_pool_respects_available_balance() {
     let new_balance = escrow_client.withdraw_from_pool(&t.admin, &t.token_contract_id, &400);
     assert_eq!(new_balance, 600);
     assert_eq!(
-        escrow_client.get_liquidity_pool(&t.token_contract_id).balance,
+        escrow_client
+            .get_liquidity_pool(&t.token_contract_id)
+            .balance,
         600
     );
     assert_eq!(token_client.balance(&t.admin), 400);

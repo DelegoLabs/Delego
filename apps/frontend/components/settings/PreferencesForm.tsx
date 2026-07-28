@@ -45,21 +45,22 @@ function ToggleRow({ label, hint, checked, onChange }: ToggleRowProps) {
  */
 export function PreferencesForm({ preferences, onSave }: PreferencesFormProps) {
   const [defaultSpendingLimit, setDefaultSpendingLimit] = useState<bigint>(
-    preferences.defaultSpendingLimit,
+    preferences.defaultSpendingLimit
   );
   const [requireApproval, setRequireApproval] = useState(
-    preferences.requireApproval,
+    preferences.requireApproval
   );
   const [notificationEmail, setNotificationEmail] = useState(
-    preferences.notificationEmail,
+    preferences.notificationEmail
   );
   const [notificationPush, setNotificationPush] = useState(
-    preferences.notificationPush,
+    preferences.notificationPush
   );
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<
-    { type: "success" | "error"; message: string } | null
-  >(null);
+  const [status, setStatus] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

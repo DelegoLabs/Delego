@@ -21,11 +21,40 @@ if (SENDGRID_API_KEY) {
   sgMail.setApiKey(SENDGRID_API_KEY);
 }
 
+/**
+ * Email dispatch envelope.
+ *
+ * Two compatible payload styles are supported:
+ *
+ * 1. **Template-based** (default): provide `templateName` + `templateData`,
+ *    and the template file (`templates/<name>.html`) is rendered server-side.
+ * 2. **Pre-rendered**: provide `html` and optionally `text`, and the
+ *    supplied content is sent verbatim. Useful for locale-aware notifications
+ *    that compose their own HTML outside the template system (e.g. the
+ *    escrow event listener renders via `renderLocalizedTemplate`).
+ *
+ * Exactly one of the two styles is supported; `sendEmail` throws if both
+ * are supplied or if neither is supplied.
+ *
+ * Note: empty-string values are treated as "not provided" — a caller
+ * passing `{ templateName: "" }` or `{ html: "" }` will hit the
+ * "neither supplied" throw, since neither field carries a meaningful
+ * payload.
+ */
 export interface EmailMessage {
   to: string;
   subject: string;
-  templateName: string;
-  templateData: Record<string, string>;
+  /** Required (non-empty) when `html` is not provided. */
+  templateName?: string;
+  templateData?: Record<string, string>;
+  /** Required (non-empty) when `templateName` is not provided. */
+  html?: string;
+  /**
+   * Optional plaintext body. Either supplied directly alongside `html`,
+   * or derived from a rendered template via the renderer's `text` fallback
+   * when `templateName` is the active style.
+   */
+  text?: string;
 }
 
 export type { EmailDispatchJob } from "./types.js";
@@ -47,19 +76,42 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
     throw new Error("SENDGRID_API_KEY is not configured");
   }
 
-  const rendered = renderTemplate(message.templateName, message.templateData);
-  if (rendered.error || !rendered.html) {
+  const hasHtml = typeof message.html === "string" && message.html.length > 0;
+  const hasTemplate =
+    typeof message.templateName === "string" && message.templateName.length > 0;
+
+  if (hasHtml && hasTemplate) {
     throw new Error(
-      rendered.error ??
-        `Failed to render template: ${message.templateName}`
+      "sendEmail accepts EITHER pre-rendered html OR templateName, not both"
     );
+  }
+  if (!hasHtml && !hasTemplate) {
+    throw new Error(
+      "sendEmail requires either message.html (pre-rendered) or message.templateName"
+    );
+  }
+
+  let html = message.html as string;
+  let text = message.text;
+
+  if (!hasHtml) {
+    const tplName = message.templateName as string;
+    const rendered = renderTemplate(tplName, message.templateData ?? {});
+    if (rendered.error || !rendered.html) {
+      throw new Error(
+        rendered.error ?? `Failed to render template: ${tplName}`
+      );
+    }
+    html = rendered.html;
+    text = text ?? rendered.text;
   }
 
   await sgMail.send({
     to: message.to,
     from: FROM_EMAIL,
     subject: message.subject,
-    html: rendered.html,
+    html,
+    ...(text ? { text } : {}),
   });
 }
 

@@ -1519,6 +1519,129 @@ mod test {
     }
 
      #[test]
+    fn test_merchant_list_exceeds_max_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        for _ in 0..crate::MAX_MERCHANTS_PER_PERMISSION + 1 {
+            merchants.push_back(Address::generate(&env));
+        }
+
+        assert_eq!(
+            client.try_grant(&owner, &delegate, &1000, &100, &merchants, &10000),
+            Err(Ok(PermissionError::InvalidParam))
+        );
+    }
+
+    #[test]
+    fn test_merchant_list_at_max_allowed() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        for _ in 0..crate::MAX_MERCHANTS_PER_PERMISSION {
+            merchants.push_back(Address::generate(&env));
+        }
+
+        assert_eq!(
+            client.try_grant(&owner, &delegate, &1000, &100, &merchants, &10000),
+            Ok(Ok(()))
+        );
+    }
+
+    #[test]
+    fn test_merchant_list_duplicates_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        merchants.push_back(merchant.clone());
+        merchants.push_back(merchant.clone());
+
+        assert_eq!(
+            client.try_grant(&owner, &delegate, &1000, &100, &merchants, &10000),
+            Err(Ok(PermissionError::InvalidParam))
+        );
+    }
+
+    #[test]
+    fn test_grant_child_merchant_list_exceeds_max_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let parent_owner = Address::generate(&env);
+        let parent_delegate = Address::generate(&env);
+        let child_delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        // Set up a parent permission first.
+        client.grant(&parent_owner, &parent_delegate, &10_000, &1000, &merchants, &10000);
+
+        let mut child_merchants = Vec::<Address>::new(&env);
+        for _ in 0..crate::MAX_MERCHANTS_PER_PERMISSION + 1 {
+            child_merchants.push_back(Address::generate(&env));
+        }
+
+        assert_eq!(
+            client.try_grant_child(
+                &parent_owner,
+                &parent_delegate,
+                &child_delegate,
+                &1000,
+                &100,
+                &child_merchants,
+                &10000,
+            ),
+            Err(Ok(PermissionError::InvalidParam))
+        );
+    }
+
+    #[test]
+    fn test_grant_multi_owner_merchant_list_exceeds_max_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut owners = Vec::<Address>::new(&env);
+        owners.push_back(owner.clone());
+
+        let mut merchants = Vec::<Address>::new(&env);
+        for _ in 0..crate::MAX_MERCHANTS_PER_PERMISSION + 1 {
+            merchants.push_back(Address::generate(&env));
+        }
+
+        assert_eq!(
+            client.try_grant_multi_owner(
+                &owner, &owners, &delegate, &1000, &100, &merchants, &10000, &1,
+            ),
+            Err(Ok(PermissionError::InvalidParam))
+        );
+    }
+
+    #[test]
     fn test_merchant_list_event() {
         let env = Env::default();
         env.mock_all_auths();
@@ -1825,5 +1948,157 @@ mod test {
         // Non-admin cannot register schemas.
         let res = client.try_register_schema(&not_admin, &schema_a);
         assert_eq!(res, Err(Ok(PermissionError::Unauthorized)));
+    }
+
+    // ── Issue #100: DelegateStatusView getter tests ───────────────────────────
+
+    /// Status is `not_found` when no permission record exists.
+    #[test]
+    fn test_get_delegate_status_not_found() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(!status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "not_found"));
+        assert_eq!(status.remaining, 0);
+    }
+
+    /// Status is `active` for a freshly granted, unspent permission.
+    #[test]
+    fn test_get_delegate_status_active() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "active"));
+        assert_eq!(status.remaining, 1000);
+    }
+
+    /// Status is `revoked` after owner calls `revoke`.
+    #[test]
+    fn test_get_delegate_status_revoked() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+        client.revoke(&owner, &delegate);
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(!status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "revoked"));
+        assert_eq!(status.remaining, 0);
+    }
+
+    /// Status is `expired` when the ledger has advanced past `expires_at_ledger`.
+    #[test]
+    fn test_get_delegate_status_expired() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        // Grant with a very short TTL then advance past it.
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &5);
+        env.ledger().with_mut(|li| {
+            li.sequence_number += 10;
+        });
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(!status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "expired"));
+    }
+
+    /// Status is `exhausted` when the full allowance has been spent.
+    #[test]
+    fn test_get_delegate_status_exhausted() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        // Grant exactly 100 with a 100 per-tx limit so a single spend exhausts it.
+        client.grant(&owner, &delegate, &100, &100, &merchants, &10000);
+        client.execute_spend(&owner, &delegate, &100, &merchant);
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(!status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "exhausted"));
+        assert_eq!(status.remaining, 0);
+    }
+
+    /// Status is `paused` after owner calls `pause`.
+    #[test]
+    fn test_get_delegate_status_paused() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+        client.pause(&owner, &delegate);
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(!status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "paused"));
+        // Remaining is still reported when paused (allowance is intact).
+        assert_eq!(status.remaining, 1000);
+    }
+
+    /// get_delegate_status does not mutate any state (remaining unchanged after call).
+    #[test]
+    fn test_get_delegate_status_does_not_mutate() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &500, &100, &merchants, &10000);
+
+        // Call get_delegate_status twice.
+        client.get_delegate_status(&owner, &delegate);
+        client.get_delegate_status(&owner, &delegate);
+
+        // Actual spend should still see the full unmodified allowance.
+        client.execute_spend(&owner, &delegate, &100, &merchant);
+        assert_eq!(client.get_remaining_allowance(&owner, &delegate), 400);
     }
 }

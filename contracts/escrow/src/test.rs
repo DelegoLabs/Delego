@@ -1,8 +1,7 @@
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod test {
-    use crate::{
-        DataKey, EscrowContract, EscrowContractClient, EscrowError, EscrowMetadataEvent,
-    };
+    use crate::{DataKey, EscrowContract, EscrowContractClient, EscrowError, EscrowMetadataEvent};
     use soroban_sdk::{
         symbol_short,
         testutils::{Address as _, Events, Ledger},
@@ -156,20 +155,15 @@ mod test {
 
         let party = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         client.add_token(&admin, &token);
 
         let order_id = BytesN::from_array(&env, &[2u8; 32]);
 
         let res = client.try_create(
-            &party,
-            &party,
-            &token,
-            &1000i128,
-            &order_id,
-            &100u32,
-            &None,
-            &None,
+            &party, &party, &token, &1000i128, &order_id, &100u32, &None, &None,
         );
         assert_eq!(res, Err(Ok(EscrowError::InvalidEscrowParticipants)));
     }
@@ -338,7 +332,9 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
         token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
@@ -373,7 +369,9 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
         token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
@@ -382,14 +380,7 @@ mod test {
 
         // Deposit without metadata (None for both parameters)
         let escrow_id = client.deposit(
-            &buyer,
-            &seller,
-            &token,
-            &1000i128,
-            &order_id,
-            &100u32,
-            &None,
-            &None,
+            &buyer, &seller, &token, &1000i128, &order_id, &100u32, &None, &None,
         );
 
         // Verify metadata is not found
@@ -406,7 +397,9 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
         token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
@@ -453,7 +446,9 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
         token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
@@ -502,7 +497,9 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
         token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
@@ -510,14 +507,7 @@ mod test {
         let order_id = BytesN::from_array(&env, &[1u8; 32]);
 
         client.deposit(
-            &buyer,
-            &seller,
-            &token,
-            &1000i128,
-            &order_id,
-            &100u32,
-            &None,
-            &None,
+            &buyer, &seller, &token, &1000i128, &order_id, &100u32, &None, &None,
         );
 
         for event in env.events().all().iter() {
@@ -543,7 +533,9 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
         token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
@@ -587,21 +579,16 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         client.add_token(&admin, &token);
 
         let order_id = BytesN::from_array(&env, &[7u8; 32]);
         let reason = symbol_short!("out_stock");
 
         let escrow_id = client.create(
-            &buyer,
-            &seller,
-            &token,
-            &1000i128,
-            &order_id,
-            &100u32,
-            &None,
-            &None,
+            &buyer, &seller, &token, &1000i128, &order_id, &100u32, &None, &None,
         );
 
         let record = client.get_escrow(&escrow_id);
@@ -645,21 +632,16 @@ mod test {
         let seller = Address::generate(&env);
         let random_caller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         client.add_token(&admin, &token);
 
         let order_id = BytesN::from_array(&env, &[8u8; 32]);
         let reason = symbol_short!("no_stock");
 
         let escrow_id = client.create(
-            &buyer,
-            &seller,
-            &token,
-            &1000i128,
-            &order_id,
-            &100u32,
-            &None,
-            &None,
+            &buyer, &seller, &token, &1000i128, &order_id, &100u32, &None, &None,
         );
 
         let res = client.try_cancel(&escrow_id, &random_caller, &reason);
@@ -675,7 +657,9 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
         token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
@@ -684,14 +668,7 @@ mod test {
         let reason = symbol_short!("too_late");
 
         let escrow_id = client.deposit(
-            &buyer,
-            &seller,
-            &token,
-            &1000i128,
-            &order_id,
-            &100u32,
-            &None,
-            &None,
+            &buyer, &seller, &token, &1000i128, &order_id, &100u32, &None, &None,
         );
 
         let record = client.get_escrow(&escrow_id);
@@ -710,21 +687,16 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         client.add_token(&admin, &token);
 
         let order_id = BytesN::from_array(&env, &[10u8; 32]);
         let reason = symbol_short!("duplicate");
 
         let escrow_id = client.create(
-            &buyer,
-            &seller,
-            &token,
-            &1000i128,
-            &order_id,
-            &100u32,
-            &None,
-            &None,
+            &buyer, &seller, &token, &1000i128, &order_id, &100u32, &None, &None,
         );
 
         client.cancel(&escrow_id, &seller, &reason);
@@ -742,21 +714,16 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         client.add_token(&admin, &token);
 
         let order_id = BytesN::from_array(&env, &[11u8; 32]);
         let reason = symbol_short!("cancelled");
 
         let escrow_id = client.create(
-            &buyer,
-            &seller,
-            &token,
-            &1000i128,
-            &order_id,
-            &100u32,
-            &None,
-            &None,
+            &buyer, &seller, &token, &1000i128, &order_id, &100u32, &None, &None,
         );
 
         client.cancel(&escrow_id, &seller, &reason);
@@ -829,7 +796,9 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
         token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
@@ -879,7 +848,9 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
         let token_client = soroban_sdk::token::Client::new(&env, &token);
         token_admin_client.mint(&buyer, &10000i128);
@@ -945,7 +916,9 @@ mod test {
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
         let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
         let token_client = soroban_sdk::token::Client::new(&env, &token);
         token_admin_client.mint(&buyer, &10000i128);
@@ -1055,5 +1028,262 @@ mod test {
             li.sequence_number = 1000;
         });
         assert!(client.get_create_paused());
+    }
+
+    // ── Ticket 1: clear_release_condition ────────────────────────────────────
+
+    /// Create a funded escrow with a release condition set, return the escrow id.
+    fn setup_escrow_with_condition(
+        env: &Env,
+        client: &EscrowContractClient<'_>,
+        admin: &Address,
+    ) -> u64 {
+        let buyer = Address::generate(env);
+        let seller = Address::generate(env);
+        let token_admin = Address::generate(env);
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(env, &token);
+        token_admin_client.mint(&buyer, &10_000i128);
+        client.add_token(admin, &token);
+
+        let order_id = BytesN::from_array(env, &[42u8; 32]);
+        let escrow_id = client.deposit(
+            &buyer, &seller, &token, &1_000i128, &order_id, &1_000u32, &None, &None,
+        );
+
+        // Register a dummy oracle contract so the address is valid.
+        let oracle_id = env.register(EscrowContract, ());
+        let condition_type = symbol_short!("delivery");
+        client.set_release_condition(admin, &escrow_id, &condition_type, &oracle_id);
+        escrow_id
+    }
+
+    #[test]
+    fn test_clear_release_condition_admin_success() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let escrow_id = setup_escrow_with_condition(&env, &client, &admin);
+
+        // Condition must exist before clearing.
+        let cond = client.get_release_condition(&escrow_id);
+        assert_eq!(cond.condition_type, symbol_short!("delivery"));
+
+        // Admin clears it — must succeed.
+        client.clear_release_condition(&admin, &escrow_id);
+
+        // Now get_release_condition should return the NotSet error.
+        let res = client.try_get_release_condition(&escrow_id);
+        assert_eq!(res, Err(Ok(EscrowError::ReleaseConditionNotSet)));
+    }
+
+    #[test]
+    fn test_clear_release_condition_co_admin_success() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let co_admin = Address::generate(&env);
+        client.add_co_admin(&admin, &co_admin);
+
+        let escrow_id = setup_escrow_with_condition(&env, &client, &admin);
+
+        // Co-admin should also be authorized.
+        client.clear_release_condition(&co_admin, &escrow_id);
+
+        let res = client.try_get_release_condition(&escrow_id);
+        assert_eq!(res, Err(Ok(EscrowError::ReleaseConditionNotSet)));
+    }
+
+    #[test]
+    fn test_clear_release_condition_non_admin_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let escrow_id = setup_escrow_with_condition(&env, &client, &admin);
+        let non_admin = Address::generate(&env);
+
+        let res = client.try_clear_release_condition(&non_admin, &escrow_id);
+        assert_eq!(res, Err(Ok(EscrowError::Unauthorized)));
+    }
+
+    #[test]
+    fn test_clear_release_condition_on_released_escrow_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        token_admin_client.mint(&buyer, &10_000i128);
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[43u8; 32]);
+        let escrow_id = client.deposit(
+            &buyer, &seller, &token, &1_000i128, &order_id, &1_000u32, &None, &None,
+        );
+
+        // Release it fully so status = Released.
+        client.release(&escrow_id, &buyer, &seller);
+
+        let res = client.try_clear_release_condition(&admin, &escrow_id);
+        assert_eq!(res, Err(Ok(EscrowError::AlreadyReleased)));
+    }
+
+    #[test]
+    fn test_get_release_condition_returns_none_after_clear() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let escrow_id = setup_escrow_with_condition(&env, &client, &admin);
+        client.clear_release_condition(&admin, &escrow_id);
+
+        // Confirming via try variant that the storage key is gone.
+        let res = client.try_get_release_condition(&escrow_id);
+        assert_eq!(res, Err(Ok(EscrowError::ReleaseConditionNotSet)));
+    }
+
+    // ── Ticket 2: get_yield_config ────────────────────────────────────────────
+
+    #[test]
+    fn test_get_yield_config_returns_none_when_unset() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        token_admin_client.mint(&buyer, &10_000i128);
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[50u8; 32]);
+        let escrow_id = client.deposit(
+            &buyer, &seller, &token, &1_000i128, &order_id, &1_000u32, &None, &None,
+        );
+
+        let result = client.get_yield_config(&escrow_id);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_yield_config_returns_some_after_set() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        token_admin_client.mint(&buyer, &10_000i128);
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[51u8; 32]);
+        let escrow_id = client.deposit(
+            &buyer, &seller, &token, &1_000i128, &order_id, &1_000u32, &None, &None,
+        );
+
+        let lending_contract = Address::generate(&env);
+        let apr_bps = 500u32; // 5% APR
+        client.set_yield_config(&admin, &escrow_id, &lending_contract, &apr_bps);
+
+        let result = client.get_yield_config(&escrow_id);
+        assert!(result.is_some());
+        let cfg = result.unwrap();
+        assert_eq!(cfg.lending_contract, lending_contract);
+        assert_eq!(cfg.apr_bps, apr_bps);
+    }
+
+    // ── Ticket 3: get_co_admins / get_pending_admin ───────────────────────────
+
+    #[test]
+    fn test_get_co_admins_returns_empty_vec_when_none_added() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _admin, _contract_id) = setup_client(&env);
+
+        let co_admins = client.get_co_admins();
+        assert_eq!(co_admins.len(), 0);
+    }
+
+    #[test]
+    fn test_get_co_admins_returns_populated_list_after_add() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let co_admin_a = Address::generate(&env);
+        let co_admin_b = Address::generate(&env);
+        client.add_co_admin(&admin, &co_admin_a);
+        client.add_co_admin(&admin, &co_admin_b);
+
+        let co_admins = client.get_co_admins();
+        assert_eq!(co_admins.len(), 2);
+        assert!(co_admins.contains(&co_admin_a));
+        assert!(co_admins.contains(&co_admin_b));
+    }
+
+    #[test]
+    fn test_get_pending_admin_returns_none_when_no_transfer() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _admin, _contract_id) = setup_client(&env);
+
+        let result = client.get_pending_admin();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_pending_admin_returns_some_after_propose() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let new_admin = Address::generate(&env);
+        client.propose_admin(&admin, &new_admin);
+
+        let result = client.get_pending_admin();
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), new_admin);
+    }
+
+    // ── Ticket 4: get_admin ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_get_admin_returns_initialized_admin() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let result = client.get_admin();
+        assert_eq!(result, admin);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_get_admin_panics_when_not_initialized() {
+        let env = Env::default();
+        let contract_id = env.register(EscrowContract, ());
+        let client = EscrowContractClient::new(&env, &contract_id);
+        // Contract not initialized — get_admin must panic.
+        client.get_admin();
     }
 }

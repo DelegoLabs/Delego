@@ -23,9 +23,10 @@ export function ProfileForm({ user, onSave }: ProfileFormProps) {
   const [displayName, setDisplayName] = useState(user.displayName ?? "");
   const [email, setEmail] = useState(user.email ?? "");
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<
-    { type: "success" | "error"; message: string } | null
-  >(null);
+  const [status, setStatus] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [emailError, setEmailError] = useState<string | undefined>();
 
   const validate = (): boolean => {

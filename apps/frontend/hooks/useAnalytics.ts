@@ -26,7 +26,9 @@ export function useAnalytics() {
           setDelegations(response.data);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch delegations");
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch delegations"
+        );
       } finally {
         setLoading(false);
       }

@@ -336,15 +336,8 @@ async function dispatchEscrowNotification(
         deps.sendEmailFn({
           to: target.email,
           subject,
-          templateName: "escrow-notification",
-          templateData: {
-            subject,
-            body,
-            orderId: event.escrowId,
-            amount: event.amountStroops,
-            merchant: event.seller,
-            buyer: event.buyer,
-          },
+          html: `<p>${body.replace(/\n/g, "<br>")}</p>`,
+          text: body,
         }).catch((err: unknown) =>
           log.error("Failed to send escrow email notification", {
             error: err instanceof Error ? err.message : String(err),
@@ -433,15 +426,16 @@ export function startEscrowEventListener(
 ): { stop(): Promise<void> } {
   const { createRequire } = require("node:module") as typeof import("node:module");
   const require_ = createRequire(import.meta.url);
-  const { rpc: rpcModule } = require_("@stellar/stellar-sdk") as typeof import("@stellar/stellar-sdk");
-  const server = new rpcModule.Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
+  const { rpc } = require_("@stellar/stellar-sdk") as typeof import("@stellar/stellar-sdk");
+  const server = new rpc.Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
 
   const Redis = (require_("ioredis") as { Redis: typeof import("ioredis").Redis }).Redis;
   const redisDefault = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true });
 
   const dedupStore: ProcessedContractEventStore =
     depsIn.dedupStore ?? new InMemoryProcessedContractEventStore();
-  const redis: EscrowEventRedis = depsIn.redis ?? redisDefault;
+  const redis: EscrowEventRedis =
+    depsIn.redis ?? (redisDefault as unknown as EscrowEventRedis);
 
   const walletLookup =
     depsIn.walletLookup ??

@@ -15,6 +15,8 @@ import {
 } from "./paymentRecordStore.js";
 import { publishPaymentStatusEvent } from "./redisEvents.js";
 import type {
+  DisputeEscrowParams,
+  DisputeResult,
   EscrowCoordinator,
   EscrowStatusResult,
   FundEscrowParams,
@@ -72,13 +74,20 @@ function mapRecordStatusToEscrowStatus(
       return "released";
     case "refunded":
       return "refunded";
+    case "disputed":
+      return "disputed";
     default:
       return null;
   }
 }
 
 async function emitStatusEvent(
-  channel: "payment:funded" | "payment:released" | "payment:refunded" | "payment:failed",
+  channel:
+    | "payment:funded"
+    | "payment:released"
+    | "payment:refunded"
+    | "payment:disputed"
+    | "payment:failed",
   record: PaymentRecord,
   txHash?: string,
   reason?: string
@@ -333,6 +342,76 @@ export const escrowCoordinator: EscrowCoordinator = {
     }
   },
 
+  async disputeEscrow(params: DisputeEscrowParams): Promise<DisputeResult> {
+    const record = await findPaymentRecordByEscrowId(params.escrowId);
+    if (!record) {
+      throw new Error(`Payment record not found for escrow ${params.escrowId}`);
+    }
+
+    if (record.status === "disputed" && record.disputeTxHash) {
+      return {
+        txHash: record.disputeTxHash,
+        ledger: 0,
+        status: "disputed",
+        disputedBy: params.callerAddress,
+      };
+    }
+
+    await updatePaymentRecord(record.id, { failureReason: null });
+
+    try {
+      const tx = await submitContractInvocation({
+        sourceAddress: params.callerAddress,
+        contractId: params.escrowContractId,
+        method: "dispute",
+        args: [parseEscrowId(params.escrowId), params.callerAddress],
+        memo: `Dispute escrow ${params.escrowId}`,
+      });
+
+      if (!tx.success) {
+        const updated = await updatePaymentRecord(record.id, {
+          status: "failed",
+          failureReason: "Dispute transaction failed on-chain",
+        });
+        await emitStatusEvent("payment:failed", updated, tx.hash, "Dispute transaction failed on-chain");
+        return {
+          txHash: tx.hash,
+          ledger: tx.ledger,
+          status: "failed",
+          disputedBy: params.callerAddress,
+        };
+      }
+
+      const updated = await updatePaymentRecord(record.id, {
+        status: "disputed",
+        disputeTxHash: tx.hash,
+        failureReason: null,
+      });
+      await emitStatusEvent("payment:disputed", updated, tx.hash);
+
+      return {
+        txHash: tx.hash,
+        ledger: tx.ledger,
+        status: "disputed",
+        disputedBy: params.callerAddress,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown dispute error";
+      log.error("Escrow dispute failed", { escrowId: params.escrowId, error: message });
+      const updated = await updatePaymentRecord(record.id, {
+        status: "failed",
+        failureReason: message,
+      });
+      await emitStatusEvent("payment:failed", updated, undefined, message);
+      return {
+        txHash: record.disputeTxHash ?? "",
+        ledger: 0,
+        status: "failed",
+        disputedBy: params.callerAddress,
+      };
+    }
+  },
+
   async getEscrowStatus(escrowId: string): Promise<EscrowStatusResult> {
     const record = await findPaymentRecordByEscrowId(escrowId);
     if (record) {
@@ -369,6 +448,8 @@ export const escrowCoordinator: EscrowCoordinator = {
 };
 
 export type {
+  DisputeEscrowParams,
+  DisputeResult,
   EscrowCoordinator,
   EscrowStatusResult,
   FundEscrowParams,

@@ -1,5 +1,7 @@
 import type {
   ApiResponse,
+  Delegation,
+  Escrow,
   HealthCheckResponse,
 } from "@delego/types";
 import {
@@ -16,6 +18,20 @@ export interface DelegoClientOptions {
   token?: string;
   /** Timeout in milliseconds for requests (default: 30000) */
   timeout?: number;
+  /**
+   * Called whenever a request receives a 401 response. The stored token is
+   * cleared before this fires, so callers should redirect to login here.
+   */
+  onUnauthorized?: () => void;
+  /** Storage to persist the token in across page reloads (default: localStorage). */
+  storage?: Pick<Storage, "getItem" | "setItem" | "removeItem">;
+}
+
+const TOKEN_STORAGE_KEY = "delego_auth_token";
+
+function getDefaultStorage(): Pick<Storage, "getItem" | "setItem" | "removeItem"> | undefined {
+  if (typeof window === "undefined" || !window.localStorage) return undefined;
+  return window.localStorage;
 }
 
 export class TimeoutError extends Error {
@@ -39,13 +55,34 @@ function getCsrfToken(): string | undefined {
  */
 export class DelegoClient {
   private readonly baseUrl: string;
-  private readonly token?: string;
+  private token?: string;
   private readonly timeout: number;
+  private readonly onUnauthorized?: () => void;
+  private readonly storage?: Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
   constructor(options: DelegoClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
-    this.token = options.token;
     this.timeout = options.timeout ?? 30000;
+    this.onUnauthorized = options.onUnauthorized;
+    this.storage = options.storage ?? getDefaultStorage();
+    this.token = options.token ?? this.storage?.getItem(TOKEN_STORAGE_KEY) ?? undefined;
+  }
+
+  /** Store the auth token in memory and persist it (localStorage by default). */
+  setToken(token: string): void {
+    this.token = token;
+    this.storage?.setItem(TOKEN_STORAGE_KEY, token);
+  }
+
+  /** Return the current auth token, or null if none is set. */
+  getToken(): string | null {
+    return this.token ?? null;
+  }
+
+  /** Clear the auth token from memory and persisted storage (e.g. on logout). */
+  clearToken(): void {
+    this.token = undefined;
+    this.storage?.removeItem(TOKEN_STORAGE_KEY);
   }
 
   private async request<T>(
@@ -97,6 +134,11 @@ export class DelegoClient {
         externalSignal.removeEventListener("abort", onExternalAbort);
       }
 
+      if (response.status === 401) {
+        this.clearToken();
+        this.onUnauthorized?.();
+      }
+
       const rawData = await response.json();
       if (dataSchema) {
         const schema = ApiResponseSchema(dataSchema);
@@ -130,20 +172,81 @@ export class DelegoClient {
     );
   }
 
-  async getDelegations(): Promise<ApiResponse<import("@delego/types").Delegation[]>> {
+  async getDelegations(
+    options?: { signal?: AbortSignal }
+  ): Promise<ApiResponse<import("@delego/types").Delegation[]>> {
     return this.request<import("@delego/types").Delegation[]>(
       "/api/v1/delegations",
-      undefined,
+      { signal: options?.signal },
       z.array(DelegationSchema)
     );
   }
 
-  async getOrders(): Promise<ApiResponse<import("@delego/types").Order[]>> {
+  async getOrders(
+    options?: { signal?: AbortSignal }
+  ): Promise<ApiResponse<import("@delego/types").Order[]>> {
     return this.request<import("@delego/types").Order[]>(
       "/api/v1/orders",
-      undefined,
+      { signal: options?.signal },
       z.array(OrderSchema)
     );
+  }
+
+  /** Approve a high-value order awaiting manual review. */
+  async approveOrder(
+    id: string
+  ): Promise<ApiResponse<import("@delego/types").Order>> {
+    return this.request<import("@delego/types").Order>(
+      `/api/v1/orders/${encodeURIComponent(id)}/approve`,
+      { method: "POST" },
+      OrderSchema
+    );
+  }
+
+  /** Reject a high-value order awaiting manual review, with an optional reason. */
+  async rejectOrder(
+    id: string,
+    reason?: string
+  ): Promise<ApiResponse<import("@delego/types").Order>> {
+    return this.request<import("@delego/types").Order>(
+      `/api/v1/orders/${encodeURIComponent(id)}/reject`,
+      { method: "POST", body: JSON.stringify({ reason: reason ?? null }) },
+      OrderSchema
+    );
+  }
+
+  async createDelegation(
+    input: import("@delego/types").CreateDelegationInput
+  ): Promise<ApiResponse<import("@delego/types").Delegation>> {
+    return this.request<import("@delego/types").Delegation>(
+      "/api/v1/delegations",
+      { method: "POST", body: JSON.stringify(input) },
+      DelegationSchema
+    );
+  }
+
+  async updateDelegation(
+    id: string,
+    input: import("@delego/types").UpdateDelegationInput
+  ): Promise<ApiResponse<import("@delego/types").Delegation>> {
+    return this.request<import("@delego/types").Delegation>(
+      `/api/v1/delegations/${encodeURIComponent(id)}`,
+      { method: "PATCH", body: JSON.stringify(input) },
+      DelegationSchema
+    );
+  }
+
+  async revokeDelegation(
+    id: string
+  ): Promise<ApiResponse<{ id: string; status: string }>> {
+    return this.request<{ id: string; status: string }>(
+      `/api/v1/delegations/${encodeURIComponent(id)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  async getEscrows(): Promise<ApiResponse<Escrow[]>> {
+    return this.request<Escrow[]>("/api/v1/escrows");
   }
 }
 

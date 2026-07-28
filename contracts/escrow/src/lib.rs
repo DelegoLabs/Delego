@@ -3,6 +3,12 @@
 //! Holds funds in escrow until order fulfillment is confirmed.
 
 #![no_std]
+// `create` and `deposit` have 9 parameters — more than clippy's default limit of 7.
+// These are Soroban contract entry points whose signatures are part of the
+// published on-chain ABI; restructuring them would be a breaking change.
+// The `contractargs` proc-macro also generates wrapper functions that exceed the
+// limit, which cannot be annotated individually from user code.
+#![allow(clippy::too_many_arguments)]
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
     InvokeError, Symbol, Vec,
@@ -718,7 +724,11 @@ impl EscrowContract {
     /// afterwards. Sets the migration flag and emits
     /// [`ContractUpgradedEvent`] so backend services can detect the version
     /// change.
-    pub fn upgrade(env: Env, admin: Address, new_wasm_hash: BytesN<32>) -> Result<bool, EscrowError> {
+    pub fn upgrade(
+        env: Env,
+        admin: Address,
+        new_wasm_hash: BytesN<32>,
+    ) -> Result<bool, EscrowError> {
         admin.require_auth();
         if !Self::is_admin(env.clone(), admin.clone()) {
             return Err(EscrowError::Unauthorized);
@@ -796,7 +806,7 @@ impl EscrowContract {
         if !Self::is_admin(env.clone(), admin.clone()) {
             return Err(EscrowError::Unauthorized);
         }
-        if threshold == 0 || threshold > arbiters.len() as u32 {
+        if threshold == 0 || threshold > arbiters.len() {
             return Err(EscrowError::InvalidQuorum);
         }
         // Check for duplicate arbiters
@@ -1158,12 +1168,11 @@ impl EscrowContract {
             .get(&DataKey::FeeDistribution)
             .unwrap_or_else(|| soroban_sdk::Vec::new(env));
 
-        if shares.len() > 0 {
+        if !shares.is_empty() {
             let mut total_fee: i128 = 0;
             for share in shares.iter() {
                 let bps = share.bps as i128;
-                let fee =
-                    (amount / 10_000i128) * bps + ((amount % 10_000i128) * bps) / 10_000i128;
+                let fee = (amount / 10_000i128) * bps + ((amount % 10_000i128) * bps) / 10_000i128;
                 if fee > 0 {
                     token_client.transfer(&env.current_contract_address(), &share.treasury, &fee);
                     total_fee += fee;
@@ -1173,8 +1182,8 @@ impl EscrowContract {
         } else {
             let fee_config: FeeConfig = Self::get_fee_config(env.clone())?;
             let fee_bps = fee_config.fee_bps as i128;
-            let fee = (amount / 10_000i128) * fee_bps
-                + ((amount % 10_000i128) * fee_bps) / 10_000i128;
+            let fee =
+                (amount / 10_000i128) * fee_bps + ((amount % 10_000i128) * fee_bps) / 10_000i128;
             if fee > 0 {
                 token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
             }
@@ -1394,11 +1403,7 @@ impl EscrowContract {
         }
 
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
-        token_client.transfer(
-            &env.current_contract_address(),
-            &record.seller,
-            &remaining,
-        );
+        token_client.transfer(&env.current_contract_address(), &record.seller, &remaining);
 
         record.released_amount = record.amount;
         record.status = EscrowStatus::Released;
@@ -1749,7 +1754,7 @@ impl EscrowContract {
                 .persistent()
                 .get(&DataKey::EscrowYieldConfig(escrow_id));
             if let Some(cfg) = &yield_config {
-                let (yield_amount, held_seconds) = Self::compute_yield(&record, Some(cfg), &env);
+                let (yield_amount, held_seconds) = Self::compute_yield(&record, Some(cfg), env);
                 env.events().publish(
                     (symbol_short!("escrow"), symbol_short!("yield")),
                     EscrowYieldAccruedEvent {
@@ -1938,7 +1943,10 @@ impl EscrowContract {
     }
 
     /// Read-only getter for the release condition configured on an escrow.
-    pub fn get_release_condition(env: Env, escrow_id: u64) -> Result<ReleaseCondition, EscrowError> {
+    pub fn get_release_condition(
+        env: Env,
+        escrow_id: u64,
+    ) -> Result<ReleaseCondition, EscrowError> {
         env.storage()
             .persistent()
             .get(&DataKey::ReleaseCondition(escrow_id))
@@ -2655,10 +2663,7 @@ impl EscrowContract {
     ///
     /// # Errors
     /// Returns [`EscrowError::NotFound`] when no escrow exists for `escrow_id`.
-    pub fn get_timeout_view(
-        env: Env,
-        escrow_id: u64,
-    ) -> Result<EscrowTimeoutView, EscrowError> {
+    pub fn get_timeout_view(env: Env, escrow_id: u64) -> Result<EscrowTimeoutView, EscrowError> {
         let key = DataKey::Escrow(escrow_id);
         let record: EscrowRecord = env
             .storage()
@@ -2671,8 +2676,7 @@ impl EscrowContract {
 
         // Only a Funded escrow can become refundable via timeout.
         // Released, Refunded, and Disputed states are not refundable here.
-        let refundable = record.status == EscrowStatus::Funded
-            && current_ledger >= timeout_ledger;
+        let refundable = record.status == EscrowStatus::Funded && current_ledger >= timeout_ledger;
 
         Ok(EscrowTimeoutView {
             escrow_id: record.order_id,
@@ -2697,7 +2701,11 @@ impl EscrowContract {
     /// Computes yield accrued on an escrow's principal for the time it has
     /// been held, based on the given `YieldConfig` APR. Returns
     /// `(yield_amount, held_seconds)`; `(0, 0)` when no yield config is set.
-    fn compute_yield(record: &EscrowRecord, yield_config: Option<&YieldConfig>, env: &Env) -> (i128, u64) {
+    fn compute_yield(
+        record: &EscrowRecord,
+        yield_config: Option<&YieldConfig>,
+        env: &Env,
+    ) -> (i128, u64) {
         match yield_config {
             Some(cfg) => {
                 let held_seconds = env.ledger().timestamp().saturating_sub(record.created_at);
@@ -2777,16 +2785,12 @@ impl EscrowContract {
         let mut total_released: i128 = 0;
 
         for (recipient, amount) in shares.iter() {
-            let fee = (amount / 10_000i128) * fee_bps
-                + ((amount % 10_000i128) * fee_bps) / 10_000i128;
+            let fee =
+                (amount / 10_000i128) * fee_bps + ((amount % 10_000i128) * fee_bps) / 10_000i128;
             let net = amount - fee;
 
             if fee > 0 {
-                token_client.transfer(
-                    &env.current_contract_address(),
-                    &fee_config.treasury,
-                    &fee,
-                );
+                token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
             }
             token_client.transfer(&env.current_contract_address(), &recipient, &net);
 
@@ -2805,7 +2809,7 @@ impl EscrowContract {
             (symbol_short!("escrow"), symbol_short!("splitrel")),
             EscrowSplitReleasedEvent {
                 escrow_id,
-                recipient_count: shares.len() as u32,
+                recipient_count: shares.len(),
                 total_released,
                 fee_charged: total_fee,
                 released_by: caller,
@@ -2883,6 +2887,92 @@ impl EscrowContract {
             .get(&DataKey::AdminList)
             .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
         admin_list.contains(&address)
+    }
+
+    // ── Ticket 1: clear_release_condition ────────────────────────────────────
+
+    /// Remove the release condition for an escrow. Admin or co-admin only.
+    ///
+    /// Useful when the configured oracle becomes unavailable or the condition
+    /// is no longer required. Blocked on escrows that have already reached a
+    /// terminal state (Released or Refunded) — those escrows are already
+    /// settled so clearing the condition would have no effect and signals a
+    /// caller logic error.
+    ///
+    /// # Errors
+    /// - [`EscrowError::Unauthorized`] if `caller` is neither the primary
+    ///   admin nor a co-admin.
+    /// - [`EscrowError::NotFound`] if `escrow_id` does not exist.
+    /// - [`EscrowError::AlreadyReleased`] if the escrow has been released.
+    /// - [`EscrowError::AlreadyRefunded`] if the escrow has been refunded.
+    /// - [`EscrowError::AlreadyCancelled`] if the escrow has been cancelled.
+    pub fn clear_release_condition(
+        env: Env,
+        caller: Address,
+        escrow_id: u64,
+    ) -> Result<(), EscrowError> {
+        caller.require_auth();
+        if !Self::is_admin(env.clone(), caller) {
+            return Err(EscrowError::Unauthorized);
+        }
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+        check_not_terminal(&record)?;
+        env.storage()
+            .persistent()
+            .remove(&DataKey::ReleaseCondition(escrow_id));
+        Ok(())
+    }
+
+    // ── Ticket 2: get_yield_config ────────────────────────────────────────────
+
+    /// Read-only getter for the yield configuration of an escrow.
+    ///
+    /// Returns `None` when no yield config has been set via `set_yield_config`.
+    /// Never mutates storage.
+    pub fn get_yield_config(env: Env, escrow_id: u64) -> Option<YieldConfig> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::EscrowYieldConfig(escrow_id))
+    }
+
+    // ── Ticket 3: get_co_admins / get_pending_admin ───────────────────────────
+
+    /// Read-only getter for the list of co-admins.
+    ///
+    /// Returns an empty `Vec` when no co-admins have been added — never
+    /// panics on missing state. Never mutates storage.
+    pub fn get_co_admins(env: Env) -> soroban_sdk::Vec<Address> {
+        env.storage()
+            .instance()
+            .get(&DataKey::AdminList)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env))
+    }
+
+    /// Read-only getter for the pending (proposed) new primary admin.
+    ///
+    /// Returns `None` when no admin transfer is in progress. Never mutates
+    /// storage.
+    pub fn get_pending_admin(env: Env) -> Option<Address> {
+        env.storage().instance().get(&DataKey::PendingAdmin)
+    }
+
+    // ── Ticket 4: get_admin ───────────────────────────────────────────────────
+
+    /// Read-only getter for the current primary admin address.
+    ///
+    /// Panics when the contract has not been initialized — consistent with
+    /// [`get_escrow`] and other "required value" getters in this contract that
+    /// use `expect` rather than returning `Result`.
+    pub fn get_admin(env: Env) -> Address {
+        env.storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set")
     }
 }
 

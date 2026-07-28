@@ -40,6 +40,7 @@ interface PaymentRecordRow extends QueryResultRow {
   fund_tx_hash: string | null;
   release_tx_hash: string | null;
   refund_tx_hash: string | null;
+  dispute_tx_hash: string | null;
   failure_reason: string | null;
   created_at: Date;
   updated_at: Date;
@@ -59,6 +60,7 @@ function mapRow(row: PaymentRecordRow): PaymentRecord {
     fundTxHash: row.fund_tx_hash,
     releaseTxHash: row.release_tx_hash,
     refundTxHash: row.refund_tx_hash,
+    disputeTxHash: row.dispute_tx_hash,
     failureReason: row.failure_reason,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -127,6 +129,7 @@ export interface PaymentRecordUpdate {
   fundTxHash?: string | null;
   releaseTxHash?: string | null;
   refundTxHash?: string | null;
+  disputeTxHash?: string | null;
   failureReason?: string | null;
 }
 
@@ -147,6 +150,7 @@ export async function updatePaymentRecord(
   if (update.fundTxHash !== undefined) addField("fund_tx_hash", update.fundTxHash);
   if (update.releaseTxHash !== undefined) addField("release_tx_hash", update.releaseTxHash);
   if (update.refundTxHash !== undefined) addField("refund_tx_hash", update.refundTxHash);
+  if (update.disputeTxHash !== undefined) addField("dispute_tx_hash", update.disputeTxHash);
   if (update.failureReason !== undefined) addField("failure_reason", update.failureReason);
 
   if (fields.length === 0) {

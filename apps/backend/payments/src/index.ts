@@ -11,6 +11,8 @@ export { escrowCoordinator } from "./escrowCoordinator/index.js";
 export { reconcileSettlements, startReconciliationScheduler } from "./reconciliation/settlementReconciler.js";
 export type { SettlementDiscrepancy } from "./reconciliation/settlementReconciler.js";
 export type {
+  DisputeEscrowParams,
+  DisputeResult,
   EscrowCoordinator,
   EscrowStatusResult,
   FundEscrowParams,

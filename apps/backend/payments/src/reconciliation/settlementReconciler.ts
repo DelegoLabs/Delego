@@ -5,7 +5,6 @@
  */
 import { createLogger } from "@delego/utils";
 import { Pool } from "pg";
-import type { PaymentRecordStatus } from "../escrowCoordinator/types.js";
 
 const log = createLogger("payments:settlement-reconciler", process.env.LOG_LEVEL ?? "info");
 
@@ -25,6 +24,19 @@ interface SettlementReconciliationResult {
     resolved: number;
     failed: number;
     duration: number;
+}
+
+/**
+ * Raw row shape returned by `SELECT id, order_id, escrow_id, status ...`
+ * — column names match the Postgres `payment_records` schema
+ * (snake_case).  Kept separate from `PaymentRecord` so consumers of the
+ * higher-level model continue to see the camelCase API surface.
+ */
+interface RawPaymentRow {
+    id: string;
+    order_id: string;
+    escrow_id: string | null;
+    status: string;
 }
 
 function getPool(): Pool {
@@ -210,14 +222,7 @@ export async function reconcileSettlements(): Promise<SettlementReconciliationRe
         log.info("Starting settlement reconciliation cycle");
 
         // Fetch all non-terminal payments
-        type PaymentRow = {
-            id: string;
-            order_id: string;
-            escrow_id: string | null;
-            status: PaymentRecordStatus;
-        };
-
-        const { rows: paymentRows } = await pool.query<PaymentRow>(
+        const { rows: paymentRows } = await pool.query<RawPaymentRow>(
             `SELECT id, order_id, escrow_id, status
        FROM payment_records
        WHERE status NOT IN ('released', 'refunded')
@@ -281,13 +286,7 @@ export async function reconcileSettlements(): Promise<SettlementReconciliationRe
             duration,
         };
 
-        log.info("Settlement reconciliation cycle completed", {
-            totalPayments,
-            discrepancies,
-            resolved: resolvedCount,
-            failed: failedCount,
-            duration,
-        });
+        log.info("Settlement reconciliation cycle completed", { ...result });
         return result;
     } catch (err) {
         log.error("Reconciliation cycle failed", { error: (err as Error).message });

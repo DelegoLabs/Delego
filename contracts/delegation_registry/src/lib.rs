@@ -1,6 +1,6 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol, Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol, Vec,
 };
 
 #[contracttype]
@@ -99,13 +99,18 @@ pub enum DataKey {
     DelegationHistory(u64),
 }
 
-/// Emitted for each delegation transitioned to `Expired` by `sweep_expired`.
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct DelegationExpiredEvent {
-    pub delegation_id: u64,
-    pub owner: Address,
-    pub agent_id: BytesN<32>,
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum DelegationError {
+    NotFound = 1,
+    NotActive = 2,
+    NotPaused = 3,
+    Expired = 4,
+    AlreadyInitialized = 5,
+    InvalidVersion = 6,
+    VersionNotLower = 7,
+    SnapshotNotFound = 8,
 }
 
 #[contract]
@@ -490,7 +495,8 @@ impl DelegationRegistry {
                         DelegationExpiredEvent {
                             delegation_id: id,
                             owner: record.owner.clone(),
-                            agent_id: record.agent_id.clone(),
+                            agent: record.agent_id.clone(),
+                            timestamp: env.ledger().timestamp(),
                         },
                     );
 
@@ -532,6 +538,40 @@ impl DelegationRegistry {
             }
         }
         expired
+    }
+    fn increment_version(env: &Env, delegation_id: u64) -> u32 {
+        let version: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::DelegationVersion(delegation_id))
+            .unwrap_or(1);
+        let new_version = version + 1;
+        env.storage()
+            .persistent()
+            .set(&DataKey::DelegationVersion(delegation_id), &new_version);
+        new_version
+    }
+
+    fn store_snapshot(env: &Env, delegation_id: u64, record: &DelegationRecord) {
+        let version: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::DelegationVersion(delegation_id))
+            .unwrap_or(1);
+        let snapshot = DelegationSnapshot {
+            version,
+            snapshot_ledger: env.ledger().sequence(),
+            record: record.clone(),
+        };
+        let mut history: Vec<DelegationSnapshot> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::DelegationHistory(delegation_id))
+            .unwrap_or(Vec::new(env));
+        history.push_back(snapshot);
+        env.storage()
+            .persistent()
+            .set(&DataKey::DelegationHistory(delegation_id), &history);
     }
 }
 

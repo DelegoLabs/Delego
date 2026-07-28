@@ -4,7 +4,7 @@ use super::*;
 use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Events, Ledger},
-    Address, BytesN, Env, IntoVal, Symbol,
+    Address, BytesN, Env, Symbol, TryFromVal,
 };
 
 fn setup() -> (
@@ -180,8 +180,10 @@ fn test_created_event_emitted() {
     let found = events.iter().any(|(_, topics, _)| {
         let t: soroban_sdk::Vec<soroban_sdk::Val> = topics;
         t.len() >= 2
-            && t.get(0) == Some(symbol_short!("deleg").into_val(&env))
-            && t.get(1) == Some(symbol_short!("created").into_val(&env))
+            && Symbol::try_from_val(&env, &t.get(0).unwrap()).ok()
+                == Some(symbol_short!("deleg"))
+            && Symbol::try_from_val(&env, &t.get(1).unwrap()).ok()
+                == Some(symbol_short!("created"))
     });
     assert!(found, "DelegationCreated event not emitted; id={id}");
 }
@@ -199,8 +201,10 @@ fn test_paused_event_emitted() {
     let found = events.iter().any(|(_, topics, _)| {
         let t: soroban_sdk::Vec<soroban_sdk::Val> = topics;
         t.len() >= 2
-            && t.get(0) == Some(symbol_short!("deleg").into_val(&env))
-            && t.get(1) == Some(symbol_short!("paused").into_val(&env))
+            && Symbol::try_from_val(&env, &t.get(0).unwrap()).ok()
+                == Some(symbol_short!("deleg"))
+            && Symbol::try_from_val(&env, &t.get(1).unwrap()).ok()
+                == Some(symbol_short!("paused"))
     });
     assert!(found, "DelegationPaused event not emitted");
 }
@@ -219,8 +223,10 @@ fn test_resumed_event_emitted() {
     let found = events.iter().any(|(_, topics, _)| {
         let t: soroban_sdk::Vec<soroban_sdk::Val> = topics;
         t.len() >= 2
-            && t.get(0) == Some(symbol_short!("deleg").into_val(&env))
-            && t.get(1) == Some(symbol_short!("resumed").into_val(&env))
+            && Symbol::try_from_val(&env, &t.get(0).unwrap()).ok()
+                == Some(symbol_short!("deleg"))
+            && Symbol::try_from_val(&env, &t.get(1).unwrap()).ok()
+                == Some(symbol_short!("resumed"))
     });
     assert!(found, "DelegationResumed event not emitted");
 }
