@@ -2961,19 +2961,6 @@ impl EscrowContract {
         env.storage().instance().get(&DataKey::PendingAdmin)
     }
 
-    // ── Ticket 4: get_admin ───────────────────────────────────────────────────
-
-    /// Read-only getter for the current primary admin address.
-    ///
-    /// Panics when the contract has not been initialized — consistent with
-    /// [`get_escrow`] and other "required value" getters in this contract that
-    /// use `expect` rather than returning `Result`.
-    pub fn get_admin(env: Env) -> Address {
-        env.storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .expect("Admin not set")
-    }
 }
 
 #[cfg(test)]
