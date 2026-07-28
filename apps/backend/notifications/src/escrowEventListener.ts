@@ -85,7 +85,7 @@ export interface RawEscrowRpcEvent {
 
 /** Minimal Redis interface required by the listener. */
 export interface EscrowEventRedis {
-  set(key: string, value: string, ...args: Array<string | number>): Promise<unknown>;
+  set(key: string, value: string, ...args: unknown[]): Promise<unknown>;
   get(key: string): Promise<string | null>;
   smembers?(key: string): Promise<string[]>;
 }

@@ -32,6 +32,7 @@ Soroban smart contract for holding purchase funds until fulfillment.
 | `get_quorum_config` | — | Current arbiter quorum config |
 | `get_dispute_votes` | — | Votes cast on a disputed escrow |
 | `get_create_paused` | — | Whether new escrow creation is paused |
+| `get_admin` | — | Current primary admin and pending transfer target |
 | `set_limits` | admin | Update amount limits |
 | `set_quorum_config` | admin | Update arbiter list and threshold |
 | `update_fee` | admin | Update fee basis points |
@@ -46,6 +47,37 @@ Soroban smart contract for holding purchase funds until fulfillment.
 | `add_co_admin` | primary admin | Add a co-admin |
 | `remove_co_admin` | primary admin | Remove a co-admin |
 | `is_admin` | — | Check if an address is admin or co-admin |
+
+## `get_admin`
+
+Read-only getter for backend health checks and deployment verification. It
+returns the active primary admin and includes `pending_admin` when a two-step
+admin transfer has been proposed but not yet accepted.
+
+```rust
+pub fn get_admin(env: Env) -> Result<AdminView, EscrowError>
+```
+
+### `AdminView`
+
+```rust
+pub struct AdminView {
+    pub admin: Address,
+    pub pending_admin: Option<Address>,
+}
+```
+
+### Errors
+
+| Code | Meaning |
+|---|---|
+| `EscrowError::NotFound` (2) | Contract has not been initialized |
+
+### No new storage keys, events, migrations, or environment variables
+
+`get_admin` reads existing instance storage keys: `DataKey::Admin` and
+`DataKey::PendingAdmin`. It requires no auth and does not mutate state or emit
+events.
 
 ## `get_timeout_view` (issue #88)
 

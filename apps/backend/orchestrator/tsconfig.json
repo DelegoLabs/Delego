@@ -11,9 +11,9 @@
     ]
   },
   "include": [
-    "src/**/*",
-    "state/**/*",
-    "workflows/**/*"
+    "src/**/*.ts",
+    "state/**/*.ts",
+    "workflows/**/*.ts"
   ],
   "exclude": [
     "src/**/*.test.ts",

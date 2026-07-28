@@ -83,7 +83,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@delego/ui", "@delego/sdk", "@delego/types"],
+  transpilePackages: ["@delego/ui", "@delego/sdk", "@delego/types", "@delego/utils"],
   poweredByHeader: false,
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**.stellar.org" }],
@@ -95,6 +95,14 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
     ];
+  },
+  webpack: (config) => {
+    config.resolve.extensionAlias = {
+      ".js": [".js", ".ts", ".tsx"],
+      ".jsx": [".jsx", ".tsx"],
+    };
+
+    return config;
   },
 };
 

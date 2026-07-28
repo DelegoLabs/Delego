@@ -396,6 +396,13 @@ pub struct ContractVersion {
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AdminView {
+    pub admin: Address,
+    pub pending_admin: Option<Address>,
+}
+
+#[contracttype]
 pub enum DataKey {
     Admin,
     Escrow(u64),
@@ -686,6 +693,27 @@ impl EscrowContract {
     /// interacting with the contract (issue #325). Equivalent to `version`.
     pub fn check_version(env: Env) -> ContractVersion {
         Self::version(env)
+    }
+
+    /// Return the active primary admin and any pending primary admin transfer.
+    /// Callable without authentication for backend health checks and deployment
+    /// verification.
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::NotFound`] when the contract has not been initialized.
+    pub fn get_admin(env: Env) -> Result<AdminView, EscrowError> {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(EscrowError::NotFound)?;
+        let pending_admin: Option<Address> =
+            env.storage().instance().get(&DataKey::PendingAdmin);
+
+        Ok(AdminView {
+            admin,
+            pending_admin,
+        })
     }
 
     /// Upgrade the contract to new wasm code. Admin-only.
@@ -2933,19 +2961,6 @@ impl EscrowContract {
         env.storage().instance().get(&DataKey::PendingAdmin)
     }
 
-    // ── Ticket 4: get_admin ───────────────────────────────────────────────────
-
-    /// Read-only getter for the current primary admin address.
-    ///
-    /// Panics when the contract has not been initialized — consistent with
-    /// [`get_escrow`] and other "required value" getters in this contract that
-    /// use `expect` rather than returning `Result`.
-    pub fn get_admin(env: Env) -> Address {
-        env.storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .expect("Admin not set")
-    }
 }
 
 #[cfg(test)]

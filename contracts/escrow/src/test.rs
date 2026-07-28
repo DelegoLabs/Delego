@@ -72,6 +72,32 @@ mod test {
             client.try_get_limits(),
             Err(Ok(EscrowError::AmountLimitsNotSet))
         );
+        assert_eq!(client.try_get_admin(), Err(Ok(EscrowError::NotFound)));
+    }
+
+    #[test]
+    fn test_get_admin_returns_initialized_admin() {
+        let env = Env::default();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let view = client.get_admin();
+
+        assert_eq!(view.admin, admin);
+        assert_eq!(view.pending_admin, None);
+    }
+
+    #[test]
+    fn test_get_admin_includes_pending_admin() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+        let pending_admin = Address::generate(&env);
+
+        assert!(client.propose_admin(&admin, &pending_admin));
+        let view = client.get_admin();
+
+        assert_eq!(view.admin, admin);
+        assert_eq!(view.pending_admin, Some(pending_admin));
     }
 
     #[test]
@@ -1239,25 +1265,4 @@ mod test {
         assert_eq!(result.unwrap(), new_admin);
     }
 
-    // ── Ticket 4: get_admin ───────────────────────────────────────────────────
-
-    #[test]
-    fn test_get_admin_returns_initialized_admin() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let (client, admin, _contract_id) = setup_client(&env);
-
-        let result = client.get_admin();
-        assert_eq!(result, admin);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_get_admin_panics_when_not_initialized() {
-        let env = Env::default();
-        let contract_id = env.register(EscrowContract, ());
-        let client = EscrowContractClient::new(&env, &contract_id);
-        // Contract not initialized — get_admin must panic.
-        client.get_admin();
-    }
 }
