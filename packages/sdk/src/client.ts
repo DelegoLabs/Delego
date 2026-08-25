@@ -7,6 +7,8 @@ import {
   DelegationSchema,
   HealthCheckResponseSchema,
   OrderSchema,
+  RefundEligibilitySchema,
+  RefundRequestResultSchema,
   validateResponse,
 } from "./schemas.js";
 
@@ -240,6 +242,39 @@ export class DelegoClient {
     return this.request<{ id: string; status: string }>(
       `/api/v1/delegations/${encodeURIComponent(id)}`,
       { method: "DELETE" }
+    );
+  }
+
+  /**
+   * Read-only check of whether `caller` is currently eligible to refund the
+   * given escrow. Backed by the on-chain `get_refund_eligibility` getter —
+   * never simulated or guessed client-side.
+   */
+  async getRefundEligibility(
+    escrowId: string,
+    caller: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<ApiResponse<import("@delego/types").RefundEligibility>> {
+    return this.request<import("@delego/types").RefundEligibility>(
+      `/api/v1/escrow/${encodeURIComponent(escrowId)}/refund-eligibility?caller=${encodeURIComponent(caller)}`,
+      { signal: options?.signal },
+      RefundEligibilitySchema
+    );
+  }
+
+  /** Submit a refund request for an escrow. Each call uses a fresh idempotency key. */
+  async submitRefundRequest(
+    escrowId: string,
+    input: import("@delego/types").RefundRequestInput
+  ): Promise<ApiResponse<import("@delego/types").RefundRequestResult>> {
+    return this.request<import("@delego/types").RefundRequestResult>(
+      `/api/v1/escrow/${encodeURIComponent(escrowId)}/refund`,
+      {
+        method: "POST",
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify(input),
+      },
+      RefundRequestResultSchema
     );
   }
 }

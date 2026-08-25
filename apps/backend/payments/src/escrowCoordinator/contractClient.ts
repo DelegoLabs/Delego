@@ -214,6 +214,57 @@ export async function readEscrowFromChain(
   };
 }
 
+export interface OnChainRefundEligibility {
+  escrow_id: number | bigint;
+  eligible: boolean;
+  reason: string;
+}
+
+/**
+ * Read-only call to `get_refund_eligibility(escrow_id, caller)` (issue #173).
+ * Never signs or submits a transaction — simulation only, matching
+ * {@link readEscrowFromChain}. `caller` is the address eligibility is being
+ * checked for (e.g. the logged-in buyer), not necessarily `sourceAddress`
+ * (which only pays the simulated transaction's source-account fee).
+ */
+export async function readRefundEligibilityFromChain(
+  escrowContractId: string,
+  escrowId: string,
+  caller: string,
+  sourceAddress: string
+): Promise<OnChainRefundEligibility> {
+  const { horizonUrl, rpcUrl, networkPassphrase } = getStellarConfig();
+  const horizon = new Horizon.Server(horizonUrl);
+  const rpcServer = new rpc.Server(rpcUrl);
+  const account = await horizon.loadAccount(sourceAddress);
+
+  const escrowIdNum = Number(escrowId);
+  if (!Number.isInteger(escrowIdNum) || escrowIdNum < 0) {
+    throw new Error(`Invalid escrow ID: ${escrowId}`);
+  }
+
+  const tx = new TransactionBuilder(account, {
+    fee: "100",
+    networkPassphrase,
+  })
+    .addOperation(
+      Operation.invokeContractFunction({
+        contract: escrowContractId,
+        function: "get_refund_eligibility",
+        args: [argToScVal(escrowIdNum), argToScVal(caller)],
+      })
+    )
+    .setTimeout(30)
+    .build();
+
+  const sim = await rpcServer.simulateTransaction(tx);
+  if (!rpc.Api.isSimulationSuccess(sim)) {
+    throw new Error(`get_refund_eligibility simulation failed: ${JSON.stringify(sim)}`);
+  }
+
+  return scValToNative(sim.result!.retval) as OnChainRefundEligibility;
+}
+
 export function getContractReadSourceAddress(fallbackAddress?: string): string {
   const configured =
     process.env.ESCROW_READ_SOURCE_ADDRESS ??

@@ -4,12 +4,17 @@ import { escrowService } from "../escrow/index.js";
 import { getPaymentsHealth } from "../escrow/health.js";
 import { handleDeliveryConfirmationWebhook } from "../escrow/autoSettlement.js";
 import {
+  readRefundEligibilityFromChain,
+  getContractReadSourceAddress,
+} from "./escrowCoordinator/contractClient.js";
+import {
   acquireLock,
   releaseLock,
   validateDepositRequest,
   validateEscrowContractConfig,
   validateIdempotencyKey,
   validateInitializeRequest,
+  validateRefundEligibilityQuery,
   validateRefundRequest,
   validateReleaseRequest,
   type ValidationError,
@@ -189,6 +194,42 @@ export function registerRoutes(): Route[] {
           return;
         }
         sendOperationError(res, "ESCROW_RELEASE_FAILED", err);
+      }
+    }),
+
+    route("GET", "/escrow/:escrowId/refund-eligibility", async (req, res, params) => {
+      try {
+        const url = new URL(req.url ?? "/", "http://localhost");
+        const caller = url.searchParams.get("caller") ?? undefined;
+        const validated = validateRefundEligibilityQuery(params.escrowId, caller);
+        if (!validated.ok) {
+          sendValidationError(res, validated.error);
+          return;
+        }
+        const contractId = validateEscrowContractConfig();
+        if (!contractId.ok) {
+          sendValidationError(res, contractId.error);
+          return;
+        }
+
+        const sourceAddress = getContractReadSourceAddress(validated.value.caller);
+        const onChain = await readRefundEligibilityFromChain(
+          contractId.value,
+          validated.value.escrowId,
+          validated.value.caller,
+          sourceAddress
+        );
+
+        json(res, 200, {
+          data: {
+            escrowId: String(onChain.escrow_id),
+            eligible: onChain.eligible,
+            reason: onChain.reason,
+          },
+          error: null,
+        });
+      } catch (err) {
+        sendOperationError(res, "ESCROW_REFUND_ELIGIBILITY_FAILED", err);
       }
     }),
 

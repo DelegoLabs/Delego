@@ -8,3 +8,10 @@ export {
   type ErrorReport,
   type ErrorReporter,
 } from "./ErrorBoundary.js";
+export { Tooltip, type TooltipProps } from "./Tooltip.js";
+export {
+  ActivityTimeline,
+  type ActivityTimelineProps,
+  type ActivityEvent,
+  type ActivityTone,
+} from "./ActivityTimeline.js";

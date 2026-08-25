@@ -72,11 +72,46 @@ export const OrderSchema = z.object({
   lineItems: z.array(OrderLineItemSchema),
   totalStroops: z.union([z.bigint(), z.number()]).transform((v) => BigInt(v)),
   escrowContractId: z.string().nullable(),
+  escrowId: z.string().nullable().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
 
 export type ValidatedOrder = z.infer<typeof OrderSchema>;
+
+export const RefundEligibilityReasonSchema = z.enum([
+  "ok",
+  "notfund",
+  "released",
+  "refunded",
+  "cancelled",
+  "unfunded",
+  "disputed",
+  "timeout",
+  "noauth",
+]);
+
+export const RefundEligibilitySchema = z.object({
+  escrowId: z.string(),
+  eligible: z.boolean(),
+  reason: RefundEligibilityReasonSchema,
+});
+
+export const RefundRequestReasonCodeSchema = z.enum([
+  "timeout",
+  "buyer_cancelled",
+  "merchant_cancelled",
+  "dispute_buyer",
+  "system_error",
+]);
+
+export const RefundRequestResultSchema = z.object({
+  txHash: z.string(),
+  ledger: z.number(),
+  success: z.boolean(),
+  escrowId: z.string().optional(),
+  refundReasonCode: RefundRequestReasonCodeSchema,
+});
 
 export const ApiErrorSchema = z.object({
   code: z.string(),

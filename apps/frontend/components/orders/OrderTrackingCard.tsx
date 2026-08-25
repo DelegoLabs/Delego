@@ -4,6 +4,7 @@ import { Card } from "@delego/ui";
 import type { Order } from "@delego/types";
 import { formatXlm, isTerminal } from "../../lib/orders";
 import { StatusTimeline } from "./StatusTimeline";
+import { RefundRequestPanel } from "./RefundRequestPanel";
 
 export interface OrderTrackingCardProps {
   order: Order;
@@ -45,6 +46,8 @@ export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
           <dd>{formatTime(order.updatedAt)}</dd>
         </div>
       </dl>
+
+      <RefundRequestPanel order={order} />
     </Card>
   );
 }

@@ -25,6 +25,8 @@ export interface Order {
   lineItems: OrderLineItem[];
   totalStroops: bigint;
   escrowContractId: string | null;
+  /** Numeric on-chain escrow id (Soroban `u64`) within escrowContractId, if escrowed. */
+  escrowId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

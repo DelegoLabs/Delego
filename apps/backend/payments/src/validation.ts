@@ -570,6 +570,38 @@ export function validateRefundRequest(
   };
 }
 
+export interface RefundEligibilityQuery {
+  escrowId: string;
+  caller: string;
+}
+
+/**
+ * Validate the escrowId path param and `caller` query param for
+ * GET /escrow/:escrowId/refund-eligibility.
+ */
+export function validateRefundEligibilityQuery(
+  escrowIdParam: string | undefined,
+  callerParam: string | undefined
+): ValidationResult<RefundEligibilityQuery> {
+  const escrowId = requireEscrowId(escrowIdParam);
+  if (!escrowId.ok) return escrowId;
+
+  if (!callerParam || callerParam.trim() === "") {
+    return { ok: false, error: missingField("caller") };
+  }
+  if (!isValidStellarAddress(callerParam)) {
+    return {
+      ok: false,
+      error: invalidField("caller", "caller must be a valid Stellar account address"),
+    };
+  }
+
+  return {
+    ok: true,
+    value: { escrowId: escrowId.value, caller: callerParam },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Issue #203 – validateReleaseEscrowRequest
 // ---------------------------------------------------------------------------
