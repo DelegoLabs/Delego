@@ -17,6 +17,7 @@ import {
 } from "./delegations.js";
 import { getWalletHandler } from "./wallets.js";
 import { getRefundEligibilityHandler, postRefundRequestHandler } from "./escrow.js";
+import { postSpendPreviewHandler } from "./permissions.js";
 import { rateLimitMetricsHandler, circuitBreakerStatusHandler } from "./admin.js";
 import { swaggerHandler } from "../src/swagger.js";
 
@@ -37,6 +38,7 @@ export function registerRoutes(): Route[] {
     route("GET", "/api/v1/wallets/:walletId", getWalletHandler),
     route("GET", "/api/v1/escrow/:escrowId/refund-eligibility", getRefundEligibilityHandler),
     route("POST", "/api/v1/escrow/:escrowId/refund", postRefundRequestHandler),
+    route("POST", "/api/v1/permissions/spend-preview", postSpendPreviewHandler),
     // Admin — rate-limit dashboard (#340)
     route("GET", "/api/v1/admin/rate-limit/metrics", rateLimitMetricsHandler),
     // Admin — circuit breaker status (#364)

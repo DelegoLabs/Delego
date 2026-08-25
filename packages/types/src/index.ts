@@ -10,3 +10,4 @@ export * from "./order.js";
 export * from "./agent.js";
 export * from "./api.js";
 export * from "./escrow.js";
+export * from "./permissions.js";

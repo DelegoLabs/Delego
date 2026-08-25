@@ -113,6 +113,23 @@ export const RefundRequestResultSchema = z.object({
   refundReasonCode: RefundRequestReasonCodeSchema,
 });
 
+export const SpendPreviewReasonSchema = z.enum([
+  "ok",
+  "not_found",
+  "expired",
+  "paused",
+  "unauthorized",
+  "per_tx_limit",
+  "total_limit",
+  "bad_merchant",
+]);
+
+export const SpendPreviewSchema = z.object({
+  allowed: z.boolean(),
+  reason: SpendPreviewReasonSchema,
+  remainingAfterStroops: z.string(),
+});
+
 export const ApiErrorSchema = z.object({
   code: z.string(),
   message: z.string(),

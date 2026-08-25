@@ -9,6 +9,7 @@ import {
   OrderSchema,
   RefundEligibilitySchema,
   RefundRequestResultSchema,
+  SpendPreviewSchema,
   validateResponse,
 } from "./schemas.js";
 
@@ -275,6 +276,22 @@ export class DelegoClient {
         body: JSON.stringify(input),
       },
       RefundRequestResultSchema
+    );
+  }
+
+  /**
+   * Read-only spend-limit dry run. Backed by the on-chain `preview_spend`
+   * getter via simulation — never signs or submits a transaction, so this
+   * method has no side effects on any spending policy or balance.
+   */
+  async previewSpend(
+    input: import("@delego/types").SpendPreviewInput,
+    options?: { signal?: AbortSignal }
+  ): Promise<ApiResponse<import("@delego/types").SpendPreview>> {
+    return this.request<import("@delego/types").SpendPreview>(
+      "/api/v1/permissions/spend-preview",
+      { method: "POST", body: JSON.stringify(input), signal: options?.signal },
+      SpendPreviewSchema
     );
   }
 }

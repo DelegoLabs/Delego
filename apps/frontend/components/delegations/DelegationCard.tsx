@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button, Card, StroopsInput } from "@delego/ui";
 import type { Delegation, UpdateDelegationInput } from "@delego/types";
 import { DelegationQR } from "./DelegationQR";
+import { SpendPreviewSimulator } from "./SpendPreviewSimulator";
 
 export interface DelegationCardProps {
   delegation: Delegation;
@@ -26,6 +27,7 @@ export function DelegationCard({
 }: DelegationCardProps) {
   const [editing, setEditing] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [showSimulator, setShowSimulator] = useState(false);
   const [maxPerTransaction, setMaxPerTransaction] = useState(
     delegation.policy.maxPerTransaction
   );
@@ -33,6 +35,7 @@ export function DelegationCard({
   const [allowedMerchants, setAllowedMerchants] = useState(
     delegation.policy.allowedMerchants.join(", ")
   );
+  const [expiresAt, setExpiresAt] = useState(delegation.policy.expiresAt ?? "");
   const [saving, setSaving] = useState(false);
 
   const isRevoked = delegation.status === "revoked";
@@ -62,6 +65,7 @@ export function DelegationCard({
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean),
+          ...(expiresAt ? { expiresAt } : {}),
         },
       });
       setEditing(false);
@@ -138,6 +142,17 @@ export function DelegationCard({
               style={{ width: "100%", padding: "0.5rem", borderRadius: "0.375rem" }}
             />
           </div>
+          <div>
+            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>
+              Expires (leave blank for never)
+            </label>
+            <input
+              type="date"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              style={{ width: "100%", padding: "0.5rem", borderRadius: "0.375rem" }}
+            />
+          </div>
         </div>
       )}
 
@@ -152,6 +167,9 @@ export function DelegationCard({
             </Button>
             <Button variant="ghost" onClick={() => setShowQr((v) => !v)}>
               {showQr ? "Hide QR" : "Share QR"}
+            </Button>
+            <Button variant="ghost" onClick={() => setShowSimulator((v) => !v)}>
+              {showSimulator ? "Hide simulator" : "Simulate spend"}
             </Button>
             <Button variant="ghost" onClick={handleRevoke} disabled={isPending}>
               Revoke
@@ -175,6 +193,16 @@ export function DelegationCard({
           delegationId={delegation.id}
           userId={delegation.userId}
           agentId={delegation.agentId}
+        />
+      )}
+
+      {showSimulator && !editing && (
+        <SpendPreviewSimulator
+          onEditLimits={() => {
+            setShowSimulator(false);
+            setEditing(true);
+          }}
+          onResume={handleToggleStatus}
         />
       )}
     </Card>

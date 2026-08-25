@@ -3,6 +3,7 @@ import { route, json, isValidStellarPublicKey, validatePublicKeyMiddleware, type
 import { accountService } from "../stellar/account.js";
 import { mergeAccount, previewMerge } from "../stellar/recovery.js";
 import { transactionService } from "../transactions/index.js";
+import { previewSpendFromChain } from "../permissions/contractClient.js";
 import { vaultService } from "./vault.js";
 import type { StellarNetwork } from "@delego/types";
 import { Asset, Networks, Horizon, TransactionBuilder, Transaction } from "@stellar/stellar-sdk";
@@ -140,6 +141,56 @@ export function registerRoutes(): Route[] {
     }),
 
     // Simulate Soroban contract call
+    // Read-only spend-limit dry run: never signs or submits a transaction.
+    route("POST", "/permissions/spend-preview", async (req, res) => {
+      try {
+        const body = await readJsonBody<{
+          owner: string;
+          delegate: string;
+          amountStroops: string;
+          merchant: string;
+        }>(req);
+
+        if (!body.owner || !body.delegate || !body.amountStroops || !body.merchant) {
+          throw new Error("owner, delegate, amountStroops, and merchant are all required");
+        }
+        if (!isValidStellarPublicKey(body.owner) || !isValidStellarPublicKey(body.delegate) || !isValidStellarPublicKey(body.merchant)) {
+          throw new Error("owner, delegate, and merchant must be valid Stellar addresses");
+        }
+        let amountStroops: bigint;
+        try {
+          amountStroops = BigInt(body.amountStroops);
+        } catch {
+          throw new Error("amountStroops must be an integer string");
+        }
+        if (amountStroops < 0n) {
+          throw new Error("amountStroops must not be negative");
+        }
+
+        const preview = await previewSpendFromChain(
+          body.owner,
+          body.delegate,
+          amountStroops,
+          body.merchant,
+          body.owner
+        );
+
+        json(res, 200, {
+          data: {
+            allowed: preview.allowed,
+            reason: preview.reason,
+            remainingAfterStroops: String(preview.remaining_after),
+          },
+          error: null,
+        });
+      } catch (err: any) {
+        json(res, 400, {
+          data: null,
+          error: { code: "SPEND_PREVIEW_FAILED", message: err.message },
+        });
+      }
+    }),
+
     route("POST", "/transactions/simulate", async (req, res) => {
       try {
         const body = await readJsonBody<{
