@@ -6,6 +6,7 @@ const envSchema = z
       .string()
       .url("NEXT_PUBLIC_API_URL must be a valid URL"),
     NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING: z.string().optional(),
+    NEXT_PUBLIC_FEATURE_DUAL_CONTROL_APPROVALS: z.string().optional(),
   })
   .passthrough();
 

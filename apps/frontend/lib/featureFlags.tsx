@@ -13,6 +13,8 @@ import React, {
  */
 export const KNOWN_FEATURE_FLAGS = {
   CLIENT_SIDE_SIGNING: "NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING",
+  /** Dual-control approvals above a configurable per-order threshold (#574). */
+  DUAL_CONTROL_APPROVALS: "NEXT_PUBLIC_FEATURE_DUAL_CONTROL_APPROVALS",
 } as const;
 
 export type KnownFeatureFlag = keyof typeof KNOWN_FEATURE_FLAGS;
@@ -47,6 +49,9 @@ export function getStaticEnvFlag(name: string): string | undefined {
     case "CLIENT_SIDE_SIGNING":
     case "NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING":
       return process.env.NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING;
+    case "DUAL_CONTROL_APPROVALS":
+    case "NEXT_PUBLIC_FEATURE_DUAL_CONTROL_APPROVALS":
+      return process.env.NEXT_PUBLIC_FEATURE_DUAL_CONTROL_APPROVALS;
     default:
       // Fallback dynamic lookup for unknown or runtime env keys
       if (typeof process !== "undefined" && process.env) {

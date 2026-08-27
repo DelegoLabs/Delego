@@ -127,6 +127,43 @@ export function ApprovalDrawer({
           )}
         </dl>
 
+        {order.dualControl?.required && (
+          <section
+            className="approval-explainability-section"
+            aria-label="Dual-control approval"
+          >
+            <h3>Dual-control approval</h3>
+            {order.dualControl.status === "completed" &&
+            order.dualControl.firstApproval &&
+            order.dualControl.secondApproval ? (
+              <dl className="wallet-detail-list">
+                <div className="wallet-detail-row">
+                  <dt>First approver</dt>
+                  <dd>
+                    {order.dualControl.firstApproval.approverAddress ??
+                      order.dualControl.firstApproval.approverId}{" "}
+                    · {new Date(order.dualControl.firstApproval.timestamp).toLocaleString()}
+                  </dd>
+                </div>
+                <div className="wallet-detail-row">
+                  <dt>Countersigned by</dt>
+                  <dd>
+                    {order.dualControl.secondApproval.approverAddress ??
+                      order.dualControl.secondApproval.approverId}{" "}
+                    · {new Date(order.dualControl.secondApproval.timestamp).toLocaleString()}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="approval-reasoning-text" data-testid="dual-control-drawer-notice">
+                {order.dualControl.status === "awaiting_countersign"
+                  ? "Waiting for countersignature — a first approval is on record for this order."
+                  : "This order will require a second signer to approve."}
+              </p>
+            )}
+          </section>
+        )}
+
         {explainability?.reasoning && (
           <section
             className="approval-explainability-section"

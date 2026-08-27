@@ -62,35 +62,135 @@ export interface UpdateDelegationInput {
 }
 
 export type OrderStatus =
-  "pending" | "approved" | "rejected" | "completed" | "failed" | "canceled";
+  | "draft"
+  | "pending"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "escrowed"
+  | "fulfilled"
+  | "settled"
+  | "completed"
+  | "failed"
+  | "canceled"
+  | "cancelled"
+  | "disputed"
+  /** Dual-control (#574): first approval recorded, waiting on a second signer. */
+  | "awaiting_countersign";
 
 export interface OrderItem {
-  name: string;
-  price: number;
+  name?: string;
+  productId?: string;
+  price?: number;
+  unitPriceStroops?: bigint | string | number;
   quantity: number;
+}
+
+/** A single approve/countersign signature captured for an order (#574). */
+export interface ApprovalSignature {
+  approverId: string;
+  approverAddress?: string;
+  /** ISO-8601 timestamp, server-issued. */
+  timestamp: string;
+}
+
+/**
+ * Dual-control approval state for a single order (#574). Absent/`required:
+ * false` means the order follows the ordinary single-approval path — the
+ * feature flag and per-order threshold check are what decide `required`.
+ */
+export interface DualControlState {
+  required: boolean;
+  status: "single" | "awaiting_countersign" | "completed";
+  /** Wallet/user ids authorized to countersign (the delegation owner list). */
+  delegationOwners?: string[];
+  firstApproval?: ApprovalSignature;
+  secondApproval?: ApprovalSignature;
 }
 
 export interface Order {
   id: string;
+  userId?: string;
   delegationId: string;
-  merchantName: string;
-  amount: bigint | string | number;
-  currency: string;
+  merchantId?: string;
+  /** @deprecated superseded by merchantId; kept for older call sites. */
+  merchantName?: string;
+  amount?: bigint | string | number;
+  totalStroops?: bigint | string | number;
+  currency?: string;
   status: OrderStatus;
+  lineItems?: OrderItem[];
+  /** @deprecated superseded by lineItems; kept for older call sites. */
+  items?: OrderItem[];
+  escrowContractId?: string | null;
+  rejectionReason?: string | null;
+  dualControl?: DualControlState;
   createdAt: Date | string;
   updatedAt?: Date | string;
-  items?: OrderItem[];
 }
 
-export type EscrowStatus = "funded" | "released" | "disputed" | "refunded";
+export type EscrowStatus =
+  | "funded"
+  | "released"
+  | "disputed"
+  | "refunded"
+  | "Funded"
+  | "Released"
+  | "Disputed"
+  | "Refunded"
+  /** Cancellation requested; still within the undo grace period (#580). */
+  | "cancelling"
+  | "cancelled";
+
+/**
+ * Server-issued cancellation grace state for an escrow (#580). The
+ * expiration must always be read from `graceExpiresAt`/`serverTimestamp` (not
+ * a client-computed offset) so the countdown is immune to client clock skew.
+ */
+export interface CancellationGrace {
+  /** ISO-8601 timestamp of the cancel request. */
+  requestedAt: string;
+  gracePeriodSeconds: number;
+  /** ISO-8601 timestamp — the server-authoritative moment the grace period lapses. */
+  graceExpiresAt: string;
+  /** ISO-8601 timestamp of "now" as seen by the server when it issued this state. */
+  serverTimestamp: string;
+  cancelledBy?: string;
+}
 
 export interface Escrow {
-  id: string;
+  /**
+   * @deprecated most call sites key off `escrowId`, which is what fixtures
+   * and the escrows list/countdown UI actually populate; `id` is kept
+   * optional for older call sites. Use `escrowKey()` (lib/escrows.ts) to
+   * resolve the identifier regardless of which is present.
+   */
+  id?: string;
+  escrowId: string;
   orderId: string;
-  buyerId: string;
-  sellerId: string;
+  /** @deprecated superseded by `buyer`; kept for older call sites. */
+  buyerId?: string;
+  buyer: string;
+  /** @deprecated superseded by `seller`; kept for older call sites. */
+  sellerId?: string;
+  seller: string;
   amount: bigint | string | number;
   status: EscrowStatus;
+  token?: string;
+  timeoutLedger?: number;
+  currentLedger?: number;
+  /** ISO-8601 timestamp of the deadline as originally set on the contract (#577). */
+  originalDeadline?: string;
+  /** ISO-8601 timestamp of the current effective deadline, after any extensions. */
+  deadline?: string;
+  /** Count of extension requests already granted against this escrow. */
+  extensionsConsumed?: number;
+  /** Contract-enforced cap on the number of extensions allowed. */
+  maxExtensions?: number;
+  /** Contract-enforced cap on total extension time, in seconds. */
+  maxExtensionSeconds?: number;
+  /** Present while a cancellation is pending or within its undo window (#580). */
+  cancellation?: CancellationGrace | null;
   createdAt: Date | string;
 }
 
@@ -102,6 +202,12 @@ export const ESCROW_STATUS_META: Record<
   released: { label: "Released", tone: "success" },
   disputed: { label: "Disputed", tone: "failed" },
   refunded: { label: "Refunded", tone: "refunded" },
+  Funded: { label: "Funded", tone: "pending" },
+  Released: { label: "Released", tone: "success" },
+  Disputed: { label: "Disputed", tone: "failed" },
+  Refunded: { label: "Refunded", tone: "refunded" },
+  cancelling: { label: "Cancelling…", tone: "pending" },
+  cancelled: { label: "Cancelled", tone: "refunded" },
 };
 
 export interface User {
