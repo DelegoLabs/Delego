@@ -1,7 +1,15 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { Button } from "@delegolabs/ui";
 import { useWallet } from "../../hooks/useWallet";
+import {
+  detectWalletAdapter,
+  detectWalletAdapters,
+  getStoredWalletAdapterId,
+  getWalletAdapter,
+} from "../../lib/wallet/registry";
+import { WalletPickerModal, type WalletPickerRow } from "./WalletPickerModal";
 
 function truncateAddress(address: string): string {
   if (address.length <= 12) return address;
@@ -14,35 +22,76 @@ export interface WalletConnectButtonProps {
 }
 
 /**
- * Connect/disconnect control for the Freighter browser wallet.
+ * Connect/disconnect control for the supported browser wallets.
  * Reusable in the header, dashboard, and the dedicated wallet page.
+ *
+ * A persisted wallet choice that is still installed connects directly, as
+ * does the only installed wallet — both match the old Freighter-only flow.
+ * Otherwise the picker opens with the detection results, so the user can
+ * choose or install one.
  */
 export function WalletConnectButton({
   showDetails = true,
 }: WalletConnectButtonProps) {
-  const { status, address, network, error, connect, disconnect } = useWallet();
+  const {
+    status,
+    address,
+    network,
+    error,
+    walletName,
+    walletInstallUrl,
+    connectWith,
+    disconnect,
+  } = useWallet();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerRows, setPickerRows] = useState<WalletPickerRow[] | undefined>(
+    undefined
+  );
+  const [detecting, setDetecting] = useState(false);
+
+  const openConnect = useCallback(async () => {
+    setDetecting(true);
+    try {
+      const storedId = getStoredWalletAdapterId();
+      if (storedId) {
+        const stored = getWalletAdapter(storedId);
+        if (await detectWalletAdapter(stored)) {
+          await connectWith(stored.id);
+          return;
+        }
+      }
+
+      const results = await detectWalletAdapters();
+      const rows = results.map(({ adapter, detected }) => ({
+        id: adapter.id,
+        name: adapter.name,
+        installUrl: adapter.installUrl,
+        detected,
+      }));
+      const available = rows.filter((row) => row.detected);
+      if (available.length === 1) {
+        await connectWith(available[0].id);
+        return;
+      }
+      setPickerRows(rows);
+      setPickerOpen(true);
+    } finally {
+      setDetecting(false);
+    }
+  }, [connectWith]);
+
+  const selectWallet = useCallback(
+    (adapterId: string) => {
+      setPickerOpen(false);
+      void connectWith(adapterId);
+    },
+    [connectWith]
+  );
 
   if (status === "checking") {
     return (
       <Button variant="secondary" disabled>
         Checking wallet…
-      </Button>
-    );
-  }
-
-  if (status === "unavailable") {
-    return (
-      <Button
-        variant="secondary"
-        onClick={() =>
-          window.open(
-            "https://www.freighter.app/",
-            "_blank",
-            "noopener,noreferrer"
-          )
-        }
-      >
-        Install Freighter
       </Button>
     );
   }
@@ -67,20 +116,34 @@ export function WalletConnectButton({
     );
   }
 
+  const busy = status === "connecting" || detecting;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-      <Button
-        variant="primary"
-        onClick={connect}
-        disabled={status === "connecting"}
-      >
-        {status === "connecting" ? "Connecting…" : "Connect Wallet"}
+      <Button variant="primary" onClick={openConnect} disabled={busy}>
+        {busy ? "Connecting…" : "Connect Wallet"}
       </Button>
+      {status === "unavailable" && (
+        <a
+          href={walletInstallUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontSize: "0.875rem" }}
+        >
+          Install {walletName}
+        </a>
+      )}
       {status === "error" && error && (
         <span className="wallet-error" role="alert">
           {error}
         </span>
       )}
+      <WalletPickerModal
+        isOpen={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={selectWallet}
+        adapters={pickerRows}
+      />
     </div>
   );
 }
