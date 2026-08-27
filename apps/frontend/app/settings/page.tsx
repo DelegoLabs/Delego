@@ -14,6 +14,7 @@ import { NotificationSettingsCard } from "../../components/notifications/Notific
 import { AccessibilitySettingsCard } from "../../components/settings/AccessibilitySettingsCard";
 import { LanguageSwitcher } from "../../components/settings/LanguageSwitcher";
 import { CurrencySwitcher } from "../../components/settings/CurrencySwitcher";
+import { NetworkContractsCard } from "../../components/settings/NetworkContractsCard";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -70,7 +71,7 @@ export default function SettingsPage() {
       <NotificationSettingsCard />
       <LanguageSwitcher />
       <CurrencySwitcher />
+      <NetworkContractsCard />
     </div>
   );
 }
-

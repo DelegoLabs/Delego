@@ -23,6 +23,7 @@ export function buildEscrow(seed: number, overrides: Partial<Escrow> = {}): Escr
     status: pick(STATUSES, rand),
     timeoutLedger: 1_000_000 + Math.floor(rand() * 10_000),
     currentLedger: 1_000_000,
+    arbiter: null,
     createdAt: now.toISOString(),
     ...overrides,
   };

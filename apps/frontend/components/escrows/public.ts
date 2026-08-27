@@ -4,3 +4,7 @@
  */
 export { EscrowCard } from "./EscrowCard";
 export { EscrowFilters } from "./EscrowFilters";
+export { DisputeModal } from "./DisputeModal";
+export { DisputeStatusPanel } from "./DisputeStatusPanel";
+export type { DisputeModalProps } from "./DisputeModal";
+export type { DisputeStatusPanelProps } from "./DisputeStatusPanel";

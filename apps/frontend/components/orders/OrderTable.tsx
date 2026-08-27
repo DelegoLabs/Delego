@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { Order } from "@delegolabs/types";
 import { Amount } from "@delegolabs/ui";
 import { useCurrency } from "../../hooks/useCurrency";
@@ -42,9 +43,9 @@ export function OrderTable({ orders }: OrderTableProps) {
           {orders.map((order) => (
             <tr key={order.id}>
               <td>
-                <span className="order-id" title={order.id}>
+                <Link href={`/orders/${order.id}`} className="order-id" title={`View receipt for ${order.id}`}>
                   {order.id}
-                </span>
+                </Link>
               </td>
               <td>{order.merchantId}</td>
               <td>
