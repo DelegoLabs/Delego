@@ -154,6 +154,41 @@ describe("ApprovalDrawer", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("does not render a dual-control section for an order that doesn't require it", () => {
+    render(
+      <ApprovalDrawer order={makeOrder()} onApprove={vi.fn()} onReject={vi.fn()} onClose={vi.fn()} />
+    );
+    expect(screen.queryByText("Dual-control approval")).toBeNull();
+  });
+
+  it("shows a waiting notice while a countersignature is pending (#574)", () => {
+    const order = makeOrder({
+      dualControl: {
+        required: true,
+        status: "awaiting_countersign",
+        firstApproval: { approverId: "wallet-a", timestamp: "2026-01-01T00:00:00.000Z" },
+      },
+    });
+    render(<ApprovalDrawer order={order} onApprove={vi.fn()} onReject={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByTestId("dual-control-drawer-notice")).toHaveTextContent(/waiting for countersignature/i);
+  });
+
+  it("shows both signer addresses and timestamps once dual control is completed", () => {
+    const order = makeOrder({
+      dualControl: {
+        required: true,
+        status: "completed",
+        firstApproval: { approverId: "wallet-a", approverAddress: "GFIRST...", timestamp: "2026-01-01T00:00:00.000Z" },
+        secondApproval: { approverId: "wallet-b", approverAddress: "GSECOND...", timestamp: "2026-01-02T00:00:00.000Z" },
+      },
+    });
+    render(<ApprovalDrawer order={order} onApprove={vi.fn()} onReject={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByText("First approver")).toBeInTheDocument();
+    expect(screen.getByText(/GFIRST\.\.\./)).toBeInTheDocument();
+    expect(screen.getByText("Countersigned by")).toBeInTheDocument();
+    expect(screen.getByText(/GSECOND\.\.\./)).toBeInTheDocument();
+  });
+
   it("traps focus inside the dialog while open", () => {
     render(
       <ApprovalDrawer
