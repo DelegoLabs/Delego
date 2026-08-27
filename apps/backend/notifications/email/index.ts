@@ -42,6 +42,33 @@ export function renderTemplate(
   return renderNamedTemplate(templateName, data);
 }
 
+export interface RawEmailMessage {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+/**
+ * Sends a pre-rendered email, bypassing the named-template system used by
+ * {@link sendEmail}. For callers (e.g. the escrow event listener) that
+ * already render subject/body themselves, such as via the i18n localized
+ * template system.
+ */
+export async function sendRawEmail(message: RawEmailMessage): Promise<void> {
+  if (!SENDGRID_API_KEY) {
+    throw new Error("SENDGRID_API_KEY is not configured");
+  }
+
+  await sgMail.send({
+    to: message.to,
+    from: FROM_EMAIL,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+  });
+}
+
 export async function sendEmail(message: EmailMessage): Promise<void> {
   if (!SENDGRID_API_KEY) {
     throw new Error("SENDGRID_API_KEY is not configured");

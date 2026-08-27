@@ -14,8 +14,8 @@
  *  - Errors are logged-and-skipped: a single bad event never halts the cursor.
  */
 import { createLogger } from "@delego/utils";
-import { xdr, SorobanRpc } from "@stellar/stellar-sdk";
-import { sendEmail } from "../email/index.js";
+import { xdr } from "@stellar/stellar-sdk";
+import { sendRawEmail } from "../email/index.js";
 import {
   sendPushNotification,
   parseTrackedPushSubscription,
@@ -96,7 +96,7 @@ export interface EscrowEventDeps {
   cursorKey?: string;
   dedupStore?: ProcessedContractEventStore;
   walletLookup?: (address: string) => Promise<WalletNotificationTarget | null>;
-  sendEmailFn?: typeof sendEmail;
+  sendEmailFn?: typeof sendRawEmail;
   sendPushFn?: typeof sendPushNotification;
   redis?: EscrowEventRedis;
   /** Optional DB client for reading user notification preferences (#135). */
@@ -118,8 +118,6 @@ const TOPIC_TO_EVENT_TYPE: Readonly<Record<EscrowTopicName, EscrowEventType>> = 
   refunded: "escrow_refunded",
   disputed: "escrow_disputed",
 };
-
-const KNOWN_ESCROW_TOPICS: ReadonlySet<string> = new Set(Object.keys(TOPIC_TO_EVENT_TYPE));
 
 export function mapEscrowTopicToEventType(topicName: string): EscrowEventType | null {
   return TOPIC_TO_EVENT_TYPE[topicName as EscrowTopicName] ?? null;
@@ -428,24 +426,28 @@ export function startEscrowEventListener(
 ): { stop(): Promise<void> } {
   const { createRequire } = require("node:module") as typeof import("node:module");
   const require_ = createRequire(import.meta.url);
-  const { SorobanRpc: SorobanRpcModule } = require_("@stellar/stellar-sdk") as typeof import("@stellar/stellar-sdk");
-  const server = new SorobanRpcModule.Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
+  const { rpc: rpcModule } = require_("@stellar/stellar-sdk") as typeof import("@stellar/stellar-sdk");
+  const server = new rpcModule.Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
 
   const Redis = (require_("ioredis") as { Redis: typeof import("ioredis").Redis }).Redis;
   const redisDefault = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true });
 
   const dedupStore: ProcessedContractEventStore =
     depsIn.dedupStore ?? new InMemoryProcessedContractEventStore();
-  const redis: EscrowEventRedis = depsIn.redis ?? redisDefault;
+  // ioredis's real Redis.set has overloads (incl. an optional callback param)
+  // that don't structurally match this file's simplified EscrowEventRedis
+  // interface, even though it satisfies it at runtime — same bridging cast
+  // pattern already used below for checkAndMarkDispatched.
+  const redis: EscrowEventRedis = depsIn.redis ?? (redisDefault as unknown as EscrowEventRedis);
 
   const walletLookup =
     depsIn.walletLookup ??
     (() => {
       const adapter = getWalletLookupAdapter();
-      return (address: string) => adapter.lookupByStellarAddress(address);
+      return (address: string) => adapter.lookupByWalletAddress(address);
     })();
 
-  const sendEmailFn = depsIn.sendEmailFn ?? sendEmail;
+  const sendEmailFn = depsIn.sendEmailFn ?? sendRawEmail;
   const sendPushFn = depsIn.sendPushFn ?? sendPushNotification;
 
   const db: PreferenceDb = depsIn.db ?? {

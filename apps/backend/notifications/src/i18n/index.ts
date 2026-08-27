@@ -33,6 +33,9 @@ export function loadTranslations(locale: string): Translations {
   if (cached) return cached;
 
   const enTranslations = _loadLocaleFile("en");
+  if (!enTranslations) {
+    throw new Error("Missing bundled English translations file (en.json)");
+  }
 
   if (normalisedLocale === "en") {
     translationCache.set("en", enTranslations);

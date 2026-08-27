@@ -302,7 +302,7 @@ export async function cancelRecovery(recoveryId: string): Promise<RecoveryReques
             thresholdMetTime.getTime() + cancellationWindowHours * 60 * 60 * 1000
         );
 
-        if (request.status === "executed" || new Date() > cancellationDeadline) {
+        if (new Date() > cancellationDeadline) {
             throw new Error("Recovery cancellation window has passed");
         }
 

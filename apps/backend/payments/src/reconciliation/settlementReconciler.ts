@@ -5,7 +5,15 @@
  */
 import { createLogger } from "@delego/utils";
 import { Pool } from "pg";
-import type { PaymentRecord } from "../escrowCoordinator/types.js";
+import type { PaymentRecordStatus } from "../escrowCoordinator/types.js";
+
+/** Raw row shape for the reconciliation query below — pg returns unaliased columns as snake_case. */
+interface ReconciliationPaymentRow {
+    id: string;
+    order_id: string;
+    escrow_id: string | null;
+    status: PaymentRecordStatus;
+}
 
 const log = createLogger("payments:settlement-reconciler", process.env.LOG_LEVEL ?? "info");
 
@@ -210,7 +218,7 @@ export async function reconcileSettlements(): Promise<SettlementReconciliationRe
         log.info("Starting settlement reconciliation cycle");
 
         // Fetch all non-terminal payments
-        const { rows: paymentRows } = await pool.query<PaymentRecord & { id: string }>(
+        const { rows: paymentRows } = await pool.query<ReconciliationPaymentRow>(
             `SELECT id, order_id, escrow_id, status
        FROM payment_records
        WHERE status NOT IN ('released', 'refunded')
@@ -274,7 +282,7 @@ export async function reconcileSettlements(): Promise<SettlementReconciliationRe
             duration,
         };
 
-        log.info("Settlement reconciliation cycle completed", result);
+        log.info("Settlement reconciliation cycle completed", { ...result });
         return result;
     } catch (err) {
         log.error("Reconciliation cycle failed", { error: (err as Error).message });
