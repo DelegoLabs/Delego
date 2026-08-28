@@ -59,10 +59,4 @@ Playwright report).
      acceptance criteria — it's an org/repo admin action, not something
      a workflow file can do on its own.
 
-## Acceptance criteria status
 
-- [ ] Opening a PR yields a working preview within ~3 minutes —
-      blocked on steps 1–3 above (needs a live Vercel project)
-- [ ] Direct pushes to `main` blocked by required checks — blocked on
-      step 4 above (needs GitHub admin access to configure branch
-      protection)

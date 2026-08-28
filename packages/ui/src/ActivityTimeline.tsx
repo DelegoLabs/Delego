@@ -12,6 +12,12 @@ export interface ActivityTimelineEvent {
   timestamp: Date;
   icon?: ReactNode;
   tone?: ActivityTone;
+  /**
+   * Optional rich content rendered under the timestamp for this entry — e.g.
+   * a "View proof" expander for delivery evidence (#579). Kept as an opaque
+   * node so the shared component stays presentation-only.
+   */
+  detail?: ReactNode;
 }
 
 export interface ActivityTimelineProps {
@@ -115,6 +121,9 @@ export function ActivityTimeline({
               >
                 {formatRelativeTime(event.timestamp)}
               </time>
+              {event.detail != null && (
+                <div style={{ marginTop: "0.375rem" }}>{event.detail}</div>
+              )}
             </div>
           </li>
         );

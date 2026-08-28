@@ -15,7 +15,6 @@ Thank you for your interest in contributing to Delego! We welcome contributions 
 - [Security](#security)
 - [Community Guidelines](#community-guidelines)
 
-## 🚀 Getting Started
 
 ### Prerequisites
 

@@ -7,9 +7,14 @@ import type { ApiResponse, Order } from "@delegolabs/types";
 import { useRegisterCommands, type Command } from "./useCommandRegistry";
 import { useNetwork } from "./useNetwork";
 import { navItems } from "../components/layout/navItems";
+import type { Delegation } from "@delegolabs/types";
 import { api } from "../lib/api";
 import { downloadCsv, toCsv } from "../lib/csv";
 import { formatXlm } from "../lib/orders";
+import {
+  approvalDecisionsToCsv,
+  deriveApprovalDecisions,
+} from "../lib/approvals";
 import { OPEN_DELEGATION_FORM_KEY } from "../lib/delegationFormIntent";
 
 async function exportOrdersCsv(): Promise<void> {
@@ -27,6 +32,34 @@ async function exportOrdersCsv(): Promise<void> {
   downloadCsv(
     `delego-orders-${Date.now()}.csv`,
     toCsv(["Order", "Merchant", "Status", "Total (XLM)", "Created"], rows)
+  );
+}
+
+/**
+ * Decisions dataset (#568) — distinct from the orders export above: one row
+ * per approve/reject decision, with the agent resolved via the delegation.
+ * Column schema lives in lib/approvals.ts.
+ */
+async function exportApprovalDecisionsCsv(): Promise<void> {
+  const [ordersRes, delegationsRes] = await Promise.all([
+    api.getOrders({}),
+    api.getDelegations(),
+  ]);
+  if (ordersRes.error || !Array.isArray(ordersRes.data)) return;
+
+  const agentByDelegationId = new Map<string, string>();
+  const delegations = delegationsRes?.data as Delegation[] | null | undefined;
+  for (const delegation of delegations ?? []) {
+    agentByDelegationId.set(delegation.id, delegation.agentId);
+  }
+
+  const records = deriveApprovalDecisions(ordersRes.data, {
+    agentByDelegationId,
+  });
+  const { header, rows } = approvalDecisionsToCsv(records);
+  downloadCsv(
+    `delego-approval-decisions-${Date.now()}.csv`,
+    toCsv(header, rows)
   );
 }
 
@@ -91,6 +124,15 @@ export function useBuiltinCommands(): void {
         keywords: ["export", "csv", "orders", "download"],
         group: "actions",
         perform: exportOrdersCsv,
+      },
+      {
+        id: "action:export-approval-decisions-csv",
+        label: "Export approval decisions as CSV",
+        subtitle: "Download your approve/reject history",
+        icon: "📤",
+        keywords: ["export", "csv", "approvals", "decisions", "history", "audit"],
+        group: "actions",
+        perform: exportApprovalDecisionsCsv,
       },
     ];
 

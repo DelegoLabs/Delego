@@ -9,6 +9,7 @@ import type {
 } from "@delegolabs/types";
 import { useDelegationWizardDraft } from "../../hooks/useDelegationWizardDraft";
 import { useAnnounce } from "../../hooks/useAnnounce";
+import { consumeSessionInterrupted } from "../../lib/session";
 import {
   useDemoModeGuard,
   DEMO_MODE_BLOCKED_MESSAGE,
@@ -66,7 +67,20 @@ export function DelegationWizard({
     resumeDraft,
     discardDraft,
     clearDraft,
+    hydrated,
   } = useDelegationWizardDraft(defaultWalletId);
+
+  // Coming back from an idle-session redirect (#514): restore the parked
+  // draft without making the user click "Resume" — they didn't choose to
+  // leave. The normal refresh/navigation case still shows the resume banner.
+  const autoRestoredRef = useRef(false);
+  useEffect(() => {
+    if (autoRestoredRef.current || !hydrated) return;
+    autoRestoredRef.current = true;
+    if (hasStoredDraft && consumeSessionInterrupted()) {
+      resumeDraft();
+    }
+  }, [hydrated, hasStoredDraft, resumeDraft]);
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);

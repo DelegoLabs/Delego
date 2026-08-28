@@ -96,6 +96,22 @@ describe("ActivityTimeline", () => {
     expect(screen.getByText("via ApprovalCard")).toBeDefined();
   });
 
+  it("renders an optional rich detail slot", () => {
+    render(
+      <ActivityTimeline
+        events={[
+          {
+            ...baseEvents[0],
+            detail: <button type="button">View proof</button>,
+          },
+        ]}
+      />
+    );
+    expect(
+      screen.getByRole("button", { name: "View proof" })
+    ).toBeDefined();
+  });
+
   it('shows "Xm ago" for an event under an hour old', () => {
     render(
       <ActivityTimeline
