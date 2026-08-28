@@ -91,7 +91,13 @@ self.addEventListener("install", (event) => {
           }
         })
       );
-      await self.skipWaiting();
+      // First install (no controller yet) can activate immediately so
+      // offline support is available on the next refresh. Subsequent
+      // updates stay in `waiting` until the in-app toast (#626) posts
+      // SKIP_WAITING — surprise reloads mid-task are the bug this avoids.
+      if (!self.registration.active) {
+        await self.skipWaiting();
+      }
     })()
   );
 });

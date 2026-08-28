@@ -15,6 +15,12 @@ import {
   subscribeToQueue,
   type QueuedMutation,
 } from "../lib/offlineQueue";
+import {
+  FAMILY_CONFIG,
+  isRecordStale,
+  peekReadModel,
+  writeReadModel,
+} from "../lib/readModelCache";
 
 /**
  * Fetch (and optionally poll) the current user's orders from the Delego API,
@@ -38,6 +44,9 @@ export interface UseOrdersResult {
   orders: Order[];
   loading: boolean;
   error: string | null;
+  stale: boolean;
+  cachedAt: number | null;
+  ttlMs: number;
   /** Timestamp of the last successful fetch, or null before the first load. */
   lastUpdated: Date | null;
   /** Order IDs with an in-flight approve/reject mutation. */
@@ -56,6 +65,8 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [queuedMutations, setQueuedMutations] = useState<QueuedMutation[]>([]);
@@ -104,23 +115,39 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
   }, []);
 
   const load = useCallback(async (signal?: AbortSignal) => {
+    const cached = await peekReadModel<Order[]>("orders", "list");
+    if (signal?.aborted || !mountedRef.current) return;
+    if (cached && Array.isArray(cached.payload)) {
+      setOrders(cached.payload);
+      setCachedAt(cached.cachedAt);
+      setStale(isRecordStale(cached, Date.now()));
+      setLoading(false);
+    }
     try {
       // Typed against the generated ListOrdersResponse from the OpenAPI spec.
       const res = (await api.getOrders({ signal })) as ListOrdersResponse;
       if (signal?.aborted || !mountedRef.current) return;
       if (res.error) {
         setError(res.error.message);
+        setStale(true);
       } else if (!Array.isArray(res.data)) {
         setError("Invalid response format");
       } else {
         // Adapt generated API order shape → domain order shape (Date, bigint).
-        setOrders(adaptOrders(res.data));
+        const adapted = adaptOrders(res.data);
+        setOrders(adapted);
         setLastUpdated(new Date());
         setError(null);
+        setStale(false);
+        const record = await writeReadModel("orders", "list", adapted);
+        setCachedAt(record.cachedAt);
       }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") return;
-      if (mountedRef.current) setError("Failed to fetch orders");
+      if (mountedRef.current) {
+        setError("Failed to fetch orders");
+        setStale(true);
+      }
     } finally {
       if (!signal?.aborted && mountedRef.current) setLoading(false);
     }
@@ -236,6 +263,9 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
     orders,
     loading,
     error,
+    stale,
+    cachedAt,
+    ttlMs: FAMILY_CONFIG.orders.ttlMs,
     lastUpdated,
     pendingIds,
     pendingOfflineIds,

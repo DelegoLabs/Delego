@@ -7,10 +7,23 @@ import { OrderSkeleton } from "./OrderSkeleton";
 import { WalletConnectButton } from "./wallet/public";
 import { useDelegations } from "../hooks/useDelegations";
 import { useOrders } from "../hooks/useOrders";
+import { StaleBadge } from "./offline/StaleBadge";
 
 export function HomeContent() {
-  const { delegations, loading: delegationsLoading } = useDelegations();
-  const { orders, loading: ordersLoading } = useOrders();
+  const {
+    delegations,
+    loading: delegationsLoading,
+    stale: delegationsStale,
+    cachedAt: delegationsCachedAt,
+    ttlMs: delegationsTtl,
+  } = useDelegations();
+  const {
+    orders,
+    loading: ordersLoading,
+    stale: ordersStale,
+    cachedAt: ordersCachedAt,
+    ttlMs: ordersTtl,
+  } = useOrders();
 
   return (
     <div className="settings-page">
@@ -22,6 +35,12 @@ export function HomeContent() {
       <section className="grid">
         <Card title="Delegations">
           <p>Grant AI agents scoped shopping authority.</p>
+          <StaleBadge
+            family="delegations"
+            stale={delegationsStale}
+            cachedAt={delegationsCachedAt}
+            ttlMs={delegationsTtl}
+          />
           {delegationsLoading ? (
             <DelegationSkeleton />
           ) : delegations.length > 0 ? (
@@ -41,6 +60,12 @@ export function HomeContent() {
 
         <Card title="Orders">
           <p>Track purchases initiated by your agents.</p>
+          <StaleBadge
+            family="orders"
+            stale={ordersStale}
+            cachedAt={ordersCachedAt}
+            ttlMs={ordersTtl}
+          />
           {ordersLoading ? (
             <OrderSkeleton />
           ) : orders.length > 0 ? (

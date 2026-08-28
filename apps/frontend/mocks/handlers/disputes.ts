@@ -2,15 +2,27 @@ import { http, HttpResponse } from "msw";
 import type { CreateDisputeInput, Dispute } from "@delegolabs/types";
 import { buildDispute, errorResponse, okResponse } from "../fixtures/disputes";
 import { buildEscrowList } from "../fixtures/escrows";
+import { generateDemoWorld } from "../generateDemoWorld.mjs";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.example.com";
 
 /** escrowId -> current dispute, reset between test runs via resetDisputes(). */
 let disputesByEscrowId = new Map<string, Dispute>();
 
+if (process.env.NEXT_PUBLIC_SEED_DEMO === "true") {
+  for (const dispute of generateDemoWorld().disputes as Dispute[]) {
+    disputesByEscrowId.set(dispute.escrowId, dispute);
+  }
+}
+
 /** Reset in-memory fixture state between tests. */
 export function resetDisputes() {
   disputesByEscrowId = new Map();
+}
+
+/** Seed disputes from the demo world (#631). */
+export function seedDisputes(next: Dispute[]) {
+  disputesByEscrowId = new Map(next.map((d) => [d.escrowId, d]));
 }
 
 export const disputeHandlers = [

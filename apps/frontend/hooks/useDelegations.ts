@@ -13,6 +13,12 @@ import {
   subscribeToQueue,
   type QueuedMutation,
 } from "../lib/offlineQueue";
+import {
+  FAMILY_CONFIG,
+  isRecordStale,
+  peekReadModel,
+  writeReadModel,
+} from "../lib/readModelCache";
 
 /**
  * Fetch the current user's delegations from the Delego API.
@@ -87,6 +93,10 @@ export interface UseDelegationsResult {
   delegations: Delegation[];
   loading: boolean;
   error: string | null;
+  /** Cached row is older than the delegations family TTL. */
+  stale: boolean;
+  cachedAt: number | null;
+  ttlMs: number;
   /** Delegation IDs with an in-flight mutation — render as pending/disabled in the UI */
   pendingIds: Set<string>;
   /** Delegation IDs queued offline awaiting reconnect replay */
@@ -109,6 +119,8 @@ export function useDelegations(): UseDelegationsResult {
   const [delegations, setDelegations] = useState<Delegation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [queuedMutations, setQueuedMutations] = useState<QueuedMutation[]>([]);
 
@@ -154,8 +166,17 @@ export function useDelegations(): UseDelegationsResult {
 
   const loadDelegations = useCallback(
     async (signal?: AbortSignal): Promise<void> => {
-      setLoading(true);
       setError(null);
+      const cached = await peekReadModel<Delegation[]>("delegations", "list");
+      if (signal?.aborted) return;
+      if (cached && isDelegationArray(cached.payload)) {
+        setDelegations(cached.payload);
+        setCachedAt(cached.cachedAt);
+        setStale(isRecordStale(cached, Date.now()));
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
       try {
         const res: ApiResponse<Delegation[]> = await api.getDelegations(
           signal ? { signal } : undefined
@@ -163,15 +184,20 @@ export function useDelegations(): UseDelegationsResult {
         if (signal?.aborted) return;
         if (res.error) {
           setError(res.error.message);
+          if (!cached) setStale(true);
         } else if (!isDelegationArray(res.data)) {
           setError("Invalid response format");
         } else {
           setDelegations(res.data);
+          setStale(false);
+          const record = await writeReadModel("delegations", "list", res.data);
+          setCachedAt(record.cachedAt);
         }
       } catch (err) {
         if (signal?.aborted) return;
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError("Failed to fetch delegations");
+        setStale(true);
       } finally {
         if (!signal?.aborted) setLoading(false);
       }
@@ -316,6 +342,9 @@ export function useDelegations(): UseDelegationsResult {
     delegations,
     loading,
     error,
+    stale,
+    cachedAt,
+    ttlMs: FAMILY_CONFIG.delegations.ttlMs,
     pendingIds,
     pendingOfflineIds,
     conflictMutations,

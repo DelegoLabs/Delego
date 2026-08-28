@@ -12,6 +12,7 @@ import { DelegationFilters } from "../../components/delegations/DelegationFilter
 import { DelegationList } from "../../components/delegations/DelegationList";
 import { NotificationPermissionPrompt } from "../../components/notifications/NotificationPermissionPrompt";
 import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
+import { StaleBadge } from "../../components/offline/StaleBadge";
 import { OPEN_DELEGATION_FORM_KEY } from "../../lib/delegationFormIntent";
 
 type DelegationStatus = Delegation["status"];
@@ -23,6 +24,9 @@ export default function DelegationsPage() {
     loading,
     error,
     pendingIds,
+    stale,
+    cachedAt,
+    ttlMs,
     createDelegation,
     updateDelegation,
     revokeDelegation,
@@ -107,6 +111,12 @@ export default function DelegationsPage() {
             <p>
               Grant, adjust, and revoke scoped spending authority for AI agents
             </p>
+            <StaleBadge
+              family="delegations"
+              stale={stale}
+              cachedAt={cachedAt}
+              ttlMs={ttlMs}
+            />
           </div>
 
           <CopyViewLinkButton />

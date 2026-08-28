@@ -15,6 +15,7 @@ import { AccessibilitySettingsCard } from "../../components/settings/Accessibili
 import { LanguageSwitcher } from "../../components/settings/LanguageSwitcher";
 import { CurrencySwitcher } from "../../components/settings/CurrencySwitcher";
 import { NetworkContractsCard } from "../../components/settings/NetworkContractsCard";
+import { OfflineDataCard } from "../../components/settings/OfflineDataCard";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -67,6 +68,7 @@ export default function SettingsPage() {
         preferences={preferences}
         onSave={handleSavePreferences}
       />
+      <OfflineDataCard />
       <AccessibilitySettingsCard />
       <NotificationSettingsCard />
       <LanguageSwitcher />

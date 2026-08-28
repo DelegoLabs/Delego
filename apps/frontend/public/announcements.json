@@ -1,7 +1,9 @@
 [
   {
     "id": "2026-08-dispute-filing-live",
+    "version": "v1",
     "message": "New: dispute filing is now live for escrowed orders.",
+    "changelog": "Dispute filing is now live for escrowed orders.",
     "link": "/orders",
     "severity": "info"
   }

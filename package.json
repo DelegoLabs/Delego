@@ -17,7 +17,8 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "clean": "pnpm -r exec rm -rf dist .next node_modules && rm -rf .turbo",
-    "prepare": "husky"
+    "prepare": "husky",
+    "seed:demo": "pnpm --filter @delegolabs/web seed:demo"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.2",

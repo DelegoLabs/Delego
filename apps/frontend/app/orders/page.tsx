@@ -15,12 +15,13 @@ import { OrderFilters } from "../../components/orders/OrderFilters";
 import { OrderTable } from "../../components/orders/OrderTable";
 import { Pagination } from "../../components/orders/Pagination";
 import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
+import { StaleBadge } from "../../components/offline/StaleBadge";
 
 const PAGE_SIZE = 10;
 
 /** Transaction history — filterable, sortable, paginated view of all orders. */
 export default function OrdersPage() {
-  const { orders, loading, error } = useOrders();
+  const { orders, loading, error, stale, cachedAt, ttlMs } = useOrders();
 
   const [search, setSearch] = useQueryParamState<string>({
     key: "q",
@@ -86,6 +87,12 @@ export default function OrdersPage() {
           <div>
             <h1>Transaction History</h1>
             <p>Browse, search, and filter every order across your delegations</p>
+            <StaleBadge
+              family="orders"
+              stale={stale}
+              cachedAt={cachedAt}
+              ttlMs={ttlMs}
+            />
           </div>
           <CopyViewLinkButton />
         </div>

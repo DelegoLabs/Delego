@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { StrictMode } from "react";
+import { StrictMode, Suspense } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import "../styles/globals.css";
@@ -9,6 +9,7 @@ import { AppProviders } from "../components/providers/AppProviders";
 import { AnnouncementBanner } from "../components/announcements/AnnouncementBanner";
 import { ServiceWorkerRegistration } from "../components/pwa/ServiceWorkerRegistration";
 import { InstallPromptCard } from "../components/pwa/InstallPromptCard";
+import { UpdatePromptToast } from "../components/pwa/UpdatePromptToast";
 import { themeBootstrapScript } from "../hooks/useTheme";
 import { a11yBootstrapScript } from "../hooks/useAccessibility";
 
@@ -65,6 +66,7 @@ export default async function RootLayout({
           <NextIntlClientProvider locale={locale} messages={messages}>
             <AppProviders>
               <ServiceWorkerRegistration />
+              <AnnouncementBanner />
               <div className="app-shell">
                 <Sidebar />
                 <div className="app-main">
@@ -73,6 +75,9 @@ export default async function RootLayout({
                   <main className="app-content">{children}</main>
                 </div>
               </div>
+              <Suspense fallback={null}>
+                <UpdatePromptToast />
+              </Suspense>
             </AppProviders>
           </NextIntlClientProvider>
         </StrictMode>
