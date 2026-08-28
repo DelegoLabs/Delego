@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Order } from "@delegolabs/types";
@@ -184,6 +184,66 @@ describe("ApprovalDrawer", () => {
         />
       );
       expect(container.querySelector("img.approval-line-item-image")).toBeNull();
+    });
+
+    describe("reduced (data saver) mode (#623)", () => {
+      afterEach(() => {
+        Object.defineProperty(navigator, "connection", {
+          value: undefined,
+          configurable: true,
+        });
+      });
+
+      it("shows a tap-to-load placeholder instead of fetching the image immediately", async () => {
+        Object.defineProperty(navigator, "connection", {
+          value: { saveData: true },
+          configurable: true,
+        });
+        const explainability: OrderExplainability = {
+          imageUrlByProductId: { "sku-1": "https://merchant.example/sku-1.png" },
+        };
+        const { container } = render(
+          <ApprovalDrawer
+            order={makeOrder()}
+            explainability={explainability}
+            onApprove={vi.fn()}
+            onReject={vi.fn()}
+            onClose={vi.fn()}
+          />
+        );
+
+        await screen.findByRole("button", { name: "Load image for sku-1" });
+        expect(container.querySelector("img.approval-line-item-image")).toBeNull();
+      });
+
+      it("loads the image after the placeholder is tapped", async () => {
+        Object.defineProperty(navigator, "connection", {
+          value: { saveData: true },
+          configurable: true,
+        });
+        const explainability: OrderExplainability = {
+          imageUrlByProductId: { "sku-1": "https://merchant.example/sku-1.png" },
+        };
+        const user = userEvent.setup();
+        const { container } = render(
+          <ApprovalDrawer
+            order={makeOrder()}
+            explainability={explainability}
+            onApprove={vi.fn()}
+            onReject={vi.fn()}
+            onClose={vi.fn()}
+          />
+        );
+
+        const placeholder = await screen.findByRole("button", {
+          name: "Load image for sku-1",
+        });
+        await user.click(placeholder);
+
+        expect(
+          container.querySelector("img.approval-line-item-image")
+        ).not.toBeNull();
+      });
     });
   });
 

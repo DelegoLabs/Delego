@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { activeNavHref, navItems } from "./navItems";
 import { useTour } from "../tour/TourProvider";
+import { useDataSaver } from "../../hooks/useDataSaver";
 
 /**
  * Desktop sidebar navigation.
@@ -16,6 +17,7 @@ export function Sidebar() {
   const t = useTranslations("nav");
   const tApp = useTranslations("app");
   const { start } = useTour();
+  const { reducedModeActive } = useDataSaver();
 
   return (
     <aside className="sidebar" aria-label={t("primaryNavigation")}>
@@ -35,6 +37,7 @@ export function Sidebar() {
                   className={`nav-link${isActive ? " active" : ""}`}
                   aria-current={isActive ? "page" : undefined}
                   data-nav={item.labelKey}
+                  prefetch={reducedModeActive ? false : undefined}
                 >
                   <span className="nav-icon" aria-hidden="true">
                     {item.icon}

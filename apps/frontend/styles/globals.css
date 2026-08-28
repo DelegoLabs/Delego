@@ -1388,6 +1388,46 @@ body {
   border: 1px dashed var(--color-border, #d1d5db);
 }
 
+/* Tap-to-load placeholder shown in reduced (data saver) mode (#623) — same
+   dimensions as the real image so revealing it never shifts the row. */
+.approval-line-item-image-placeholder {
+  background: var(--color-surface-muted, #f3f4f6);
+  border: 1px solid var(--color-border, #d1d5db);
+  padding: 0;
+  cursor: pointer;
+}
+.approval-line-item-image-placeholder:hover {
+  background: var(--color-accent-bg, #eff6ff);
+}
+
+.spend-chart-summary {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+.spend-chart-summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.spend-chart-summary-label {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.data-saver-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--color-accent-bg, #eff6ff);
+  color: var(--color-accent, #2563eb);
+  border: 1px solid var(--color-accent, #2563eb);
+}
+
 
 .approval-price-hint {
   font-size: 0.8125rem;

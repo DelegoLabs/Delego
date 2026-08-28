@@ -18,6 +18,7 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useAnnounce } from "../../hooks/useAnnounce";
 import { DelegationTagBadge } from "../delegations/public";
 import { useDelegationTags } from "../../hooks/useDelegationTags";
+import { useDataSaver } from "../../hooks/useDataSaver";
 
 export interface ApprovalDrawerProps {
   order: Order | null;
@@ -67,6 +68,15 @@ export function ApprovalDrawer({
   // doc comment), so a single unreachable/broken CDN must not break the
   // rest of the list. Keyed by productId since this is a per-row concern.
   const [brokenImageProductIds, setBrokenImageProductIds] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  // Reduced mode (#623): images render as a tap-to-load placeholder instead
+  // of fetching immediately, so a metered/slow connection doesn't pay for
+  // every line-item image up front. Per-product so tapping one image
+  // doesn't reveal every other placeholder too.
+  const { reducedModeActive } = useDataSaver();
+  const [revealedImageProductIds, setRevealedImageProductIds] = useState<Set<string>>(
     () => new Set()
   );
 
@@ -249,11 +259,13 @@ export function ApprovalDrawer({
                 const range = priceRangeByProductId?.[productId];
                 const imageUrl = imageUrlByProductId?.[productId];
                 const imageBroken = brokenImageProductIds.has(productId);
+                const imageRevealed =
+                  !reducedModeActive || revealedImageProductIds.has(productId);
                 return (
                   <tr key={productId}>
                     <td>
                       <div className="approval-line-item-product">
-                        {imageUrl && !imageBroken ? (
+                        {imageUrl && !imageBroken && imageRevealed ? (
                           <Image
                             src={imageUrl}
                             alt=""
@@ -275,6 +287,20 @@ export function ApprovalDrawer({
                                 return next;
                               })
                             }
+                          />
+                        ) : imageUrl && !imageBroken ? (
+                          <button
+                            type="button"
+                            className="approval-line-item-image approval-line-item-image-placeholder"
+                            onClick={() =>
+                              setRevealedImageProductIds((prev) => {
+                                const next = new Set(prev);
+                                next.add(productId);
+                                return next;
+                              })
+                            }
+                            aria-label={`Load image for ${productId}`}
+                            title="Data saver is on — tap to load this image"
                           />
                         ) : imageUrl ? (
                           <div

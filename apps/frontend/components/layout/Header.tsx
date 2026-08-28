@@ -9,6 +9,7 @@ import { NetworkToggle } from "../network/NetworkToggle";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
 import { CommandPaletteTrigger } from "../command-palette/CommandPaletteTrigger";
+import { DataSaverChip } from "./DataSaverChip";
 
 /**
  * Top application bar.
@@ -39,6 +40,8 @@ export function Header() {
       <CommandPaletteTrigger />
 
       <div className="app-header-spacer" />
+
+      <DataSaverChip />
 
       <ThemeToggle />
 
