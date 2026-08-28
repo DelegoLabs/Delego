@@ -14,18 +14,30 @@ import {
   useDemoModeGuard,
   DEMO_MODE_BLOCKED_MESSAGE,
 } from "../../hooks/useDemoModeGuard";
+import { walletAdapters } from "../../lib/wallet/registry";
 
-const STATUS_LABEL: Record<string, string> = {
-  checking: "Checking for Freighter…",
-  unavailable: "Freighter extension not detected",
-  disconnected: "Not connected",
-  connecting: "Connecting…",
-  connected: "Connected",
-  error: "Connection error",
-};
+function statusLabel(status: string, walletName: string): string {
+  const labels: Record<string, string> = {
+    checking: `Checking for ${walletName}…`,
+    unavailable: `${walletName} extension not detected`,
+    disconnected: "Not connected",
+    connecting: "Connecting…",
+    connected: "Connected",
+    error: "Connection error",
+  };
+  return labels[status] ?? status;
+}
 
 export default function WalletPage() {
-  const { status, address, network, networkPassphrase, error } = useWallet();
+  const {
+    status,
+    address,
+    network,
+    networkPassphrase,
+    error,
+    walletName,
+    walletInstallUrl,
+  } = useWallet();
   const { network: activeNetwork } = useNetwork();
   const notifications = useNotifications();
   const [funding, setFunding] = useState(false);
@@ -94,7 +106,11 @@ export default function WalletPage() {
     <div className="settings-page">
       <header className="header">
         <h1>Wallet</h1>
-        <p>Connect your Stellar wallet via the Freighter browser extension</p>
+        <p>
+          Connect your Stellar wallet via the{" "}
+          {walletAdapters.map((adapter) => adapter.name).join(" or ")} browser
+          extension
+        </p>
       </header>
 
       <Card title="Connection" ariaLabel="Wallet connection status">
@@ -105,7 +121,7 @@ export default function WalletPage() {
                 status === "connected" ? "active" : "pending"
               }`}
             >
-              {STATUS_LABEL[status] ?? status}
+              {statusLabel(status, walletName)}
             </span>
           </div>
 
@@ -165,11 +181,11 @@ export default function WalletPage() {
             <p className="settings-toggle-hint">
               Install the{" "}
               <a
-                href="https://www.freighter.app/"
+                href={walletInstallUrl}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Freighter wallet extension
+                {walletName} wallet extension
               </a>{" "}
               to connect your Stellar account to Delego.
             </p>
@@ -259,7 +275,7 @@ export default function WalletPage() {
         <p>
           Once connected, your wallet address is used to grant scoped spending
           permissions to AI agents. Delego never has access to your private key
-          — every transaction is signed locally in the Freighter extension
+          — every transaction is signed locally in your wallet extension
           before it is submitted to Stellar.
         </p>
       </Card>

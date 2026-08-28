@@ -25,6 +25,7 @@
     "@delegolabs/api-generated": "workspace:*",
     "@delegolabs/types": "workspace:*",
     "@delegolabs/ui": "workspace:*",
+    "@lobstrco/signer-extension-api": "^2.1.0",
     "@sentry/nextjs": "^8.47.0",
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^13.1.0",
