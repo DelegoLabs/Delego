@@ -10,6 +10,10 @@ export interface Announcement {
   /** Optional in-app link surfaced as a "Learn more" affordance */
   link?: string;
   severity: AnnouncementSeverity;
+  /** App/SW cache version this announcement ships with (fE-038). */
+  version?: string;
+  /** Short changelog line reused by the SW update toast (#626). */
+  changelog?: string;
 }
 
 export interface UseAnnouncementsResult {
@@ -38,7 +42,9 @@ function isAnnouncement(value: unknown): value is Announcement {
     (candidate.severity === "info" ||
       candidate.severity === "success" ||
       candidate.severity === "warning") &&
-    (candidate.link === undefined || typeof candidate.link === "string")
+    (candidate.link === undefined || typeof candidate.link === "string") &&
+    (candidate.version === undefined || typeof candidate.version === "string") &&
+    (candidate.changelog === undefined || typeof candidate.changelog === "string")
   );
 }
 

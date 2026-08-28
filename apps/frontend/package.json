@@ -19,7 +19,8 @@
     "visual:update": "playwright test --project=visual --project=visual-mobile --update-snapshots",
     "analyze": "ANALYZE=true pnpm build",
     "check:perf-budget": "node scripts/check-perf-budget.mjs",
-    "check:help-links": "node scripts/check-help-links.mjs"
+    "check:help-links": "node scripts/check-help-links.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@delegolabs/api-generated": "workspace:*",

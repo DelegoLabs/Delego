@@ -8,6 +8,7 @@ export { PrivacyExportCard } from "./PrivacyExportCard";
 export { CurrencySwitcher } from "./CurrencySwitcher";
 export { LanguageSwitcher } from "./LanguageSwitcher";
 export { NetworkContractsCard } from "./NetworkContractsCard";
+export { OfflineDataCard } from "./OfflineDataCard";
 export type { PreferencesFormProps } from "./PreferencesForm";
 export { JournalViewer } from "./JournalViewer";
 export type { JournalViewerProps } from "./JournalViewer";

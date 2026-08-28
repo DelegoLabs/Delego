@@ -53,6 +53,18 @@ Open http://localhost:3001
 
 No backend, wallet, or funds needed — visit `/demo` (e.g. `http://localhost:3001/demo`) after `pnpm dev` and it drops you into a fully click-through-able app running against MSW fixtures, with a synthetic connected wallet. Every mutating action is disabled in the UI and rejected at the API-client layer if attempted anyway. Exit via the banner's "Exit demo" button, or just close the tab — the flag is session-scoped (`sessionStorage`) and never persists. See `apps/frontend/lib/demoMode.ts`.
 
+For a **reproducible stakeholder walkthrough** (3 agents, 6 delegations across lifecycle stages, 40 orders over 60 days, escrows in every state, notifications, one dispute):
+
+```bash
+# Byte-identical JSON snapshot for tests / Storybook decorators
+pnpm seed:demo --export
+
+# Boot the Next.js dev server against that world via MSW
+pnpm seed:demo --mock
+```
+
+See [docs/msw-mocking.md](./docs/msw-mocking.md) and `apps/frontend/mocks/generateDemoWorld.mjs`.
+
 ## 🔧 Prerequisites
 
 - **Node.js** >= 20.0.0
@@ -99,6 +111,8 @@ delego/
 | `pnpm lint` | Run ESLint |
 | `pnpm --filter @delegolabs/web format` | Format code with Prettier |
 | `pnpm test` | Run all test suites |
+| `pnpm seed:demo --export` | Write a deterministic demo-world JSON snapshot |
+| `pnpm seed:demo --mock` | Start the web app against the seeded MSW world |
 
 ## 🧪 Testing
 
@@ -148,6 +162,8 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](./CODE_OF_COND
 - [docs/grant-deliverables.md](./docs/grant-deliverables.md) — Grant deliverables
 - [docs/architecture/system-design.md](./docs/architecture/system-design.md) — System design
 - [docs/architecture/frontend-perf.md](./docs/architecture/frontend-perf.md) — Frontend performance budget
+- [docs/dashboard-widget-composition.md](./docs/dashboard-widget-composition.md) — Suspense × ErrorBoundary widget matrix
+- [docs/msw-mocking.md](./docs/msw-mocking.md) — MSW fixtures and `pnpm seed:demo`
 - [docs/README.md](./docs/README.md) — Documentation index
 
 ## 🔒 Security

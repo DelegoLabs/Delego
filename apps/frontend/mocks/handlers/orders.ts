@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import type { Order } from "@delegolabs/types";
 import { buildOrderList, errorResponse, okResponse } from "../fixtures/orders";
+import { generateDemoWorld } from "../generateDemoWorld.mjs";
 import {
   applyFirstApproval,
   applySecondApproval,
@@ -16,11 +17,19 @@ export const DUAL_CONTROL_THRESHOLD_STROOPS = 5_000n * 10_000_000n;
 /** Mock delegation owner list authorized to countersign. */
 export const DELEGATION_OWNERS = ["wallet-owner-a", "wallet-owner-b", "wallet-owner-c"];
 
-let orders = buildOrderList(5);
+let orders =
+  process.env.NEXT_PUBLIC_SEED_DEMO === "true"
+    ? (generateDemoWorld().orders as unknown as Order[])
+    : buildOrderList(5);
 
 /** Reset in-memory fixture state between tests. */
 export function resetOrders(seedCount = 5) {
   orders = buildOrderList(seedCount);
+}
+
+/** Replace the in-memory list — used by `pnpm seed:demo` interop (#631). */
+export function seedOrders(next: Order[]) {
+  orders = next;
 }
 
 /** Upserts a single order into the fixture store — e.g. to seed a specific dual-control scenario. */
