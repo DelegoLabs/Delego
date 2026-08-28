@@ -635,6 +635,158 @@ fn test_remove_co_admin() {
 }
 
 #[test]
+fn test_release_eligibility_active_escrow_buyer_eligible() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let amount = 1000i128;
+    let timeout = 3600u64;
+    let escrow_id = escrow_client.create_escrow(
+        &t.buyer,
+        &t.buyer,
+        &t.permissions_contract_id,
+        &t.seller,
+        &t.token_contract_id,
+        &amount,
+        &timeout,
+    );
+
+    let elig = escrow_client.get_release_eligibility(&escrow_id, &t.buyer);
+    assert!(elig.eligible);
+    assert!(elig.is_authorized_caller);
+    assert!(!elig.already_released);
+    assert!(!elig.invalid_status);
+    assert!(matches!(elig.status, EscrowStatus::Active));
+}
+
+#[test]
+fn test_release_eligibility_unauthorized_caller() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let amount = 1000i128;
+    let timeout = 3600u64;
+    let escrow_id = escrow_client.create_escrow(
+        &t.buyer,
+        &t.buyer,
+        &t.permissions_contract_id,
+        &t.seller,
+        &t.token_contract_id,
+        &amount,
+        &timeout,
+    );
+
+    // Agent is neither buyer nor admin
+    let elig = escrow_client.get_release_eligibility(&escrow_id, &t.agent);
+    assert!(!elig.eligible);
+    assert!(!elig.is_authorized_caller);
+    assert!(!elig.already_released);
+    assert!(!elig.invalid_status);
+}
+
+#[test]
+fn test_release_eligibility_admin_is_authorized() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let amount = 1000i128;
+    let timeout = 3600u64;
+    let escrow_id = escrow_client.create_escrow(
+        &t.buyer,
+        &t.buyer,
+        &t.permissions_contract_id,
+        &t.seller,
+        &t.token_contract_id,
+        &amount,
+        &timeout,
+    );
+
+    let elig = escrow_client.get_release_eligibility(&escrow_id, &t.admin);
+    assert!(elig.eligible);
+    assert!(elig.is_authorized_caller);
+}
+
+#[test]
+fn test_release_eligibility_after_release() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let amount = 1000i128;
+    let timeout = 3600u64;
+    let escrow_id = escrow_client.create_escrow(
+        &t.buyer,
+        &t.buyer,
+        &t.permissions_contract_id,
+        &t.seller,
+        &t.token_contract_id,
+        &amount,
+        &timeout,
+    );
+
+    assert!(escrow_client.release(&escrow_id, &t.buyer));
+
+    let elig = escrow_client.get_release_eligibility(&escrow_id, &t.buyer);
+    assert!(!elig.eligible);
+    assert!(elig.is_authorized_caller);
+    assert!(elig.already_released);
+    // Released is neither Active nor Disputed, so both already_released and invalid_status are true.
+    assert!(elig.invalid_status);
+    assert!(matches!(elig.status, EscrowStatus::Released));
+}
+
+#[test]
+fn test_release_eligibility_disputed_escrow_still_eligible() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let amount = 1000i128;
+    let timeout = 3600u64;
+    let escrow_id = escrow_client.create_escrow(
+        &t.buyer,
+        &t.buyer,
+        &t.permissions_contract_id,
+        &t.seller,
+        &t.token_contract_id,
+        &amount,
+        &timeout,
+    );
+
+    assert!(escrow_client.dispute(&escrow_id, &t.buyer));
+
+    // release() itself allows Active or Disputed status, so eligibility should agree
+    let elig = escrow_client.get_release_eligibility(&escrow_id, &t.buyer);
+    assert!(elig.eligible);
+    assert!(!elig.invalid_status);
+    assert!(matches!(elig.status, EscrowStatus::Disputed));
+}
+
+#[test]
+fn test_release_eligibility_after_refund_is_invalid_status() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let amount = 1000i128;
+    let timeout = 3600u64;
+    let escrow_id = escrow_client.create_escrow(
+        &t.buyer,
+        &t.buyer,
+        &t.permissions_contract_id,
+        &t.seller,
+        &t.token_contract_id,
+        &amount,
+        &timeout,
+    );
+
+    assert!(escrow_client.refund(&escrow_id, &t.seller));
+
+    let elig = escrow_client.get_release_eligibility(&escrow_id, &t.buyer);
+    assert!(!elig.eligible);
+    assert!(!elig.already_released);
+    assert!(elig.invalid_status);
+    assert!(matches!(elig.status, EscrowStatus::Refunded));
+}
+
+#[test]
 fn test_co_admin_accepts_primary_admin() {
     let t = TestEnv::setup();
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);

@@ -1,7 +1,7 @@
 -- Development seed data for Delego
 
 -- Clear existing data (in reverse dependency order)
-TRUNCATE TABLE permission_levels, delegation_policies, spend_limits, orders, delegations, wallets, users CASCADE;
+TRUNCATE TABLE permission_levels, delegation_policies, spend_limits, disputes, order_issues, approvals, escrow_fee_configs, orders, delegations, wallets, users CASCADE;
 
 -- Insert dev users
 -- password123 hashed using bcrypt (cost=10)
@@ -28,3 +28,21 @@ INSERT INTO delegation_policies (id, delegation_id, restricted_merchants, restri
 -- Insert permission levels
 INSERT INTO permission_levels (id, delegation_id, level, description, can_sign, can_mutate_policy) VALUES
 ('f0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'AUTO_APPROVE', 'Automatic approval for low-risk micro-payments', true, false);
+
+-- Insert a dev order
+INSERT INTO orders (id, user_id, delegation_id, merchant_id, status, line_items, total_stroops, escrow_contract_id) VALUES
+('10eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'GALLOWMERCHANT12345', 'fulfilled', '[{"productId":"prod_1","quantity":1,"unitPriceStroops":10000000}]', 10000000, null);
+
+-- Insert a dev order issue, aged past the "Report a problem" escalate-to-dispute threshold
+INSERT INTO order_issues (id, order_id, reporter_user_id, category, message, photo_url, status, created_at) VALUES
+('20eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '10eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'not_received', 'Tracking shows delivered but nothing arrived.', null, 'open', NOW() - INTERVAL '5 days');
+
+-- Insert an escrow fee config for the demo token: a static 2.5% fee split across two treasuries
+INSERT INTO escrow_fee_configs (id, token, fee_basis_points, is_dynamic, treasuries) VALUES
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'CDEMOTOKEN1234567890ABCDEF1234567890ABCDEF1234567890ABCD', 250, false,
+  '[{"name":"Platform treasury","address":"GPLATFORMTREASURY1234567890ABCDEF1234567890ABCD","splitBasisPoints":8000},{"name":"Referral pool","address":"GREFERRALPOOL1234567890ABCDEF1234567890ABCDEF","splitBasisPoints":2000}]');
+
+-- Insert dev approvals, enough to exercise the virtualized approvals list
+INSERT INTO approvals (id, user_id, title, description, amount_stroops, requested_by, status)
+SELECT gen_random_uuid(), 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Approve purchase #' || n, 'Auto-generated demo approval', (n * 100000)::bigint, 'agent_dev_buyer_1', 'pending'
+FROM generate_series(1, 40) AS n;

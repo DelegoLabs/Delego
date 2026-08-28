@@ -10,6 +10,15 @@ import {
   updateDelegationHandler,
   revokeDelegationHandler,
 } from "./delegations.js";
+import {
+  listOrdersHandler,
+  getOrderHandler,
+  createOrderIssueHandler,
+  listOrderIssuesHandler,
+  createDisputeHandler,
+} from "./orders.js";
+import { getEscrowDetailHandler, getReleaseEligibilityHandler } from "./escrow.js";
+import { listApprovalsHandler, bulkUpdateApprovalsHandler } from "./approvals.js";
 
 /** Register all gateway routes */
 export function registerRoutes(): Route[] {
@@ -24,6 +33,15 @@ export function registerRoutes(): Route[] {
     route("GET", "/api/v1/delegations/:id", getDelegationHandler),
     route("PATCH", "/api/v1/delegations/:id", updateDelegationHandler),
     route("DELETE", "/api/v1/delegations/:id", revokeDelegationHandler),
+    route("GET", "/api/v1/orders", listOrdersHandler),
+    route("GET", "/api/v1/orders/:id", getOrderHandler),
+    route("POST", "/api/v1/orders/:orderId/issues", createOrderIssueHandler),
+    route("GET", "/api/v1/orders/:orderId/issues", listOrderIssuesHandler),
+    route("POST", "/api/v1/orders/:orderId/disputes", createDisputeHandler),
+    route("GET", "/api/v1/escrows/:escrowId", getEscrowDetailHandler),
+    route("GET", "/api/v1/escrows/:escrowId/release-eligibility", getReleaseEligibilityHandler),
+    route("GET", "/api/v1/approvals", listApprovalsHandler),
+    route("PATCH", "/api/v1/approvals/bulk", bulkUpdateApprovalsHandler),
   ];
 }
 

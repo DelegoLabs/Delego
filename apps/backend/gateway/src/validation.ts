@@ -110,6 +110,55 @@ export const UpdateDelegationSchema: any = {
   additionalProperties: false
 };
 
+export interface CreateOrderIssuePayload {
+  category: "late" | "damaged" | "not_received" | "other";
+  message?: string;
+  photoUrl?: string;
+}
+
+export interface CreateDisputePayload {
+  category: "late" | "damaged" | "not_received" | "other";
+  message: string;
+  issueId?: string;
+}
+
+export const CreateOrderIssueSchema: any = {
+  type: "object",
+  properties: {
+    category: { type: "string", enum: ["late", "damaged", "not_received", "other"] },
+    message: { type: "string", maxLength: 2000 },
+    photoUrl: { type: "string", format: "uri" },
+  },
+  required: ["category"],
+  additionalProperties: false,
+};
+
+export const CreateDisputeSchema: any = {
+  type: "object",
+  properties: {
+    category: { type: "string", enum: ["late", "damaged", "not_received", "other"] },
+    message: { type: "string", minLength: 1, maxLength: 4000 },
+    issueId: { type: "string", format: "uuid" },
+  },
+  required: ["category", "message"],
+  additionalProperties: false,
+};
+
+export interface BulkUpdateApprovalsPayload {
+  ids: string[];
+  status: "approved" | "rejected";
+}
+
+export const BulkUpdateApprovalsSchema: any = {
+  type: "object",
+  properties: {
+    ids: { type: "array", items: { type: "string", format: "uuid" }, minItems: 1, maxItems: 500 },
+    status: { type: "string", enum: ["approved", "rejected"] },
+  },
+  required: ["ids", "status"],
+  additionalProperties: false,
+};
+
 export function validateSchema(schema: any, data: unknown): { valid: boolean; errors?: ValidationErrorDetail[] } {
   const validate = ajv.compile(schema);
   const valid = validate(data);

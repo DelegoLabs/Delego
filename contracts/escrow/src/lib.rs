@@ -27,6 +27,20 @@ pub struct EscrowRecord {
     pub unlock_time: u64,
 }
 
+/// Read-only snapshot of whether `caller` may currently call release() on an escrow, and why not
+/// if not. Mirrors release()'s own checks exactly without mutating state or requiring auth.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReleaseEligibility {
+    pub eligible: bool,
+    pub status: EscrowStatus,
+    pub is_authorized_caller: bool,
+    pub already_released: bool,
+    pub invalid_status: bool,
+    pub unlock_time: u64,
+    pub current_time: u64,
+}
+
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct EscrowCreatedEvent {
@@ -365,6 +379,29 @@ impl EscrowContract {
     pub fn get_escrow(env: Env, escrow_id: u64) -> EscrowRecord {
         let key = DataKey::Escrow(escrow_id);
         env.storage().persistent().get(&key).expect("Escrow not found")
+    }
+
+    /// Check whether `caller` may currently call release() on this escrow, and surface exactly
+    /// which of release()'s conditions are unmet if not. Read-only: does not require auth.
+    pub fn get_release_eligibility(env: Env, escrow_id: u64, caller: Address) -> ReleaseEligibility {
+        let record = Self::get_escrow(env.clone(), escrow_id);
+
+        let is_authorized_caller = caller == record.buyer || Self::is_admin(env.clone(), caller);
+        let already_released = record.status == EscrowStatus::Released;
+        let invalid_status =
+            record.status != EscrowStatus::Active && record.status != EscrowStatus::Disputed;
+
+        let eligible = is_authorized_caller && !already_released && !invalid_status;
+
+        ReleaseEligibility {
+            eligible,
+            status: record.status,
+            is_authorized_caller,
+            already_released,
+            invalid_status,
+            unlock_time: record.unlock_time,
+            current_time: env.ledger().timestamp(),
+        }
     }
 
     /// Propose a new primary admin. Must be called by current primary admin.

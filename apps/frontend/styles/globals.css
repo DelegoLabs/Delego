@@ -1,3 +1,57 @@
+:root {
+  --color-bg: #f9fafb;
+  --color-surface: #ffffff;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --color-primary: #2563eb;
+  --color-primary-contrast: #ffffff;
+  --color-danger: #b91c1c;
+
+  --color-tooltip-bg: #111827;
+  --color-tooltip-fg: #f9fafb;
+
+  /* Chip tone pairs: each bg/fg pair is exactly reversed under dark mode below,
+     which keeps the contrast ratio identical (~7.5:1) in both themes. */
+  --chip-neutral-bg: #f3f4f6;
+  --chip-neutral-fg: #374151;
+  --chip-info-bg: #dbeafe;
+  --chip-info-fg: #1e3a8a;
+  --chip-warning-bg: #fef3c7;
+  --chip-warning-fg: #78350f;
+  --chip-danger-bg: #fee2e2;
+  --chip-danger-fg: #7f1d1d;
+  --chip-success-bg: #dcfce7;
+  --chip-success-fg: #14532d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0b1120;
+    --color-surface: #111827;
+    --color-text: #f3f4f6;
+    --color-text-muted: #9ca3af;
+    --color-border: #1f2937;
+    --color-primary: #3b82f6;
+    --color-primary-contrast: #0b1120;
+    --color-danger: #f87171;
+
+    --color-tooltip-bg: #f3f4f6;
+    --color-tooltip-fg: #111827;
+
+    --chip-neutral-bg: #374151;
+    --chip-neutral-fg: #f3f4f6;
+    --chip-info-bg: #1e3a8a;
+    --chip-info-fg: #dbeafe;
+    --chip-warning-bg: #78350f;
+    --chip-warning-fg: #fef3c7;
+    --chip-danger-bg: #7f1d1d;
+    --chip-danger-fg: #fee2e2;
+    --chip-success-bg: #14532d;
+    --chip-success-fg: #dcfce7;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -5,8 +59,8 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, sans-serif;
-  background: #f9fafb;
-  color: #111827;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 
 .container {
@@ -26,7 +80,7 @@ body {
 
 .header p {
   margin: 0;
-  color: #6b7280;
+  color: var(--color-text-muted);
 }
 
 .grid {

@@ -34,6 +34,7 @@ coverage/
 # Soroban
 .soroban/
 *.wasm
+test_snapshots/
 
 # Terraform
 .terraform/

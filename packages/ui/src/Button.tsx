@@ -6,9 +6,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<NonNullable<ButtonProps["variant"]>, string> = {
-  primary: "background:#2563eb;color:#fff;border:none",
-  secondary: "background:#e5e7eb;color:#111;border:none",
-  ghost: "background:transparent;color:#2563eb;border:1px solid #2563eb",
+  primary: "background:var(--color-primary);color:var(--color-primary-contrast);border:none",
+  secondary: "background:var(--color-border);color:var(--color-text);border:none",
+  ghost: "background:transparent;color:var(--color-primary);border:1px solid var(--color-primary)",
 };
 
 /** Base button component — TODO: migrate to design system tokens */
