@@ -17,6 +17,7 @@ import { initReplayEngine } from "../../lib/replayEngine";
 import { QueueInspectorModal } from "../offline/QueueInspectorModal";
 import { DemoBanner } from "../demo/DemoBanner";
 import { IdleSessionGuard } from "../session/IdleSessionGuard";
+import { DomainWarningBanner } from "../security/DomainWarningBanner";
 
 /**
  * Client-side context providers shared across the app shell.
@@ -36,6 +37,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
               <AnnounceProvider>
                 <NotificationProvider>
                   <TourProvider>
+                    <DomainWarningBanner />
                     <DemoBanner />
                     <SentryBreadcrumbs />
                     <WebVitalsReporter />

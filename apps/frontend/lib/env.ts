@@ -12,6 +12,7 @@ const envSchema = z
     NEXT_PUBLIC_IDLE_SESSION_ENABLED: z.string().optional(),
     NEXT_PUBLIC_IDLE_TIMEOUT_MINUTES: z.string().optional(),
     NEXT_PUBLIC_IDLE_WARNING_SECONDS: z.string().optional(),
+    NEXT_PUBLIC_CANONICAL_HOSTS: z.string().optional(),
   })
   .passthrough();
 

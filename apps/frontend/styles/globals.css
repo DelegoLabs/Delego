@@ -1948,6 +1948,50 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Domain warning banner (#593)
+   Anti-phishing: warns when the app is served from a host outside the
+   configured canonical list. Danger-toned and dismissible per browser
+   session (sessionStorage) — it doesn't resurface on client-side navigation
+   within the same session, only on a fresh tab/session.
+   --------------------------------------------------------------------------- */
+.domain-warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 1.25rem;
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+  border-bottom: 1px solid var(--color-error-border);
+  font-size: 0.875rem;
+}
+
+.domain-warning-banner-icon {
+  flex-shrink: 0;
+}
+
+.domain-warning-banner a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.domain-warning-banner-dismiss {
+  flex-shrink: 0;
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.domain-warning-banner-dismiss:hover {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------------------
    Route cross-fade (View Transitions API)
    Subtle by design — only the swapped content is visually different between
    the old/new snapshots, so unchanged chrome (sidebar, header) never appears
