@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ActivityTimeline, Amount, Button, Card } from "@delegolabs/ui";
 import type { ActivityTimelineEvent } from "@delegolabs/ui";
+import { rejectionReasonLabel } from "../../../lib/rejectionReasons";
 import { useDelegations } from "../../../hooks/useDelegations";
 import { useOrders } from "../../../hooks/useOrders";
 import { useEscrows } from "../../../hooks/useEscrows";
@@ -127,14 +128,22 @@ export default function DelegationDetailPage() {
           },
         ]
       : []),
-    ...delegationOrders.map((order) => ({
-      id: `evt-order-${order.id}`,
-      type: "order_placed",
-      title: `Order #${order.id.slice(-6)} - ${order.merchantName}`,
-      description: `Amount: ${order.amount} XLM | Status: ${order.status}`,
-      timestamp: new Date(order.createdAt),
-      tone: (order.status === "completed" ? "success" : order.status === "failed" ? "failed" : "pending") as ActivityTimelineEvent["tone"],
-    })),
+    ...delegationOrders.map((order) => {
+      const rejectionLabel = rejectionReasonLabel(order.rejectionReason);
+      const rejectionDetail = [rejectionLabel, order.rejectionNote]
+        .filter(Boolean)
+        .join(": ");
+      return {
+        id: `evt-order-${order.id}`,
+        type: "order_placed",
+        title: `Order #${order.id.slice(-6)} - ${order.merchantName}`,
+        description: `Amount: ${order.amount} XLM | Status: ${order.status}${
+          rejectionDetail ? ` | Reason: ${rejectionDetail}` : ""
+        }`,
+        timestamp: new Date(order.createdAt),
+        tone: (order.status === "completed" ? "success" : order.status === "failed" ? "failed" : "pending") as ActivityTimelineEvent["tone"],
+      };
+    }),
   ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
   return (

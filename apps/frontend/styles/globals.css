@@ -1380,6 +1380,54 @@ body {
   flex-shrink: 0;
 }
 
+/* Branded, dimension-stable fallback shown when a merchant's image host is
+   unreachable or returns a broken image (#622) — same box size as the real
+   image so its appearance/disappearance never shifts the row layout. */
+.approval-line-item-image-fallback {
+  background: var(--color-surface-muted, #f3f4f6);
+  border: 1px dashed var(--color-border, #d1d5db);
+}
+
+/* Tap-to-load placeholder shown in reduced (data saver) mode (#623) — same
+   dimensions as the real image so revealing it never shifts the row. */
+.approval-line-item-image-placeholder {
+  background: var(--color-surface-muted, #f3f4f6);
+  border: 1px solid var(--color-border, #d1d5db);
+  padding: 0;
+  cursor: pointer;
+}
+.approval-line-item-image-placeholder:hover {
+  background: var(--color-accent-bg, #eff6ff);
+}
+
+.spend-chart-summary {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+.spend-chart-summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.spend-chart-summary-label {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.data-saver-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--color-accent-bg, #eff6ff);
+  color: var(--color-accent, #2563eb);
+  border: 1px solid var(--color-accent, #2563eb);
+}
+
 
 .approval-price-hint {
   font-size: 0.8125rem;
@@ -3023,4 +3071,61 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+/* Weekly report (#617) */
+.report-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.report-controls select {
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+}
+.report-kpi-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.report-events-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.report-print-header {
+  margin-bottom: 1rem;
+}
+.report-print-footer {
+  margin-top: 1.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .app-shell > *:not(.app-main),
+  .app-header,
+  .sidebar {
+    display: none !important;
+  }
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
+  .report-print-area {
+    counter-reset: page;
+  }
+  .report-print-footer::after {
+    content: " · Page " counter(page);
+  }
 }

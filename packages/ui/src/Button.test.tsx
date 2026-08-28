@@ -29,6 +29,14 @@ describe("Button", () => {
     expect(button?.style.background).toBe("transparent");
   });
 
+  it("renders destructive variant with red background", () => {
+    const { container } = render(
+      <Button variant="destructive">Reject</Button>,
+    );
+    const button = container.querySelector("button");
+    expect(button?.style.background).toBe("rgb(220, 38, 38)");
+  });
+
   it("spreads additional props", () => {
     render(<Button data-testid="my-btn">Styled</Button>);
     expect(screen.getByTestId("my-btn")).toBeDefined();

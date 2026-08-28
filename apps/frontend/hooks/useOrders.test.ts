@@ -103,7 +103,24 @@ describe("useOrders", () => {
       await result.current.rejectOrder("order-1", "too expensive");
     });
 
-    expect(mockRejectOrder).toHaveBeenCalledWith("order-1", "too expensive");
+    expect(mockRejectOrder).toHaveBeenCalledWith("order-1", "too expensive", undefined);
     expect(result.current.error).toBe("cannot reject");
+  });
+
+  it("rejectOrder forwards the structured reason code (#567)", async () => {
+    mockGetOrders.mockResolvedValue({ data: [makeOrder()], error: null });
+    mockRejectOrder.mockResolvedValue({
+      data: { ...makeOrder(), status: "rejected" },
+      error: null,
+    });
+
+    const { result } = renderHook(() => useOrders());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.rejectOrder("order-1", "budget note", "too_expensive");
+    });
+
+    expect(mockRejectOrder).toHaveBeenCalledWith("order-1", "budget note", "too_expensive");
   });
 });

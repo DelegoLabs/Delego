@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Order } from "@delegolabs/types";
@@ -125,6 +125,128 @@ describe("ApprovalDrawer", () => {
     expect(hint.className).toContain("approval-price-hint-above");
   });
 
+  describe("line-item imagery (#622)", () => {
+    it("renders the product image with explicit dimensions when a URL is provided", () => {
+      const explainability: OrderExplainability = {
+        imageUrlByProductId: { "sku-1": "https://merchant.example/sku-1.png" },
+      };
+      const { container } = render(
+        <ApprovalDrawer
+          order={makeOrder()}
+          explainability={explainability}
+          onApprove={vi.fn()}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      // alt="" is intentional (decorative — the product id renders as
+      // adjacent visible text), which removes the image from the a11y
+      // tree, so it isn't queryable via getByRole("img").
+      const img = container.querySelector(
+        "img.approval-line-item-image"
+      ) as HTMLImageElement;
+      expect(img).not.toBeNull();
+      expect(img.width).toBe(32);
+      expect(img.height).toBe(32);
+    });
+
+    it("falls back to a branded, dimension-stable tile when the image fails to load", () => {
+      const explainability: OrderExplainability = {
+        imageUrlByProductId: { "sku-1": "https://broken-merchant.example/gone.png" },
+      };
+      const { container } = render(
+        <ApprovalDrawer
+          order={makeOrder()}
+          explainability={explainability}
+          onApprove={vi.fn()}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      const img = container.querySelector("img.approval-line-item-image")!;
+      fireEvent.error(img);
+
+      const fallback = screen.getByRole("img", {
+        name: "Image unavailable for sku-1",
+      });
+      expect(fallback.className).toContain("approval-line-item-image-fallback");
+    });
+
+    it("renders no image element when no imagery data is provided", () => {
+      const { container } = render(
+        <ApprovalDrawer
+          order={makeOrder()}
+          onApprove={vi.fn()}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+      expect(container.querySelector("img.approval-line-item-image")).toBeNull();
+    });
+
+    describe("reduced (data saver) mode (#623)", () => {
+      afterEach(() => {
+        Object.defineProperty(navigator, "connection", {
+          value: undefined,
+          configurable: true,
+        });
+      });
+
+      it("shows a tap-to-load placeholder instead of fetching the image immediately", async () => {
+        Object.defineProperty(navigator, "connection", {
+          value: { saveData: true },
+          configurable: true,
+        });
+        const explainability: OrderExplainability = {
+          imageUrlByProductId: { "sku-1": "https://merchant.example/sku-1.png" },
+        };
+        const { container } = render(
+          <ApprovalDrawer
+            order={makeOrder()}
+            explainability={explainability}
+            onApprove={vi.fn()}
+            onReject={vi.fn()}
+            onClose={vi.fn()}
+          />
+        );
+
+        await screen.findByRole("button", { name: "Load image for sku-1" });
+        expect(container.querySelector("img.approval-line-item-image")).toBeNull();
+      });
+
+      it("loads the image after the placeholder is tapped", async () => {
+        Object.defineProperty(navigator, "connection", {
+          value: { saveData: true },
+          configurable: true,
+        });
+        const explainability: OrderExplainability = {
+          imageUrlByProductId: { "sku-1": "https://merchant.example/sku-1.png" },
+        };
+        const user = userEvent.setup();
+        const { container } = render(
+          <ApprovalDrawer
+            order={makeOrder()}
+            explainability={explainability}
+            onApprove={vi.fn()}
+            onReject={vi.fn()}
+            onClose={vi.fn()}
+          />
+        );
+
+        const placeholder = await screen.findByRole("button", {
+          name: "Load image for sku-1",
+        });
+        await user.click(placeholder);
+
+        expect(
+          container.querySelector("img.approval-line-item-image")
+        ).not.toBeNull();
+      });
+    });
+  });
+
   it("calls onApprove/onReject with the order id", async () => {
     const user = userEvent.setup();
     const onApprove = vi.fn();
@@ -140,7 +262,37 @@ describe("ApprovalDrawer", () => {
     await user.click(screen.getByRole("button", { name: "Approve" }));
     expect(onApprove).toHaveBeenCalledWith("order-1");
     await user.click(screen.getByRole("button", { name: "Reject" }));
-    expect(onReject).toHaveBeenCalledWith("order-1");
+    expect(onReject).toHaveBeenCalledWith("order-1", undefined, undefined);
+  });
+
+  it("collects a structured reason and note before rejecting (#567)", async () => {
+    const user = userEvent.setup();
+    const onReject = vi.fn();
+    render(
+      <ApprovalDrawer
+        order={makeOrder()}
+        onApprove={vi.fn()}
+        onReject={onReject}
+        onClose={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByText("+ Add reason"));
+    await user.selectOptions(
+      screen.getByLabelText("Reason for rejection"),
+      "wrong_item"
+    );
+    await user.type(
+      screen.getByLabelText("Additional detail (optional)"),
+      "Not what was requested"
+    );
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+
+    expect(onReject).toHaveBeenCalledWith(
+      "order-1",
+      "Not what was requested",
+      "wrong_item"
+    );
   });
 
   it("closes on Escape", async () => {

@@ -144,3 +144,50 @@ describe("ApprovalCard — dual control (#574)", () => {
     );
   });
 });
+
+describe("ApprovalCard — structured rejection reasons (#567)", () => {
+  beforeEach(() => {
+    mockUseFeatureFlag.mockReturnValue(false);
+    mockUseDualControlCapability.mockReturnValue(false);
+    mockUseWallet.mockReturnValue({ address: "wallet-a" });
+  });
+
+  it("rejects with no reason when the picker is never opened (backward compatible)", async () => {
+    const order = makeOrder();
+    const onReject = vi.fn();
+    const user = userEvent.setup();
+
+    render(<ApprovalCard order={order} onApprove={vi.fn()} onReject={onReject} />);
+
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+    await user.click(screen.getByRole("button", { name: "Confirm Reject" }));
+
+    expect(onReject).toHaveBeenCalledWith("order-1", undefined, undefined);
+  });
+
+  it("collects a structured reason code and free-text detail before rejecting", async () => {
+    const order = makeOrder();
+    const onReject = vi.fn();
+    const user = userEvent.setup();
+
+    render(<ApprovalCard order={order} onApprove={vi.fn()} onReject={onReject} />);
+
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+    await user.click(screen.getByText("+ Add reason"));
+    await user.selectOptions(
+      screen.getByLabelText("Reason for rejection"),
+      "too_expensive"
+    );
+    await user.type(
+      screen.getByPlaceholderText("Additional detail (optional)"),
+      "Over budget for this quarter"
+    );
+    await user.click(screen.getByRole("button", { name: "Confirm Reject" }));
+
+    expect(onReject).toHaveBeenCalledWith(
+      "order-1",
+      "Over budget for this quarter",
+      "too_expensive"
+    );
+  });
+});

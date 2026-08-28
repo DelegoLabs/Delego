@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Amount, Button, Card } from "@delegolabs/ui";
+import type { RejectionReasonCode } from "@delegolabs/types";
 import { useOrders } from "../../hooks/useOrders";
 import { useAnnounce } from "../../hooks/useAnnounce";
 import { useCurrency } from "../../hooks/useCurrency";
@@ -53,8 +54,8 @@ export default function ApprovalsPage() {
   );
 
   const handleReject = useCallback(
-    async (id: string, reason?: string) => {
-      const result = await rejectOrder(id, reason);
+    async (id: string, reason?: string, reasonCode?: RejectionReasonCode) => {
+      const result = await rejectOrder(id, reason, reasonCode);
       announce(
         result ? `Order ${id} rejected.` : `Failed to reject order ${id}.`
       );

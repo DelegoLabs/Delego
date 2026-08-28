@@ -2,6 +2,26 @@ import "@testing-library/jest-dom";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { server } from "../mocks/server";
 
+// On Node 22.4+/24+, globalThis.localStorage/sessionStorage are native, but
+// without a valid `--localstorage-file` they resolve to a non-functional
+// stub (getItem/setItem/clear all undefined). Vitest's jsdom environment
+// only copies jsdom's real, working Storage implementation onto a global
+// key when that key isn't already present on `global` — since the broken
+// native stub is already there, it silently wins, and any test relying on
+// localStorage/sessionStorage breaks with e.g.
+// "localStorage.clear is not a function". Re-point both at jsdom's real
+// implementation, exposed by Vitest as `globalThis.jsdom.window`.
+const jsdomWindow = (globalThis as { jsdom?: { window: Window } }).jsdom?.window;
+if (jsdomWindow) {
+  for (const key of ["localStorage", "sessionStorage"] as const) {
+    if (typeof globalThis[key]?.getItem === "function") continue;
+    Object.defineProperty(globalThis, key, {
+      configurable: true,
+      value: jsdomWindow[key],
+    });
+  }
+}
+
 /**
  * Guarantee a spec-compliant `window.localStorage` (with `.clear()`,
  * `.key()`, etc.), independent of whatever race decided its value.
