@@ -7,5 +7,7 @@ export * from "./user.js";
 export * from "./delegation.js";
 export * from "./wallet.js";
 export * from "./order.js";
+export * from "./escrow.js";
+export * from "./approvals.js";
 export * from "./agent.js";
 export * from "./api.js";

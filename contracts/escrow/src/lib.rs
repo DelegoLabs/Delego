@@ -72,6 +72,22 @@ pub struct EscrowResolvedEvent {
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EligibilityCondition {
+    pub key: Symbol,
+    pub met: bool,
+    pub message: soroban_sdk::String,
+    pub effective_at: Option<u64>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReleaseEligibility {
+    pub eligible: bool,
+    pub conditions: soroban_sdk::Vec<EligibilityCondition>,
+}
+
+#[contracttype]
 pub enum DataKey {
     Admin,
     Escrow(u64),
@@ -365,6 +381,131 @@ impl EscrowContract {
     pub fn get_escrow(env: Env, escrow_id: u64) -> EscrowRecord {
         let key = DataKey::Escrow(escrow_id);
         env.storage().persistent().get(&key).expect("Escrow not found")
+    }
+
+    /// Check release eligibility for a given caller and escrow.
+    /// Returns a structured list of conditions so the UI can explain
+    /// why a release CTA is disabled.
+    pub fn release_eligibility(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+    ) -> ReleaseEligibility {
+        let key = DataKey::Escrow(escrow_id);
+        let record: Option<EscrowRecord> = env.storage().persistent().get(&key);
+
+        let mut conditions: soroban_sdk::Vec<EligibilityCondition> = soroban_sdk::Vec::new(&env);
+        let now = env.ledger().timestamp();
+
+        // Condition: escrow must exist
+        let Some(record) = record else {
+            conditions.push_back(EligibilityCondition {
+                key: symbol_short!("not_found"),
+                met: false,
+                message: soroban_sdk::String::from_str(&env, "Escrow record not found"),
+                effective_at: None,
+            });
+            return ReleaseEligibility {
+                eligible: false,
+                conditions,
+            };
+        };
+
+        // Condition: must not already be released
+        let already_released = record.status == EscrowStatus::Released;
+        conditions.push_back(EligibilityCondition {
+            key: symbol_short!("not_released"),
+            met: !already_released,
+            message: if already_released {
+                soroban_sdk::String::from_str(&env, "Escrow has already been released")
+            } else {
+                soroban_sdk::String::from_str(&env, "Escrow has not been released yet")
+            },
+            effective_at: None,
+        });
+
+        // Condition: status must be Active or Disputed
+        let valid_status = matches!(record.status, EscrowStatus::Active | EscrowStatus::Disputed);
+        conditions.push_back(EligibilityCondition {
+            key: symbol_short!("valid_status"),
+            met: valid_status,
+            message: if valid_status {
+                soroban_sdk::String::from_str(&env, "Escrow status permits release")
+            } else {
+                soroban_sdk::String::from_str(&env, "Escrow must be Active or Disputed to release")
+            },
+            effective_at: None,
+        });
+
+        // Condition: caller must be buyer or admin
+        let is_buyer = caller == record.buyer;
+        let is_admin = Self::is_admin(env.clone(), caller.clone());
+        let authorized_caller = is_buyer || is_admin;
+        conditions.push_back(EligibilityCondition {
+            key: symbol_short!("authorized"),
+            met: authorized_caller,
+            message: if authorized_caller {
+                if is_admin {
+                    soroban_sdk::String::from_str(&env, "Caller is an admin")
+                } else {
+                    soroban_sdk::String::from_str(&env, "Caller is the buyer")
+                }
+            } else {
+                soroban_sdk::String::from_str(
+                    &env,
+                    "Caller must be the buyer or an admin to release",
+                )
+            },
+            effective_at: None,
+        });
+
+        // Condition: timeout must be reached (only for buyer; admin can bypass)
+        let timeout_met = is_admin || now >= record.unlock_time;
+        let effective_at = if is_admin {
+            None
+        } else {
+            Some(record.unlock_time)
+        };
+        let secs_remaining: i128 = record.unlock_time as i128 - now as i128;
+        let msg = if is_admin {
+            soroban_sdk::String::from_str(&env, "Admin may release before timeout")
+        } else if timeout_met {
+            soroban_sdk::String::from_str(&env, "Release timeout has been reached")
+        } else {
+            let days = secs_remaining / 86400;
+            let hours = (secs_remaining % 86400) / 3600;
+            let mins = (secs_remaining % 3600) / 60;
+            let mut s = soroban_sdk::String::from_str(&env, "Timeout not reached — releases unlock in ");
+            if days > 0 {
+                s = s.concat(&soroban_sdk::String::from_str(
+                    &env,
+                    &format!("{}d ", days),
+                ));
+            }
+            if hours > 0 || days > 0 {
+                s = s.concat(&soroban_sdk::String::from_str(
+                    &env,
+                    &format!("{}h ", hours),
+                ));
+            }
+            s = s.concat(&soroban_sdk::String::from_str(
+                &env,
+                &format!("{}m", mins.max(1)),
+            ));
+            s
+        };
+        conditions.push_back(EligibilityCondition {
+            key: symbol_short!("timeout"),
+            met: timeout_met,
+            message: msg,
+            effective_at,
+        });
+
+        let eligible = conditions.iter().all(|c| c.met);
+        ReleaseEligibility {
+            eligible,
+            conditions,
+        }
     }
 
     /// Propose a new primary admin. Must be called by current primary admin.
