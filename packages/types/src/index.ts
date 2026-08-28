@@ -248,4 +248,4 @@ export interface ApiResponse<T> {
   error: ApiError | null;
 }
 
-export * from "./schemas";
+export * from "./schemas.js";
