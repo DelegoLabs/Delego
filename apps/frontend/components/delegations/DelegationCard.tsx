@@ -12,6 +12,7 @@ import { useCurrency } from "../../hooks/useCurrency";
 import { DelegationTagBadge } from "./DelegationTagBadge";
 import { DelegationTagPicker } from "./DelegationTagPicker";
 import { useDelegationTags } from "../../hooks/useDelegationTags";
+import { DelegationStatusChip } from "./DelegationStatusChip";
 
 export interface DelegationCardProps {
   delegation: Delegation;
@@ -129,9 +130,14 @@ export function DelegationCard({
           }}
         >
           <div className="flex items-center gap-2">
-            <span className={`status-badge status-${delegation.status}`}>
-              {delegation.status}
-            </span>
+            <DelegationStatusChip
+              delegation={delegation}
+              cap={delegation.policy.maxTotal}
+              onResume={() => setShowPauseModal(true)}
+              onRenew={
+                onDuplicate ? () => onDuplicate(delegation) : undefined
+              }
+            />
 
             {(activeLabel || activeColorTag) && (
               <DelegationTagBadge

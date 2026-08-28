@@ -5,6 +5,7 @@
  * and must stay delegations-internal.
  */
 export { DelegationCard } from "./DelegationCard";
+export { DelegationStatusChip } from "./DelegationStatusChip";
 export { DelegationForm } from "./DelegationForm";
 export { DelegationFilters } from "./DelegationFilters";
 export { DelegationList } from "./DelegationList";
