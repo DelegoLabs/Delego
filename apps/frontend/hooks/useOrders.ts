@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Order } from "@delegolabs/types";
+import type { Order, RejectionReasonCode } from "@delegolabs/types";
 import { api } from "../lib/api";
 import {
   adaptOrders,
@@ -57,7 +57,11 @@ export interface UseOrdersResult {
   conflictMutations: QueuedMutation[];
   refresh: () => Promise<void>;
   approveOrder: (id: string) => Promise<Order | null>;
-  rejectOrder: (id: string, reason?: string) => Promise<Order | null>;
+  rejectOrder: (
+    id: string,
+    reason?: string,
+    reasonCode?: RejectionReasonCode
+  ) => Promise<Order | null>;
 }
 
 export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
@@ -219,10 +223,14 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
   );
 
   const rejectOrder = useCallback(
-    async (id: string, reason?: string): Promise<Order | null> => {
+    async (
+      id: string,
+      reason?: string,
+      reasonCode?: RejectionReasonCode
+    ): Promise<Order | null> => {
       // Offline queue check (#618)
       if (typeof navigator !== "undefined" && !navigator.onLine) {
-        await enqueueMutation("reject_order", id, { reason });
+        await enqueueMutation("reject_order", id, { reason, reasonCode });
         setOrders((prev) =>
           prev.map((o) => (o.id === id ? { ...o, status: "rejected" } : o))
         );
@@ -232,7 +240,7 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
       setPending(id, true);
       setError(null);
       try {
-        const res = (await api.rejectOrder(id, reason)) as RejectOrderResponse;
+        const res = (await api.rejectOrder(id, reason, reasonCode)) as RejectOrderResponse;
         if (res.error) {
           setError(res.error.message);
           return null;
@@ -247,7 +255,7 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
         return null;
       } catch {
         // Fallback offline queue on network exception
-        await enqueueMutation("reject_order", id, { reason });
+        await enqueueMutation("reject_order", id, { reason, reasonCode });
         setOrders((prev) =>
           prev.map((o) => (o.id === id ? { ...o, status: "rejected" } : o))
         );

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useLocale } from "next-intl";
 import { Amount, Button, Card } from "@delegolabs/ui";
-import type { Order } from "@delegolabs/types";
+import type { Order, RejectionReasonCode } from "@delegolabs/types";
+import { REJECTION_REASON_OPTIONS } from "../../lib/rejectionReasons";
 import { formatDateTimeWithPreferences } from "../../lib/intl";
 import { useCurrency } from "../../hooks/useCurrency";
 import { useTimeFormat } from "../../hooks/useTimeFormat";
@@ -29,7 +30,12 @@ export interface ApprovalCardProps {
   /** True when a mutation for this order is queued offline awaiting reconnect replay (#618). */
   pendingOffline?: boolean;
   onApprove: (id: string) => void | Promise<unknown>;
-  onReject: (id: string, reason?: string) => void | Promise<unknown>;
+  onReject: (
+    id: string,
+    reason?: string,
+    /** Structured reason code (#567); optional so callers that only ever pass free text (e.g. the "Enter"-hotkey instant reject) keep working unchanged. */
+    reasonCode?: RejectionReasonCode
+  ) => void | Promise<unknown>;
   /** Called with the fresh order after a dual-control approve/countersign settles (#574), so the caller can refresh its list. */
   onDualControlUpdate?: (order: Order) => void;
 }
@@ -48,6 +54,8 @@ export function ApprovalCard({
 }: ApprovalCardProps) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
+  const [reasonCode, setReasonCode] = useState<RejectionReasonCode | "">("");
+  const [showReasonPicker, setShowReasonPicker] = useState(false);
 
   const { isMismatched } = useNetworkMismatch();
   const locale = useLocale();
@@ -106,7 +114,7 @@ export function ApprovalCard({
 
   const handleConfirmReject = guard(async () => {
     try {
-      await onReject(order.id, reason.trim() || undefined);
+      await onReject(order.id, reason.trim() || undefined, reasonCode || undefined);
       announce(`Order ${order.id} rejected.`, "polite");
     } catch {
       announce(`Failed to reject order ${order.id}.`, "assertive");
@@ -240,6 +248,41 @@ export function ApprovalCard({
 
           {rejecting ? (
             <div className="approval-reject-form">
+              {showReasonPicker ? (
+                <div className="approval-reject-reason-picker">
+                  <label
+                    htmlFor={`reject-reason-code-${order.id}`}
+                    className="sr-only"
+                  >
+                    Reason for rejection
+                  </label>
+                  <select
+                    id={`reject-reason-code-${order.id}`}
+                    className="order-search"
+                    value={reasonCode}
+                    onChange={(e) =>
+                      setReasonCode(e.target.value as RejectionReasonCode | "")
+                    }
+                    disabled={pending}
+                  >
+                    <option value="">Select a reason…</option>
+                    {REJECTION_REASON_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="approval-reject-add-reason"
+                  onClick={() => setShowReasonPicker(true)}
+                  disabled={pending}
+                >
+                  + Add reason
+                </button>
+              )}
               <label htmlFor={`reject-reason-${order.id}`} className="sr-only">
                 Reason for rejection (optional)
               </label>
@@ -247,7 +290,7 @@ export function ApprovalCard({
                 id={`reject-reason-${order.id}`}
                 type="text"
                 className="order-search"
-                placeholder="Reason for rejection (optional)"
+                placeholder="Additional detail (optional)"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 disabled={pending}

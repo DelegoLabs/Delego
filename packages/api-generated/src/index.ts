@@ -33,6 +33,14 @@ export type OrderStatus =
   | "settled"
   | "cancelled";
 
+/** Structured reason recorded when a pending order is rejected (#567). */
+export type RejectionReasonCode =
+  | "too_expensive"
+  | "wrong_item"
+  | "wrong_merchant"
+  | "wrong_time"
+  | "other";
+
 // ---------------------------------------------------------------------------
 // Domain models
 // ---------------------------------------------------------------------------
@@ -54,7 +62,9 @@ export interface Order {
   totalStroops: Stroops;
   lineItems: LineItem[];
   escrowContractId: string | null;
-  rejectionReason?: string | null;
+  rejectionReason?: RejectionReasonCode | null;
+  /** Free-text detail accompanying rejectionReason (#567). */
+  rejectionNote?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -90,7 +100,8 @@ export type ApproveOrderResponse = ApiResponse<Order>;
 
 /** POST /orders/{id}/reject */
 export interface RejectOrderRequest {
-  reason?: string | null;
+  rejectionReason?: RejectionReasonCode | null;
+  rejectionNote?: string | null;
 }
 
 /** POST /orders/{id}/reject response */
@@ -134,6 +145,8 @@ export function adaptOrder(raw: Order): DomainOrder {
       unitPriceStroops: parseStroops(li.unitPriceStroops),
     })),
     escrowContractId: raw.escrowContractId,
+    rejectionReason: raw.rejectionReason,
+    rejectionNote: raw.rejectionNote,
     createdAt: new Date(raw.createdAt),
     updatedAt: new Date(raw.updatedAt),
   };

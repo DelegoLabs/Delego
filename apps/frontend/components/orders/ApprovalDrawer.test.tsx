@@ -140,7 +140,37 @@ describe("ApprovalDrawer", () => {
     await user.click(screen.getByRole("button", { name: "Approve" }));
     expect(onApprove).toHaveBeenCalledWith("order-1");
     await user.click(screen.getByRole("button", { name: "Reject" }));
-    expect(onReject).toHaveBeenCalledWith("order-1");
+    expect(onReject).toHaveBeenCalledWith("order-1", undefined, undefined);
+  });
+
+  it("collects a structured reason and note before rejecting (#567)", async () => {
+    const user = userEvent.setup();
+    const onReject = vi.fn();
+    render(
+      <ApprovalDrawer
+        order={makeOrder()}
+        onApprove={vi.fn()}
+        onReject={onReject}
+        onClose={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByText("+ Add reason"));
+    await user.selectOptions(
+      screen.getByLabelText("Reason for rejection"),
+      "wrong_item"
+    );
+    await user.type(
+      screen.getByLabelText("Additional detail (optional)"),
+      "Not what was requested"
+    );
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+
+    expect(onReject).toHaveBeenCalledWith(
+      "order-1",
+      "Not what was requested",
+      "wrong_item"
+    );
   });
 
   it("closes on Escape", async () => {

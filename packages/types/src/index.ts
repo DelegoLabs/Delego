@@ -108,6 +108,18 @@ export interface DualControlState {
   secondApproval?: ApprovalSignature;
 }
 
+/**
+ * Structured reason recorded when a pending order is rejected (#567), so
+ * agents can learn *why* an item was unsuitable instead of an unsuitable
+ * item being re-proposed indefinitely.
+ */
+export type RejectionReasonCode =
+  | "too_expensive"
+  | "wrong_item"
+  | "wrong_merchant"
+  | "wrong_time"
+  | "other";
+
 export interface Order {
   id: string;
   userId?: string;
@@ -123,7 +135,10 @@ export interface Order {
   /** @deprecated superseded by lineItems; kept for older call sites. */
   items?: OrderItem[];
   escrowContractId?: string | null;
-  rejectionReason?: string | null;
+  /** Structured reject reason (#567). Optional for backward compatibility with rejections recorded before this field existed. */
+  rejectionReason?: RejectionReasonCode | null;
+  /** Free-text detail accompanying `rejectionReason` (#567). */
+  rejectionNote?: string | null;
   dualControl?: DualControlState;
   createdAt: Date | string;
   updatedAt?: Date | string;

@@ -99,13 +99,24 @@ export const orderHandlers = [
     return HttpResponse.json(okResponse(existing));
   }),
 
-  http.post(`${BASE_URL}/orders/:id/reject`, ({ params }) => {
+  http.post(`${BASE_URL}/orders/:id/reject`, async ({ params, request }) => {
     const id = params.id as string;
     const existing = orders.find((o) => o.id === id);
     if (!existing) {
       return HttpResponse.json(errorResponse("Order not found", "not_found"), { status: 404 });
     }
-    const updated = { ...existing, status: "cancelled" as const, updatedAt: new Date() };
+    // Rejecting without a reason must keep working (#567 backward compat).
+    const body = (await request.json().catch(() => ({}))) as {
+      rejectionReason?: Order["rejectionReason"];
+      rejectionNote?: string;
+    };
+    const updated = {
+      ...existing,
+      status: "cancelled" as const,
+      rejectionReason: body.rejectionReason ?? null,
+      rejectionNote: body.rejectionNote ?? null,
+      updatedAt: new Date(),
+    };
     orders = orders.map((o) => (o.id === id ? updated : o));
     return HttpResponse.json(okResponse(updated));
   }),

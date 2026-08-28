@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@delegolabs/ui";
-import type { Order } from "@delegolabs/types";
+import type { Order, RejectionReasonCode } from "@delegolabs/types";
 import { formatXlm } from "../../lib/orders";
+import { REJECTION_REASON_OPTIONS } from "../../lib/rejectionReasons";
 import type { OrderExplainability } from "../../lib/approvalExplainability";
 import {
   assessPriceAdvisory,
@@ -27,7 +28,12 @@ export interface ApprovalDrawerProps {
    */
   explainability?: OrderExplainability;
   onApprove: (id: string) => void | Promise<unknown>;
-  onReject: (id: string, reason?: string) => void | Promise<unknown>;
+  onReject: (
+    id: string,
+    reason?: string,
+    /** Structured reason code (#567); optional for callers that don't collect one. */
+    reasonCode?: RejectionReasonCode
+  ) => void | Promise<unknown>;
   onClose: () => void;
 }
 
@@ -50,6 +56,10 @@ export function ApprovalDrawer({
   const { announce } = useAnnounce();
   const { getTag } = useDelegationTags();
   const tag = order ? getTag(order.delegationId) : undefined;
+
+  const [showReasonPicker, setShowReasonPicker] = useState(false);
+  const [reasonCode, setReasonCode] = useState<RejectionReasonCode | "">("");
+  const [reasonNote, setReasonNote] = useState("");
 
   useFocusTrap(panelRef, isOpen);
 
@@ -99,7 +109,7 @@ export function ApprovalDrawer({
 
   const handleReject = async () => {
     try {
-      await onReject(order.id);
+      await onReject(order.id, reasonNote.trim() || undefined, reasonCode || undefined);
       announce(`Order ${order.id} rejected.`, "polite");
       onClose();
     } catch {
@@ -298,6 +308,49 @@ export function ApprovalDrawer({
               ))}
             </ul>
           </section>
+        )}
+
+        {showReasonPicker ? (
+          <div className="approval-reject-reason-picker">
+            <label htmlFor="drawer-reject-reason-code" className="sr-only">
+              Reason for rejection
+            </label>
+            <select
+              id="drawer-reject-reason-code"
+              className="order-search"
+              value={reasonCode}
+              onChange={(e) => setReasonCode(e.target.value as RejectionReasonCode | "")}
+              disabled={pending}
+            >
+              <option value="">Select a reason…</option>
+              {REJECTION_REASON_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="drawer-reject-reason-note" className="sr-only">
+              Additional detail (optional)
+            </label>
+            <input
+              id="drawer-reject-reason-note"
+              type="text"
+              className="order-search"
+              placeholder="Additional detail (optional)"
+              value={reasonNote}
+              onChange={(e) => setReasonNote(e.target.value)}
+              disabled={pending}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="approval-reject-add-reason"
+            onClick={() => setShowReasonPicker(true)}
+            disabled={pending}
+          >
+            + Add reason
+          </button>
         )}
 
         <div className="form-actions">
