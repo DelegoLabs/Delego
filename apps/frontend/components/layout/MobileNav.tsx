@@ -82,6 +82,8 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    // Same policy as the desktop Sidebar — see #621.
+                    prefetch={true}
                     className={`nav-link${isActive ? " active" : ""}`}
                     aria-current={isActive ? "page" : undefined}
                     onClick={onClose}

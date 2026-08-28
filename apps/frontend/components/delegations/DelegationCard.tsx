@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Amount, Button, Card, StroopsInput } from "@delegolabs/ui";
 import type { Delegation, UpdateDelegationInput } from "@delegolabs/types";
 import { DelegationQR } from "./DelegationQR";
@@ -13,6 +12,7 @@ import { DelegationTagBadge } from "./DelegationTagBadge";
 import { DelegationTagPicker } from "./DelegationTagPicker";
 import { useDelegationTags } from "../../hooks/useDelegationTags";
 import { DelegationStatusChip } from "./DelegationStatusChip";
+import { HoverPrefetchLink } from "../layout/HoverPrefetchLink";
 
 export interface DelegationCardProps {
   delegation: Delegation;
@@ -168,7 +168,9 @@ export function DelegationCard({
             >
               🏷️ Edit tag
             </button>
-            <Link
+            {/* Card grid, potentially many per page — prefetch on
+                hover/intent only, not viewport (#621). */}
+            <HoverPrefetchLink
               href={`/delegations/${delegation.id}`}
               style={{
                 fontSize: "0.8125rem",
@@ -177,7 +179,7 @@ export function DelegationCard({
               }}
             >
               View detail →
-            </Link>
+            </HoverPrefetchLink>
           </div>
         </div>
 

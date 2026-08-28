@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import type { CancellationGrace } from "@delegolabs/types";
 import { CancelGraceBanner } from "./CancelGraceBanner";
+import { TimeFormatProvider } from "../../hooks/useTimeFormat";
 import messages from "../../messages/en.json";
 
 const mockUndo = vi.fn();
@@ -28,7 +29,9 @@ function makeGrace(overrides: Partial<CancellationGrace> = {}): CancellationGrac
 function renderBanner(grace: CancellationGrace | null) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <CancelGraceBanner escrowId="escrow-1" serverGrace={grace} />
+      <TimeFormatProvider>
+        <CancelGraceBanner escrowId="escrow-1" serverGrace={grace} />
+      </TimeFormatProvider>
     </NextIntlClientProvider>
   );
 }

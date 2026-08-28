@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
 import { NotificationCenter } from "./NotificationCenter";
+import enMessages from "../../messages/en.json";
 
 const mockUseNotifications = vi.fn();
 
@@ -14,6 +16,14 @@ vi.mock("../../hooks/useNotifications", async () => {
     useNotifications: () => mockUseNotifications(),
   };
 });
+
+function renderNotificationCenter(onClose: () => void) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={enMessages}>
+      <NotificationCenter onClose={onClose} />
+    </NextIntlClientProvider>
+  );
+}
 
 function baseState(overrides: Record<string, unknown> = {}) {
   const notifications = (overrides.notifications as any[]) || [];
@@ -40,7 +50,7 @@ function baseState(overrides: Record<string, unknown> = {}) {
 describe("NotificationCenter", () => {
   it("renders as a labelled, modal dialog", () => {
     mockUseNotifications.mockReturnValue(baseState());
-    render(<NotificationCenter onClose={() => {}} />);
+    renderNotificationCenter(() => {});
 
     const dialog = screen.getByRole("dialog", { name: /notifications/i });
     expect(dialog).toHaveAttribute("aria-modal", "true");
@@ -60,7 +70,7 @@ describe("NotificationCenter", () => {
         ],
       })
     );
-    render(<NotificationCenter onClose={() => {}} />);
+    renderNotificationCenter(() => {});
 
     expect(
       screen.getByRole("button", { name: /mark all read/i })
@@ -69,7 +79,7 @@ describe("NotificationCenter", () => {
 
   it("falls back to focusing the panel container when empty (all action buttons disabled)", () => {
     mockUseNotifications.mockReturnValue(baseState());
-    render(<NotificationCenter onClose={() => {}} />);
+    renderNotificationCenter(() => {});
 
     expect(
       screen.getByRole("dialog", { name: /notifications/i })
@@ -91,7 +101,7 @@ describe("NotificationCenter", () => {
         ],
       })
     );
-    render(<NotificationCenter onClose={() => {}} />);
+    renderNotificationCenter(() => {});
 
     const markAllRead = screen.getByRole("button", { name: /mark all read/i });
     expect(markAllRead).toHaveFocus();
@@ -110,7 +120,7 @@ describe("NotificationCenter", () => {
     document.body.appendChild(trigger);
     trigger.focus();
 
-    const { unmount } = render(<NotificationCenter onClose={() => {}} />);
+    const { unmount } = renderNotificationCenter(() => {});
     expect(
       screen.getByRole("dialog", { name: /notifications/i })
     ).toHaveFocus();

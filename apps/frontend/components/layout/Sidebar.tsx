@@ -28,6 +28,10 @@ export function Sidebar() {
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  // Primary nav: a small, fixed set of always-visible
+                  // destinations, so eager viewport prefetch is worth the
+                  // bandwidth (docs/architecture/prefetch-policy.md, #621).
+                  prefetch={true}
                   className={`nav-link${isActive ? " active" : ""}`}
                   aria-current={isActive ? "page" : undefined}
                   data-nav={item.labelKey}

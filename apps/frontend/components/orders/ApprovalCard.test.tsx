@@ -8,6 +8,14 @@ vi.mock("next-intl", () => ({ useLocale: () => "en" }));
 vi.mock("../../hooks/useCurrency", () => ({
   useCurrency: () => ({ currencyId: "XLM", rate: null }),
 }));
+vi.mock("../../hooks/useTimeFormat", () => ({
+  useTimeFormat: () => ({
+    preferences: { timezone: "auto", clockFormat: "24h", firstDayOfWeek: 1 },
+    effectiveTimezone: "UTC",
+    setPreferences: vi.fn(),
+    hydrated: true,
+  }),
+}));
 vi.mock("../../hooks/useAnnounce", () => ({ useAnnounce: () => ({ announce: vi.fn() }) }));
 vi.mock("../../hooks/useNetworkMismatch", () => ({ useNetworkMismatch: () => ({ isMismatched: false }) }));
 vi.mock("../../hooks/useDemoModeGuard", () => ({
