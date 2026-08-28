@@ -4,7 +4,8 @@ import { useLocale } from "next-intl";
 import { Button } from "@delegolabs/ui";
 import type { CancellationGrace } from "@delegolabs/types";
 import { useCancelGrace } from "../../hooks/useCancelGrace";
-import { formatDateTime } from "../../lib/intl";
+import { formatTimeWithPreferences } from "../../lib/intl";
+import { useTimeFormat } from "../../hooks/useTimeFormat";
 
 export interface CancelGraceBannerProps {
   escrowId: string;
@@ -35,6 +36,7 @@ export function CancelGraceBanner({
   onRestored,
 }: CancelGraceBannerProps) {
   const locale = useLocale();
+  const { preferences: timeFormatPreferences } = useTimeFormat();
   const { grace, remainingMs, undo, undoing, finalizing, error } = useCancelGrace({
     escrowId,
     serverGrace,
@@ -44,9 +46,11 @@ export function CancelGraceBanner({
 
   if (!grace) return null;
 
-  const undoDeadlineLabel = formatDateTime(new Date(grace.graceExpiresAt), locale, {
-    timeStyle: "short",
-  });
+  const undoDeadlineLabel = formatTimeWithPreferences(
+    new Date(grace.graceExpiresAt),
+    locale,
+    timeFormatPreferences
+  );
 
   return (
     <div

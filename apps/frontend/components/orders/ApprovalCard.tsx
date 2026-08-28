@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useLocale } from "next-intl";
 import { Amount, Button, Card } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
-import { formatDateTime } from "../../lib/intl";
+import { formatDateTimeWithPreferences } from "../../lib/intl";
 import { useCurrency } from "../../hooks/useCurrency";
+import { useTimeFormat } from "../../hooks/useTimeFormat";
 import { useAnnounce } from "../../hooks/useAnnounce";
 import { useNetworkMismatch } from "../../hooks/useNetworkMismatch";
 import {
@@ -50,6 +51,7 @@ export function ApprovalCard({
 
   const { isMismatched } = useNetworkMismatch();
   const locale = useLocale();
+  const { preferences: timeFormatPreferences } = useTimeFormat();
   const { currencyId, rate } = useCurrency();
   const { announce } = useAnnounce();
   const { isDemoMode, guard } = useDemoModeGuard();
@@ -179,7 +181,13 @@ export function ApprovalCard({
 
             <div className="wallet-detail-row">
               <dt>Requested</dt>
-              <dd>{formatDateTime(order.createdAt, locale)}</dd>
+              <dd>
+                {formatDateTimeWithPreferences(
+                  order.createdAt,
+                  locale,
+                  timeFormatPreferences
+                )}
+              </dd>
             </div>
           </dl>
 
