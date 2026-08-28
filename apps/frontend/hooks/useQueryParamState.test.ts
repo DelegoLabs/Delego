@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
-import { useQueryParamState } from "./useQueryParamState";
+import { useQueryParamState, stringParamCodec } from "./useQueryParamState";
 
 const mockPush = vi.fn();
 let mockSearchParams = new URLSearchParams();
@@ -84,5 +84,39 @@ describe("useQueryParamState", () => {
     });
 
     expect(mockPush).toHaveBeenCalledWith("/orders", { scroll: false });
+  });
+
+  describe("stringParamCodec", () => {
+    it("hydrates a plain (unquoted) string param", async () => {
+      mockSearchParams = new URLSearchParams("decision=approved");
+      const { result } = renderHook(() =>
+        useQueryParamState<string>({
+          key: "decision",
+          defaultValue: "",
+          codec: stringParamCodec(),
+        })
+      );
+      await waitFor(() => expect(result.current[2].hydrated).toBe(true));
+      expect(result.current[0]).toBe("approved");
+    });
+
+    it("writes the raw value and drops the param when set back to empty", async () => {
+      const { result } = renderHook(() =>
+        useQueryParamState<string>({
+          key: "decision",
+          defaultValue: "",
+          codec: stringParamCodec(),
+        })
+      );
+      await waitFor(() => expect(result.current[2].hydrated).toBe(true));
+
+      act(() => result.current[1]("rejected"));
+      expect(mockPush).toHaveBeenLastCalledWith("/orders?decision=rejected", {
+        scroll: false,
+      });
+
+      act(() => result.current[1](""));
+      expect(mockPush).toHaveBeenLastCalledWith("/orders", { scroll: false });
+    });
   });
 });

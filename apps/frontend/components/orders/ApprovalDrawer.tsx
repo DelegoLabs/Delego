@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
 import { formatXlm } from "../../lib/orders";
 import type { OrderExplainability } from "../../lib/approvalExplainability";
+import {
+  assessPriceAdvisory,
+  readPriceAdvisoryAck,
+  writePriceAdvisoryAck,
+} from "../../lib/priceAdvisory";
 import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
+import { PriceAdvisoryStrip } from "./PriceAdvisoryStrip";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useAnnounce } from "../../hooks/useAnnounce";
 import { DelegationTagBadge } from "../delegations/public";
@@ -46,6 +52,29 @@ export function ApprovalDrawer({
   const tag = order ? getTag(order.delegationId) : undefined;
 
   useFocusTrap(panelRef, isOpen);
+
+  // Price advisory (#571): summarize the payload's comparable-range hints, if
+  // any, into one non-blocking strip. Never fabricated — `null` when the
+  // payload carries no hints.
+  const priceAdvisory = useMemo(
+    () =>
+      assessPriceAdvisory(
+        order?.lineItems ?? [],
+        explainability?.priceRangeByProductId
+      ),
+    [order, explainability]
+  );
+  const [priceAckd, setPriceAckd] = useState(false);
+  // Rehydrate the per-session acknowledgement whenever a new order opens.
+  useEffect(() => {
+    if (order) setPriceAckd(readPriceAdvisoryAck());
+  }, [order]);
+  const handlePriceAckChange = (next: boolean) => {
+    setPriceAckd(next);
+    if (next) writePriceAdvisoryAck();
+  };
+  const approveBlockedByPrice =
+    priceAdvisory?.level === "above" && !priceAckd;
 
   useEffect(() => {
     if (!order) return;
@@ -126,6 +155,14 @@ export function ApprovalDrawer({
             </div>
           )}
         </dl>
+
+        {priceAdvisory && (
+          <PriceAdvisoryStrip
+            advisory={priceAdvisory}
+            acknowledged={priceAckd}
+            onAcknowledgedChange={handlePriceAckChange}
+          />
+        )}
 
         {order.dualControl?.required && (
           <section
@@ -264,7 +301,11 @@ export function ApprovalDrawer({
         )}
 
         <div className="form-actions">
-          <Button variant="primary" onClick={handleApprove} disabled={pending}>
+          <Button
+            variant="primary"
+            onClick={handleApprove}
+            disabled={pending || approveBlockedByPrice}
+          >
             Approve
           </Button>
           <Button variant="ghost" onClick={handleReject} disabled={pending}>

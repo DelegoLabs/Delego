@@ -1,4 +1,5 @@
 import type { ActivityTimelineEvent, ActivityTone } from "@delegolabs/ui";
+import type { ProofAttachment } from "./proofAttachments";
 
 /**
  * Append-only activity log for a single escrow, shared by the cancellation
@@ -20,6 +21,12 @@ export interface EscrowTimelineEntry {
    */
   status: "pending" | "confirmed" | "failed";
   tone?: ActivityTone;
+  /**
+   * Delivery-proof attachments that triggered this event (#579) — e.g. the
+   * evidence the orchestrator validated before an auto-release. Rendered as a
+   * "View proof" expander on the timeline entry.
+   */
+  proofs?: ProofAttachment[];
 }
 
 const STORAGE_PREFIX = "delego:escrow-timeline:";
