@@ -125,6 +125,68 @@ describe("ApprovalDrawer", () => {
     expect(hint.className).toContain("approval-price-hint-above");
   });
 
+  describe("line-item imagery (#622)", () => {
+    it("renders the product image with explicit dimensions when a URL is provided", () => {
+      const explainability: OrderExplainability = {
+        imageUrlByProductId: { "sku-1": "https://merchant.example/sku-1.png" },
+      };
+      const { container } = render(
+        <ApprovalDrawer
+          order={makeOrder()}
+          explainability={explainability}
+          onApprove={vi.fn()}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      // alt="" is intentional (decorative — the product id renders as
+      // adjacent visible text), which removes the image from the a11y
+      // tree, so it isn't queryable via getByRole("img").
+      const img = container.querySelector(
+        "img.approval-line-item-image"
+      ) as HTMLImageElement;
+      expect(img).not.toBeNull();
+      expect(img.width).toBe(32);
+      expect(img.height).toBe(32);
+    });
+
+    it("falls back to a branded, dimension-stable tile when the image fails to load", () => {
+      const explainability: OrderExplainability = {
+        imageUrlByProductId: { "sku-1": "https://broken-merchant.example/gone.png" },
+      };
+      const { container } = render(
+        <ApprovalDrawer
+          order={makeOrder()}
+          explainability={explainability}
+          onApprove={vi.fn()}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      const img = container.querySelector("img.approval-line-item-image")!;
+      fireEvent.error(img);
+
+      const fallback = screen.getByRole("img", {
+        name: "Image unavailable for sku-1",
+      });
+      expect(fallback.className).toContain("approval-line-item-image-fallback");
+    });
+
+    it("renders no image element when no imagery data is provided", () => {
+      const { container } = render(
+        <ApprovalDrawer
+          order={makeOrder()}
+          onApprove={vi.fn()}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+      expect(container.querySelector("img.approval-line-item-image")).toBeNull();
+    });
+  });
+
   it("calls onApprove/onReject with the order id", async () => {
     const user = userEvent.setup();
     const onApprove = vi.fn();

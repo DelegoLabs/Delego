@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { Button } from "@delegolabs/ui";
 import type { Order, RejectionReasonCode } from "@delegolabs/types";
 import { formatXlm } from "../../lib/orders";
@@ -60,6 +61,14 @@ export function ApprovalDrawer({
   const [showReasonPicker, setShowReasonPicker] = useState(false);
   const [reasonCode, setReasonCode] = useState<RejectionReasonCode | "">("");
   const [reasonNote, setReasonNote] = useState("");
+
+  // Tracks which line-item images failed to load (#622) — merchant image
+  // URLs are arbitrary, unwhitelisted hosts (see OrderExplainability's
+  // doc comment), so a single unreachable/broken CDN must not break the
+  // rest of the list. Keyed by productId since this is a per-row concern.
+  const [brokenImageProductIds, setBrokenImageProductIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
   useFocusTrap(panelRef, isOpen);
 
@@ -236,21 +245,45 @@ export function ApprovalDrawer({
             </thead>
             <tbody>
               {order.lineItems.map((item) => {
-                const range = priceRangeByProductId?.[item.productId];
-                const imageUrl = imageUrlByProductId?.[item.productId];
+                const productId = item.productId ?? "";
+                const range = priceRangeByProductId?.[productId];
+                const imageUrl = imageUrlByProductId?.[productId];
+                const imageBroken = brokenImageProductIds.has(productId);
                 return (
-                  <tr key={item.productId}>
+                  <tr key={productId}>
                     <td>
                       <div className="approval-line-item-product">
-                        {imageUrl && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                        {imageUrl && !imageBroken ? (
+                          <Image
                             src={imageUrl}
                             alt=""
+                            width={32}
+                            height={32}
                             className="approval-line-item-image"
+                            // Item images come from arbitrary, unwhitelisted
+                            // merchant sources (#622) — next/image's
+                            // remotePatterns optimizer can't cover a host
+                            // list that isn't known ahead of time, so this
+                            // is unoptimized on purpose. We still get
+                            // explicit dimensions (zero CLS contribution)
+                            // and onError, which is the actual point here.
+                            unoptimized
+                            onError={() =>
+                              setBrokenImageProductIds((prev) => {
+                                const next = new Set(prev);
+                                next.add(productId);
+                                return next;
+                              })
+                            }
                           />
-                        )}
-                        <span>{item.productId}</span>
+                        ) : imageUrl ? (
+                          <div
+                            className="approval-line-item-image approval-line-item-image-fallback"
+                            role="img"
+                            aria-label={`Image unavailable for ${productId}`}
+                          />
+                        ) : null}
+                        <span>{productId}</span>
                       </div>
                     </td>
                     <td>{item.quantity}</td>

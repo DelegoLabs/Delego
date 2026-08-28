@@ -1380,6 +1380,14 @@ body {
   flex-shrink: 0;
 }
 
+/* Branded, dimension-stable fallback shown when a merchant's image host is
+   unreachable or returns a broken image (#622) — same box size as the real
+   image so its appearance/disappearance never shifts the row layout. */
+.approval-line-item-image-fallback {
+  background: var(--color-surface-muted, #f3f4f6);
+  border: 1px dashed var(--color-border, #d1d5db);
+}
+
 
 .approval-price-hint {
   font-size: 0.8125rem;
