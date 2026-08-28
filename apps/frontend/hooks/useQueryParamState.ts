@@ -11,6 +11,18 @@ export interface QueryParamCodec<T> {
   decode: (raw: string) => T | null;
 }
 
+/**
+ * Plain-string codec — keeps the query param human-readable (`?decision=approved`
+ * rather than the JSON codec's `?decision=%22approved%22`). An empty string is
+ * treated as "param absent".
+ */
+export function stringParamCodec(): QueryParamCodec<string> {
+  return {
+    encode: (value) => (value === "" ? null : value),
+    decode: (raw) => raw,
+  };
+}
+
 /** JSON-stringify based codec — works for any JSON-serializable state shape. */
 export function jsonParamCodec<T>(): QueryParamCodec<T> {
   return {

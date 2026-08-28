@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { navItems } from "./navItems";
+import { activeNavHref, navItems } from "./navItems";
 import { useTour } from "../tour/TourProvider";
 
 /**
@@ -23,10 +23,7 @@ export function Sidebar() {
       <nav>
         <ul className="nav-list">
           {navItems.map((item) => {
-            const isActive =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
+            const isActive = item.href === activeNavHref(pathname);
             return (
               <li key={item.href}>
                 <Link
