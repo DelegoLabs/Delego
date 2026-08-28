@@ -53,7 +53,7 @@ export default function EscrowDetailPage() {
           <p>
             No escrow could be found with ID <code>{escrowId}</code>.
           </p>
-          <Link href="/escrows">
+          <Link href="/escrows" prefetch={true}>
             <Button variant="primary">← Back to Escrows</Button>
           </Link>
         </Card>
@@ -69,7 +69,8 @@ export default function EscrowDetailPage() {
 
   return (
     <div className="settings-page">
-      <Link href="/escrows" className="receipt-back-link">
+      {/* Single, low-cost link — viewport prefetch is fine (#621). */}
+      <Link href="/escrows" prefetch={true} className="receipt-back-link">
         ← Back to Escrows
       </Link>
 

@@ -37,7 +37,7 @@ export default function OrderDetailPage() {
           <p>
             No order could be found with ID <code>{orderId}</code>.
           </p>
-          <Link href="/orders">
+          <Link href="/orders" prefetch={true}>
             <Button variant="primary">← Back to Transaction History</Button>
           </Link>
         </Card>
@@ -52,7 +52,8 @@ export default function OrderDetailPage() {
   return (
     <div className="settings-page">
       <div className="no-print">
-        <Link href="/orders" className="receipt-back-link">
+        {/* Single, low-cost link — viewport prefetch is fine (#621). */}
+        <Link href="/orders" prefetch={true} className="receipt-back-link">
           ← Back to Transaction History
         </Link>
       </div>

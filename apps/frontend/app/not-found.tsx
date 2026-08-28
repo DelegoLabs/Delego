@@ -7,7 +7,8 @@ export default function NotFound() {
         <h1>404</h1>
         <p>The page you&apos;re looking for doesn&apos;t exist.</p>
       </header>
-      <Link href="/" className="nav-link">
+      {/* Single, low-cost link — viewport prefetch is fine (#621). */}
+      <Link href="/" prefetch={true} className="nav-link">
         Go Home
       </Link>
     </div>

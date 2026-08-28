@@ -67,7 +67,14 @@ export function AnnouncementBanner() {
         {announcement.message}
       </span>
       {announcement.link && (
-        <Link className="announcement-banner-link" href={announcement.link}>
+        // Rare, dismissible, content-driven link — most announcements are
+        // dismissed unread, so eager prefetch would be wasted bandwidth on
+        // every page load (#621).
+        <Link
+          className="announcement-banner-link"
+          href={announcement.link}
+          prefetch={false}
+        >
           Learn more
         </Link>
       )}
