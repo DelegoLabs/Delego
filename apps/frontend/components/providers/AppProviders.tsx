@@ -15,6 +15,7 @@ import { NetworkMismatchModal } from "../network/NetworkMismatchModal";
 import { initReplayEngine } from "../../lib/replayEngine";
 import { QueueInspectorModal } from "../offline/QueueInspectorModal";
 import { DemoBanner } from "../demo/DemoBanner";
+import { IdleSessionGuard } from "../session/IdleSessionGuard";
 
 /**
  * Client-side context providers shared across the app shell.
@@ -39,6 +40,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
                   <QueueInspectorModal />
                   {children}
                   <NetworkMismatchModal />
+                  <IdleSessionGuard />
                 </TourProvider>
               </NotificationProvider>
             </AnnounceProvider>
