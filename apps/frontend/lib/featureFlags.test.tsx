@@ -18,6 +18,7 @@ describe("featureFlags", () => {
   beforeEach(() => {
     vi.resetModules();
     delete process.env.NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING;
+    delete process.env.NEXT_PUBLIC_FEATURE_DUAL_CONTROL_APPROVALS;
     delete process.env.NEXT_PUBLIC_FEATURE_NONEXISTENT;
     delete process.env.UNKNOWN_RANDOM_FLAG;
     delete process.env.UNKNOWN_FEATURE_FLAG;
@@ -27,6 +28,7 @@ describe("featureFlags", () => {
   afterEach(() => {
     cleanup();
     delete process.env.NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING;
+    delete process.env.NEXT_PUBLIC_FEATURE_DUAL_CONTROL_APPROVALS;
     delete process.env.NEXT_PUBLIC_FEATURE_NONEXISTENT;
     delete process.env.UNKNOWN_RANDOM_FLAG;
     delete process.env.UNKNOWN_FEATURE_FLAG;
@@ -87,6 +89,13 @@ describe("featureFlags", () => {
     it("returns false for unknown flag names (default-deny path)", () => {
       expect(isFeatureEnabled("UNKNOWN_RANDOM_FLAG")).toBe(false);
       expect(isFeatureEnabled("NEXT_PUBLIC_FEATURE_NONEXISTENT")).toBe(false);
+    });
+
+    it("reads the dual-control approvals flag (#574)", () => {
+      process.env.NEXT_PUBLIC_FEATURE_DUAL_CONTROL_APPROVALS = "true";
+      expect(isFeatureEnabled("DUAL_CONTROL_APPROVALS")).toBe(true);
+      delete process.env.NEXT_PUBLIC_FEATURE_DUAL_CONTROL_APPROVALS;
+      expect(isFeatureEnabled("DUAL_CONTROL_APPROVALS")).toBe(false);
     });
 
     it("respects initialFlags overrides when provided", () => {

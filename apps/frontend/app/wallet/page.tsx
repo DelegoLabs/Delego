@@ -9,7 +9,11 @@ import { useBalanceHistory } from "../../hooks/useBalanceHistory";
 import { WalletConnectButton } from "../../components/wallet/WalletConnectButton";
 import { BalanceSparkline } from "../../components/wallet/BalanceSparkline";
 import { AssetBreakdownTable } from "../../components/wallet/AssetBreakdownTable";
-import { useDemoModeGuard, DEMO_MODE_BLOCKED_MESSAGE } from "../../hooks/useDemoModeGuard";
+import { CopyButton } from "../../components/wallet/CopyButton";
+import {
+  useDemoModeGuard,
+  DEMO_MODE_BLOCKED_MESSAGE,
+} from "../../hooks/useDemoModeGuard";
 
 const STATUS_LABEL: Record<string, string> = {
   checking: "Checking for Freighter…",
@@ -35,8 +39,12 @@ export default function WalletPage() {
     isConnected
   );
 
-  const nativeBalance = balanceState.balances.find((b) => b.asset_type === "native");
-  const nativeBalanceNum = nativeBalance ? parseFloat(nativeBalance.balance) : 0;
+  const nativeBalance = balanceState.balances.find(
+    (b) => b.asset_type === "native"
+  );
+  const nativeBalanceNum = nativeBalance
+    ? parseFloat(nativeBalance.balance)
+    : 0;
 
   const fundAccount = useCallback(async () => {
     if (!address || funding || isDemoMode) return;
@@ -78,7 +86,9 @@ export default function WalletPage() {
     isConnected &&
     !activeNetwork.isLive &&
     balanceState.status !== "loading" &&
-    (balanceState.accountNotFound || balanceState.isUnfunded || nativeBalanceNum === 0);
+    (balanceState.accountNotFound ||
+      balanceState.isUnfunded ||
+      nativeBalanceNum === 0);
 
   return (
     <div className="settings-page">
@@ -103,7 +113,19 @@ export default function WalletPage() {
             <dl className="wallet-detail-list">
               <div className="wallet-detail-row">
                 <dt>Address</dt>
-                <dd style={{ fontFamily: "monospace" }}>{address}</dd>
+                <dd
+                  style={{
+                    fontFamily: "monospace",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  {address}
+                  <CopyButton value={address} label="Copy wallet address">
+                    Copy
+                  </CopyButton>
+                </dd>
               </div>
               <div className="wallet-detail-row">
                 <dt>Network</dt>
@@ -112,13 +134,20 @@ export default function WalletPage() {
               {nativeBalance !== undefined && (
                 <div className="wallet-detail-row">
                   <dt>Current XLM Balance</dt>
-                  <dd>{nativeBalanceNum.toLocaleString(undefined, { maximumFractionDigits: 7 })} XLM</dd>
+                  <dd>
+                    {nativeBalanceNum.toLocaleString(undefined, {
+                      maximumFractionDigits: 7,
+                    })}{" "}
+                    XLM
+                  </dd>
                 </div>
               )}
               {networkPassphrase && (
                 <div className="wallet-detail-row">
                   <dt>Passphrase</dt>
-                  <dd style={{ fontFamily: "monospace", fontSize: "0.8125rem" }}>
+                  <dd
+                    style={{ fontFamily: "monospace", fontSize: "0.8125rem" }}
+                  >
                     {networkPassphrase}
                   </dd>
                 </div>
@@ -135,7 +164,11 @@ export default function WalletPage() {
           {status === "unavailable" && (
             <p className="settings-toggle-hint">
               Install the{" "}
-              <a href="https://www.freighter.app/" target="_blank" rel="noopener noreferrer">
+              <a
+                href="https://www.freighter.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 Freighter wallet extension
               </a>{" "}
               to connect your Stellar account to Delego.
@@ -150,7 +183,10 @@ export default function WalletPage() {
 
       {/* Historical View & Asset Breakdown Card */}
       {isConnected && (
-        <Card title="Balance History & Asset Breakdown" ariaLabel="Balance History and Assets">
+        <Card
+          title="Balance History & Asset Breakdown"
+          ariaLabel="Balance History and Assets"
+        >
           <div className="wallet-balance-card">
             {balanceState.status === "loading" ? (
               <div className="skeleton-form">
@@ -168,7 +204,9 @@ export default function WalletPage() {
 
                 {balanceState.balances.length > 0 ? (
                   <div style={{ marginTop: "1.5rem" }}>
-                    <h3 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>Holdings</h3>
+                    <h3 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>
+                      Holdings
+                    </h3>
                     <AssetBreakdownTable
                       balances={balanceState.balances}
                       horizonUrl={activeNetwork.horizonUrl}
@@ -179,13 +217,26 @@ export default function WalletPage() {
 
                 {/* Inviting zero state card linking to testnet faucet */}
                 {showZeroState && (
-                  <div className="friendbot-card wallet-zero-state" role="status" style={{ marginTop: "1.5rem" }}>
+                  <div
+                    className="friendbot-card wallet-zero-state"
+                    role="status"
+                    style={{ marginTop: "1.5rem" }}
+                  >
                     <div>
                       <h2>Fund your testnet account</h2>
                       <p>
-                        This connected account does not have an active XLM balance yet. Use the Friendbot testnet faucet to fund it with free testnet tokens.
+                        This connected account does not have an active XLM
+                        balance yet. Use the Friendbot testnet faucet to fund it
+                        with free testnet tokens.
                       </p>
-                      {fundError && <p className="settings-status error" style={{ marginTop: "0.5rem" }}>{fundError}</p>}
+                      {fundError && (
+                        <p
+                          className="settings-status error"
+                          style={{ marginTop: "0.5rem" }}
+                        >
+                          {fundError}
+                        </p>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -207,9 +258,9 @@ export default function WalletPage() {
       <Card title="About Soroban Permissions">
         <p>
           Once connected, your wallet address is used to grant scoped spending
-          permissions to AI agents. Delego never has access to your private
-          key — every transaction is signed locally in the Freighter
-          extension before it is submitted to Stellar.
+          permissions to AI agents. Delego never has access to your private key
+          — every transaction is signed locally in the Freighter extension
+          before it is submitted to Stellar.
         </p>
       </Card>
     </div>

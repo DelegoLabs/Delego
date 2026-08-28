@@ -5,3 +5,4 @@
 export { WalletConnectButton } from "./WalletConnectButton";
 export { BalanceSparkline } from "./BalanceSparkline";
 export { AssetBreakdownTable } from "./AssetBreakdownTable";
+export { CopyButton } from "./CopyButton";

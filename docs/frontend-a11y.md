@@ -68,11 +68,3 @@ FE-045 to render real content instead of an auth redirect or empty
 loading state. Add them to `PUBLIC_ROUTES` (and drop the auth-gate caveat)
 once that fixture layer lands.
 
-## Manual keyboard walkthrough
-
-Before merging a PR that touches interactive overlays or the approval
-flow, do a keyboard-only pass of: connect wallet → open a delegation →
-approve/reject an order → (when available) raise a dispute. Confirm you
-never lose focus to `<body>`, every control has a visible focus ring, and
-outcomes are announced. Link a recording or written walkthrough in the PR
-per the FE-050 acceptance criteria.

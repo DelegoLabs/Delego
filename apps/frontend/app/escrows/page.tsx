@@ -138,7 +138,7 @@ export default function EscrowsPage() {
       {!loading && !error && visibleEscrows.length > 0 && (
         <section className="grid" aria-label="Escrow list">
           {visibleEscrows.map((escrow) => (
-            <EscrowCard key={escrow.escrowId} escrow={escrow} />
+            <EscrowCard key={escrow.escrowId} escrow={escrow} href={`/escrows/${escrow.escrowId}`} />
           ))}
         </section>
       )}

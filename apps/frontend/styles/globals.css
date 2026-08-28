@@ -1396,6 +1396,193 @@ body {
   color: var(--color-text-muted);
 }
 
+/* Price advisory strip (#571) — theme vars carry the AA-tuned light/dark pairs. */
+.approval-advisory {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.approval-advisory-within {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border-color: var(--color-success-border);
+}
+
+.approval-advisory-above {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border-color: var(--color-warning-border);
+}
+
+.approval-advisory-nodata {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+.approval-advisory-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.approval-advisory-ack input {
+  margin-top: 0.15rem;
+}
+
+/* Delivery-proof "View proof" expander + lightbox (#579) */
+.proof-expander {
+  font-size: 0.8125rem;
+}
+
+.proof-expander > summary {
+  cursor: pointer;
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.proof-summary-count {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.proof-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+}
+
+.proof-empty-note {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.proof-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.proof-thumb {
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background: var(--color-bg-surface);
+  cursor: pointer;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.proof-thumb img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+}
+
+.proof-thumb-failed {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  line-height: 1.3;
+  color: var(--color-text-muted);
+  text-decoration: underline;
+}
+
+.proof-links,
+.proof-hashes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.proof-hash-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.proof-hash-label {
+  color: var(--color-text-muted);
+}
+
+.proof-hash-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.35rem;
+}
+
+.proof-hash-receipt {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.proof-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1100;
+}
+
+.proof-lightbox {
+  background: var(--color-bg-surface);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  max-width: min(90vw, 900px);
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.proof-lightbox-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.proof-lightbox-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+
+.proof-lightbox-image {
+  display: block;
+  max-width: 100%;
+  max-height: 75vh;
+  margin: 0 auto;
+}
+
+.proof-lightbox-caption {
+  margin: 0.5rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
 .approval-evidence-list {
   margin: 0;
   padding-left: 1.25rem;
@@ -2425,4 +2612,296 @@ body {
 
 .theme-schedule-cancel:hover {
   background: var(--color-bg-subtle);
+}
+
+/* ---------------------------------------------------------------------------
+   Shared key/value detail list (wallet, orders, delegations, disputes)
+--------------------------------------------------------------------------- */
+
+.wallet-detail-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wallet-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+
+.wallet-detail-row dt {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.wallet-detail-row dd {
+  margin: 0;
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------------------
+   Order receipt (order detail page)
+--------------------------------------------------------------------------- */
+
+.order-id {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.order-id:hover {
+  text-decoration: underline;
+}
+
+.receipt-back-link {
+  display: inline-block;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  color: var(--color-accent);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.receipt-back-link:hover {
+  text-decoration: underline;
+}
+
+.receipt-header {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.receipt-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem 1.5rem;
+  margin: 0 0 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.receipt-meta-row dt {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.125rem;
+}
+
+.receipt-meta-row dd {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+
+.receipt-line-items {
+  margin-bottom: 1.5rem;
+}
+
+.receipt-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 20rem;
+  margin-left: auto;
+}
+
+.receipt-totals-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+}
+
+.receipt-totals-total {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* ---------------------------------------------------------------------------
+   Dispute modal + status panel (escrow detail page)
+--------------------------------------------------------------------------- */
+
+.dispute-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.dispute-modal {
+  width: 100%;
+  max-width: 30rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  background: var(--color-bg-surface);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 20px 25px -5px var(--color-shadow);
+}
+
+.dispute-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.dispute-modal-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.dispute-modal-field {
+  margin-bottom: 1rem;
+}
+
+.dispute-modal-field label,
+.dispute-modal-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.dispute-modal-required {
+  color: var(--color-error-text);
+  margin-left: 0.25rem;
+}
+
+.dispute-modal-field select,
+.dispute-modal-field textarea,
+.dispute-modal-field input {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 0.875rem;
+}
+
+.dispute-modal-evidence-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+
+.dispute-modal-evidence-row input {
+  flex: 1;
+}
+
+.dispute-status-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Network & contracts (settings page)
+--------------------------------------------------------------------------- */
+
+.network-contracts-section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.network-contracts-section:first-of-type {
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.network-contracts-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.network-contracts-section-header h4 {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.contract-address {
+  font-size: 0.8125rem;
+  word-break: break-all;
+}
+
+.contract-address-missing {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.contract-address-warning {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--color-error-text);
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------------------
+   Print stylesheet — order receipt (FE receipts)
+--------------------------------------------------------------------------- */
+
+@media print {
+  .no-print,
+  .sidebar,
+  .app-header,
+  .mobile-nav-overlay,
+  .mobile-nav-panel,
+  .global-search,
+  .notification-bell,
+  .install-prompt-card,
+  .announcement-banner {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .app-shell,
+  .app-main,
+  .app-content,
+  .settings-page {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+  }
+
+  .receipt-panel {
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
+  @page {
+    size: auto;
+    margin: 1.5cm;
+  }
 }

@@ -12,5 +12,7 @@ export { Pagination } from "./Pagination";
 export { HotkeyCheatSheet } from "./HotkeyCheatSheet";
 export { UndoSnackbar } from "./UndoSnackbar";
 export { OrderTrackingCard } from "./OrderTrackingCard";
+export { ReceiptPanel } from "./ReceiptPanel";
 export type { ApprovalCardProps } from "./ApprovalCard";
 export type { ApprovalDrawerProps } from "./ApprovalDrawer";
+export type { ReceiptPanelProps } from "./ReceiptPanel";
