@@ -9,6 +9,12 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./tests/setup.ts"],
     exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
+    // Seed the one required env var so importing modules that transitively
+    // pull in lib/env.ts (which parses process.env at load) doesn't throw.
+    // Matches the base URL the MSW fixture handlers already default to.
+    env: {
+      NEXT_PUBLIC_API_URL: "https://api.example.com",
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
