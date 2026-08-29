@@ -58,8 +58,16 @@ export const orderHandlers = [
    */
   http.post(`${BASE_URL}/orders/:id/approve`, async ({ params, request }) => {
     const id = params.id as string;
-    const body = (await request.json().catch(() => ({}))) as { approverAddress?: string };
+    const body = (await request.json().catch(() => ({}))) as {
+      approverAddress?: string;
+      approvalNote?: string;
+    };
     const approverAddress = body?.approverAddress;
+    // Approve-with-note (#573): persisted verbatim onto the order whenever
+    // present, independent of the dual-control branch taken below.
+    const approvalNote = body?.approvalNote
+      ? ({ approvalNote: body.approvalNote } as const)
+      : {};
 
     const existing = orders.find((o) => o.id === id);
     if (!existing) {
@@ -67,7 +75,12 @@ export const orderHandlers = [
     }
 
     if (!requiresDualControl(existing) || !approverAddress) {
-      const updated = { ...existing, status: "approved" as const, updatedAt: new Date() };
+      const updated = {
+        ...existing,
+        ...approvalNote,
+        status: "approved" as const,
+        updatedAt: new Date(),
+      };
       orders = orders.map((o) => (o.id === id ? updated : o));
       return HttpResponse.json(okResponse(updated));
     }
@@ -76,7 +89,7 @@ export const orderHandlers = [
 
     if (!existing.dualControl || existing.dualControl.status === "single") {
       const dualControl = applyFirstApproval(approverAddress, approverAddress, now, DELEGATION_OWNERS);
-      const updated: Order = { ...existing, dualControl, updatedAt: new Date() };
+      const updated: Order = { ...existing, ...approvalNote, dualControl, updatedAt: new Date() };
       orders = orders.map((o) => (o.id === id ? updated : o));
       return HttpResponse.json(okResponse(updated));
     }
@@ -90,7 +103,13 @@ export const orderHandlers = [
         );
       }
       const dualControl = applySecondApproval(existing.dualControl, approverAddress, approverAddress, now);
-      const updated: Order = { ...existing, status: "approved", dualControl, updatedAt: new Date() };
+      const updated: Order = {
+        ...existing,
+        ...approvalNote,
+        status: "approved",
+        dualControl,
+        updatedAt: new Date(),
+      };
       orders = orders.map((o) => (o.id === id ? updated : o));
       return HttpResponse.json(okResponse(updated));
     }

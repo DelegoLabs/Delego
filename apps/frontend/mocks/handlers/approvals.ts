@@ -21,21 +21,34 @@ export function buildDualControlOrder(seed = 1, overrides: Partial<Order> = {}):
   });
 }
 
-/** Capability probe (#574): API advertises dual-control support. */
+/** Capability probe (#574, #573): API advertises dual-control and approval-note support. */
 export const capabilitiesHandlers = [
   http.get(`${BASE_URL}/capabilities`, () =>
-    HttpResponse.json(okResponse({ dualControlApprovals: true }))
+    HttpResponse.json(
+      okResponse({ dualControlApprovals: true, approvalNoteSupported: true })
+    )
   ),
 ];
 
 /** Scenario variant: API is on an older version without dual-control support. */
 export const capabilitiesHandlersDisabled = [
   http.get(`${BASE_URL}/capabilities`, () =>
-    HttpResponse.json(okResponse({ dualControlApprovals: false }))
+    HttpResponse.json(
+      okResponse({ dualControlApprovals: false, approvalNoteSupported: false })
+    )
   ),
 ];
 
 /** Scenario variant: capability probe itself is unavailable — callers must fall back. */
 export const capabilitiesHandlersUnavailable = [
   http.get(`${BASE_URL}/capabilities`, () => new HttpResponse(null, { status: 404 })),
+];
+
+/** Scenario variant (#573): dual-control is on, but the API rejects `approvalNote` — notes must stay local-only. */
+export const capabilitiesHandlersApprovalNoteUnsupported = [
+  http.get(`${BASE_URL}/capabilities`, () =>
+    HttpResponse.json(
+      okResponse({ dualControlApprovals: true, approvalNoteSupported: false })
+    )
+  ),
 ];

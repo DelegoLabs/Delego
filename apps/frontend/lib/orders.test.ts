@@ -293,4 +293,27 @@ describe("orderToTimelineEvents", () => {
     const events = orderToTimelineEvents(order);
     expect(events[1]).toMatchObject({ type: "disputed", tone: "failed" });
   });
+
+  it("appends a distinct note event when the order carries an approvalNote (#573)", () => {
+    const order = makeOrder({
+      status: "approved",
+      createdAt,
+      updatedAt,
+      approvalNote: "Substitute store brand",
+    });
+    const events = orderToTimelineEvents(order);
+    const noteEvent = events[events.length - 1];
+    expect(noteEvent).toMatchObject({
+      type: "approval_note",
+      tone: "note",
+      description: "Substitute store brand",
+      timestamp: updatedAt,
+    });
+  });
+
+  it("omits the note event entirely when the order has no approvalNote", () => {
+    const order = makeOrder({ status: "approved", createdAt, updatedAt });
+    const events = orderToTimelineEvents(order);
+    expect(events.some((e) => e.type === "approval_note")).toBe(false);
+  });
 });

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /** Visual treatment for a timeline event. */
-export type ActivityTone = "success" | "pending" | "failed" | "refunded";
+export type ActivityTone = "success" | "pending" | "failed" | "refunded" | "note";
 
 /** A single normalized event rendered as one step in the timeline. */
 export interface ActivityTimelineEvent {
@@ -33,6 +33,8 @@ const toneStyles: Record<ActivityTone, { dot: string; text: string }> = {
   pending: { dot: "#2563eb", text: "#1e40af" },
   failed: { dot: "#dc2626", text: "#991b1b" },
   refunded: { dot: "#d97706", text: "#92400e" },
+  /** Approve-with-note (#573): distinct treatment for a note attached to a decision. */
+  note: { dot: "#6b7280", text: "#374151" },
 };
 
 function formatRelativeTime(timestamp: Date, now: Date = new Date()): string {

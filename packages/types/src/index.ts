@@ -140,6 +140,8 @@ export interface Order {
   /** Free-text detail accompanying `rejectionReason` (#567). */
   rejectionNote?: string | null;
   dualControl?: DualControlState;
+  /** Optional note attached by the approver at approval time (#573). */
+  approvalNote?: string | null;
   createdAt: Date | string;
   updatedAt?: Date | string;
 }

@@ -19,6 +19,12 @@ import { useAnnounce } from "../../hooks/useAnnounce";
 import { DelegationTagBadge } from "../delegations/public";
 import { useDelegationTags } from "../../hooks/useDelegationTags";
 import { useDataSaver } from "../../hooks/useDataSaver";
+import { useWallet } from "../../hooks/useWallet";
+import { useApprovalNoteCapability } from "../../hooks/useApprovalNoteCapability";
+import { submitApproval } from "../../services/approvals";
+import { setLocalApprovalNote } from "../../lib/localApprovalNotes";
+import { ApprovalNoteField, APPROVAL_NOTE_MAX_LENGTH } from "./ApprovalNoteField";
+import { ApprovalNoteDisplay } from "./ApprovalNoteDisplay";
 
 export interface ApprovalDrawerProps {
   order: Order | null;
@@ -58,6 +64,11 @@ export function ApprovalDrawer({
   const { announce } = useAnnounce();
   const { getTag } = useDelegationTags();
   const tag = order ? getTag(order.delegationId) : undefined;
+  const [note, setNote] = useState("");
+  const { address: walletAddress } = useWallet();
+  // Approve-with-note (#573): see ApprovalCard for the capability-detection
+  // rationale — false means the note is kept local-only rather than sent.
+  const approvalNoteSupported = useApprovalNoteCapability();
 
   const [showReasonPicker, setShowReasonPicker] = useState(false);
   const [reasonCode, setReasonCode] = useState<RejectionReasonCode | "">("");
@@ -105,6 +116,11 @@ export function ApprovalDrawer({
   const approveBlockedByPrice =
     priceAdvisory?.level === "above" && !priceAckd;
 
+  // Reset the draft note whenever the drawer is opened for a different order.
+  useEffect(() => {
+    setNote("");
+  }, [order?.id]);
+
   useEffect(() => {
     if (!order) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -117,8 +133,15 @@ export function ApprovalDrawer({
   if (!order) return null;
 
   const handleApprove = async () => {
+    const trimmedNote = note.trim();
     try {
-      await onApprove(order.id);
+      if (trimmedNote && approvalNoteSupported) {
+        const res = await submitApproval(order.id, walletAddress ?? "", trimmedNote);
+        if (res.error) throw new Error(res.error.message);
+      } else {
+        await onApprove(order.id);
+        if (trimmedNote) setLocalApprovalNote(order.id, trimmedNote);
+      }
       announce(`Order ${order.id} approved.`, "polite");
       onClose();
     } catch {
@@ -192,6 +215,8 @@ export function ApprovalDrawer({
             onAcknowledgedChange={handlePriceAckChange}
           />
         )}
+
+        <ApprovalNoteDisplay note={order.approvalNote} orderId={order.id} />
 
         {order.dualControl?.required && (
           <section
@@ -412,11 +437,21 @@ export function ApprovalDrawer({
           </button>
         )}
 
+        <ApprovalNoteField
+          id={`approval-drawer-note-${order.id}`}
+          value={note}
+          onChange={setNote}
+          disabled={pending}
+          variant="textarea"
+        />
+
         <div className="form-actions">
           <Button
             variant="primary"
             onClick={handleApprove}
-            disabled={pending || approveBlockedByPrice}
+            disabled={
+              pending || approveBlockedByPrice || note.length > APPROVAL_NOTE_MAX_LENGTH
+            }
           >
             Approve
           </Button>

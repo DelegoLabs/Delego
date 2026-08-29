@@ -1992,6 +1992,79 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Approve-with-note (#573)
+   Optional note attached to an approve action: a compact popover for the
+   row-level card, a full-width textarea in the drawer. Both share the same
+   field + character-counter styling.
+   --------------------------------------------------------------------------- */
+.approval-note-popover {
+  position: relative;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.5rem;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.approval-note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.approval-note-field-textarea {
+  margin: 0.75rem 0;
+}
+
+.approval-note-textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.375rem;
+  background: var(--color-surface, #fff);
+  color: inherit;
+}
+
+.approval-note-counter {
+  align-self: flex-end;
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.approval-note-counter-over {
+  color: var(--color-error-text, #991b1b);
+  font-weight: 600;
+}
+
+/* Distinct "note" treatment where an approval note is rendered back —
+   history/timeline entries and the drawer's read-only summary. */
+.approval-note-display {
+  margin-top: 0.375rem;
+  padding: 0.5rem 0.625rem;
+  border-left: 3px solid var(--color-accent, #2563eb);
+  background: var(--color-surface-subtle, #f3f4f6);
+  border-radius: 0.25rem;
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+
+.approval-note-display-unsynced {
+  border-left-color: var(--color-warning-border, #fde68a);
+}
+
+.approval-note-unsynced-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-style: normal;
+  color: var(--color-warning-text, #92400e);
+}
+
+/* ---------------------------------------------------------------------------
    Route cross-fade (View Transitions API)
    Subtle by design — only the swapped content is visually different between
    the old/new snapshots, so unchanged chrome (sidebar, header) never appears
