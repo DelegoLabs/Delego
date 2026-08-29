@@ -19,9 +19,13 @@ import { DelegationTagBadge } from "../delegations/public";
 import { useDelegationTags } from "../../hooks/useDelegationTags";
 import { useFeatureFlag } from "../../lib/featureFlags";
 import { useDualControlCapability } from "../../hooks/useDualControlCapability";
+import { useApprovalNoteCapability } from "../../hooks/useApprovalNoteCapability";
 import { useWallet } from "../../hooks/useWallet";
 import { DualControlGuard } from "./DualControlGuard";
 import { submitApproval } from "../../services/approvals";
+import { ApprovalNoteField, APPROVAL_NOTE_MAX_LENGTH } from "./ApprovalNoteField";
+import { ApprovalNoteDisplay } from "./ApprovalNoteDisplay";
+import { setLocalApprovalNote } from "../../lib/localApprovalNotes";
 
 export interface ApprovalCardProps {
   order: Order;
@@ -56,6 +60,8 @@ export function ApprovalCard({
   const [reason, setReason] = useState("");
   const [reasonCode, setReasonCode] = useState<RejectionReasonCode | "">("");
   const [showReasonPicker, setShowReasonPicker] = useState(false);
+  const [addingNote, setAddingNote] = useState(false);
+  const [note, setNote] = useState("");
 
   const { isMismatched } = useNetworkMismatch();
   const locale = useLocale();
@@ -71,6 +77,11 @@ export function ApprovalCard({
   // the pre-existing single-approval flow.
   const dualControlFlagEnabled = useFeatureFlag("DUAL_CONTROL_APPROVALS");
   const dualControlCapable = useDualControlCapability();
+  // Approve-with-note (#573): whether the API accepts `approvalNote` on the
+  // approve payload. False (the default, and any failure) means a note the
+  // approver adds is kept local-only and shown with a "not synced" hint
+  // rather than sent to an API that would reject it.
+  const approvalNoteSupported = useApprovalNoteCapability();
   const { address: walletAddress } = useWallet();
   const dualControlActive =
     dualControlFlagEnabled && dualControlCapable && order.dualControl?.required === true;
@@ -85,9 +96,24 @@ export function ApprovalCard({
       : undefined;
 
   const handleApprove = guard(async () => {
+    const trimmedNote = note.trim();
     try {
-      await onApprove(order.id);
+      if (trimmedNote && approvalNoteSupported) {
+        // Route note-bearing approvals through the note-aware endpoint so the
+        // note is actually persisted server-side.
+        const res = await submitApproval(order.id, walletAddress ?? "", trimmedNote);
+        if (res.error) throw new Error(res.error.message);
+        if (res.data) onDualControlUpdate?.(res.data);
+      } else {
+        await onApprove(order.id);
+        if (trimmedNote) {
+          // Backend doesn't advertise support — keep the note local-only.
+          setLocalApprovalNote(order.id, trimmedNote);
+        }
+      }
       announce(`Order ${order.id} approved.`, "polite");
+      setAddingNote(false);
+      setNote("");
     } catch {
       announce(`Failed to approve order ${order.id}.`, "assertive");
     }
@@ -95,9 +121,16 @@ export function ApprovalCard({
 
   const handleDualControlApprove = guard(async () => {
     setDcSubmitting(true);
+    const trimmedNote = note.trim();
+    const sendNote = trimmedNote && approvalNoteSupported ? trimmedNote : undefined;
     try {
-      const res = await submitApproval(order.id, walletAddress ?? "");
+      const res = sendNote
+        ? await submitApproval(order.id, walletAddress ?? "", sendNote)
+        : await submitApproval(order.id, walletAddress ?? "");
       if (res.error) throw new Error(res.error.message);
+      if (trimmedNote && !approvalNoteSupported) {
+        setLocalApprovalNote(order.id, trimmedNote);
+      }
       announce(
         res.data?.dualControl?.status === "completed"
           ? `Order ${order.id} approved.`
@@ -105,6 +138,8 @@ export function ApprovalCard({
         "polite"
       );
       if (res.data) onDualControlUpdate?.(res.data);
+      setAddingNote(false);
+      setNote("");
     } catch {
       announce(`Failed to approve order ${order.id}.`, "assertive");
     } finally {
@@ -198,6 +233,8 @@ export function ApprovalCard({
               </dd>
             </div>
           </dl>
+
+          <ApprovalNoteDisplay note={order.approvalNote} orderId={order.id} />
 
           <div className="approval-line-items">
             <table className="comparison-table">
@@ -318,6 +355,32 @@ export function ApprovalCard({
             </div>
           ) : (
             <div className="approval-card-actions">
+              {addingNote && (
+                <div className="approval-note-popover" role="dialog" aria-label="Add a note to this approval">
+                  <ApprovalNoteField
+                    id={`approval-note-${order.id}`}
+                    value={note}
+                    onChange={setNote}
+                    onSubmit={dualControlActive ? handleDualControlApprove : handleApprove}
+                    onCancel={() => {
+                      setAddingNote(false);
+                      setNote("");
+                    }}
+                    disabled={disabled}
+                    variant="popover"
+                    autoFocus
+                  />
+                </div>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setAddingNote((v) => !v)}
+                disabled={disabled}
+                ariaLabel={addingNote ? "Close note field" : note ? "Edit note" : "Add note"}
+              >
+                {addingNote ? "Close note" : note ? "Edit note" : "Add note"}
+              </Button>
               <Button
                 variant="destructive"
                 size="sm"
@@ -331,7 +394,7 @@ export function ApprovalCard({
                 variant="primary"
                 size="sm"
                 onClick={dualControlActive ? handleDualControlApprove : handleApprove}
-                disabled={disabled || dcBlocked}
+                disabled={disabled || dcBlocked || note.length > APPROVAL_NOTE_MAX_LENGTH}
                 loading={pending || dcSubmitting}
                 title={dcBlocked ? dcReason : actionTitle}
               >

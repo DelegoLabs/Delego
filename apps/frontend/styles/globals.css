@@ -1948,6 +1948,187 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Domain warning banner (#593)
+   Anti-phishing: warns when the app is served from a host outside the
+   configured canonical list. Danger-toned and dismissible per browser
+   session (sessionStorage) — it doesn't resurface on client-side navigation
+   within the same session, only on a fresh tab/session.
+   --------------------------------------------------------------------------- */
+.domain-warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 1.25rem;
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+  border-bottom: 1px solid var(--color-error-border);
+  font-size: 0.875rem;
+}
+
+.domain-warning-banner-icon {
+  flex-shrink: 0;
+}
+
+.domain-warning-banner a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.domain-warning-banner-dismiss {
+  flex-shrink: 0;
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.domain-warning-banner-dismiss:hover {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------------------
+   Approve-with-note (#573)
+   Optional note attached to an approve action: a compact popover for the
+   row-level card, a full-width textarea in the drawer. Both share the same
+   field + character-counter styling.
+   --------------------------------------------------------------------------- */
+.approval-note-popover {
+  position: relative;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.5rem;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.approval-note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.approval-note-field-textarea {
+  margin: 0.75rem 0;
+}
+
+.approval-note-textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.375rem;
+  background: var(--color-surface, #fff);
+  color: inherit;
+}
+
+.approval-note-counter {
+  align-self: flex-end;
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.approval-note-counter-over {
+  color: var(--color-error-text, #991b1b);
+  font-weight: 600;
+}
+
+/* Distinct "note" treatment where an approval note is rendered back —
+   history/timeline entries and the drawer's read-only summary. */
+.approval-note-display {
+  margin-top: 0.375rem;
+  padding: 0.5rem 0.625rem;
+  border-left: 3px solid var(--color-accent, #2563eb);
+  background: var(--color-surface-subtle, #f3f4f6);
+  border-radius: 0.25rem;
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+
+.approval-note-display-unsynced {
+  border-left-color: var(--color-warning-border, #fde68a);
+}
+
+.approval-note-unsynced-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-style: normal;
+  color: var(--color-warning-text, #92400e);
+}
+
+/* ---------------------------------------------------------------------------
+   Consent banner (#612)
+   First-run privacy/telemetry banner. Non-modal by design — a plain,
+   dismissible strip, never blocking interaction with the rest of the page.
+   --------------------------------------------------------------------------- */
+.consent-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--color-bg-subtle);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.875rem;
+}
+
+.consent-banner-text {
+  margin: 0;
+  flex: 1 1 20rem;
+}
+
+.consent-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.consent-banner-customize-link {
+  font-size: 0.875rem;
+  color: var(--color-accent, #2563eb);
+  text-decoration: underline;
+  padding: 0.5rem 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.consent-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.consent-log-entry {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.8125rem;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--color-bg-subtle);
+}
+
+.consent-log-entry time {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
    Route cross-fade (View Transitions API)
    Subtle by design — only the swapped content is visually different between
    the old/new snapshots, so unchanged chrome (sidebar, header) never appears

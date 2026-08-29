@@ -8,6 +8,7 @@ import {
   requestExtension,
   getEscrowExtensionMeta,
   detectDualControlCapability,
+  detectDataErasureCapability,
 } from "./payments";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.example.com";
@@ -135,6 +136,38 @@ describe("payments service", () => {
         http.get(`${BASE_URL}/capabilities`, () => HttpResponse.error())
       );
       await expect(detectDualControlCapability()).resolves.toBe(false);
+    });
+  });
+
+  describe("detectDataErasureCapability (#610)", () => {
+    it("returns true when the API advertises data-erasure support", async () => {
+      server.use(
+        http.get(`${BASE_URL}/capabilities`, () =>
+          HttpResponse.json({ data: { dataErasureRequestSupported: true }, error: null })
+        )
+      );
+      expect(await detectDataErasureCapability()).toBe(true);
+    });
+
+    it("returns false when the API advertises the capability as off", async () => {
+      server.use(
+        http.get(`${BASE_URL}/capabilities`, () =>
+          HttpResponse.json({ data: { dataErasureRequestSupported: false }, error: null })
+        )
+      );
+      expect(await detectDataErasureCapability()).toBe(false);
+    });
+
+    it("falls back to false when the endpoint 404s", async () => {
+      server.use(
+        http.get(`${BASE_URL}/capabilities`, () => new HttpResponse(null, { status: 404 }))
+      );
+      expect(await detectDataErasureCapability()).toBe(false);
+    });
+
+    it("falls back to false on a network failure rather than throwing", async () => {
+      server.use(http.get(`${BASE_URL}/capabilities`, () => HttpResponse.error()));
+      await expect(detectDataErasureCapability()).resolves.toBe(false);
     });
   });
 });

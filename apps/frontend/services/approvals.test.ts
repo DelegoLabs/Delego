@@ -29,4 +29,48 @@ describe("approvals service", () => {
       error: { code: "network_error" },
     });
   });
+
+  it("submitApproval includes approvalNote in the request body when a note is given (#573)", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(`${BASE_URL}/orders/:id/approve`, async ({ params, request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({
+          data: {
+            id: params.id,
+            delegationId: "del-1",
+            status: "approved",
+            approvalNote: (receivedBody as { approvalNote?: string }).approvalNote,
+            createdAt: new Date().toISOString(),
+          },
+          error: null,
+        });
+      })
+    );
+
+    const res = await submitApproval("order-1", "wallet-a", "Please expedite");
+
+    expect(receivedBody).toMatchObject({
+      approverAddress: "wallet-a",
+      approvalNote: "Please expedite",
+    });
+    expect(res.data?.approvalNote).toBe("Please expedite");
+  });
+
+  it("submitApproval omits approvalNote from the request body when no note is given", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(`${BASE_URL}/orders/:id/approve`, async ({ params, request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({
+          data: { id: params.id, delegationId: "del-1", status: "approved", createdAt: new Date().toISOString() },
+          error: null,
+        });
+      })
+    );
+
+    await submitApproval("order-1", "wallet-a");
+
+    expect(receivedBody).not.toHaveProperty("approvalNote");
+  });
 });

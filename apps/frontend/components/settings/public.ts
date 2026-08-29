@@ -5,6 +5,8 @@
 export { PreferencesForm } from "./PreferencesForm";
 export { ProfileForm } from "./ProfileForm";
 export { PrivacyExportCard } from "./PrivacyExportCard";
+export { DataErasureCard } from "./DataErasureCard";
+export { ConsentSettingsCard } from "./ConsentSettingsCard";
 export { CurrencySwitcher } from "./CurrencySwitcher";
 export { LanguageSwitcher } from "./LanguageSwitcher";
 export { NetworkContractsCard } from "./NetworkContractsCard";

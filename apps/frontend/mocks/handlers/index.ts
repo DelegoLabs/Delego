@@ -5,6 +5,7 @@ import { disputeHandlers } from "./disputes";
 import { contractHandlers } from "./contracts";
 import { healthHandlers } from "./health";
 import { capabilitiesHandlers } from "./approvals";
+import { erasureHandlers } from "./erasure";
 
 /**
  * Default handler set for tests, Storybook, and dev-mode mocking (FE-045).
@@ -21,6 +22,7 @@ export const handlers = [
   ...contractHandlers,
   ...healthHandlers,
   ...capabilitiesHandlers,
+  ...erasureHandlers,
 ];
 
 export {
@@ -46,8 +48,15 @@ export {
   capabilitiesHandlers,
   capabilitiesHandlersDisabled,
   capabilitiesHandlersUnavailable,
+  capabilitiesHandlersApprovalNoteUnsupported,
+  capabilitiesHandlersErasureUnsupported,
   buildDualControlOrder,
 } from "./approvals";
+export {
+  erasureHandlers,
+  resetErasureRequest,
+  ERASURE_COOLDOWN_DAYS,
+} from "./erasure";
 export {
   escrowHandlers,
   escrowHandlersEmpty,

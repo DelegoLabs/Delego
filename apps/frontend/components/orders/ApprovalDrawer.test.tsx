@@ -5,6 +5,25 @@ import type { Order } from "@delegolabs/types";
 import { ApprovalDrawer } from "./ApprovalDrawer";
 import type { OrderExplainability } from "../../lib/approvalExplainability";
 
+const mockUseApprovalNoteCapability = vi.fn();
+vi.mock("../../hooks/useApprovalNoteCapability", () => ({
+  useApprovalNoteCapability: () => mockUseApprovalNoteCapability(),
+}));
+
+const mockUseWallet = vi.fn();
+vi.mock("../../hooks/useWallet", () => ({ useWallet: () => mockUseWallet() }));
+
+const mockSubmitApproval = vi.fn();
+vi.mock("../../services/approvals", () => ({
+  submitApproval: (...args: unknown[]) => mockSubmitApproval(...args),
+}));
+
+const mockSetLocalApprovalNote = vi.fn();
+vi.mock("../../lib/localApprovalNotes", () => ({
+  setLocalApprovalNote: (...args: unknown[]) => mockSetLocalApprovalNote(...args),
+  getLocalApprovalNote: () => null,
+}));
+
 function makeOrder(overrides: Partial<Order> = {}): Order {
   return {
     id: "order-1",
@@ -26,6 +45,10 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
 describe("ApprovalDrawer", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    mockUseApprovalNoteCapability.mockReturnValue(false);
+    mockUseWallet.mockReturnValue({ address: "wallet-a" });
+    mockSubmitApproval.mockReset();
+    mockSetLocalApprovalNote.mockReset();
   });
 
   it("renders nothing when no order is open", () => {
@@ -473,5 +496,86 @@ describe("ApprovalDrawer", () => {
     );
     const dialog = screen.getByRole("dialog");
     expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+});
+
+describe("ApprovalDrawer — approve-with-note (#573)", () => {
+  beforeEach(() => {
+    mockUseWallet.mockReturnValue({ address: "wallet-a" });
+    mockSubmitApproval.mockReset();
+    mockSetLocalApprovalNote.mockReset();
+  });
+
+  it("approving with an empty note calls the plain onApprove path", async () => {
+    mockUseApprovalNoteCapability.mockReturnValue(true);
+    const onApprove = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ApprovalDrawer order={makeOrder()} onApprove={onApprove} onReject={vi.fn()} onClose={vi.fn()} />
+    );
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    expect(onApprove).toHaveBeenCalledWith("order-1");
+    expect(mockSubmitApproval).not.toHaveBeenCalled();
+  });
+
+  it("submits the note via submitApproval when the API supports it", async () => {
+    mockUseApprovalNoteCapability.mockReturnValue(true);
+    mockSubmitApproval.mockResolvedValue({
+      data: { id: "order-1", status: "approved" },
+      error: null,
+    });
+    const onApprove = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ApprovalDrawer order={makeOrder()} onApprove={onApprove} onReject={vi.fn()} onClose={vi.fn()} />
+    );
+    await user.type(screen.getByLabelText("Note (optional)"), "Approved with condition");
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+
+    expect(mockSubmitApproval).toHaveBeenCalledWith("order-1", "wallet-a", "Approved with condition");
+    expect(onApprove).not.toHaveBeenCalled();
+  });
+
+  it("degrades to a local-only note when the API doesn't support approvalNote", async () => {
+    mockUseApprovalNoteCapability.mockReturnValue(false);
+    const onApprove = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ApprovalDrawer order={makeOrder()} onApprove={onApprove} onReject={vi.fn()} onClose={vi.fn()} />
+    );
+    await user.type(screen.getByLabelText("Note (optional)"), "Local only");
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+
+    expect(mockSubmitApproval).not.toHaveBeenCalled();
+    expect(onApprove).toHaveBeenCalledWith("order-1");
+    expect(mockSetLocalApprovalNote).toHaveBeenCalledWith("order-1", "Local only");
+  });
+
+  it("disables Approve once the note exceeds 280 characters", async () => {
+    mockUseApprovalNoteCapability.mockReturnValue(true);
+    const user = userEvent.setup();
+    render(
+      <ApprovalDrawer order={makeOrder()} onApprove={vi.fn()} onReject={vi.fn()} onClose={vi.fn()} />
+    );
+    await user.type(screen.getByLabelText("Note (optional)"), "a".repeat(281));
+    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+  });
+
+  it("renders a persisted approvalNote with the distinct note treatment", () => {
+    const order = makeOrder({ approvalNote: "Please double-check the invoice" });
+    render(<ApprovalDrawer order={order} onApprove={vi.fn()} onReject={vi.fn()} onClose={vi.fn()} />);
+
+    const noteEl = screen.getByTestId("approval-note-order-1");
+    expect(noteEl).toHaveTextContent("Please double-check the invoice");
+  });
+
+  it("renders note content as plain text, not raw HTML, when the note contains markup-like text", () => {
+    const order = makeOrder({ approvalNote: "<img src=x onerror=alert(1)>" });
+    render(<ApprovalDrawer order={order} onApprove={vi.fn()} onReject={vi.fn()} onClose={vi.fn()} />);
+
+    const noteEl = screen.getByTestId("approval-note-order-1");
+    // Rendered as an escaped text node — no actual <img> element created.
+    expect(noteEl.querySelector("img")).toBeNull();
+    expect(noteEl.textContent).toContain("<img src=x onerror=alert(1)>");
   });
 });

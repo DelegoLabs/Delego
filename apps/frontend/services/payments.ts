@@ -110,6 +110,10 @@ export function getEscrowExtensionMeta(escrowId: string): Promise<ApiResponse<Es
 
 export interface DualControlCapability {
   dualControlApprovals?: boolean;
+  /** Whether the API accepts an `approvalNote` field on the approve payload (#573). */
+  approvalNoteSupported?: boolean;
+  /** Whether the API exposes the server-side data-erasure request endpoints (#610). */
+  dataErasureRequestSupported?: boolean;
 }
 
 /**
@@ -123,4 +127,31 @@ export async function detectDualControlCapability(): Promise<boolean> {
   const res = await get<DualControlCapability>("/capabilities");
   if (res.error || !res.data) return false;
   return Boolean(res.data.dualControlApprovals);
+}
+
+/**
+ * Best-effort capability probe (#573): whether the API accepts an
+ * `approvalNote` field on the approve payload. Resolves `false` on any
+ * failure (network error, non-2xx, or the field simply not advertised),
+ * so callers degrade to a local-only note display instead of sending a
+ * field an older API might reject.
+ */
+export async function detectApprovalNoteCapability(): Promise<boolean> {
+  const res = await get<DualControlCapability>("/capabilities");
+  if (res.error || !res.data) return false;
+  return Boolean(res.data.approvalNoteSupported);
+}
+
+/**
+ * Best-effort capability probe (#610): whether the API exposes the
+ * server-side data-erasure request endpoints. Resolves `false` on any
+ * failure — network error, non-2xx, or the field simply not advertised —
+ * so the erasure UI hides the server tier entirely rather than offering a
+ * request the backend can't yet honor. The local-only "clear local data"
+ * tier is unaffected either way; it never depends on this probe.
+ */
+export async function detectDataErasureCapability(): Promise<boolean> {
+  const res = await get<DualControlCapability>("/capabilities");
+  if (res.error || !res.data) return false;
+  return Boolean(res.data.dataErasureRequestSupported);
 }
