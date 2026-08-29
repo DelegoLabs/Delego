@@ -21,11 +21,15 @@ export function buildDualControlOrder(seed = 1, overrides: Partial<Order> = {}):
   });
 }
 
-/** Capability probe (#574, #573): API advertises dual-control and approval-note support. */
+/** Capability probe (#574, #573, #610): API advertises dual-control, approval-note, and data-erasure support. */
 export const capabilitiesHandlers = [
   http.get(`${BASE_URL}/capabilities`, () =>
     HttpResponse.json(
-      okResponse({ dualControlApprovals: true, approvalNoteSupported: true })
+      okResponse({
+        dualControlApprovals: true,
+        approvalNoteSupported: true,
+        dataErasureRequestSupported: true,
+      })
     )
   ),
 ];
@@ -34,7 +38,11 @@ export const capabilitiesHandlers = [
 export const capabilitiesHandlersDisabled = [
   http.get(`${BASE_URL}/capabilities`, () =>
     HttpResponse.json(
-      okResponse({ dualControlApprovals: false, approvalNoteSupported: false })
+      okResponse({
+        dualControlApprovals: false,
+        approvalNoteSupported: false,
+        dataErasureRequestSupported: false,
+      })
     )
   ),
 ];
@@ -49,6 +57,19 @@ export const capabilitiesHandlersApprovalNoteUnsupported = [
   http.get(`${BASE_URL}/capabilities`, () =>
     HttpResponse.json(
       okResponse({ dualControlApprovals: true, approvalNoteSupported: false })
+    )
+  ),
+];
+
+/** Scenario variant (#610): the API doesn't advertise data-erasure support — the server tier should hide entirely. */
+export const capabilitiesHandlersErasureUnsupported = [
+  http.get(`${BASE_URL}/capabilities`, () =>
+    HttpResponse.json(
+      okResponse({
+        dualControlApprovals: true,
+        approvalNoteSupported: true,
+        dataErasureRequestSupported: false,
+      })
     )
   ),
 ];

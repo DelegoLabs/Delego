@@ -175,6 +175,23 @@ export interface CancellationGrace {
   cancelledBy?: string;
 }
 
+/**
+ * Server-issued data-erasure request state (#610) — full server-side account
+ * erasure, distinct from the immediate/local-only "clear local data" tier
+ * (which never touches the server and has no request lifecycle). Modeled on
+ * `CancellationGrace`: the client never marks a request cancelled or
+ * finalized on its own — `status` always reflects the server's last answer.
+ */
+export interface ErasureRequest {
+  /** ISO-8601 timestamp the erasure request was logged. */
+  requestedAt: string;
+  /** ISO-8601 timestamp — the server-authoritative date erasure finalizes if not cancelled. */
+  finalizesAt: string;
+  /** ISO-8601 timestamp of "now" as seen by the server when it issued this state. */
+  serverTimestamp: string;
+  status: "pending" | "cancelled" | "finalized";
+}
+
 export interface Escrow {
   /**
    * @deprecated most call sites key off `escrowId`, which is what fixtures
