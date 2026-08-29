@@ -22,6 +22,7 @@ function setHostname(hostname: string) {
   // @ts-expect-error -- partial Location stub is enough for this component
   window.location = { ...originalLocation, hostname };
   return () => {
+    // @ts-expect-error -- restoring the real Location after the partial stub above
     window.location = originalLocation;
   };
 }
