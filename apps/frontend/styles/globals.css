@@ -2065,6 +2065,70 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Consent banner (#612)
+   First-run privacy/telemetry banner. Non-modal by design — a plain,
+   dismissible strip, never blocking interaction with the rest of the page.
+   --------------------------------------------------------------------------- */
+.consent-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--color-bg-subtle);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.875rem;
+}
+
+.consent-banner-text {
+  margin: 0;
+  flex: 1 1 20rem;
+}
+
+.consent-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.consent-banner-customize-link {
+  font-size: 0.875rem;
+  color: var(--color-accent, #2563eb);
+  text-decoration: underline;
+  padding: 0.5rem 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.consent-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.consent-log-entry {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.8125rem;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--color-bg-subtle);
+}
+
+.consent-log-entry time {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
    Route cross-fade (View Transitions API)
    Subtle by design — only the swapped content is visually different between
    the old/new snapshots, so unchanged chrome (sidebar, header) never appears

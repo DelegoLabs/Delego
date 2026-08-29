@@ -20,6 +20,7 @@ import { NetworkContractsCard } from "../../components/settings/NetworkContracts
 import { OfflineDataCard } from "../../components/settings/OfflineDataCard";
 import { PrivacyExportCard } from "../../components/settings/PrivacyExportCard";
 import { DataErasureCard } from "../../components/settings/DataErasureCard";
+import { ConsentSettingsCard } from "../../components/settings/ConsentSettingsCard";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -80,6 +81,7 @@ export default function SettingsPage() {
       <CurrencySwitcher />
       <TimeFormatSwitcher />
       <NetworkContractsCard />
+      <ConsentSettingsCard />
       <PrivacyExportCard user={user} preferences={preferences} />
       <DataErasureCard />
     </div>

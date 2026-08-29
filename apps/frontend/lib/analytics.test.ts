@@ -1,6 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Order } from "@delegolabs/types";
-import { isEmptySeries, parseAnalyticsRange, spendByRange } from "./analytics";
+import {
+  isEmptySeries,
+  parseAnalyticsRange,
+  spendByRange,
+  trackEvent,
+  trackMarketingEvent,
+  trackEssentialEvent,
+  setAnalyticsEmitter,
+} from "./analytics";
+import { resetConsentForTesting, acceptAllConsent, setConsentPreferences } from "./consent";
 
 function makeOrder(overrides: Partial<Order> = {}): Order {
   return {
@@ -113,5 +122,98 @@ describe("isEmptySeries", () => {
         { bucketStart: "y", label: "y", totalStroops: 1n },
       ])
     ).toBe(false);
+  });
+});
+
+describe("telemetry emitter choke point (#612)", () => {
+  beforeEach(() => {
+    resetConsentForTesting();
+    setAnalyticsEmitter(() => {});
+  });
+
+  it("choke-point spy: consent off (no choice made yet) -> trackEvent never fires the emitter", () => {
+    const spy = vi.fn();
+    setAnalyticsEmitter(spy);
+
+    trackEvent("viewed_page", { path: "/orders" });
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("choke-point spy: essential-only consent -> trackEvent still never fires", () => {
+    setConsentPreferences({ productAnalytics: false, marketing: false }, "settings");
+    const spy = vi.fn();
+    setAnalyticsEmitter(spy);
+
+    trackEvent("viewed_page");
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("fires the emitter once productAnalytics consent is granted", () => {
+    setConsentPreferences({ productAnalytics: true, marketing: false }, "settings");
+    const spy = vi.fn();
+    setAnalyticsEmitter(spy);
+
+    trackEvent("viewed_page", { path: "/orders" });
+
+    expect(spy).toHaveBeenCalledWith({ name: "viewed_page", properties: { path: "/orders" } });
+  });
+
+  it("trackMarketingEvent is gated on marketing consent, independent of productAnalytics", () => {
+    setConsentPreferences({ productAnalytics: true, marketing: false }, "settings");
+    const spy = vi.fn();
+    setAnalyticsEmitter(spy);
+
+    trackMarketingEvent("campaign_click");
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("trackMarketingEvent fires once marketing consent is granted", () => {
+    acceptAllConsent();
+    const spy = vi.fn();
+    setAnalyticsEmitter(spy);
+
+    trackMarketingEvent("campaign_click");
+
+    expect(spy).toHaveBeenCalledWith({ name: "campaign_click", properties: undefined });
+  });
+
+  it("consent changes apply immediately mid-session: a change between two trackEvent calls affects the second one", () => {
+    const spy = vi.fn();
+    setAnalyticsEmitter(spy);
+
+    trackEvent("before_consent");
+    expect(spy).not.toHaveBeenCalled();
+
+    setConsentPreferences({ productAnalytics: true, marketing: false }, "settings");
+    trackEvent("after_consent");
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({ name: "after_consent", properties: undefined });
+  });
+
+  it("revoking consent mid-session stops further events immediately", () => {
+    setConsentPreferences({ productAnalytics: true, marketing: false }, "settings");
+    const spy = vi.fn();
+    setAnalyticsEmitter(spy);
+
+    trackEvent("while_granted");
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    setConsentPreferences({ productAnalytics: false, marketing: false }, "settings");
+    trackEvent("after_revoke");
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("trackEssentialEvent always fires regardless of consent state", () => {
+    const spy = vi.fn();
+    setAnalyticsEmitter(spy);
+
+    trackEssentialEvent("app_error", { code: "network" });
+
+    expect(spy).toHaveBeenCalledWith({ name: "app_error", properties: { code: "network" } });
   });
 });
