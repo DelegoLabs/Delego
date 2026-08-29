@@ -15,6 +15,7 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_API_URL: "https://api.example.com",
     },
+    pool: "forks",
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
