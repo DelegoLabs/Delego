@@ -140,59 +140,77 @@ export function isEmptySeries(buckets: SpendBucket[]): boolean {
   return buckets.every((bucket) => bucket.totalStroops === 0n);
 }
 
-function getPeriodMetrics(orders: Order[], startDate: Date, endDate: Date): PeriodMetrics {
-  const periodOrders = orders.filter(o => o.createdAt >= startDate && o.createdAt < endDate);
-  
-  let spend = 0n;
-  let spendOrderCount = 0;
-  let approvedCount = 0;
+// ─────────────────────────────────────────────────────────────────────────
+// Telemetry emitter (#612)
+//
+// Product-analytics/marketing event emission, gated on user consent at a
+// single choke point: `trackEvent`/`trackMarketingEvent` below. Every call
+// site in the app funnels through one of these two functions — there is no
+// other path that reaches `dispatch`, so gating here is sufficient to gate
+// the whole app. Consent is read fresh on every call (not cached at
+// startup), so a consent change from Settings -> Privacy applies
+// immediately to the next event, including mid-session.
+//
+// Policy for events "emitted" before the user has made a first-run choice
+// (`hasConsentChoice()` is false): DROPPED, not queued. Queuing implies a
+// promise to deliver once consent is granted, which risks silently sending
+// pre-consent interaction data the user never agreed to and adds a second
+// state machine (a pending queue with its own retention/privacy rules) for
+// a "protect the user's default" feature to get subtly wrong. Essential
+// events are the one exception — see `trackEssentialEvent`.
+// ─────────────────────────────────────────────────────────────────────────
 
-  for (const order of periodOrders) {
-    if (isSpend(order)) {
-      spend += order.totalStroops;
-      spendOrderCount++;
-    }
-    const idx = lifecycleIndex(order.status);
-    if (idx >= ORDER_LIFECYCLE.indexOf("approved")) {
-      approvedCount++;
-    }
-  }
+import { getConsentPreferences, hasConsentChoice } from "./consent";
 
-  return {
-    spend,
-    orderCount: periodOrders.length,
-    avgOrderValue: spendOrderCount > 0 ? spend / BigInt(spendOrderCount) : 0n,
-    approvalRate: periodOrders.length > 0 ? approvedCount / periodOrders.length : 0
-  };
+export interface AnalyticsEvent {
+  name: string;
+  properties?: Record<string, unknown>;
 }
 
-export function calculateDeltas(orders: Order[], range: AnalyticsRange, now: Date = new Date()): { current: PeriodMetrics, previous: PeriodMetrics, deltas: Deltas } {
-  const days = RANGE_DAYS[range];
-  
-  const currentStart = new Date(now.getTime() - days * DAY_MS);
-  const previousStart = new Date(currentStart.getTime() - days * DAY_MS);
+export type AnalyticsEmitter = (event: AnalyticsEvent) => void;
 
-  const current = getPeriodMetrics(orders, currentStart, now);
-  const previous = getPeriodMetrics(orders, previousStart, currentStart);
+/**
+ * The sink events are handed to once they clear the consent gate. Defaults
+ * to a no-op so importing this module never has a side effect; call
+ * `setAnalyticsEmitter` once at app startup (e.g. from AppProviders) to
+ * wire up the real destination (console in dev, a vendor SDK in prod, etc).
+ * Swappable per-test via the same setter.
+ */
+let dispatch: AnalyticsEmitter = () => {};
 
-  const calcDelta = (curr: number, prev: number) => {
-    if (prev === 0) return null;
-    return (curr - prev) / prev;
-  };
+export function setAnalyticsEmitter(emitter: AnalyticsEmitter): void {
+  dispatch = emitter;
+}
 
-  const calcBigIntDelta = (curr: bigint, prev: bigint) => {
-    if (prev === 0n) return null;
-    return Number(curr - prev) / Number(prev);
-  };
+/**
+ * The single choke point every product-analytics event must pass through.
+ * No-ops (and never calls `dispatch`) unless the user has explicitly
+ * granted `productAnalytics` consent — this includes the pre-first-choice
+ * state, where nothing is emitted at all (see the module doc comment on
+ * the drop-vs-queue policy).
+ */
+export function trackEvent(name: string, properties?: Record<string, unknown>): void {
+  if (!hasConsentChoice()) return;
+  const prefs = getConsentPreferences();
+  if (!prefs?.productAnalytics) return;
+  dispatch({ name, properties });
+}
 
-  return {
-    current,
-    previous,
-    deltas: {
-      spendDelta: calcBigIntDelta(current.spend, previous.spend),
-      orderCountDelta: calcDelta(current.orderCount, previous.orderCount),
-      avgOrderValueDelta: calcBigIntDelta(current.avgOrderValue, previous.avgOrderValue),
-      approvalRateDelta: previous.orderCount > 0 ? current.approvalRate - previous.approvalRate : null
-    }
-  };
+/** Same choke point, gated on `marketing` consent instead of `productAnalytics`. */
+export function trackMarketingEvent(name: string, properties?: Record<string, unknown>): void {
+  if (!hasConsentChoice()) return;
+  const prefs = getConsentPreferences();
+  if (!prefs?.marketing) return;
+  dispatch({ name, properties });
+}
+
+/**
+ * For essential, non-tracking events only (error reporting, security
+ * alerts) — never gated by consent, matching the "essential: always on,
+ * non-tracking" tier definition. Kept as its own explicit function rather
+ * than a bypass flag on `trackEvent` so "does this need consent?" is a
+ * decision made once, at the call site, by which function is called.
+ */
+export function trackEssentialEvent(name: string, properties?: Record<string, unknown>): void {
+  dispatch({ name, properties });
 }

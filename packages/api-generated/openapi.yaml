@@ -52,6 +52,16 @@ components:
         - settled
         - cancelled
 
+    RejectionReasonCode:
+      type: string
+      description: Structured reason recorded when a pending order is rejected (#567).
+      enum:
+        - too_expensive
+        - wrong_item
+        - wrong_merchant
+        - wrong_time
+        - other
+
     LineItem:
       type: object
       required: [productId, quantity, unitPriceStroops]
@@ -99,8 +109,12 @@ components:
           type: string
           nullable: true
         rejectionReason:
+          $ref: "#/components/schemas/RejectionReasonCode"
+          nullable: true
+        rejectionNote:
           type: string
           nullable: true
+          description: Free-text detail accompanying rejectionReason.
         createdAt:
           type: string
           format: date-time
@@ -135,9 +149,13 @@ components:
     RejectOrderRequest:
       type: object
       properties:
-        reason:
+        rejectionReason:
+          $ref: "#/components/schemas/RejectionReasonCode"
+          nullable: true
+        rejectionNote:
           type: string
           nullable: true
+          description: Optional free-text detail accompanying rejectionReason.
 
 paths:
   /orders:

@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import type { Order } from "@delegolabs/types";
 import { buildOrderList, errorResponse, okResponse } from "../fixtures/orders";
+import { generateDemoWorld } from "../generateDemoWorld.mjs";
 import {
   applyFirstApproval,
   applySecondApproval,
@@ -16,11 +17,19 @@ export const DUAL_CONTROL_THRESHOLD_STROOPS = 5_000n * 10_000_000n;
 /** Mock delegation owner list authorized to countersign. */
 export const DELEGATION_OWNERS = ["wallet-owner-a", "wallet-owner-b", "wallet-owner-c"];
 
-let orders = buildOrderList(5);
+let orders =
+  process.env.NEXT_PUBLIC_SEED_DEMO === "true"
+    ? (generateDemoWorld().orders as unknown as Order[])
+    : buildOrderList(5);
 
 /** Reset in-memory fixture state between tests. */
 export function resetOrders(seedCount = 5) {
   orders = buildOrderList(seedCount);
+}
+
+/** Replace the in-memory list — used by `pnpm seed:demo` interop (#631). */
+export function seedOrders(next: Order[]) {
+  orders = next;
 }
 
 /** Upserts a single order into the fixture store — e.g. to seed a specific dual-control scenario. */
@@ -49,8 +58,16 @@ export const orderHandlers = [
    */
   http.post(`${BASE_URL}/orders/:id/approve`, async ({ params, request }) => {
     const id = params.id as string;
-    const body = (await request.json().catch(() => ({}))) as { approverAddress?: string };
+    const body = (await request.json().catch(() => ({}))) as {
+      approverAddress?: string;
+      approvalNote?: string;
+    };
     const approverAddress = body?.approverAddress;
+    // Approve-with-note (#573): persisted verbatim onto the order whenever
+    // present, independent of the dual-control branch taken below.
+    const approvalNote = body?.approvalNote
+      ? ({ approvalNote: body.approvalNote } as const)
+      : {};
 
     const existing = orders.find((o) => o.id === id);
     if (!existing) {
@@ -58,7 +75,12 @@ export const orderHandlers = [
     }
 
     if (!requiresDualControl(existing) || !approverAddress) {
-      const updated = { ...existing, status: "approved" as const, updatedAt: new Date() };
+      const updated = {
+        ...existing,
+        ...approvalNote,
+        status: "approved" as const,
+        updatedAt: new Date(),
+      };
       orders = orders.map((o) => (o.id === id ? updated : o));
       return HttpResponse.json(okResponse(updated));
     }
@@ -67,7 +89,7 @@ export const orderHandlers = [
 
     if (!existing.dualControl || existing.dualControl.status === "single") {
       const dualControl = applyFirstApproval(approverAddress, approverAddress, now, DELEGATION_OWNERS);
-      const updated: Order = { ...existing, dualControl, updatedAt: new Date() };
+      const updated: Order = { ...existing, ...approvalNote, dualControl, updatedAt: new Date() };
       orders = orders.map((o) => (o.id === id ? updated : o));
       return HttpResponse.json(okResponse(updated));
     }
@@ -81,7 +103,13 @@ export const orderHandlers = [
         );
       }
       const dualControl = applySecondApproval(existing.dualControl, approverAddress, approverAddress, now);
-      const updated: Order = { ...existing, status: "approved", dualControl, updatedAt: new Date() };
+      const updated: Order = {
+        ...existing,
+        ...approvalNote,
+        status: "approved",
+        dualControl,
+        updatedAt: new Date(),
+      };
       orders = orders.map((o) => (o.id === id ? updated : o));
       return HttpResponse.json(okResponse(updated));
     }
@@ -90,13 +118,24 @@ export const orderHandlers = [
     return HttpResponse.json(okResponse(existing));
   }),
 
-  http.post(`${BASE_URL}/orders/:id/reject`, ({ params }) => {
+  http.post(`${BASE_URL}/orders/:id/reject`, async ({ params, request }) => {
     const id = params.id as string;
     const existing = orders.find((o) => o.id === id);
     if (!existing) {
       return HttpResponse.json(errorResponse("Order not found", "not_found"), { status: 404 });
     }
-    const updated = { ...existing, status: "cancelled" as const, updatedAt: new Date() };
+    // Rejecting without a reason must keep working (#567 backward compat).
+    const body = (await request.json().catch(() => ({}))) as {
+      rejectionReason?: Order["rejectionReason"];
+      rejectionNote?: string;
+    };
+    const updated = {
+      ...existing,
+      status: "cancelled" as const,
+      rejectionReason: body.rejectionReason ?? null,
+      rejectionNote: body.rejectionNote ?? null,
+      updatedAt: new Date(),
+    };
     orders = orders.map((o) => (o.id === id ? updated : o));
     return HttpResponse.json(okResponse(updated));
   }),

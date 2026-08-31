@@ -33,6 +33,8 @@ docs/
 ├── vision.md                    # Product vision and goals
 ├── problem.md                   # Problem statement and motivation
 ├── feature-flags.md             # Feature flag system & dark-launch guide
+├── dashboard-widget-composition.md  # Suspense × ErrorBoundary widget matrix
+├── msw-mocking.md               # MSW fixtures and pnpm seed:demo
 ├── architecture/                # Technical architecture documentation
 │   └── system-design.md         # System design details
 └── grant-deliverables.md        # Grant milestone tracking

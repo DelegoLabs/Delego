@@ -7,18 +7,36 @@ import {
   DEMO_NETWORK,
 } from "../lib/demoMode";
 
-const mockIsConnected = vi.fn();
-const mockIsAllowed = vi.fn();
-const mockGetAddress = vi.fn();
-const mockGetNetwork = vi.fn();
-const mockRequestAccess = vi.fn();
+const {
+  mockIsConnected,
+  mockIsAllowed,
+  mockGetAddress,
+  mockGetNetwork,
+  mockRequestAccess,
+  mockOnAccountChange,
+  mockOnNetworkChange,
+  mockWatchWalletChanges,
+} = vi.hoisted(() => ({
+  mockIsConnected: vi.fn(),
+  mockIsAllowed: vi.fn(),
+  mockGetAddress: vi.fn(),
+  mockGetNetwork: vi.fn(),
+  mockRequestAccess: vi.fn(),
+  mockOnAccountChange: vi.fn(),
+  mockOnNetworkChange: vi.fn(),
+  mockWatchWalletChanges: vi.fn(),
+}));
 
 vi.mock("@stellar/freighter-api", () => ({
-  isConnected: (...args: unknown[]) => mockIsConnected(...args),
-  isAllowed: (...args: unknown[]) => mockIsAllowed(...args),
-  getAddress: (...args: unknown[]) => mockGetAddress(...args),
-  getNetwork: (...args: unknown[]) => mockGetNetwork(...args),
-  requestAccess: (...args: unknown[]) => mockRequestAccess(...args),
+  isConnected: mockIsConnected,
+  isAllowed: mockIsAllowed,
+  getAddress: mockGetAddress,
+  getNetwork: mockGetNetwork,
+  requestAccess: mockRequestAccess,
+  onAccountChange: mockOnAccountChange,
+  onNetworkChange: mockOnNetworkChange,
+  WatchWalletChanges: mockWatchWalletChanges,
+  default: {},
 }));
 
 describe("useWallet", () => {
@@ -29,6 +47,8 @@ describe("useWallet", () => {
     mockGetAddress.mockReset();
     mockGetNetwork.mockReset();
     mockRequestAccess.mockReset();
+    mockOnAccountChange.mockReset();
+    mockOnNetworkChange.mockReset();
   });
 
   it("reports unavailable when the extension is not installed", async () => {
@@ -212,6 +232,108 @@ describe("useWallet", () => {
 
       expect(result.current.status).toBe("connected");
       expect(result.current.address).toBe("GNEW111");
+    });
+  });
+
+  describe("event listeners and account switching", () => {
+    it("registers onAccountChange and onNetworkChange on mount and cleans up on unmount", async () => {
+      const unsubAccount = vi.fn();
+      const unsubNetwork = vi.fn();
+      mockOnAccountChange.mockReturnValue(unsubAccount);
+      mockOnNetworkChange.mockReturnValue(unsubNetwork);
+
+      mockIsConnected.mockResolvedValue({ isConnected: true });
+      mockIsAllowed.mockResolvedValue({ isAllowed: true });
+      mockGetAddress.mockResolvedValue({ address: "GABC1234567890XYZ" });
+      mockGetNetwork.mockResolvedValue({
+        network: "TESTNET",
+        networkPassphrase: "Test SDF Network ; September 2015",
+      });
+
+      const { unmount } = renderHook(() => useWallet());
+
+      await waitFor(() => expect(mockOnAccountChange).toHaveBeenCalled());
+      expect(mockOnNetworkChange).toHaveBeenCalled();
+
+      unmount();
+
+      expect(unsubAccount).toHaveBeenCalledTimes(1);
+      expect(unsubNetwork).toHaveBeenCalledTimes(1);
+    });
+
+    it("updates wallet address and surfaces subtle toast when account changes mid-session", async () => {
+      let accountCallback: ((newAddr: string) => void) | undefined;
+      mockOnAccountChange.mockImplementation(
+        (cb: (newAddr: string) => void) => {
+          accountCallback = cb;
+          return () => {};
+        }
+      );
+
+      mockIsConnected.mockResolvedValue({ isConnected: true });
+      mockIsAllowed.mockResolvedValue({ isAllowed: true });
+      mockGetAddress.mockResolvedValue({ address: "GABC1234567890XYZ" });
+      mockGetNetwork.mockResolvedValue({
+        network: "TESTNET",
+        networkPassphrase: "Test SDF Network ; September 2015",
+      });
+
+      const { result } = renderHook(() => useWallet());
+      await waitFor(() => expect(result.current.status).toBe("connected"));
+      await waitFor(() => expect(mockOnAccountChange).toHaveBeenCalled());
+      expect(result.current.address).toBe("GABC1234567890XYZ");
+      expect(result.current.toast).toBeNull();
+
+      // User switches account in Freighter extension mid-session
+      mockGetAddress.mockResolvedValue({ address: "GXYZ9876543210ABC" });
+
+      await act(async () => {
+        if (accountCallback) {
+          accountCallback("GXYZ9876543210ABC");
+        }
+      });
+
+      await waitFor(() =>
+        expect(result.current.address).toBe("GXYZ9876543210ABC")
+      );
+      expect(result.current.toast).toBe("Switched to GXYZ…0ABC");
+    });
+
+    it("updates network details when network changes mid-session", async () => {
+      let networkCallback: ((newNet: string) => void) | undefined;
+      mockOnNetworkChange.mockImplementation(
+        (cb: (newNet: string) => void) => {
+          networkCallback = cb;
+          return () => {};
+        }
+      );
+
+      mockIsConnected.mockResolvedValue({ isConnected: true });
+      mockIsAllowed.mockResolvedValue({ isAllowed: true });
+      mockGetAddress.mockResolvedValue({ address: "GABC1234567890XYZ" });
+      mockGetNetwork.mockResolvedValue({
+        network: "TESTNET",
+        networkPassphrase: "Test SDF Network ; September 2015",
+      });
+
+      const { result } = renderHook(() => useWallet());
+      await waitFor(() => expect(result.current.status).toBe("connected"));
+      await waitFor(() => expect(mockOnNetworkChange).toHaveBeenCalled());
+      expect(result.current.network).toBe("TESTNET");
+
+      // Network changes in Freighter
+      mockGetNetwork.mockResolvedValue({
+        network: "PUBLIC",
+        networkPassphrase: "Public Global SDF Network",
+      });
+
+      await act(async () => {
+        if (networkCallback) {
+          networkCallback("PUBLIC");
+        }
+      });
+
+      await waitFor(() => expect(result.current.network).toBe("PUBLIC"));
     });
   });
 

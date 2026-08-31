@@ -1,21 +1,16 @@
 "use client";
 
-import Link from "next/link";
+import { useLocale } from "next-intl";
 import type { Order } from "@delegolabs/types";
 import { Amount } from "@delegolabs/ui";
 import { useCurrency } from "../../hooks/useCurrency";
+import { useTimeFormat } from "../../hooks/useTimeFormat";
+import { formatDateTimeWithPreferences } from "../../lib/intl";
 import { OrderStatusBadge } from "./OrderStatusBadge";
+import { HoverPrefetchLink } from "../layout/HoverPrefetchLink";
 
 export interface OrderTableProps {
   orders: Order[];
-}
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 function itemCount(order: Order): number {
@@ -25,6 +20,8 @@ function itemCount(order: Order): number {
 /** Read-only table of orders. Empty/loading states are handled by the caller. */
 export function OrderTable({ orders }: OrderTableProps) {
   const { currencyId, rate } = useCurrency();
+  const locale = useLocale();
+  const { preferences: timeFormatPreferences } = useTimeFormat();
 
   return (
     <div className="comparison-table-wrapper">
@@ -43,9 +40,12 @@ export function OrderTable({ orders }: OrderTableProps) {
           {orders.map((order) => (
             <tr key={order.id}>
               <td>
-                <Link href={`/orders/${order.id}`} className="order-id" title={`View receipt for ${order.id}`}>
+                {/* Table row link, potentially many per page — prefetch on
+                    hover/intent only, not viewport, to avoid a prefetch
+                    storm as the table scrolls into view (#621). */}
+                <HoverPrefetchLink href={`/orders/${order.id}`} className="order-id" title={`View receipt for ${order.id}`}>
                   {order.id}
-                </Link>
+                </HoverPrefetchLink>
               </td>
               <td>{order.merchantId}</td>
               <td>
@@ -59,7 +59,14 @@ export function OrderTable({ orders }: OrderTableProps) {
                   xlmUsdRate={rate?.xlmUsdRate}
                 />
               </td>
-              <td>{formatDate(order.createdAt)}</td>
+              <td>
+                {formatDateTimeWithPreferences(
+                  order.createdAt,
+                  locale,
+                  timeFormatPreferences,
+                  { year: "numeric", month: "short", day: "numeric" }
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { navItems } from "./navItems";
+import { activeNavHref, navItems } from "./navItems";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 export interface MobileNavProps {
@@ -77,14 +77,13 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
         <nav>
           <ul className="nav-list">
             {navItems.map((item) => {
-              const isActive =
-                item.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(item.href);
+              const isActive = item.href === activeNavHref(pathname);
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    // Same policy as the desktop Sidebar — see #621.
+                    prefetch={true}
                     className={`nav-link${isActive ? " active" : ""}`}
                     aria-current={isActive ? "page" : undefined}
                     onClick={onClose}

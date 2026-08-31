@@ -1,19 +1,32 @@
 import { http, HttpResponse } from "msw";
-import type { CreateDelegationInput, UpdateDelegationInput } from "@delegolabs/types";
+import type {
+  CreateDelegationInput,
+  Delegation,
+  UpdateDelegationInput,
+} from "@delegolabs/types";
 import {
   buildDelegationList,
   delegationCreatedFrom,
   errorResponse,
   okResponse,
 } from "../fixtures/delegations";
+import { generateDemoWorld } from "../generateDemoWorld.mjs";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.example.com";
 
-let delegations = buildDelegationList(5);
+let delegations =
+  process.env.NEXT_PUBLIC_SEED_DEMO === "true"
+    ? (generateDemoWorld().delegations as Delegation[])
+    : buildDelegationList(5);
 
 /** Reset in-memory fixture state between tests. */
 export function resetDelegations(seedCount = 5) {
   delegations = buildDelegationList(seedCount);
+}
+
+/** Replace the in-memory list — used by `pnpm seed:demo` interop (#631). */
+export function seedDelegations(next: Delegation[]) {
+  delegations = next;
 }
 
 export const delegationHandlers = [

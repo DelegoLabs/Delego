@@ -108,6 +108,18 @@ export interface DualControlState {
   secondApproval?: ApprovalSignature;
 }
 
+/**
+ * Structured reason recorded when a pending order is rejected (#567), so
+ * agents can learn *why* an item was unsuitable instead of an unsuitable
+ * item being re-proposed indefinitely.
+ */
+export type RejectionReasonCode =
+  | "too_expensive"
+  | "wrong_item"
+  | "wrong_merchant"
+  | "wrong_time"
+  | "other";
+
 export interface Order {
   id: string;
   userId?: string;
@@ -123,8 +135,13 @@ export interface Order {
   /** @deprecated superseded by lineItems; kept for older call sites. */
   items?: OrderItem[];
   escrowContractId?: string | null;
-  rejectionReason?: string | null;
+  /** Structured reject reason (#567). Optional for backward compatibility with rejections recorded before this field existed. */
+  rejectionReason?: RejectionReasonCode | null;
+  /** Free-text detail accompanying `rejectionReason` (#567). */
+  rejectionNote?: string | null;
   dualControl?: DualControlState;
+  /** Optional note attached by the approver at approval time (#573). */
+  approvalNote?: string | null;
   createdAt: Date | string;
   updatedAt?: Date | string;
 }
@@ -156,6 +173,23 @@ export interface CancellationGrace {
   /** ISO-8601 timestamp of "now" as seen by the server when it issued this state. */
   serverTimestamp: string;
   cancelledBy?: string;
+}
+
+/**
+ * Server-issued data-erasure request state (#610) — full server-side account
+ * erasure, distinct from the immediate/local-only "clear local data" tier
+ * (which never touches the server and has no request lifecycle). Modeled on
+ * `CancellationGrace`: the client never marks a request cancelled or
+ * finalized on its own — `status` always reflects the server's last answer.
+ */
+export interface ErasureRequest {
+  /** ISO-8601 timestamp the erasure request was logged. */
+  requestedAt: string;
+  /** ISO-8601 timestamp — the server-authoritative date erasure finalizes if not cancelled. */
+  finalizesAt: string;
+  /** ISO-8601 timestamp of "now" as seen by the server when it issued this state. */
+  serverTimestamp: string;
+  status: "pending" | "cancelled" | "finalized";
 }
 
 export interface Escrow {
@@ -233,4 +267,4 @@ export interface ApiResponse<T> {
   error: ApiError | null;
 }
 
-export * from "./schemas";
+export * from "./schemas.js";

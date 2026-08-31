@@ -19,7 +19,8 @@
     "visual:update": "playwright test --project=visual --project=visual-mobile --update-snapshots",
     "analyze": "ANALYZE=true pnpm build",
     "check:perf-budget": "node scripts/check-perf-budget.mjs",
-    "check:help-links": "node scripts/check-help-links.mjs"
+    "check:help-links": "node scripts/check-help-links.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@delegolabs/api-generated": "workspace:*",
@@ -27,6 +28,7 @@
     "@delegolabs/ui": "workspace:*",
     "@sentry/nextjs": "^8.47.0",
     "@stellar/freighter-api": "^6.0.1",
+    "@stellar/stellar-sdk": "^13.1.0",
     "next": "^15.1.0",
     "next-intl": "^3.26.0",
     "qrcode": "^1.5.3",

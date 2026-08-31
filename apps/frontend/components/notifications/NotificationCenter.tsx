@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useLocale } from "next-intl";
 import type {
   AppNotification,
   NotificationType,
@@ -12,6 +12,8 @@ import {
   groupNotifications,
   type NotificationStack,
 } from "../../lib/notificationThreading";
+import { HoverPrefetchLink } from "../layout/HoverPrefetchLink";
+import { formatRelativeTime } from "../../lib/intl";
 
 const TYPE_ICON: Record<NotificationType, string> = {
   info: "ℹ️",
@@ -20,19 +22,6 @@ const TYPE_ICON: Record<NotificationType, string> = {
   error: "⛔",
 };
 
-function formatRelativeTime(timestamp: number): string {
-  const diffMs = Date.now() - timestamp;
-  const diffSec = Math.round(diffMs / 1000);
-  if (diffSec < 60) return "just now";
-  const diffMin = Math.round(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.round(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d ago`;
-  return new Date(timestamp).toLocaleDateString();
-}
-
 interface NotificationItemProps {
   notification: AppNotification;
   onClose: () => void;
@@ -40,6 +29,7 @@ interface NotificationItemProps {
 
 function NotificationItem({ notification, onClose }: NotificationItemProps) {
   const { markAsRead, remove } = useNotifications();
+  const locale = useLocale();
 
   function handleActivate() {
     if (typeof markAsRead === "function") markAsRead(notification.id);
@@ -59,7 +49,7 @@ function NotificationItem({ notification, onClose }: NotificationItemProps) {
           </span>
         )}
         <span className="notification-item-time">
-          {formatRelativeTime(notification.createdAt)}
+          {formatRelativeTime(new Date(notification.createdAt), locale)}
         </span>
       </span>
     </>
@@ -71,13 +61,16 @@ function NotificationItem({ notification, onClose }: NotificationItemProps) {
       data-type={notification.type}
     >
       {notification.href ? (
-        <Link
+        // Approval deep-link (#621): hover/focus-intent prefetch, not
+        // viewport — the panel can list many items, and only a few are
+        // ever opened per visit.
+        <HoverPrefetchLink
           href={notification.href}
           className="notification-item-main"
           onClick={handleActivate}
         >
           {body}
-        </Link>
+        </HoverPrefetchLink>
       ) : (
         <button
           type="button"
@@ -158,13 +151,13 @@ function NotificationStackItem({ stack, onClose }: NotificationStackItemProps) {
               Mark read
             </button>
           )}
-          <Link
+          <HoverPrefetchLink
             href={`/delegations/${stack.delegationId}`}
             onClick={onClose}
             className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
           >
             View detail
-          </Link>
+          </HoverPrefetchLink>
         </div>
       </div>
 

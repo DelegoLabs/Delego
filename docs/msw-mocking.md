@@ -38,6 +38,20 @@ it("shows the empty state", async () => {
 
 Set `NEXT_PUBLIC_MOCK_API=true` in `.env.local` to run the app against these fixtures without a backend gateway. `components/providers/MockApiProvider.tsx` starts the MSW browser worker before rendering the app shell.
 
+## Seeded demo world (`pnpm seed:demo`)
+
+`mocks/generateDemoWorld.mjs` produces a deterministic coherent dataset (3 agents, 6 delegations across every lifecycle status, 40 orders spread over 60 days, escrows in each status, notifications, one dispute). Two exports are byte-identical.
+
+```bash
+pnpm seed:demo --export                  # writes mocks/fixtures/demo-world.json
+pnpm seed:demo --export ./tmp/world.json
+pnpm seed:demo --mock                    # NEXT_PUBLIC_MOCK_API=true NEXT_PUBLIC_SEED_DEMO=true
+```
+
+`--mock` boots `pnpm --filter @delegolabs/web dev` with the world loaded into the in-memory MSW stores (`applyDemoWorld` in `mocks/handlers/applyDemoWorld.ts`). Empty / loading / error list matrices stay on the existing handler variants (`delegationHandlersEmpty`, etc.) — they are UI states, not rows in the world.
+
+The snapshot is also imported by `mocks/demoWorld.test.ts` to prove it is consumable by the existing handler suite.
+
 ## Known gap
 
 `@delegolabs/sdk` is a private package (GitHub Packages) not available in this environment, so exact REST paths/verbs for mutation endpoints (`PATCH /delegations/:id`, `POST /orders/:id/approve`, etc.) are inferred from `apps/frontend/hooks/*.ts` call sites and `lib/api.test.ts`'s confirmed `GET {baseUrl}/health` convention, not verified against the SDK source. If a handler path doesn't match production, update it here — this doc and the handler are the two places to fix.

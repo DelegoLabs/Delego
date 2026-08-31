@@ -10,7 +10,12 @@ import { useNetwork } from "../../../hooks/useNetwork";
 import { EscrowCard } from "../../../components/escrows/EscrowCard";
 import { DisputeModal } from "../../../components/escrows/DisputeModal";
 import { DisputeStatusPanel } from "../../../components/escrows/DisputeStatusPanel";
-import { getConfiguredContracts, explorerContractUrl } from "../../../lib/contracts";
+import { OnChainVerificationPanel } from "../../../components/escrows/OnChainVerificationPanel";
+import {
+  getConfiguredContracts,
+  explorerContractUrl,
+} from "../../../lib/contracts";
+import { escrowKey } from "../../../lib/escrows";
 
 /** Escrow detail page — dispute lifecycle and contract explorer link for a single escrow. */
 export default function EscrowDetailPage() {
@@ -48,7 +53,7 @@ export default function EscrowDetailPage() {
           <p>
             No escrow could be found with ID <code>{escrowId}</code>.
           </p>
-          <Link href="/escrows">
+          <Link href="/escrows" prefetch={true}>
             <Button variant="primary">← Back to Escrows</Button>
           </Link>
         </Card>
@@ -56,17 +61,23 @@ export default function EscrowDetailPage() {
     );
   }
 
-  const escrowContract = getConfiguredContracts(networkId).find((c) => c.name === "escrow");
+  const escrowContract = getConfiguredContracts(networkId).find(
+    (c) => c.name === "escrow"
+  );
   const showDisputeCta = canOpen(escrow.status);
   const showDisputeStatus = dispute !== null || optimisticallyDisputed;
 
   return (
     <div className="settings-page">
-      <Link href="/escrows" className="receipt-back-link">
+      {/* Single, low-cost link — viewport prefetch is fine (#621). */}
+      <Link href="/escrows" prefetch={true} className="receipt-back-link">
         ← Back to Escrows
       </Link>
 
-      <EscrowCard escrow={escrow} disputedOverride={optimisticallyDisputed && !dispute} />
+      <EscrowCard
+        escrow={escrow}
+        disputedOverride={optimisticallyDisputed && !dispute}
+      />
 
       <div className="form-actions">
         {showDisputeCta && (
@@ -79,7 +90,10 @@ export default function EscrowDetailPage() {
             variant="ghost"
             onClick={() =>
               window.open(
-                explorerContractUrl(networkId, escrowContract.address as string),
+                explorerContractUrl(
+                  networkId,
+                  escrowContract.address as string
+                ),
                 "_blank",
                 "noopener,noreferrer"
               )
@@ -88,15 +102,57 @@ export default function EscrowDetailPage() {
             View contract
           </Button>
         ) : (
-          <Button variant="ghost" disabled title="Escrow contract not configured for this network">
+          <Button
+            variant="ghost"
+            disabled
+            title="Escrow contract not configured for this network"
+          >
             View contract
           </Button>
         )}
       </div>
 
       {showDisputeStatus && (
-        <DisputeStatusPanel escrow={escrow} dispute={dispute} optimistic={optimisticallyDisputed && !dispute} />
+        <DisputeStatusPanel
+          escrow={escrow}
+          dispute={dispute}
+          optimistic={optimisticallyDisputed && !dispute}
+        />
       )}
+
+      <OnChainVerificationPanel
+        kind="buyer"
+        receiptKey={escrowKey(escrow)}
+        contractAddress={
+          escrowContract?.addressValid
+            ? (escrowContract.address as string)
+            : null
+        }
+        localData={{
+          buyer: escrow.buyer,
+          seller: escrow.seller,
+          amount: String(escrow.amount),
+        }}
+        compareFields={["buyer", "seller", "amount"]}
+        fieldLabels={{ buyer: "Buyer", seller: "Seller", amount: "Amount" }}
+      />
+
+      <OnChainVerificationPanel
+        kind="merchant"
+        receiptKey={escrowKey(escrow)}
+        contractAddress={
+          escrowContract?.addressValid
+            ? (escrowContract.address as string)
+            : null
+        }
+        localData={{
+          buyer: escrow.buyer,
+          seller: escrow.seller,
+          amount: String(escrow.amount),
+        }}
+        compareFields={["buyer", "seller", "amount"]}
+        fieldLabels={{ buyer: "Buyer", seller: "Seller", amount: "Amount" }}
+      />
 
       <DisputeModal
         isOpen={showDisputeModal}

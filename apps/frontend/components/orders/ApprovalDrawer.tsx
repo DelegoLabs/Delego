@@ -1,15 +1,30 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { Button } from "@delegolabs/ui";
-import type { Order } from "@delegolabs/types";
+import type { Order, RejectionReasonCode } from "@delegolabs/types";
 import { formatXlm } from "../../lib/orders";
+import { REJECTION_REASON_OPTIONS } from "../../lib/rejectionReasons";
 import type { OrderExplainability } from "../../lib/approvalExplainability";
+import {
+  assessPriceAdvisory,
+  readPriceAdvisoryAck,
+  writePriceAdvisoryAck,
+} from "../../lib/priceAdvisory";
 import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
+import { PriceAdvisoryStrip } from "./PriceAdvisoryStrip";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useAnnounce } from "../../hooks/useAnnounce";
 import { DelegationTagBadge } from "../delegations/public";
 import { useDelegationTags } from "../../hooks/useDelegationTags";
+import { useDataSaver } from "../../hooks/useDataSaver";
+import { useWallet } from "../../hooks/useWallet";
+import { useApprovalNoteCapability } from "../../hooks/useApprovalNoteCapability";
+import { submitApproval } from "../../services/approvals";
+import { setLocalApprovalNote } from "../../lib/localApprovalNotes";
+import { ApprovalNoteField, APPROVAL_NOTE_MAX_LENGTH } from "./ApprovalNoteField";
+import { ApprovalNoteDisplay } from "./ApprovalNoteDisplay";
 
 export interface ApprovalDrawerProps {
   order: Order | null;
@@ -21,7 +36,12 @@ export interface ApprovalDrawerProps {
    */
   explainability?: OrderExplainability;
   onApprove: (id: string) => void | Promise<unknown>;
-  onReject: (id: string, reason?: string) => void | Promise<unknown>;
+  onReject: (
+    id: string,
+    reason?: string,
+    /** Structured reason code (#567); optional for callers that don't collect one. */
+    reasonCode?: RejectionReasonCode
+  ) => void | Promise<unknown>;
   onClose: () => void;
 }
 
@@ -44,8 +64,62 @@ export function ApprovalDrawer({
   const { announce } = useAnnounce();
   const { getTag } = useDelegationTags();
   const tag = order ? getTag(order.delegationId) : undefined;
+  const [note, setNote] = useState("");
+  const { address: walletAddress } = useWallet();
+  // Approve-with-note (#573): see ApprovalCard for the capability-detection
+  // rationale — false means the note is kept local-only rather than sent.
+  const approvalNoteSupported = useApprovalNoteCapability();
+
+  const [showReasonPicker, setShowReasonPicker] = useState(false);
+  const [reasonCode, setReasonCode] = useState<RejectionReasonCode | "">("");
+  const [reasonNote, setReasonNote] = useState("");
+
+  // Tracks which line-item images failed to load (#622) — merchant image
+  // URLs are arbitrary, unwhitelisted hosts (see OrderExplainability's
+  // doc comment), so a single unreachable/broken CDN must not break the
+  // rest of the list. Keyed by productId since this is a per-row concern.
+  const [brokenImageProductIds, setBrokenImageProductIds] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  // Reduced mode (#623): images render as a tap-to-load placeholder instead
+  // of fetching immediately, so a metered/slow connection doesn't pay for
+  // every line-item image up front. Per-product so tapping one image
+  // doesn't reveal every other placeholder too.
+  const { reducedModeActive } = useDataSaver();
+  const [revealedImageProductIds, setRevealedImageProductIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
   useFocusTrap(panelRef, isOpen);
+
+  // Price advisory (#571): summarize the payload's comparable-range hints, if
+  // any, into one non-blocking strip. Never fabricated — `null` when the
+  // payload carries no hints.
+  const priceAdvisory = useMemo(
+    () =>
+      assessPriceAdvisory(
+        order?.lineItems ?? [],
+        explainability?.priceRangeByProductId
+      ),
+    [order, explainability]
+  );
+  const [priceAckd, setPriceAckd] = useState(false);
+  // Rehydrate the per-session acknowledgement whenever a new order opens.
+  useEffect(() => {
+    if (order) setPriceAckd(readPriceAdvisoryAck());
+  }, [order]);
+  const handlePriceAckChange = (next: boolean) => {
+    setPriceAckd(next);
+    if (next) writePriceAdvisoryAck();
+  };
+  const approveBlockedByPrice =
+    priceAdvisory?.level === "above" && !priceAckd;
+
+  // Reset the draft note whenever the drawer is opened for a different order.
+  useEffect(() => {
+    setNote("");
+  }, [order?.id]);
 
   useEffect(() => {
     if (!order) return;
@@ -59,8 +133,15 @@ export function ApprovalDrawer({
   if (!order) return null;
 
   const handleApprove = async () => {
+    const trimmedNote = note.trim();
     try {
-      await onApprove(order.id);
+      if (trimmedNote && approvalNoteSupported) {
+        const res = await submitApproval(order.id, walletAddress ?? "", trimmedNote);
+        if (res.error) throw new Error(res.error.message);
+      } else {
+        await onApprove(order.id);
+        if (trimmedNote) setLocalApprovalNote(order.id, trimmedNote);
+      }
       announce(`Order ${order.id} approved.`, "polite");
       onClose();
     } catch {
@@ -70,7 +151,7 @@ export function ApprovalDrawer({
 
   const handleReject = async () => {
     try {
-      await onReject(order.id);
+      await onReject(order.id, reasonNote.trim() || undefined, reasonCode || undefined);
       announce(`Order ${order.id} rejected.`, "polite");
       onClose();
     } catch {
@@ -126,6 +207,16 @@ export function ApprovalDrawer({
             </div>
           )}
         </dl>
+
+        {priceAdvisory && (
+          <PriceAdvisoryStrip
+            advisory={priceAdvisory}
+            acknowledged={priceAckd}
+            onAcknowledgedChange={handlePriceAckChange}
+          />
+        )}
+
+        <ApprovalNoteDisplay note={order.approvalNote} orderId={order.id} />
 
         {order.dualControl?.required && (
           <section
@@ -189,21 +280,61 @@ export function ApprovalDrawer({
             </thead>
             <tbody>
               {order.lineItems.map((item) => {
-                const range = priceRangeByProductId?.[item.productId];
-                const imageUrl = imageUrlByProductId?.[item.productId];
+                const productId = item.productId ?? "";
+                const range = priceRangeByProductId?.[productId];
+                const imageUrl = imageUrlByProductId?.[productId];
+                const imageBroken = brokenImageProductIds.has(productId);
+                const imageRevealed =
+                  !reducedModeActive || revealedImageProductIds.has(productId);
                 return (
-                  <tr key={item.productId}>
+                  <tr key={productId}>
                     <td>
                       <div className="approval-line-item-product">
-                        {imageUrl && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                        {imageUrl && !imageBroken && imageRevealed ? (
+                          <Image
                             src={imageUrl}
                             alt=""
+                            width={32}
+                            height={32}
                             className="approval-line-item-image"
+                            // Item images come from arbitrary, unwhitelisted
+                            // merchant sources (#622) — next/image's
+                            // remotePatterns optimizer can't cover a host
+                            // list that isn't known ahead of time, so this
+                            // is unoptimized on purpose. We still get
+                            // explicit dimensions (zero CLS contribution)
+                            // and onError, which is the actual point here.
+                            unoptimized
+                            onError={() =>
+                              setBrokenImageProductIds((prev) => {
+                                const next = new Set(prev);
+                                next.add(productId);
+                                return next;
+                              })
+                            }
                           />
-                        )}
-                        <span>{item.productId}</span>
+                        ) : imageUrl && !imageBroken ? (
+                          <button
+                            type="button"
+                            className="approval-line-item-image approval-line-item-image-placeholder"
+                            onClick={() =>
+                              setRevealedImageProductIds((prev) => {
+                                const next = new Set(prev);
+                                next.add(productId);
+                                return next;
+                              })
+                            }
+                            aria-label={`Load image for ${productId}`}
+                            title="Data saver is on — tap to load this image"
+                          />
+                        ) : imageUrl ? (
+                          <div
+                            className="approval-line-item-image approval-line-item-image-fallback"
+                            role="img"
+                            aria-label={`Image unavailable for ${productId}`}
+                          />
+                        ) : null}
+                        <span>{productId}</span>
                       </div>
                     </td>
                     <td>{item.quantity}</td>
@@ -263,8 +394,65 @@ export function ApprovalDrawer({
           </section>
         )}
 
+        {showReasonPicker ? (
+          <div className="approval-reject-reason-picker">
+            <label htmlFor="drawer-reject-reason-code" className="sr-only">
+              Reason for rejection
+            </label>
+            <select
+              id="drawer-reject-reason-code"
+              className="order-search"
+              value={reasonCode}
+              onChange={(e) => setReasonCode(e.target.value as RejectionReasonCode | "")}
+              disabled={pending}
+            >
+              <option value="">Select a reason…</option>
+              {REJECTION_REASON_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="drawer-reject-reason-note" className="sr-only">
+              Additional detail (optional)
+            </label>
+            <input
+              id="drawer-reject-reason-note"
+              type="text"
+              className="order-search"
+              placeholder="Additional detail (optional)"
+              value={reasonNote}
+              onChange={(e) => setReasonNote(e.target.value)}
+              disabled={pending}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="approval-reject-add-reason"
+            onClick={() => setShowReasonPicker(true)}
+            disabled={pending}
+          >
+            + Add reason
+          </button>
+        )}
+
+        <ApprovalNoteField
+          id={`approval-drawer-note-${order.id}`}
+          value={note}
+          onChange={setNote}
+          disabled={pending}
+          variant="textarea"
+        />
+
         <div className="form-actions">
-          <Button variant="primary" onClick={handleApprove} disabled={pending}>
+          <Button
+            variant="primary"
+            onClick={handleApprove}
+            disabled={
+              pending || approveBlockedByPrice || note.length > APPROVAL_NOTE_MAX_LENGTH
+            }
+          >
             Approve
           </Button>
           <Button variant="ghost" onClick={handleReject} disabled={pending}>

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /** Visual treatment for a timeline event. */
-export type ActivityTone = "success" | "pending" | "failed" | "refunded";
+export type ActivityTone = "success" | "pending" | "failed" | "refunded" | "note";
 
 /** A single normalized event rendered as one step in the timeline. */
 export interface ActivityTimelineEvent {
@@ -12,6 +12,12 @@ export interface ActivityTimelineEvent {
   timestamp: Date;
   icon?: ReactNode;
   tone?: ActivityTone;
+  /**
+   * Optional rich content rendered under the timestamp for this entry — e.g.
+   * a "View proof" expander for delivery evidence (#579). Kept as an opaque
+   * node so the shared component stays presentation-only.
+   */
+  detail?: ReactNode;
 }
 
 export interface ActivityTimelineProps {
@@ -27,6 +33,8 @@ const toneStyles: Record<ActivityTone, { dot: string; text: string }> = {
   pending: { dot: "#2563eb", text: "#1e40af" },
   failed: { dot: "#dc2626", text: "#991b1b" },
   refunded: { dot: "#d97706", text: "#92400e" },
+  /** Approve-with-note (#573): distinct treatment for a note attached to a decision. */
+  note: { dot: "#6b7280", text: "#374151" },
 };
 
 function formatRelativeTime(timestamp: Date, now: Date = new Date()): string {
@@ -115,6 +123,9 @@ export function ActivityTimeline({
               >
                 {formatRelativeTime(event.timestamp)}
               </time>
+              {event.detail != null && (
+                <div style={{ marginTop: "0.375rem" }}>{event.detail}</div>
+              )}
             </div>
           </li>
         );

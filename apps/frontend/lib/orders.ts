@@ -1,5 +1,9 @@
 import type { Order, OrderStatus } from "@delegolabs/types";
-import { formatAmount, type FormatAmountContext } from "@delegolabs/ui";
+import {
+  formatAmount,
+  type FormatAmountContext,
+  type ActivityTimelineEvent,
+} from "@delegolabs/ui";
 
 /**
  * Pure helpers for working with orders in the web app: formatting, filtering,
@@ -222,7 +226,10 @@ export function orderToTimelineEvents(order: Order): ActivityTimelineEvent[] {
     ];
   }
 
-  return ORDER_LIFECYCLE.slice(0, currentIndex + 1).map((step, index) => {
+  const lifecycleEvents: ActivityTimelineEvent[] = ORDER_LIFECYCLE.slice(
+    0,
+    currentIndex + 1
+  ).map((step, index) => {
     const isCurrent = index === currentIndex;
     return {
       id: `${order.id}-${step}`,
@@ -232,4 +239,21 @@ export function orderToTimelineEvents(order: Order): ActivityTimelineEvent[] {
       tone: isCurrent && !isTerminal(order) ? "pending" : "success",
     };
   });
+
+  // Approve-with-note (#573): surfaced as its own step, right after the
+  // approval it belongs to, with a distinct "note" tone rather than folded
+  // into the approval event's description.
+  if (order.approvalNote) {
+    lifecycleEvents.push({
+      id: `${order.id}-approval-note`,
+      type: "approval_note",
+      title: "Note added",
+      description: order.approvalNote,
+      timestamp: order.updatedAt,
+      tone: "note",
+      icon: "📝",
+    });
+  }
+
+  return lifecycleEvents;
 }

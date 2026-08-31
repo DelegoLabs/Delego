@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ActivityTimeline, Amount, Button, Card } from "@delegolabs/ui";
 import type { ActivityTimelineEvent } from "@delegolabs/ui";
+import { rejectionReasonLabel } from "../../../lib/rejectionReasons";
 import { useDelegations } from "../../../hooks/useDelegations";
 import { useOrders } from "../../../hooks/useOrders";
 import { useEscrows } from "../../../hooks/useEscrows";
@@ -67,7 +68,7 @@ export default function DelegationDetailPage() {
             <p style={{ color: "var(--color-text-muted, #6b7280)", marginBottom: "1.5rem" }}>
               No delegation could be found with ID <code style={{ backgroundColor: "#f3f4f6", padding: "0.25rem 0.5rem", borderRadius: "0.25rem" }}>{delegationId}</code>.
             </p>
-            <Link href="/delegations">
+            <Link href="/delegations" prefetch={true}>
               <Button variant="primary">← Back to Delegations</Button>
             </Link>
           </div>
@@ -127,21 +128,30 @@ export default function DelegationDetailPage() {
           },
         ]
       : []),
-    ...delegationOrders.map((order) => ({
-      id: `evt-order-${order.id}`,
-      type: "order_placed",
-      title: `Order #${order.id.slice(-6)} - ${order.merchantName}`,
-      description: `Amount: ${order.amount} XLM | Status: ${order.status}`,
-      timestamp: new Date(order.createdAt),
-      tone: (order.status === "completed" ? "success" : order.status === "failed" ? "failed" : "pending") as ActivityTimelineEvent["tone"],
-    })),
+    ...delegationOrders.map((order) => {
+      const rejectionLabel = rejectionReasonLabel(order.rejectionReason);
+      const rejectionDetail = [rejectionLabel, order.rejectionNote]
+        .filter(Boolean)
+        .join(": ");
+      return {
+        id: `evt-order-${order.id}`,
+        type: "order_placed",
+        title: `Order #${order.id.slice(-6)} - ${order.merchantName}`,
+        description: `Amount: ${order.amount} XLM | Status: ${order.status}${
+          rejectionDetail ? ` | Reason: ${rejectionDetail}` : ""
+        }`,
+        timestamp: new Date(order.createdAt),
+        tone: (order.status === "completed" ? "success" : order.status === "failed" ? "failed" : "pending") as ActivityTimelineEvent["tone"],
+      };
+    }),
   ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
   return (
     <div className="settings-page" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       {/* Header Breadcrumb */}
       <div>
-        <Link href="/delegations" style={{ fontSize: "0.875rem", color: "var(--color-primary, #2563eb)", fontWeight: 500 }}>
+        {/* Single, low-cost link — viewport prefetch is fine (#621). */}
+        <Link href="/delegations" prefetch={true} style={{ fontSize: "0.875rem", color: "var(--color-primary, #2563eb)", fontWeight: 500 }}>
           ← Back to Delegations
         </Link>
       </div>

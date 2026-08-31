@@ -12,9 +12,15 @@ import {
 } from "../../components/settings/PreferencesForm";
 import { NotificationSettingsCard } from "../../components/notifications/NotificationSettingsCard";
 import { AccessibilitySettingsCard } from "../../components/settings/AccessibilitySettingsCard";
+import { DataSaverSettingsCard } from "../../components/settings/DataSaverSettingsCard";
 import { LanguageSwitcher } from "../../components/settings/LanguageSwitcher";
 import { CurrencySwitcher } from "../../components/settings/CurrencySwitcher";
+import { TimeFormatSwitcher } from "../../components/settings/TimeFormatSwitcher";
 import { NetworkContractsCard } from "../../components/settings/NetworkContractsCard";
+import { OfflineDataCard } from "../../components/settings/OfflineDataCard";
+import { PrivacyExportCard } from "../../components/settings/PrivacyExportCard";
+import { DataErasureCard } from "../../components/settings/DataErasureCard";
+import { ConsentSettingsCard } from "../../components/settings/ConsentSettingsCard";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -67,11 +73,17 @@ export default function SettingsPage() {
         preferences={preferences}
         onSave={handleSavePreferences}
       />
+      <OfflineDataCard />
       <AccessibilitySettingsCard />
+      <DataSaverSettingsCard />
       <NotificationSettingsCard />
       <LanguageSwitcher />
       <CurrencySwitcher />
+      <TimeFormatSwitcher />
       <NetworkContractsCard />
+      <ConsentSettingsCard />
+      <PrivacyExportCard user={user} preferences={preferences} />
+      <DataErasureCard />
     </div>
   );
 }

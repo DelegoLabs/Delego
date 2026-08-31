@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Order } from "@delegolabs/types";
+import type { Order, RejectionReasonCode } from "@delegolabs/types";
 import { api } from "../lib/api";
 import {
   adaptOrders,
@@ -15,6 +15,12 @@ import {
   subscribeToQueue,
   type QueuedMutation,
 } from "../lib/offlineQueue";
+import {
+  FAMILY_CONFIG,
+  isRecordStale,
+  peekReadModel,
+  writeReadModel,
+} from "../lib/readModelCache";
 
 /**
  * Fetch (and optionally poll) the current user's orders from the Delego API,
@@ -38,6 +44,9 @@ export interface UseOrdersResult {
   orders: Order[];
   loading: boolean;
   error: string | null;
+  stale: boolean;
+  cachedAt: number | null;
+  ttlMs: number;
   /** Timestamp of the last successful fetch, or null before the first load. */
   lastUpdated: Date | null;
   /** Order IDs with an in-flight approve/reject mutation. */
@@ -48,7 +57,11 @@ export interface UseOrdersResult {
   conflictMutations: QueuedMutation[];
   refresh: () => Promise<void>;
   approveOrder: (id: string) => Promise<Order | null>;
-  rejectOrder: (id: string, reason?: string) => Promise<Order | null>;
+  rejectOrder: (
+    id: string,
+    reason?: string,
+    reasonCode?: RejectionReasonCode
+  ) => Promise<Order | null>;
 }
 
 export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
@@ -56,6 +69,8 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [queuedMutations, setQueuedMutations] = useState<QueuedMutation[]>([]);
@@ -104,23 +119,39 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
   }, []);
 
   const load = useCallback(async (signal?: AbortSignal) => {
+    const cached = await peekReadModel<Order[]>("orders", "list");
+    if (signal?.aborted || !mountedRef.current) return;
+    if (cached && Array.isArray(cached.payload)) {
+      setOrders(cached.payload);
+      setCachedAt(cached.cachedAt);
+      setStale(isRecordStale(cached, Date.now()));
+      setLoading(false);
+    }
     try {
       // Typed against the generated ListOrdersResponse from the OpenAPI spec.
       const res = (await api.getOrders({ signal })) as ListOrdersResponse;
       if (signal?.aborted || !mountedRef.current) return;
       if (res.error) {
         setError(res.error.message);
+        setStale(true);
       } else if (!Array.isArray(res.data)) {
         setError("Invalid response format");
       } else {
         // Adapt generated API order shape → domain order shape (Date, bigint).
-        setOrders(adaptOrders(res.data));
+        const adapted = adaptOrders(res.data);
+        setOrders(adapted);
         setLastUpdated(new Date());
         setError(null);
+        setStale(false);
+        const record = await writeReadModel("orders", "list", adapted);
+        setCachedAt(record.cachedAt);
       }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") return;
-      if (mountedRef.current) setError("Failed to fetch orders");
+      if (mountedRef.current) {
+        setError("Failed to fetch orders");
+        setStale(true);
+      }
     } finally {
       if (!signal?.aborted && mountedRef.current) setLoading(false);
     }
@@ -192,10 +223,14 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
   );
 
   const rejectOrder = useCallback(
-    async (id: string, reason?: string): Promise<Order | null> => {
+    async (
+      id: string,
+      reason?: string,
+      reasonCode?: RejectionReasonCode
+    ): Promise<Order | null> => {
       // Offline queue check (#618)
       if (typeof navigator !== "undefined" && !navigator.onLine) {
-        await enqueueMutation("reject_order", id, { reason });
+        await enqueueMutation("reject_order", id, { reason, reasonCode });
         setOrders((prev) =>
           prev.map((o) => (o.id === id ? { ...o, status: "rejected" } : o))
         );
@@ -205,7 +240,7 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
       setPending(id, true);
       setError(null);
       try {
-        const res = (await api.rejectOrder(id, reason)) as RejectOrderResponse;
+        const res = (await api.rejectOrder(id, reason, reasonCode)) as RejectOrderResponse;
         if (res.error) {
           setError(res.error.message);
           return null;
@@ -220,7 +255,7 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
         return null;
       } catch {
         // Fallback offline queue on network exception
-        await enqueueMutation("reject_order", id, { reason });
+        await enqueueMutation("reject_order", id, { reason, reasonCode });
         setOrders((prev) =>
           prev.map((o) => (o.id === id ? { ...o, status: "rejected" } : o))
         );
@@ -236,6 +271,9 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
     orders,
     loading,
     error,
+    stale,
+    cachedAt,
+    ttlMs: FAMILY_CONFIG.orders.ttlMs,
     lastUpdated,
     pendingIds,
     pendingOfflineIds,

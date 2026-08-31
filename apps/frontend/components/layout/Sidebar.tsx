@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { navItems } from "./navItems";
+import { activeNavHref, navItems } from "./navItems";
 import { useTour } from "../tour/TourProvider";
+import { useDataSaver } from "../../hooks/useDataSaver";
 
 /**
  * Desktop sidebar navigation.
@@ -16,6 +17,7 @@ export function Sidebar() {
   const t = useTranslations("nav");
   const tApp = useTranslations("app");
   const { start } = useTour();
+  const { reducedModeActive } = useDataSaver();
 
   return (
     <aside className="sidebar" aria-label={t("primaryNavigation")}>
@@ -23,17 +25,19 @@ export function Sidebar() {
       <nav>
         <ul className="nav-list">
           {navItems.map((item) => {
-            const isActive =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
+            const isActive = item.href === activeNavHref(pathname);
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  // Primary nav: a small, fixed set of always-visible
+                  // destinations, so eager viewport prefetch is worth the
+                  // bandwidth (docs/architecture/prefetch-policy.md, #621).
+                  prefetch={true}
                   className={`nav-link${isActive ? " active" : ""}`}
                   aria-current={isActive ? "page" : undefined}
                   data-nav={item.labelKey}
+                  prefetch={reducedModeActive ? false : undefined}
                 >
                   <span className="nav-icon" aria-hidden="true">
                     {item.icon}
