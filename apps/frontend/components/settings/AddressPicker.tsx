@@ -120,6 +120,7 @@ export function AddressPicker({
           ref={inputRef}
           id={id}
           type="text"
+          role="combobox"
           className="address-picker-input"
           value={query}
           placeholder={placeholder}

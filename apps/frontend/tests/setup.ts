@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import "@testing-library/jest-dom";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { server } from "../mocks/server";

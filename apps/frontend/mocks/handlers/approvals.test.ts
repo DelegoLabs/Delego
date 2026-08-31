@@ -1,12 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { http, HttpResponse } from "msw";
-import { server } from "../server";
+import { describe, it, expect, beforeEach } from "vitest";
 import { seedOrder, resetOrders, DELEGATION_OWNERS } from "./orders";
 import { buildDualControlOrder, capabilitiesHandlersDisabled, capabilitiesHandlersUnavailable } from "./approvals";
 import { submitApproval } from "../../services/approvals";
 import { detectDualControlCapability } from "../../services/payments";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.example.com";
 
 describe("dual-control approvals — two-approver MSW journey (#574)", () => {
   beforeEach(() => {

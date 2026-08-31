@@ -175,18 +175,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   );
 
   // Try to useAnnounce safely if provider present
-  let announceFn: (
-    msg: string,
-    politeness?: "polite" | "assertive"
-  ) => void = () => {};
+  let rawAnnounce: ((msg: string, politeness?: "polite" | "assertive") => void) | undefined;
   try {
     const announceCtx = useAnnounce();
     if (announceCtx?.announce) {
-      announceFn = announceCtx.announce;
+      rawAnnounce = announceCtx.announce;
     }
   } catch {
     // AnnounceProvider not present in some isolated tests
   }
+
+  const announceFn = useCallback((msg: string, politeness?: "polite" | "assertive") => {
+    if (rawAnnounce) rawAnnounce(msg, politeness);
+  }, [rawAnnounce]);
 
   // Initial load
   useEffect(() => {

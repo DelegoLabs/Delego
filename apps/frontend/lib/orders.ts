@@ -76,7 +76,7 @@ export function isHighValue(
   order: Order,
   threshold: bigint = HIGH_VALUE_THRESHOLD_STROOPS
 ): boolean {
-  return order.totalStroops >= threshold;
+  return (order.totalStroops ?? 0n) >= threshold;
 }
 
 /**
@@ -112,13 +112,13 @@ export function filterOrders(orders: Order[], filters: OrderFilters): Order[] {
     }
     if (
       filters.minTotalStroops !== undefined &&
-      order.totalStroops < filters.minTotalStroops
+      (order.totalStroops ?? 0n) < filters.minTotalStroops
     ) {
       return false;
     }
     if (
       filters.maxTotalStroops !== undefined &&
-      order.totalStroops > filters.maxTotalStroops
+      (order.totalStroops ?? 0n) > filters.maxTotalStroops
     ) {
       return false;
     }
@@ -147,14 +147,13 @@ export function sortOrders(
   return [...orders].sort((a, b) => {
     let delta: number;
     if (field === "totalStroops") {
-      delta =
-        a.totalStroops < b.totalStroops
-          ? -1
-          : a.totalStroops > b.totalStroops
-            ? 1
-            : 0;
+      const aStroops = a.totalStroops ?? 0n;
+      const bStroops = b.totalStroops ?? 0n;
+      delta = aStroops < bStroops ? -1 : aStroops > bStroops ? 1 : 0;
     } else {
-      delta = a[field].getTime() - b[field].getTime();
+      const aTime = a[field] ? new Date(a[field] as any).getTime() : 0;
+      const bTime = b[field] ? new Date(b[field] as any).getTime() : 0;
+      delta = aTime - bTime;
     }
     return delta * factor;
   });
@@ -192,7 +191,7 @@ export function paginate<T>(
 
 /** Sum the total of every order in the list (in stroops). */
 export function sumOrderTotals(orders: Order[]): bigint {
-  return orders.reduce((sum, order) => sum + order.totalStroops, 0n);
+  return orders.reduce((sum, order) => sum + (order.totalStroops ?? 0n), 0n);
 }
 
 /**
@@ -213,14 +212,14 @@ export function orderToTimelineEvents(order: Order): ActivityTimelineEvent[] {
         id: `${order.id}-created`,
         type: "draft",
         title: orderStatusLabel("draft"),
-        timestamp: order.createdAt,
+        timestamp: order.createdAt ? new Date(order.createdAt) : new Date(),
         tone: "success",
       },
       {
         id: `${order.id}-${order.status}`,
-        type: order.status,
+        type: order.status as any,
         title: orderStatusLabel(order.status),
-        timestamp: order.updatedAt,
+        timestamp: order.updatedAt ? new Date(order.updatedAt) : new Date(),
         tone: "failed",
       },
     ];
@@ -231,11 +230,12 @@ export function orderToTimelineEvents(order: Order): ActivityTimelineEvent[] {
     currentIndex + 1
   ).map((step, index) => {
     const isCurrent = index === currentIndex;
+    const ts = isCurrent ? order.updatedAt : order.createdAt;
     return {
       id: `${order.id}-${step}`,
-      type: step,
+      type: step as any,
       title: orderStatusLabel(step),
-      timestamp: isCurrent ? order.updatedAt : order.createdAt,
+      timestamp: ts ? new Date(ts) : new Date(),
       tone: isCurrent && !isTerminal(order) ? "pending" : "success",
     };
   });

@@ -104,9 +104,10 @@ export function useTomlCache(
     [horizonUrl]
   );
 
+  const issuerIdsStr = JSON.stringify(issuerIds);
   useEffect(() => {
-    void resolve(issuerIds);
-  }, [JSON.stringify(issuerIds), horizonUrl, resolve]);
+    void resolve(JSON.parse(issuerIdsStr));
+  }, [issuerIdsStr, horizonUrl, resolve]);
 
   const getIssuerDomain = useCallback(
     (accountId: string): string => {

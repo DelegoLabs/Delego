@@ -10,17 +10,16 @@ import type { Order } from "@delegolabs/types";
 
 /** Sum of `unitPriceStroops * quantity` across every line item. */
 export function receiptSubtotalStroops(order: Order): bigint {
-  return order.lineItems.reduce(
-    (sum, item) => sum + item.unitPriceStroops * BigInt(item.quantity),
+  return (order.lineItems ?? []).reduce(
+    (sum, item) => sum + BigInt(item.unitPriceStroops ?? 0) * BigInt(item.quantity),
     0n
   );
 }
 
-/** Fee portion of `totalStroops`, explicit if set, otherwise derived. */
 export function receiptFeeStroops(order: Order): bigint {
-  if (order.feeStroops !== undefined) return order.feeStroops;
   const subtotal = receiptSubtotalStroops(order);
-  return order.totalStroops > subtotal ? order.totalStroops - subtotal : 0n;
+  const total = order.totalStroops ?? 0n;
+  return total > subtotal ? BigInt(total) - subtotal : 0n;
 }
 
 export interface ReceiptRecord {
@@ -46,25 +45,27 @@ function toIso(value: Date | string): string {
   return typeof value === "string" ? value : value.toISOString();
 }
 
-/** Raw, bookkeeping-friendly record for the "Download JSON" action. */
 export function buildReceiptRecord(order: Order): ReceiptRecord {
   return {
     orderId: order.id,
-    merchantId: order.merchantId,
-    delegationId: order.delegationId,
-    status: order.status,
-    escrowContractId: order.escrowContractId,
-    createdAt: toIso(order.createdAt),
-    updatedAt: toIso(order.updatedAt),
-    lineItems: order.lineItems.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      unitPriceStroops: item.unitPriceStroops.toString(),
-      subtotalStroops: (item.unitPriceStroops * BigInt(item.quantity)).toString(),
-    })),
+    merchantId: order.merchantId ?? "",
+    delegationId: order.delegationId ?? "",
+    status: order.status as any,
+    escrowContractId: (order as any).escrowContractId ?? null,
+    createdAt: toIso(order.createdAt ?? new Date()),
+    updatedAt: toIso(order.updatedAt ?? new Date()),
+    lineItems: (order.lineItems ?? []).map((item) => {
+      const up = item.unitPriceStroops ?? 0n;
+      return {
+        productId: item.productId ?? "",
+        quantity: item.quantity,
+        unitPriceStroops: up.toString(),
+        subtotalStroops: (BigInt(up) * BigInt(item.quantity)).toString(),
+      };
+    }),
     subtotalStroops: receiptSubtotalStroops(order).toString(),
     feeStroops: receiptFeeStroops(order).toString(),
-    totalStroops: order.totalStroops.toString(),
+    totalStroops: (order.totalStroops ?? 0n).toString(),
   };
 }
 

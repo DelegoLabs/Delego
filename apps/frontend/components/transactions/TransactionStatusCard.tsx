@@ -46,7 +46,7 @@ function buildExplorerUrl(hash: string, isLive: boolean): string {
  */
 export function TransactionStatusCard({
   hash,
-  horizonUrl,
+  horizonUrl: _horizonUrl,
   isLiveNetwork,
   onSettled,
 }: TransactionStatusCardProps) {

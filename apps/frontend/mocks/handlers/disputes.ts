@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import type { CreateDisputeInput, Dispute } from "@delegolabs/types";
+
 import { buildDispute, errorResponse, okResponse } from "../fixtures/disputes";
 import { buildEscrowList } from "../fixtures/escrows";
 import { generateDemoWorld } from "../generateDemoWorld.mjs";
@@ -7,7 +7,7 @@ import { generateDemoWorld } from "../generateDemoWorld.mjs";
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.example.com";
 
 /** escrowId -> current dispute, reset between test runs via resetDisputes(). */
-let disputesByEscrowId = new Map<string, Dispute>();
+let disputesByEscrowId = new Map<string, any>();
 
 if (process.env.NEXT_PUBLIC_SEED_DEMO === "true") {
   for (const dispute of generateDemoWorld().disputes as Dispute[]) {
@@ -41,7 +41,7 @@ export const disputeHandlers = [
       );
     }
 
-    const input = (await request.json()) as CreateDisputeInput;
+    const input = (await request.json()) as any;
     if (!input.description || input.description.trim().length === 0) {
       return HttpResponse.json(errorResponse("Description is required", "invalid_input"), {
         status: 400,

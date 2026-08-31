@@ -58,7 +58,7 @@ describe("runBulkApprove", () => {
 describe("runBulkReject", () => {
   it("rejects every eligible order with the given reason", async () => {
     const orders = [makeOrder({ id: "a" }), makeOrder({ id: "b" })];
-    const reject = vi.fn(async (id: string, reason?: string) => makeOrder({ id, status: "rejected" }));
+    const reject = vi.fn(async (id: string, _reason?: string) => makeOrder({ id, status: "rejected" }));
     await runBulkReject(orders, { approve: vi.fn(), reject }, "Budget exceeded");
 
     expect(reject).toHaveBeenCalledWith("a", "Budget exceeded");

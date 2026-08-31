@@ -185,7 +185,7 @@ function computePopoverPosition(
 
   const spaceTop = anchor.top;
   const spaceBottom = vh - (anchor.top + anchor.height);
-  const spaceLeft = anchor.left;
+  const _spaceLeft = anchor.left;
   const spaceRight = vw - (anchor.left + anchor.width);
 
   let side: "top" | "bottom" | "left" | "right" = "bottom";
