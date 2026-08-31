@@ -14,6 +14,20 @@ const RANGE_DAYS: Record<AnalyticsRange, number> = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+export interface PeriodMetrics {
+  spend: bigint;
+  orderCount: number;
+  avgOrderValue: bigint;
+  approvalRate: number;
+}
+
+export interface Deltas {
+  spendDelta: number | null;
+  orderCountDelta: number | null;
+  avgOrderValueDelta: number | null;
+  approvalRateDelta: number | null;
+}
+
 /** Narrows a URL search param into an AnalyticsRange, falling back to the default for anything else (missing, typo'd, tampered with). */
 export function parseAnalyticsRange(value: string | null): AnalyticsRange {
   return (ANALYTICS_RANGES as readonly string[]).includes(value ?? "")
@@ -124,4 +138,61 @@ export function spendByRange(
 /** True when every bucket in the series is zero — drives the chart's empty-range state. */
 export function isEmptySeries(buckets: SpendBucket[]): boolean {
   return buckets.every((bucket) => bucket.totalStroops === 0n);
+}
+
+function getPeriodMetrics(orders: Order[], startDate: Date, endDate: Date): PeriodMetrics {
+  const periodOrders = orders.filter(o => o.createdAt >= startDate && o.createdAt < endDate);
+  
+  let spend = 0n;
+  let spendOrderCount = 0;
+  let approvedCount = 0;
+
+  for (const order of periodOrders) {
+    if (isSpend(order)) {
+      spend += order.totalStroops;
+      spendOrderCount++;
+    }
+    const idx = lifecycleIndex(order.status);
+    if (idx >= ORDER_LIFECYCLE.indexOf("approved")) {
+      approvedCount++;
+    }
+  }
+
+  return {
+    spend,
+    orderCount: periodOrders.length,
+    avgOrderValue: spendOrderCount > 0 ? spend / BigInt(spendOrderCount) : 0n,
+    approvalRate: periodOrders.length > 0 ? approvedCount / periodOrders.length : 0
+  };
+}
+
+export function calculateDeltas(orders: Order[], range: AnalyticsRange, now: Date = new Date()): { current: PeriodMetrics, previous: PeriodMetrics, deltas: Deltas } {
+  const days = RANGE_DAYS[range];
+  
+  const currentStart = new Date(now.getTime() - days * DAY_MS);
+  const previousStart = new Date(currentStart.getTime() - days * DAY_MS);
+
+  const current = getPeriodMetrics(orders, currentStart, now);
+  const previous = getPeriodMetrics(orders, previousStart, currentStart);
+
+  const calcDelta = (curr: number, prev: number) => {
+    if (prev === 0) return null;
+    return (curr - prev) / prev;
+  };
+
+  const calcBigIntDelta = (curr: bigint, prev: bigint) => {
+    if (prev === 0n) return null;
+    return Number(curr - prev) / Number(prev);
+  };
+
+  return {
+    current,
+    previous,
+    deltas: {
+      spendDelta: calcBigIntDelta(current.spend, previous.spend),
+      orderCountDelta: calcDelta(current.orderCount, previous.orderCount),
+      avgOrderValueDelta: calcBigIntDelta(current.avgOrderValue, previous.avgOrderValue),
+      approvalRateDelta: previous.orderCount > 0 ? current.approvalRate - previous.approvalRate : null
+    }
+  };
 }

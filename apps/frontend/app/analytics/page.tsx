@@ -7,11 +7,14 @@ import { Card } from "@delegolabs/ui";
 import { SpendingOverview } from "../../components/analytics/SpendingOverview";
 import { SpendChart } from "../../components/analytics/SpendChart";
 import { RangeSwitcher } from "../../components/analytics/RangeSwitcher";
+import { DeltaCards } from "../../components/analytics/DeltaCards";
+import { AgentLeaderboard } from "../../components/analytics/AgentLeaderboard";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useOrders } from "../../hooks/useOrders";
 import {
   parseAnalyticsRange,
   spendByRange,
+  calculateDeltas,
   type AnalyticsRange,
 } from "../../lib/analytics";
 
@@ -27,6 +30,10 @@ export default function AnalyticsPage() {
   const buckets = useMemo(
     () => spendByRange(orders, range, { locale }),
     [orders, range, locale]
+  );
+  const deltasInfo = useMemo(
+    () => calculateDeltas(orders, range),
+    [orders, range]
   );
 
   const setRange = useCallback(
@@ -73,52 +80,14 @@ export default function AnalyticsPage() {
         style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
       >
         <RangeSwitcher value={range} onChange={setRange} />
+        <DeltaCards current={deltasInfo.current} deltas={deltasInfo.deltas} key={range} />
         <SpendChart buckets={buckets} locale={locale} />
       </Card>
 
       <SpendingOverview overview={overview} />
 
-      <Card title="Delegation Comparison">
-        {delegations.length === 0 ? (
-          <p>No delegations to compare.</p>
-        ) : (
-          <div className="comparison-table-wrapper">
-            <table className="comparison-table">
-              <thead>
-                <tr>
-                  <th>Agent</th>
-                  <th>Status</th>
-                  <th>Max/Transaction</th>
-                  <th>Total Limit</th>
-                  <th>Expires</th>
-                </tr>
-              </thead>
-              <tbody>
-                {delegations.map((del) => (
-                  <tr key={del.id}>
-                    <td>{del.agentId}</td>
-                    <td>
-                      <span className={`status-badge status-${del.status}`}>
-                        {del.status}
-                      </span>
-                    </td>
-                    <td>
-                      {(
-                        Number(del.policy.maxPerTransaction) / 10_000_000
-                      ).toFixed(2)}{" "}
-                      XLM
-                    </td>
-                    <td>
-                      {(Number(del.policy.maxTotal) / 10_000_000).toFixed(2)}{" "}
-                      XLM
-                    </td>
-                    <td>{del.policy.expiresAt ?? "Never"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <Card title="Agent Leaderboard">
+        <AgentLeaderboard orders={orders} delegations={delegations} />
       </Card>
 
       <Card title="Spending Utilization">
