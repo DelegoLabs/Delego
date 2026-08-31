@@ -10,7 +10,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.example.com";
 let disputesByEscrowId = new Map<string, any>();
 
 if (process.env.NEXT_PUBLIC_SEED_DEMO === "true") {
-  for (const dispute of generateDemoWorld().disputes as Dispute[]) {
+  for (const dispute of generateDemoWorld().disputes as any[]) {
     disputesByEscrowId.set(dispute.escrowId, dispute);
   }
 }
@@ -21,7 +21,7 @@ export function resetDisputes() {
 }
 
 /** Seed disputes from the demo world (#631). */
-export function seedDisputes(next: Dispute[]) {
+export function seedDisputes(next: any[]) {
   disputesByEscrowId = new Map(next.map((d) => [d.escrowId, d]));
 }
 

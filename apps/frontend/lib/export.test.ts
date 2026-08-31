@@ -85,7 +85,7 @@ describe("buildAccountExport", () => {
       ],
     });
 
-    const blob = await buildAccountExport(makeUser(), makePreferences());
+    const blob = await buildAccountExport(makeUser() as any, makePreferences() as any);
     const envelope = JSON.parse(await blob.text());
 
     expect(envelope.appVersion).toEqual(expect.any(String));
@@ -120,7 +120,7 @@ describe("buildAccountExport", () => {
     mockGetOrders.mockResolvedValue({ data: orders });
 
     const progressPhases: string[] = [];
-    const blob = await buildAccountExport(makeUser(), makePreferences(), {
+    const blob = await buildAccountExport(makeUser() as any, makePreferences() as any, {
       onProgress: (p) => progressPhases.push(p.phase),
     });
     const envelope = JSON.parse(await blob.text());
@@ -140,7 +140,7 @@ describe("buildAccountExport", () => {
     controller.abort();
 
     await expect(
-      buildAccountExport(makeUser(), makePreferences(), {
+      buildAccountExport(makeUser() as any, makePreferences() as any, {
         signal: controller.signal,
       })
     ).rejects.toThrow();

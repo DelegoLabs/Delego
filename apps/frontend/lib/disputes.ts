@@ -1,4 +1,8 @@
-import type { Dispute, DisputeReason, DisputeStatus, Escrow } from "@delegolabs/types";
+import type { Escrow } from "@delegolabs/types";
+
+export type Dispute = any;
+export type DisputeReason = string;
+export type DisputeStatus = string;
 
 /**
  * Dispute helpers shared by the "Open dispute" CTA, modal, and detail panel.

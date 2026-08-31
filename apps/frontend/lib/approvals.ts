@@ -58,7 +58,7 @@ export function countStaleApprovals(
   return orders.filter(
     (order) =>
       needsApproval(order) &&
-      getApprovalAgeMs(order.createdAt, now) >= thresholdMs
+      getApprovalAgeMs(new Date(order.createdAt as any), now) >= thresholdMs
   ).length;
 }
 

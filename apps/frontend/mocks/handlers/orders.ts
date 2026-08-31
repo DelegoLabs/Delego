@@ -38,7 +38,7 @@ export function seedOrder(order: Order) {
 }
 
 function requiresDualControl(order: Order): boolean {
-  return (order.totalStroops ?? 0n) >= DUAL_CONTROL_THRESHOLD_STROOPS;
+  return BigInt(order.totalStroops ?? 0) >= DUAL_CONTROL_THRESHOLD_STROOPS;
 }
 
 export const orderHandlers = [

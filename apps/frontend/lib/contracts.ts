@@ -1,4 +1,4 @@
-import type { ContractName } from "@delegolabs/types";
+export type ContractName = "escrow" | "permissions" | "registry";
 import type { NetworkId } from "./networks";
 
 /**

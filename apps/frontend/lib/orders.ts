@@ -76,7 +76,7 @@ export function isHighValue(
   order: Order,
   threshold: bigint = HIGH_VALUE_THRESHOLD_STROOPS
 ): boolean {
-  return (order.totalStroops ?? 0n) >= threshold;
+  return BigInt(order.totalStroops ?? 0) >= threshold;
 }
 
 /**
@@ -112,13 +112,13 @@ export function filterOrders(orders: Order[], filters: OrderFilters): Order[] {
     }
     if (
       filters.minTotalStroops !== undefined &&
-      (order.totalStroops ?? 0n) < filters.minTotalStroops
+      BigInt(order.totalStroops ?? 0) < filters.minTotalStroops
     ) {
       return false;
     }
     if (
       filters.maxTotalStroops !== undefined &&
-      (order.totalStroops ?? 0n) > filters.maxTotalStroops
+      BigInt(order.totalStroops ?? 0) > filters.maxTotalStroops
     ) {
       return false;
     }
@@ -191,7 +191,7 @@ export function paginate<T>(
 
 /** Sum the total of every order in the list (in stroops). */
 export function sumOrderTotals(orders: Order[]): bigint {
-  return orders.reduce((sum, order) => sum + (order.totalStroops ?? 0n), 0n);
+  return orders.reduce((sum, order) => sum + BigInt(order.totalStroops ?? 0), 0n);
 }
 
 /**
@@ -249,7 +249,7 @@ export function orderToTimelineEvents(order: Order): ActivityTimelineEvent[] {
       type: "approval_note",
       title: "Note added",
       description: order.approvalNote,
-      timestamp: order.updatedAt,
+      timestamp: order.updatedAt ? new Date(order.updatedAt as any) : new Date(),
       tone: "note",
       icon: "📝",
     });

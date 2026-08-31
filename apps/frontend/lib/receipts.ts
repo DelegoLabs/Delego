@@ -18,8 +18,8 @@ export function receiptSubtotalStroops(order: Order): bigint {
 
 export function receiptFeeStroops(order: Order): bigint {
   const subtotal = receiptSubtotalStroops(order);
-  const total = order.totalStroops ?? 0n;
-  return total > subtotal ? BigInt(total) - subtotal : 0n;
+  const total = BigInt(order.totalStroops ?? 0);
+  return total > subtotal ? total - subtotal : 0n;
 }
 
 export interface ReceiptRecord {
