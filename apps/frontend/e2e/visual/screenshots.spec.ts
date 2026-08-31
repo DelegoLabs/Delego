@@ -24,7 +24,7 @@ for (const theme of THEMES) {
     test.describe("populated", () => {
       test(`tracking dashboard (${theme})`, async ({ page }) => {
         await page.goto("/tracking");
-        await expect(page.locator("body")).toHaveScreenshot(`tracking-populated-${theme}.png`, {
+        await expect(page).toHaveScreenshot(`tracking-populated-${theme}.png`, {
           mask: dynamicRegionMasks(page),
           fullPage: true,
         });
@@ -32,7 +32,7 @@ for (const theme of THEMES) {
 
       test(`delegations list (${theme})`, async ({ page }) => {
         await page.goto("/delegations");
-        await expect(page.locator("body")).toHaveScreenshot(`delegations-populated-${theme}.png`, {
+        await expect(page).toHaveScreenshot(`delegations-populated-${theme}.png`, {
           mask: dynamicRegionMasks(page),
           fullPage: true,
         });
@@ -40,7 +40,7 @@ for (const theme of THEMES) {
 
       test(`orders list (${theme})`, async ({ page }) => {
         await page.goto("/orders");
-        await expect(page.locator("body")).toHaveScreenshot(`orders-populated-${theme}.png`, {
+        await expect(page).toHaveScreenshot(`orders-populated-${theme}.png`, {
           mask: dynamicRegionMasks(page),
           fullPage: true,
         });
@@ -48,7 +48,7 @@ for (const theme of THEMES) {
 
       test(`settings (${theme})`, async ({ page }) => {
         await page.goto("/settings");
-        await expect(page.locator("body")).toHaveScreenshot(`settings-populated-${theme}.png`, {
+        await expect(page).toHaveScreenshot(`settings-populated-${theme}.png`, {
           mask: dynamicRegionMasks(page),
           fullPage: true,
         });
@@ -60,21 +60,21 @@ for (const theme of THEMES) {
 
       test(`delegations list (${theme})`, async ({ page }) => {
         await page.goto("/delegations");
-        await expect(page.locator("body")).toHaveScreenshot(`delegations-empty-${theme}.png`, {
+        await expect(page).toHaveScreenshot(`delegations-empty-${theme}.png`, {
           fullPage: true,
         });
       });
 
       test(`orders list (${theme})`, async ({ page }) => {
         await page.goto("/orders");
-        await expect(page.locator("body")).toHaveScreenshot(`orders-empty-${theme}.png`, {
+        await expect(page).toHaveScreenshot(`orders-empty-${theme}.png`, {
           fullPage: true,
         });
       });
 
       test(`escrows (${theme})`, async ({ page }) => {
         await page.goto("/escrows");
-        await expect(page.locator("body")).toHaveScreenshot(`escrows-empty-${theme}.png`, {
+        await expect(page).toHaveScreenshot(`escrows-empty-${theme}.png`, {
           fullPage: true,
         });
       });

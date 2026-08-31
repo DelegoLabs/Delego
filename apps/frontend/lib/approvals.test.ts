@@ -182,10 +182,10 @@ describe("deriveApprovalDecisions", () => {
 
   it("captures the rejection reason only for rejected orders", () => {
     const [rejected, approved] = deriveApprovalDecisions([
-      decidedOrder({ id: "r", status: "rejected", rejectionReason: "over budget" }),
+      decidedOrder({ id: "r", status: "rejected", rejectionReason: "limit_exceeded" }),
       decidedOrder({ rejectionReason: "ignored for approvals" as any, }),
     ]);
-    expect(rejected.reason).toBe("over budget");
+    expect(rejected.reason).toBe("limit_exceeded");
     expect(approved.reason).toBeNull();
   });
 

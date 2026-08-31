@@ -131,7 +131,7 @@ export function DelegationCard({
         >
           <div className="flex items-center gap-2">
             <DelegationStatusChip
-              delegation={delegation}
+              spent={0n} cap={delegation.policy.maxTotal} periodRollover={delegation.policy.expiresAt}
               cap={delegation.policy.maxTotal}
               onResume={() => setShowPauseModal(true)}
               onRenew={
@@ -220,8 +220,8 @@ export function DelegationCard({
         </div>
 
         <LimitUsageBar
-          delegation={delegation}
-          currencyId={currencyId}
+          spent={0n} cap={delegation.policy.maxTotal} periodRollover={delegation.policy.expiresAt}
+          currency={currencyId as any}
           rate={rate}
         />
 
@@ -281,7 +281,7 @@ export function DelegationCard({
               <span>Per transaction limit:</span>
               <Amount
                 stroops={delegation.policy.maxPerTransaction}
-                currencyId={currencyId}
+                currency={currencyId as any}
                 rate={rate}
               />
             </div>
@@ -289,7 +289,7 @@ export function DelegationCard({
               <span>Total budget limit:</span>
               <Amount
                 stroops={delegation.policy.maxTotal}
-                currencyId={currencyId}
+                currency={currencyId as any}
                 rate={rate}
               />
             </div>
@@ -363,7 +363,7 @@ export function DelegationCard({
 
         {showQr && (
           <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-900 rounded border">
-            <DelegationQR delegation={delegation} />
+            <DelegationQR spent={0n} cap={delegation.policy.maxTotal} periodRollover={delegation.policy.expiresAt} />
           </div>
         )}
       </Card>

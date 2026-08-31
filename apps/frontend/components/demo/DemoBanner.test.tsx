@@ -34,7 +34,7 @@ describe("DemoBanner", () => {
     enableDemoMode();
     const originalLocation = window.location;
     // @ts-expect-error -- overriding window.location for the test
-    delete window.location;
+    delete (window as any).location;
     // @ts-expect-error -- partial Location stub is enough for this assertion
     window.location = { href: "" };
 

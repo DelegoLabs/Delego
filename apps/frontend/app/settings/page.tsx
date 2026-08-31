@@ -30,14 +30,17 @@ import { ConsentSettingsCard } from "../../components/settings/ConsentSettingsCa
 const PLACEHOLDER_USER: User = {
   id: "user-placeholder",
   stellarAddress: "GB...PLACEHOLDER",
-  displayName: null,
-  email: null,
+  displayName: "",
+  email: "",
   createdAt: new Date(),
   updatedAt: new Date(),
 };
 
 const PLACEHOLDER_PREFERENCES: UserPreferences = {
   userId: "user-placeholder",
+  currency: "USD",
+  theme: "system",
+  notificationsEnabled: true,
   defaultSpendingLimit: 0n,
   requireApproval: true,
   notificationEmail: true,

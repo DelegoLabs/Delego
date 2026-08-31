@@ -3,6 +3,8 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 /** Props accepted by the shared button component. */
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "ghost" | "destructive";
+  size?: string;
+  loading?: boolean;
   children: ReactNode;
   /** Optional ARIA label for accessibility */
   ariaLabel?: string;

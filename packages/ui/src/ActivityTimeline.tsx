@@ -11,7 +11,7 @@ export interface ActivityTimelineEvent {
   description?: string;
   timestamp: Date;
   icon?: ReactNode;
-  tone?: ActivityTone;
+  tone?: any;
   /**
    * Optional rich content rendered under the timestamp for this entry — e.g.
    * a "View proof" expander for delivery evidence (#579). Kept as an opaque

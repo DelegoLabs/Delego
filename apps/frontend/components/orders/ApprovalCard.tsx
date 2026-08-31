@@ -255,7 +255,7 @@ export function ApprovalCard({
                       <td>
                         <Amount
                           stroops={item.unitPriceStroops || item.price}
-                          currencyId={currencyId}
+                          currency={currencyId as any}
                           rate={rate}
                         />
                       </td>
@@ -265,7 +265,7 @@ export function ApprovalCard({
                             (item.unitPriceStroops || item.price) *
                             BigInt(item.quantity)
                           }
-                          currencyId={currencyId}
+                          currency={currencyId as any}
                           rate={rate}
                         />
                       </td>
@@ -279,7 +279,7 @@ export function ApprovalCard({
           <div className="approval-card-total">
             <span>Total:</span>
             <strong className="approval-total-amount">
-              <Amount stroops={order.amount} currencyId={currencyId} rate={rate} />
+              <Amount stroops={order.amount} currency={currencyId as any} rate={rate} />
             </strong>
           </div>
 
