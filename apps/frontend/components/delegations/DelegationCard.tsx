@@ -131,8 +131,7 @@ export function DelegationCard({
         >
           <div className="flex items-center gap-2">
             <DelegationStatusChip
-              spent={0n} cap={delegation.policy.maxTotal} periodRollover={delegation.policy.expiresAt}
-              cap={delegation.policy.maxTotal}
+              delegation={delegation}
               onResume={() => setShowPauseModal(true)}
               onRenew={
                 onDuplicate ? () => onDuplicate(delegation) : undefined
@@ -363,7 +362,7 @@ export function DelegationCard({
 
         {showQr && (
           <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-900 rounded border">
-            <DelegationQR spent={0n} cap={delegation.policy.maxTotal} periodRollover={delegation.policy.expiresAt} />
+            <DelegationQR delegation={delegation} />
           </div>
         )}
       </Card>

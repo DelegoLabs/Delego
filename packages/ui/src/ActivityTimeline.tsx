@@ -83,7 +83,7 @@ export function ActivityTimeline({
     >
       {events.map((event) => {
         const tone = event.tone ?? "pending";
-        const style = toneStyles[tone];
+        const style = toneStyles[tone as ActivityTone] || toneStyles.pending;
         return (
           <li
             key={event.id}

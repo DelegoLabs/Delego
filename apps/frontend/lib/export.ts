@@ -1,6 +1,5 @@
 import type {
   Delegation,
-  Order,
   User,
   UserPreferences,
 } from "@delegolabs/types";
