@@ -18,7 +18,7 @@ import {
   filterConsentEntries,
   getConsentEntries,
   getConsentScreens,
-} from "../../services/consentJournal";
+} from "./consentJournal";
 
 beforeEach(() => {
   clearConsentJournal();

@@ -1,6 +1,6 @@
-import type { ApiResponse, ContractVersionInfo } from "@delegolabs/types";
+import type { ApiResponse } from "@delegolabs/types";
 
-export function buildContractVersions(): ContractVersionInfo[] {
+export function buildContractVersions(): any[] {
   return [
     { name: "escrow", version: "1.4.0" },
     { name: "permissions", version: "1.2.1" },

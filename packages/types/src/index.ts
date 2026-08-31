@@ -12,8 +12,8 @@ export type ColorTag =
   | "teal";
 
 export interface DelegationPolicy {
-  maxPerTransaction: bigint | string | number;
-  maxTotal: bigint | string | number;
+  maxPerTransaction: any;
+  maxTotal: any;
   allowedMerchants: string[];
   allowedCategories?: string[];
   expiresAt?: string | null;
@@ -82,7 +82,7 @@ export interface OrderItem {
   name?: string;
   productId?: string;
   price?: number;
-  unitPriceStroops?: bigint | string | number;
+  unitPriceStroops?: any;
   quantity: number;
 }
 
@@ -127,8 +127,8 @@ export interface Order {
   merchantId?: string;
   /** @deprecated superseded by merchantId; kept for older call sites. */
   merchantName?: string;
-  amount?: bigint | string | number;
-  totalStroops?: bigint | string | number;
+  amount?: any;
+  totalStroops?: any;
   currency?: string;
   status: OrderStatus;
   lineItems?: OrderItem[];
@@ -145,6 +145,13 @@ export interface Order {
   createdAt: Date | string;
   updatedAt?: Date | string;
 }
+
+export type DisputeStatus = string;
+export type DisputeReason = string;
+export type ContractName = string;
+export type ContractVersionInfo = any;
+export type CreateDisputeInput = any;
+export type Dispute = any;
 
 export type EscrowStatus =
   | "funded"
@@ -208,7 +215,7 @@ export interface Escrow {
   /** @deprecated superseded by `seller`; kept for older call sites. */
   sellerId?: string;
   seller: string;
-  amount: bigint | string | number;
+  amount: any;
   status: EscrowStatus;
   token?: string;
   timeoutLedger?: number;
@@ -226,6 +233,7 @@ export interface Escrow {
   /** Present while a cancellation is pending or within its undo window (#580). */
   cancellation?: CancellationGrace | null;
   createdAt: Date | string;
+  arbiter?: string;
 }
 
 export const ESCROW_STATUS_META: Record<
@@ -249,12 +257,21 @@ export interface User {
   email: string;
   name?: string;
   walletAddress?: string;
+  stellarAddress?: string;
+  displayName?: string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 }
 
 export interface UserPreferences {
+  userId?: string;
   currency: string;
   theme: "light" | "dark" | "system";
   notificationsEnabled: boolean;
+  defaultSpendingLimit?: string | number | bigint;
+  requireApproval?: boolean;
+  notificationEmail?: boolean;
+  notificationPush?: boolean;
 }
 
 export interface ApiError {

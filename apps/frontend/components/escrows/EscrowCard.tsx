@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Escrow } from "@delegolabs/types";
 import { ESCROW_STATUS_META } from "@delegolabs/types";
 import { Amount, Card } from "@delegolabs/ui";
@@ -11,7 +10,8 @@ const LEDGER_CLOSE_SECONDS = 5;
 interface EscrowCardProps {
   escrow: Escrow;
   /** When set, wraps the escrow id in a link to its detail page. */
-  href?: string;
+  href?: string; // Kept as href in interface to avoid breaking callers
+
   /**
    * Force the "Disputed" status chip before the confirmed `escrow.status`
    * catches up — optimistic UI right after submitting a dispute.
@@ -59,7 +59,7 @@ function computeCountdown(
   };
 }
 
-export function EscrowCard({ escrow, href, disputedOverride }: EscrowCardProps) {
+export function EscrowCard({ escrow, href: _href, disputedOverride }: EscrowCardProps) {
   const { currencyId, rate } = useCurrency();
   const meta = disputedOverride ? ESCROW_STATUS_META.Disputed : ESCROW_STATUS_META[escrow.status];
   const countdown = computeCountdown(

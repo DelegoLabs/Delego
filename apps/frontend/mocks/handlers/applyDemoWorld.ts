@@ -1,4 +1,4 @@
-import type { Delegation, Dispute, Escrow, Order } from "@delegolabs/types";
+import type { Delegation, Escrow, Order } from "@delegolabs/types";
 import { generateDemoWorld } from "../generateDemoWorld.mjs";
 import { seedDelegations } from "./delegations";
 import { seedOrders } from "./orders";
@@ -14,6 +14,6 @@ export function applyDemoWorld(world = generateDemoWorld()) {
   seedDelegations(world.delegations as Delegation[]);
   seedOrders(world.orders as unknown as Order[]);
   seedEscrows(world.escrows as unknown as Escrow[]);
-  seedDisputes(world.disputes as Dispute[]);
+  seedDisputes(world.disputes as any[]);
   return world;
 }

@@ -14,6 +14,20 @@ const RANGE_DAYS: Record<AnalyticsRange, number> = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+export interface PeriodMetrics {
+  spend: bigint;
+  orderCount: number;
+  avgOrderValue: bigint;
+  approvalRate: number;
+}
+
+export interface Deltas {
+  spendDelta: number | null;
+  orderCountDelta: number | null;
+  avgOrderValueDelta: number | null;
+  approvalRateDelta: number | null;
+}
+
 /** Narrows a URL search param into an AnalyticsRange, falling back to the default for anything else (missing, typo'd, tampered with). */
 export function parseAnalyticsRange(value: string | null): AnalyticsRange {
   return (ANALYTICS_RANGES as readonly string[]).includes(value ?? "")

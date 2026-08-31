@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DemoBanner } from "./DemoBanner";
@@ -34,7 +34,7 @@ describe("DemoBanner", () => {
     enableDemoMode();
     const originalLocation = window.location;
     // @ts-expect-error -- overriding window.location for the test
-    delete window.location;
+    delete (window as any).location;
     // @ts-expect-error -- partial Location stub is enough for this assertion
     window.location = { href: "" };
 

@@ -20,7 +20,7 @@ import {
   subscribeTxStatus,
   trackTransaction,
   type TxStatusUpdate,
-} from "../../services/txMonitor";
+} from "./txMonitor";
 
 const HORIZON = "https://horizon-testnet.stellar.org";
 const HASH_A =
@@ -78,7 +78,7 @@ describe("resolveTransaction", () => {
 
   it("fires the listener with the resolved status", () => {
     const updates: TxStatusUpdate[] = [];
-    subscribeTxStatus((u) => updates.push(u));
+    subscribeTxStatus((u: TxStatusUpdate) => updates.push(u));
 
     trackTransaction(HASH_A, HORIZON);
     resolveTransaction(HASH_A, "failed");
@@ -97,7 +97,7 @@ describe("poll: success path", () => {
     );
 
     const updates: TxStatusUpdate[] = [];
-    subscribeTxStatus((u) => updates.push(u));
+    subscribeTxStatus((u: TxStatusUpdate) => updates.push(u));
 
     trackTransaction(HASH_A, HORIZON);
 
@@ -124,12 +124,12 @@ describe("poll: failure path", () => {
     );
 
     const updates: TxStatusUpdate[] = [];
-    subscribeTxStatus((u) => updates.push(u));
+    subscribeTxStatus((u: TxStatusUpdate) => updates.push(u));
 
     trackTransaction(HASH_A, HORIZON);
     await vi.runAllTimersAsync();
 
-    const failUpdate = updates.find((u) => u.status === "failed");
+    const failUpdate = updates.find((u: TxStatusUpdate) => u.status === "failed");
     expect(failUpdate).toBeDefined();
     expect(failUpdate!.hash).toBe(HASH_A);
   });

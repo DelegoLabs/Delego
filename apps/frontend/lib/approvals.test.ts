@@ -182,10 +182,10 @@ describe("deriveApprovalDecisions", () => {
 
   it("captures the rejection reason only for rejected orders", () => {
     const [rejected, approved] = deriveApprovalDecisions([
-      decidedOrder({ id: "r", status: "rejected", rejectionReason: "over budget" }),
-      decidedOrder({ id: "a", rejectionReason: "ignored for approvals" }),
+      decidedOrder({ id: "r", status: "rejected", rejectionReason: "limit_exceeded" }),
+      decidedOrder({ rejectionReason: "ignored for approvals" as any, }),
     ]);
-    expect(rejected.reason).toBe("over budget");
+    expect(rejected.reason).toBe("limit_exceeded");
     expect(approved.reason).toBeNull();
   });
 
@@ -296,7 +296,7 @@ describe("approvalDecisionsToCsv", () => {
 
   it("emits one row per record with a column for every header", () => {
     const records = deriveApprovalDecisions(
-      [decidedOrder({ id: "ord-1", status: "rejected", rejectionReason: "too pricey", delegationId: "del-1" })],
+      [decidedOrder({ id: "ord-1", status: "rejected", rejectionReason: "too pricey" as any, delegationId: "del-1" })],
       { agentByDelegationId: new Map([["del-1", "agent-1"]]) }
     );
     const { header, rows } = approvalDecisionsToCsv(records);

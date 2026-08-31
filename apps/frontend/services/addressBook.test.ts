@@ -20,7 +20,7 @@ import {
   levenshteinDistance,
   searchAddressBook,
   updateAddressEntry,
-} from "../../services/addressBook";
+} from "./addressBook";
 
 // Clear localStorage between each test to ensure isolation.
 beforeEach(() => {

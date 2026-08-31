@@ -185,7 +185,6 @@ function computePopoverPosition(
 
   const spaceTop = anchor.top;
   const spaceBottom = vh - (anchor.top + anchor.height);
-  const spaceLeft = anchor.left;
   const spaceRight = vw - (anchor.left + anchor.width);
 
   let side: "top" | "bottom" | "left" | "right" = "bottom";
@@ -195,7 +194,7 @@ function computePopoverPosition(
     else if (spaceTop >= 160) side = "top";
     else if (spaceRight >= POPOVER_WIDTH + 24) side = "right";
     else side = "left";
-  } else if (placement !== "auto") {
+  } else if ((placement as any) !== "auto") {
     side = placement;
   }
 

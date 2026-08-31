@@ -11,7 +11,6 @@ import {
   FeatureFlagProvider,
   useFeatureFlag,
   IfFeature,
-  KNOWN_FEATURE_FLAGS,
 } from "./featureFlags";
 
 describe("featureFlags", () => {

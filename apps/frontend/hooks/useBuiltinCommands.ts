@@ -26,7 +26,7 @@ async function exportOrdersCsv(): Promise<void> {
     order.merchantId,
     order.status,
     formatXlm(order.totalStroops),
-    order.createdAt.toISOString(),
+    order.createdAt?.toString(),
   ]);
 
   downloadCsv(

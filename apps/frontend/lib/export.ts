@@ -1,6 +1,5 @@
 import type {
   Delegation,
-  Order,
   User,
   UserPreferences,
 } from "@delegolabs/types";
@@ -94,19 +93,19 @@ export interface BuildAccountExportOptions {
   onProgress?: (progress: ExportProgress) => void;
 }
 
-function toExportedProfile(user: User): ExportedProfile {
+function toExportedProfile(user: any): ExportedProfile {
   return {
     id: user.id,
     stellarAddress: user.stellarAddress,
     displayName: user.displayName,
     email: user.email,
-    createdAt: user.createdAt.toISOString(),
-    updatedAt: user.updatedAt.toISOString(),
+    createdAt: new Date(user.createdAt).toISOString(),
+    updatedAt: new Date(user.updatedAt).toISOString(),
   };
 }
 
 function toExportedPreferences(
-  preferences: UserPreferences
+  preferences: any
 ): ExportedPreferences {
   return {
     defaultSpendingLimitStroops: preferences.defaultSpendingLimit.toString(),
@@ -125,27 +124,27 @@ function toExportedDelegation(delegation: Delegation): ExportedDelegation {
       maxPerTransactionStroops: delegation.policy.maxPerTransaction.toString(),
       maxTotalStroops: delegation.policy.maxTotal.toString(),
       allowedMerchants: delegation.policy.allowedMerchants,
-      expiresAt: delegation.policy.expiresAt,
+      expiresAt: delegation.policy.expiresAt ?? null,
     },
-    createdAt: delegation.createdAt.toISOString(),
-    updatedAt: delegation.updatedAt.toISOString(),
+    createdAt: new Date(delegation.createdAt).toISOString(),
+    updatedAt: new Date(delegation.updatedAt).toISOString(),
   };
 }
 
-function toExportedOrder(order: Order): ExportedOrder {
+function toExportedOrder(order: any): ExportedOrder {
   return {
     id: order.id,
     merchantId: order.merchantId,
     delegationId: order.delegationId,
     status: order.status,
-    totalStroops: order.totalStroops.toString(),
-    createdAt: order.createdAt.toISOString(),
-    updatedAt: order.updatedAt.toISOString(),
+    totalStroops: (order.totalStroops ?? 0).toString(),
+    createdAt: new Date(order.createdAt).toISOString(),
+    updatedAt: new Date(order.updatedAt).toISOString(),
   };
 }
 
 /** An order has a decision once it's past pending_approval; happy-path statuses read as "approved", off-path ones (cancelled/disputed/...) as "rejected". */
-function decisionForOrder(order: Order): ExportedApprovalDecision | null {
+function decisionForOrder(order: any): ExportedApprovalDecision | null {
   if (order.status === "draft" || order.status === "pending_approval") {
     return null;
   }
@@ -153,9 +152,9 @@ function decisionForOrder(order: Order): ExportedApprovalDecision | null {
   return {
     orderId: order.id,
     decision: isHappyPath ? "approved" : "rejected",
-    amountStroops: order.totalStroops.toString(),
+    amountStroops: (order.totalStroops ?? 0).toString(),
     merchantId: order.merchantId,
-    decidedAt: order.updatedAt.toISOString(),
+    decidedAt: new Date(order.updatedAt).toISOString(),
   };
 }
 

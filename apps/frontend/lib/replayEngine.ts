@@ -73,21 +73,22 @@ export async function replayOfflineQueue(): Promise<ReplayResult> {
             res = (await api.revokeDelegation(item.resourceId)) as typeof res;
           }
 
-          if (res?.error) {
-            const errorStatus = res.error.status;
+          const resAny = res as any;
+          if (resAny?.error) {
+            const errorStatus = resAny.error.status;
             const isConflict =
               errorStatus === 409 ||
-              res.error.code === "CONFLICT" ||
-              res.error.message?.toLowerCase().includes("conflict") ||
-              res.error.message?.toLowerCase().includes("stale");
+              resAny.error.code === "CONFLICT" ||
+              resAny.error.message?.toLowerCase().includes("conflict") ||
+              resAny.error.message?.toLowerCase().includes("stale");
 
             if (isConflict) {
               conflictsCount++;
               await updateMutationStatus(item.id, "conflict", {
                 errorMessage:
-                  res.error.message ?? "State changed while offline",
+                  resAny.error.message ?? "State changed while offline",
                 conflictServerState:
-                  (res.data as Record<string, unknown>) ?? undefined,
+                  (resAny.data as Record<string, unknown>) ?? undefined,
               });
               // Stop replaying subsequent mutations for this specific resource to avoid cascade errors
               break;
@@ -98,7 +99,7 @@ export async function replayOfflineQueue(): Promise<ReplayResult> {
             ) {
               quarantinedCount++;
               await updateMutationStatus(item.id, "quarantined", {
-                errorMessage: res.error.message ?? "Permanent server rejection",
+                errorMessage: resAny.error.message ?? "Permanent server rejection",
               });
               break;
             } else {

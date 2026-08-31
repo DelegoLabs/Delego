@@ -2,10 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   enqueueMutation,
   getQueuedMutations,
-  updateMutationStatus,
-  removeMutation,
   clearQueue,
-  openQueueDb,
 } from "./offlineQueue";
 import { replayOfflineQueue } from "./replayEngine";
 import { api } from "./api";

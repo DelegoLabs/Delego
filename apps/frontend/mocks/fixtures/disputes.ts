@@ -1,9 +1,9 @@
-import type { ApiResponse, CreateDisputeInput, Dispute } from "@delegolabs/types";
+import type { ApiResponse } from "@delegolabs/types";
 import { createSeededRandom, seededId } from "./faker-lite";
 
 let seedCounter = 1;
 
-export function buildDispute(escrowId: string, orderId: string, input: CreateDisputeInput): Dispute {
+export function buildDispute(escrowId: string, orderId: string, input: any): any {
   const now = new Date().toISOString();
   seedCounter += 1;
   return {

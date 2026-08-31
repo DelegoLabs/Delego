@@ -55,7 +55,7 @@ function OutcomeBadge({ outcome }: { outcome: ConsentOutcome }) {
  *  - Full keyboard navigation; ARIA roles and labels throughout
  */
 export function JournalViewer({
-  horizonUrl,
+  horizonUrl: _horizonUrl,
   isLiveNetwork,
 }: JournalViewerProps) {
   const [entries, setEntries] = useState<ConsentEntry[]>([]);
