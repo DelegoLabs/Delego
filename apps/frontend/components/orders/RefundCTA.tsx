@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { Button, Card, StroopsInput } from "@delego/ui";
-import type { Order } from "@delego/types";
+import { Button, Card, StroopsInput } from "@delegolabs/ui";
+import type { Order } from "@delegolabs/types";
 import { useRefundEligibility } from "../../hooks/useRefundEligibility";
 import { useWallet } from "../../hooks/useWallet";
 import { RefundTimeline } from "./RefundTimeline";
@@ -73,34 +73,6 @@ export function RefundCTA({
 
   const activeRefund = localRefund ?? existingRefund;
 
-  // ── Terminal state: hide all actions once settled or rejected ──────────────
-  if (activeRefund && isTerminalRefundStatus(activeRefund.status)) {
-    return (
-      <Card title="Refund" ariaLabel={`Refund status for order ${order.id}`}>
-        <RefundTimeline refund={activeRefund} />
-      </Card>
-    );
-  }
-
-  // ── In-progress state: timeline only, no new submission ───────────────────
-  if (activeRefund) {
-    return (
-      <Card
-        title="Refund in progress"
-        ariaLabel={`Refund status for order ${order.id}`}
-      >
-        <RefundTimeline refund={activeRefund} />
-      </Card>
-    );
-  }
-
-  // ── Eligibility tooltip copy ───────────────────────────────────────────────
-  const notEligibleReason =
-    !eligible && eligibilityReason
-      ? (ELIGIBILITY_NOT_YET_LABELS[eligibilityReason] ??
-        "You are not eligible to request a refund right now.")
-      : null;
-
   const buttonDisabled =
     eligLoading || eligible === false || submitting || !escrowId;
 
@@ -162,6 +134,33 @@ export function RefundCTA({
     ]
   );
 
+  // ── Terminal state: hide all actions once settled or rejected ──────────────
+  if (activeRefund && isTerminalRefundStatus(activeRefund.status)) {
+    return (
+      <Card title="Refund" ariaLabel={`Refund status for order ${order.id}`}>
+        <RefundTimeline refund={activeRefund} />
+      </Card>
+    );
+  }
+
+  // ── In-progress state: timeline only, no new submission ───────────────────
+  if (activeRefund) {
+    return (
+      <Card
+        title="Refund in progress"
+        ariaLabel={`Refund status for order ${order.id}`}
+      >
+        <RefundTimeline refund={activeRefund} />
+      </Card>
+    );
+  }
+
+  // ── Eligibility tooltip copy ───────────────────────────────────────────────
+  const notEligibleReason =
+    !eligible && eligibilityReason
+      ? (ELIGIBILITY_NOT_YET_LABELS[eligibilityReason] ??
+        "You are not eligible to request a refund right now.")
+      : undefined;
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <Card
@@ -267,7 +266,7 @@ export function RefundCTA({
               </label>
               <StroopsInput
                 value={partialAmountStroops}
-                onChange={(v) => setPartialAmountStroops(v)}
+                onChange={setPartialAmountStroops}
                 disabled={submitting}
                 style={{ width: "100%" }}
               />

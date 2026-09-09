@@ -110,8 +110,9 @@ export function spendByRange(
 
   for (const order of orders) {
     if (!isSpend(order)) continue;
-    if (order.createdAt < rangeStart || order.createdAt > now) continue;
-    const key = bucketStart(order.createdAt, unit).toISOString();
+    const createdAt = new Date(order.createdAt);
+    if (createdAt < rangeStart || createdAt > now) continue;
+    const key = bucketStart(createdAt, unit).toISOString();
     // Orders can't predate the earliest bucket we seeded (checked above), so this is always present.
     totals.set(key, (totals.get(key) ?? 0n) + order.totalStroops);
   }

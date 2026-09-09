@@ -28,11 +28,6 @@ function AlwaysThrows(): never {
   throw new Error("Intentional test error");
 }
 
-/** A component that can be toggled to throw. */
-function TogglableThrow({ shouldThrow }: { shouldThrow: boolean }) {
-  if (shouldThrow) throw new Error("Toggled error");
-  return <div>Widget content</div>;
-}
 
 /** A sibling that counts its own renders to prove it wasn't remounted. */
 function StableSibling() {
@@ -100,7 +95,7 @@ describe("ErrorBoundary", () => {
   });
 
   it("retry remounts only the failed subtree, leaving siblings untouched", () => {
-    const { rerender } = render(
+    render(
       <div>
         <StableSibling />
         <ErrorBoundary context="RetryWidget">

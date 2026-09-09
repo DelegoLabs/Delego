@@ -1,17 +1,18 @@
 "use client";
 
-import { Amount, Card } from "@delegolabs/ui";
+import { ActivityTimeline, Amount, Card } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
-import { isTerminal } from "../../lib/orders";
+import { isTerminal, orderToTimelineEvents } from "../../lib/orders";
 import { useCurrency } from "../../hooks/useCurrency";
-import { StatusTimeline } from "./StatusTimeline";
 
 export interface OrderTrackingCardProps {
   order: Order;
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleString(undefined, {
+function formatTime(date: Date | string | undefined): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  return d.toLocaleString(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -27,7 +28,7 @@ export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
       title={`Order ${order.id}`}
       ariaLabel={`Tracking for order ${order.id}`}
     >
-      <StatusTimeline
+      <ActivityTimeline
         events={orderToTimelineEvents(order)}
         ariaLabel="Order progress"
       />

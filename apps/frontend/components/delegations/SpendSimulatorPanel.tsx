@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Button, Card, StroopsInput } from "@delego/ui";
+import { Button, Card, StroopsInput } from "@delegolabs/ui";
 import { useSpendSimulator } from "../../hooks/useSpendSimulator";
 import type { SpendDenialReason } from "../../lib/spendSimulator";
 import {
