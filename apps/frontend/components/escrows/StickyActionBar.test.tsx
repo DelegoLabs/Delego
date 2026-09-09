@@ -16,9 +16,10 @@ vi.mock("../../lib/csv", () => ({
 }));
 
 function makeEscrow(overrides: Partial<Escrow> = {}): Escrow {
+  const id = overrides.id ?? overrides.escrowId ?? "escrow-1";
   return {
-    id: "escrow-1",
-    escrowId: "escrow-1",
+    id,
+    escrowId: id,
     orderId: "order-1",
     buyer: "buyer-1",
     seller: "seller-1",

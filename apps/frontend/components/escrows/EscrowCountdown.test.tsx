@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { Escrow } from "@delegolabs/types";
 import { EscrowCountdown } from "./EscrowCountdown";
 
@@ -63,12 +63,10 @@ describe("EscrowCountdown", () => {
     expect(screen.getByTestId("escrow-countdown-remaining")).toHaveTextContent("Expired");
   });
 
-  it("opens the extension modal from the action button", async () => {
+  it("opens the extension modal from the action button", () => {
     vi.setSystemTime(new Date("2026-01-09T12:00:00.000Z"));
-    const { default: userEvent } = await import("@testing-library/user-event");
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<EscrowCountdown escrow={makeEscrow()} />);
-    await user.click(screen.getByRole("button", { name: "Request extension" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request extension" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });

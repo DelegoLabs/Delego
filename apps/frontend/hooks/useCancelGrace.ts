@@ -106,10 +106,23 @@ export function useCancelGrace(options: UseCancelGraceOptions): UseCancelGraceRe
   graceRef.current = grace;
   const finalizingRef = useRef(false);
 
+  const prevServerGraceRef = useRef<CancellationGrace | null | undefined>(undefined);
+
   // A fresh `serverGrace` payload: adopt it, recompute skew against "now" at
   // the moment it was received, and persist it.
   useEffect(() => {
     if (serverGrace === undefined) return; // caller hasn't loaded escrow data yet
+    const prev = prevServerGraceRef.current;
+    if (
+      prev &&
+      serverGrace &&
+      prev.requestedAt === serverGrace.requestedAt &&
+      prev.graceExpiresAt === serverGrace.graceExpiresAt &&
+      prev.serverTimestamp === serverGrace.serverTimestamp
+    ) {
+      return;
+    }
+    prevServerGraceRef.current = serverGrace;
     setGrace(serverGrace);
     writeStoredGrace(escrowId, serverGrace);
     if (serverGrace) {

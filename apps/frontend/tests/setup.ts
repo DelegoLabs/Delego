@@ -1,7 +1,42 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import "@testing-library/jest-dom";
+import "fake-indexeddb/auto";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { server } from "../mocks/server";
+
+// Polyfill BigInt.prototype.toJSON for MSW and test JSON serialization
+if (typeof BigInt !== "undefined" && !("toJSON" in BigInt.prototype)) {
+  Object.defineProperty(BigInt.prototype, "toJSON", {
+    value: function (this: bigint) {
+      return this.toString();
+    },
+    configurable: true,
+    writable: true,
+  });
+}
+
+// Polyfill Blob.prototype.text for jsdom
+if (typeof Blob !== "undefined" && typeof Blob.prototype.text !== "function") {
+  Blob.prototype.text = function (this: Blob) {
+    const symbols = Object.getOwnPropertySymbols(this);
+    for (const sym of symbols) {
+      const impl = (this as unknown as Record<symbol, unknown>)[sym] as
+        | { _buffer?: Buffer }
+        | undefined;
+      if (impl && impl._buffer) {
+        return Promise.resolve(impl._buffer.toString("utf-8"));
+      }
+    }
+    if (typeof FileReader !== "undefined") {
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(this);
+      });
+    }
+    return Promise.resolve("");
+  };
+}
 
 // On Node 22.4+/24+, globalThis.localStorage/sessionStorage are native, but
 // without a valid `--localstorage-file` they resolve to a non-functional
@@ -72,6 +107,8 @@ if (
  * files layer scenario handlers on top with `server.use(...)` and MSW resets
  * to these defaults in `afterEach` via `resetHandlers`.
  */
-// beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
-// afterEach(() => server.resetHandlers());
-// afterAll(() => server.close());
+beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+export { server } from "../mocks/server";

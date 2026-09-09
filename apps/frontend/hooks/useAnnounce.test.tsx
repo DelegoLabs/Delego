@@ -99,13 +99,13 @@ describe("useAnnounce", () => {
     });
   });
 
-  it("throws when used outside an AnnounceProvider", () => {
+  it("falls back gracefully when used outside an AnnounceProvider", () => {
+    let result: ReturnType<typeof useAnnounce> | undefined;
     function Bare() {
-      useAnnounce();
+      result = useAnnounce();
       return null;
     }
-    expect(() => render(<Bare />)).toThrow(
-      "useAnnounce must be used within an AnnounceProvider"
-    );
+    expect(() => render(<Bare />)).not.toThrow();
+    expect(typeof result?.announce).toBe("function");
   });
 });

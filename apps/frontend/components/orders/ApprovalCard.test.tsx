@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { Order } from "@delegolabs/types";
 import { ApprovalCard } from "./ApprovalCard";
 
@@ -90,12 +89,11 @@ describe("ApprovalCard — dual control (#574)", () => {
       },
     });
     const onApprove = vi.fn();
-    const user = userEvent.setup();
 
     render(<ApprovalCard order={order} onApprove={onApprove} onReject={vi.fn()} />);
 
     expect(screen.queryByTestId("dual-control-tag")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Approve & Pay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Approve & Pay" }));
     expect(onApprove).toHaveBeenCalledWith("order-1");
     expect(mockSubmitApproval).not.toHaveBeenCalled();
   });
@@ -137,7 +135,6 @@ describe("ApprovalCard — dual control (#574)", () => {
       },
     });
     const onDualControlUpdate = vi.fn();
-    const user = userEvent.setup();
 
     render(
       <ApprovalCard
@@ -149,12 +146,14 @@ describe("ApprovalCard — dual control (#574)", () => {
     );
 
     expect(screen.getByTestId("dual-control-tag")).toHaveTextContent("Ready to countersign");
-    await user.click(screen.getByRole("button", { name: "Approve & Pay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Approve & Pay" }));
 
-    expect(mockSubmitApproval).toHaveBeenCalledWith("order-1", "wallet-b");
-    expect(onDualControlUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "approved" })
-    );
+    await waitFor(() => {
+      expect(mockSubmitApproval).toHaveBeenCalledWith("order-1", "wallet-b");
+      expect(onDualControlUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "approved" })
+      );
+    });
   });
 });
 
@@ -165,37 +164,33 @@ describe("ApprovalCard — structured rejection reasons (#567)", () => {
     mockUseWallet.mockReturnValue({ address: "wallet-a" });
   });
 
-  it("rejects with no reason when the picker is never opened (backward compatible)", async () => {
+  it("rejects with no reason when the picker is never opened (backward compatible)", () => {
     const order = makeOrder();
     const onReject = vi.fn();
-    const user = userEvent.setup();
 
     render(<ApprovalCard order={order} onApprove={vi.fn()} onReject={onReject} />);
 
-    await user.click(screen.getByRole("button", { name: "Reject" }));
-    await user.click(screen.getByRole("button", { name: "Confirm Reject" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Reject" }));
 
     expect(onReject).toHaveBeenCalledWith("order-1", undefined, undefined);
   });
 
-  it("collects a structured reason code and free-text detail before rejecting", async () => {
+  it("collects a structured reason code and free-text detail before rejecting", () => {
     const order = makeOrder();
     const onReject = vi.fn();
-    const user = userEvent.setup();
 
     render(<ApprovalCard order={order} onApprove={vi.fn()} onReject={onReject} />);
 
-    await user.click(screen.getByRole("button", { name: "Reject" }));
-    await user.click(screen.getByText("+ Add reason"));
-    await user.selectOptions(
-      screen.getByLabelText("Reason for rejection"),
-      "too_expensive"
-    );
-    await user.type(
-      screen.getByPlaceholderText("Additional detail (optional)"),
-      "Over budget for this quarter"
-    );
-    await user.click(screen.getByRole("button", { name: "Confirm Reject" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    fireEvent.click(screen.getByText("+ Add reason"));
+    fireEvent.change(screen.getByLabelText("Reason for rejection"), {
+      target: { value: "too_expensive" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Additional detail (optional)"), {
+      target: { value: "Over budget for this quarter" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Reject" }));
 
     expect(onReject).toHaveBeenCalledWith(
       "order-1",
@@ -214,14 +209,13 @@ describe("ApprovalCard — approve-with-note (#573)", () => {
     mockSetLocalApprovalNote.mockReset();
   });
 
-  it("approving with no note calls the plain onApprove path, never submitApproval", async () => {
+  it("approving with no note calls the plain onApprove path, never submitApproval", () => {
     mockUseApprovalNoteCapability.mockReturnValue(true);
     const order = makeOrder();
     const onApprove = vi.fn();
-    const user = userEvent.setup();
 
     render(<ApprovalCard order={order} onApprove={onApprove} onReject={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: "Approve & Pay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Approve & Pay" }));
 
     expect(onApprove).toHaveBeenCalledWith("order-1");
     expect(mockSubmitApproval).not.toHaveBeenCalled();
@@ -235,14 +229,17 @@ describe("ApprovalCard — approve-with-note (#573)", () => {
     });
     const order = makeOrder();
     const onApprove = vi.fn();
-    const user = userEvent.setup();
 
     render(<ApprovalCard order={order} onApprove={onApprove} onReject={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: "Add note" }));
-    await user.type(screen.getByLabelText("Note (optional)"), "Please expedite");
-    await user.click(screen.getByRole("button", { name: "Approve & Pay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    fireEvent.change(screen.getByLabelText("Note (optional)"), {
+      target: { value: "Please expedite" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Approve & Pay" }));
 
-    expect(mockSubmitApproval).toHaveBeenCalledWith("order-1", "wallet-a", "Please expedite");
+    await waitFor(() => {
+      expect(mockSubmitApproval).toHaveBeenCalledWith("order-1", "wallet-a", "Please expedite");
+    });
     expect(onApprove).not.toHaveBeenCalled();
     expect(mockSetLocalApprovalNote).not.toHaveBeenCalled();
   });
@@ -251,39 +248,42 @@ describe("ApprovalCard — approve-with-note (#573)", () => {
     mockUseApprovalNoteCapability.mockReturnValue(false);
     const order = makeOrder();
     const onApprove = vi.fn();
-    const user = userEvent.setup();
 
     render(<ApprovalCard order={order} onApprove={onApprove} onReject={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: "Add note" }));
-    await user.type(screen.getByLabelText("Note (optional)"), "Local only note");
-    await user.click(screen.getByRole("button", { name: "Approve & Pay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    fireEvent.change(screen.getByLabelText("Note (optional)"), {
+      target: { value: "Local only note" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Approve & Pay" }));
 
+    await waitFor(() => {
+      expect(mockSetLocalApprovalNote).toHaveBeenCalledWith("order-1", "Local only note");
+    });
     expect(mockSubmitApproval).not.toHaveBeenCalled();
     expect(onApprove).toHaveBeenCalledWith("order-1");
-    expect(mockSetLocalApprovalNote).toHaveBeenCalledWith("order-1", "Local only note");
   });
 
-  it("enforces the 280-character limit client-side by disabling Approve past the limit", async () => {
+  it("enforces the 280-character limit client-side by disabling Approve past the limit", () => {
     mockUseApprovalNoteCapability.mockReturnValue(true);
     const order = makeOrder();
-    const user = userEvent.setup();
 
     render(<ApprovalCard order={order} onApprove={vi.fn()} onReject={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: "Add note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
     const textarea = screen.getByLabelText("Note (optional)");
-    await user.type(textarea, "a".repeat(281));
+    fireEvent.change(textarea, { target: { value: "a".repeat(281) } });
 
     expect(screen.getByRole("button", { name: "Approve & Pay" })).toBeDisabled();
   });
 
-  it("renders the counter reflecting remaining characters", async () => {
+  it("renders the counter reflecting remaining characters", () => {
     mockUseApprovalNoteCapability.mockReturnValue(true);
     const order = makeOrder();
-    const user = userEvent.setup();
 
     render(<ApprovalCard order={order} onApprove={vi.fn()} onReject={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: "Add note" }));
-    await user.type(screen.getByLabelText("Note (optional)"), "hello");
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    fireEvent.change(screen.getByLabelText("Note (optional)"), {
+      target: { value: "hello" },
+    });
 
     expect(screen.getByText("275 characters remaining")).toBeInTheDocument();
   });

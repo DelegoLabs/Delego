@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Order } from "@delegolabs/types";
 import { ApprovalDrawer } from "./ApprovalDrawer";
@@ -289,7 +289,6 @@ describe("ApprovalDrawer", () => {
   });
 
   it("collects a structured reason and note before rejecting (#567)", async () => {
-    const user = userEvent.setup();
     const onReject = vi.fn();
     render(
       <ApprovalDrawer
@@ -300,16 +299,14 @@ describe("ApprovalDrawer", () => {
       />
     );
 
-    await user.click(screen.getByText("+ Add reason"));
-    await user.selectOptions(
-      screen.getByLabelText("Reason for rejection"),
-      "wrong_item"
-    );
-    await user.type(
-      screen.getByLabelText("Additional detail (optional)"),
-      "Not what was requested"
-    );
-    await user.click(screen.getByRole("button", { name: "Reject" }));
+    fireEvent.click(screen.getByText("+ Add reason"));
+    fireEvent.change(screen.getByLabelText("Reason for rejection"), {
+      target: { value: "wrong_item" },
+    });
+    fireEvent.change(screen.getByLabelText("Additional detail (optional)"), {
+      target: { value: "Not what was requested" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
 
     expect(onReject).toHaveBeenCalledWith(
       "order-1",
@@ -525,39 +522,45 @@ describe("ApprovalDrawer — approve-with-note (#573)", () => {
       error: null,
     });
     const onApprove = vi.fn();
-    const user = userEvent.setup();
     render(
       <ApprovalDrawer order={makeOrder()} onApprove={onApprove} onReject={vi.fn()} onClose={vi.fn()} />
     );
-    await user.type(screen.getByLabelText("Note (optional)"), "Approved with condition");
-    await user.click(screen.getByRole("button", { name: "Approve" }));
+    fireEvent.change(screen.getByLabelText("Note (optional)"), {
+      target: { value: "Approved with condition" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
 
-    expect(mockSubmitApproval).toHaveBeenCalledWith("order-1", "wallet-a", "Approved with condition");
+    await waitFor(() => {
+      expect(mockSubmitApproval).toHaveBeenCalledWith("order-1", "wallet-a", "Approved with condition");
+    });
     expect(onApprove).not.toHaveBeenCalled();
   });
 
   it("degrades to a local-only note when the API doesn't support approvalNote", async () => {
     mockUseApprovalNoteCapability.mockReturnValue(false);
     const onApprove = vi.fn();
-    const user = userEvent.setup();
     render(
       <ApprovalDrawer order={makeOrder()} onApprove={onApprove} onReject={vi.fn()} onClose={vi.fn()} />
     );
-    await user.type(screen.getByLabelText("Note (optional)"), "Local only");
-    await user.click(screen.getByRole("button", { name: "Approve" }));
+    fireEvent.change(screen.getByLabelText("Note (optional)"), {
+      target: { value: "Local only" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
 
+    await waitFor(() => {
+      expect(mockSetLocalApprovalNote).toHaveBeenCalledWith("order-1", "Local only");
+    });
     expect(mockSubmitApproval).not.toHaveBeenCalled();
     expect(onApprove).toHaveBeenCalledWith("order-1");
     expect(mockSetLocalApprovalNote).toHaveBeenCalledWith("order-1", "Local only");
   });
 
-  it("disables Approve once the note exceeds 280 characters", async () => {
+  it("disables Approve once the note exceeds 280 characters", () => {
     mockUseApprovalNoteCapability.mockReturnValue(true);
-    const user = userEvent.setup();
     render(
       <ApprovalDrawer order={makeOrder()} onApprove={vi.fn()} onReject={vi.fn()} onClose={vi.fn()} />
     );
-    await user.type(screen.getByLabelText("Note (optional)"), "a".repeat(281));
+    fireEvent.change(screen.getByLabelText("Note (optional)"), { target: { value: "a".repeat(281) } });
     expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
   });
 

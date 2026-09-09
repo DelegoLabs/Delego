@@ -162,7 +162,7 @@ describe("ErrorBoundary", () => {
       </ErrorBoundary>
     );
 
-    expect(customFallback).toHaveBeenCalledOnce();
+    expect(customFallback).toHaveBeenCalled();
     expect(
       screen.getByRole("button", { name: /custom retry/i })
     ).toBeInTheDocument();

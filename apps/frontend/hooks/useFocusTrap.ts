@@ -77,11 +77,14 @@ export function useFocusTrap(
       // click, close button). If focus already moved elsewhere — e.g. the
       // browser navigated because the user activated a link inside the
       // panel — respect that instead of yanking focus back.
-      if (
-        document.activeElement === container ||
-        container.contains(document.activeElement) ||
-        (process.env.NODE_ENV === "test" && previouslyFocusedRef.current)
-      ) {
+      const activeEl = document.activeElement;
+      const focusMovedElsewhere =
+        activeEl &&
+        activeEl !== document.body &&
+        activeEl !== container &&
+        !container.contains(activeEl);
+
+      if (!focusMovedElsewhere) {
         previouslyFocusedRef.current?.focus();
       }
     };

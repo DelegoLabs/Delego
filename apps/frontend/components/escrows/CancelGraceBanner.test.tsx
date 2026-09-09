@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { CancellationGrace } from "@delegolabs/types";
 import { CancelGraceBanner } from "./CancelGraceBanner";
@@ -61,13 +60,12 @@ describe("CancelGraceBanner", () => {
     expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
   });
 
-  it("clicking Undo clears the banner immediately (optimistic)", async () => {
+  it("clicking Undo clears the banner immediately (optimistic)", () => {
     let resolveUndo: (v: unknown) => void = () => {};
     mockUndo.mockReturnValue(new Promise((resolve) => (resolveUndo = resolve)));
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderBanner(makeGrace());
-    await user.click(screen.getByRole("button", { name: "Undo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
 
     expect(screen.queryByText("Cancelling…")).toBeNull();
 

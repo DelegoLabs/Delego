@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import type { CancellationGrace } from "@delegolabs/types";
 import { useCancelGrace } from "./useCancelGrace";
 
@@ -146,18 +146,19 @@ describe("useCancelGrace", () => {
 
   it("finalizes and appends a permanent timeline event once the countdown lapses without an undo", async () => {
     const onFinalized = vi.fn();
+    const grace = makeGrace();
     const { result } = renderHook(() =>
-      useCancelGrace({ escrowId: "escrow-1", serverGrace: makeGrace(), onFinalized, tickMs: 1000 })
+      useCancelGrace({ escrowId: "escrow-1", serverGrace: grace, onFinalized, tickMs: 1000 })
     );
     expect(result.current.grace).not.toBeNull();
 
     await act(async () => {
       vi.setSystemTime(new Date("2026-01-01T00:00:31.000Z"));
       vi.advanceTimersByTime(31_000);
-      await vi.runOnlyPendingTimersAsync();
+      await Promise.resolve();
     });
 
-    await waitFor(() => expect(result.current.grace).toBeNull());
+    expect(result.current.grace).toBeNull();
     expect(mockFinalize).toHaveBeenCalledWith("escrow-1");
     expect(onFinalized).toHaveBeenCalledWith("escrow-1");
 
