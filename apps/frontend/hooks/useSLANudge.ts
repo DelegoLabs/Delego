@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
-import type { Order } from "@delego/types";
+import type { Order } from "@delegolabs/types";
 import { useNotifications } from "./useNotifications";
 import {
   DEFAULT_AMBER_THRESHOLD_MS,

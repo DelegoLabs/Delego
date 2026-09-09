@@ -1,6 +1,11 @@
+import "@delegolabs/sdk";
+
 declare module "@delegolabs/sdk" {
-  export class DelegoClient {
-    constructor(config: any);
-    [key: string]: any;
+  interface DelegoClient {
+    rejectOrder(
+      id: string,
+      reason?: string,
+      reasonCode?: string
+    ): Promise<import("@delegolabs/types").ApiResponse<import("@delegolabs/types").Order>>;
   }
 }
