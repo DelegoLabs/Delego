@@ -56,7 +56,7 @@ export default function DelegationsPage() {
       const matchesSearch =
         term === "" ||
         d.agentId.toLowerCase().includes(term) ||
-        d.walletId.toLowerCase().includes(term);
+        (d.walletId ?? "").toLowerCase().includes(term);
 
       const matchesStatus =
         selectedStatuses.length === 0 ||

@@ -16,7 +16,8 @@ export interface ReceiptPanelProps {
   order: Order;
 }
 
-function formatTimestamp(value: Date | string): string {
+function formatTimestamp(value?: Date | string | null): string {
+  if (!value) return "—";
   const date = typeof value === "string" ? new Date(value) : value;
   return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
@@ -96,7 +97,7 @@ export function ReceiptPanel({ order }: ReceiptPanelProps) {
             </tr>
           </thead>
           <tbody>
-            {order.lineItems.map((item) => (
+            {(order.lineItems ?? []).map((item) => (
               <tr key={item.productId}>
                 <td>{item.productId}</td>
                 <td>{item.quantity}</td>

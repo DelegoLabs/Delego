@@ -7,10 +7,18 @@ import { Button, Card } from "@delegolabs/ui";
 import { useEscrows } from "../../../hooks/useEscrows";
 import { useDispute } from "../../../hooks/useDispute";
 import { useNetwork } from "../../../hooks/useNetwork";
+import dynamic from "next/dynamic";
 import { EscrowCard } from "../../../components/escrows/EscrowCard";
 import { DisputeModal } from "../../../components/escrows/DisputeModal";
 import { DisputeStatusPanel } from "../../../components/escrows/DisputeStatusPanel";
-import { OnChainVerificationPanel } from "../../../components/escrows/OnChainVerificationPanel";
+
+const OnChainVerificationPanel = dynamic(
+  () =>
+    import("../../../components/escrows/OnChainVerificationPanel").then(
+      (m) => m.OnChainVerificationPanel
+    ),
+  { ssr: false }
+);
 import {
   getConfiguredContracts,
   explorerContractUrl,

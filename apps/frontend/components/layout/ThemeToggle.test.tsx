@@ -33,34 +33,35 @@ describe("ThemeToggle", () => {
 
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(
-      screen.getByRole("button", { name: /switch to light mode/i })
-    ).toHaveAttribute("aria-pressed", "true");
+      screen.getByRole("button", { name: /Theme: System/i })
+    ).toHaveAttribute("title", "Current theme: System");
   });
 
   it("uses a saved preference instead of the system preference", () => {
-    localStorage.setItem("delego-theme", "light");
+    localStorage.setItem("delego-theme-mode", "light");
     mockSystemTheme(true);
 
     render(<ThemeToggle />);
 
     expect(document.documentElement.dataset.theme).toBe("light");
     expect(
-      screen.getByRole("button", { name: /switch to dark mode/i })
+      screen.getByRole("button", { name: /Theme: Light/i })
     ).toHaveAttribute("aria-pressed", "false");
   });
 
   it("toggles the theme and persists the selection", async () => {
+    localStorage.setItem("delego-theme-mode", "light");
     const user = userEvent.setup();
     render(<ThemeToggle />);
 
     await user.click(
-      screen.getByRole("button", { name: /switch to dark mode/i })
+      screen.getByRole("button", { name: /Theme: Light/i })
     );
 
     expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(localStorage.getItem("delego-theme")).toBe("dark");
+    expect(localStorage.getItem("delego-theme-mode")).toBe("dark");
     expect(
-      screen.getByRole("button", { name: /switch to light mode/i })
+      screen.getByRole("button", { name: /Theme: Dark/i })
     ).toHaveAttribute("aria-pressed", "true");
   });
 });

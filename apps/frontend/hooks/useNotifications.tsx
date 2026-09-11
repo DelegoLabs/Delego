@@ -79,7 +79,7 @@ const NotificationContext = createContext<NotificationContextValue | null>(
 const STORAGE_KEY = "delego_notifications";
 const RETENTION_STORAGE_KEY = "delego_notification_retention";
 const GROUPING_STORAGE_KEY = "delego_notification_grouping";
-export const MAX_NOTIFICATIONS = 500;
+export const MAX_NOTIFICATIONS = 50;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

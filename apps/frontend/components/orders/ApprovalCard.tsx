@@ -198,7 +198,7 @@ export function ApprovalCard({
               </span>
             )}
 
-            <ApprovalAgeBadge createdAt={order.createdAt} />
+            <ApprovalAgeBadge createdAt={new Date(order.createdAt)} />
 
             <span
               className="approval-flag"
@@ -226,7 +226,7 @@ export function ApprovalCard({
               <dt>Requested</dt>
               <dd>
                 {formatDateTimeWithPreferences(
-                  order.createdAt,
+                  new Date(order.createdAt),
                   locale,
                   timeFormatPreferences
                 )}
@@ -256,7 +256,7 @@ export function ApprovalCard({
                         <Amount
                           stroops={item.unitPriceStroops || item.price}
                           currency={currencyId as any}
-                          rate={rate}
+                          xlmUsdRate={rate?.xlmUsdRate}
                         />
                       </td>
                       <td>
@@ -266,7 +266,7 @@ export function ApprovalCard({
                             BigInt(item.quantity)
                           }
                           currency={currencyId as any}
-                          rate={rate}
+                          xlmUsdRate={rate?.xlmUsdRate}
                         />
                       </td>
                     </tr>
@@ -279,7 +279,7 @@ export function ApprovalCard({
           <div className="approval-card-total">
             <span>Total:</span>
             <strong className="approval-total-amount">
-              <Amount stroops={order.amount} currency={currencyId as any} rate={rate} />
+              <Amount stroops={order.amount} currency={currencyId as any} xlmUsdRate={rate?.xlmUsdRate} />
             </strong>
           </div>
 

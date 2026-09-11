@@ -24,12 +24,19 @@ function shortenAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
+const TONE_COLORS: Record<string, { color: string; bg: string }> = {
+  pending: { color: "#92400e", bg: "#fef3c7" },
+  success: { color: "#166534", bg: "#dcfce7" },
+  failed: { color: "#dc2626", bg: "#fee2e2" },
+  refunded: { color: "#4b5563", bg: "#f3f4f6" },
+};
+
 function computeCountdown(
-  timeoutLedger: number,
+  timeoutLedger: number | undefined,
   currentLedger: number | undefined,
   status: string
 ): { remaining: number; label: string; urgent: boolean } | null {
-  if (status !== "Funded" || currentLedger === undefined) return null;
+  if (status !== "Funded" || currentLedger === undefined || timeoutLedger === undefined) return null;
   const ledgersLeft = timeoutLedger - currentLedger;
   const secondsLeft = ledgersLeft * LEDGER_CLOSE_SECONDS;
 
@@ -61,7 +68,11 @@ function computeCountdown(
 
 export function EscrowCard({ escrow, href: _href, disputedOverride }: EscrowCardProps) {
   const { currencyId, rate } = useCurrency();
-  const meta = disputedOverride ? ESCROW_STATUS_META.Disputed : ESCROW_STATUS_META[escrow.status];
+  const meta = (disputedOverride ? ESCROW_STATUS_META.Disputed : ESCROW_STATUS_META[escrow.status]) ?? {
+    label: escrow.status,
+    tone: "pending" as const,
+  };
+  const toneStyle = TONE_COLORS[meta.tone] ?? { color: "#374151", bg: "#e5e7eb" };
   const countdown = computeCountdown(
     escrow.timeoutLedger,
     escrow.currentLedger,
@@ -111,8 +122,8 @@ export function EscrowCard({ escrow, href: _href, disputedOverride }: EscrowCard
               fontSize: "0.75rem",
               fontWeight: 600,
               lineHeight: 1.4,
-              color: meta.color,
-              backgroundColor: meta.bg,
+              color: toneStyle.color,
+              backgroundColor: toneStyle.bg,
               transition: "opacity 0.2s ease",
             }}
           >

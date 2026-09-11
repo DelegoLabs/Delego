@@ -78,7 +78,7 @@ export function DisputeStatusPanel({ escrow, dispute, optimistic }: DisputeStatu
               <dt>Evidence</dt>
               <dd>
                 <ul className="approval-evidence-list">
-                  {dispute.evidenceUrls.map((url) => (
+                  {dispute.evidenceUrls.map((url: string) => (
                     <li key={url}>
                       <a href={url} target="_blank" rel="noopener noreferrer">
                         {url}

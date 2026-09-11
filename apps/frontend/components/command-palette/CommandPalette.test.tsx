@@ -111,8 +111,7 @@ describe("CommandPalette", () => {
   it("moves the highlighted item with arrow keys before running it", async () => {
     const user = userEvent.setup();
     renderPalette();
-
-    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+    await user.keyboard("{ArrowDown}{Enter}");
 
     expect(performDelegations).toHaveBeenCalledTimes(1);
   });

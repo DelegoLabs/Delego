@@ -73,7 +73,7 @@ export default function SpendChartInner({
           width={48}
         />
         <Tooltip
-          content={(props) => <SpendTooltip {...props} locale={locale} />}
+          content={(props: any) => <SpendTooltip {...props} locale={locale} />}
           cursor={{ fill: "var(--color-bg-subtle)" }}
         />
         <Bar

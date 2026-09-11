@@ -1,12 +1,11 @@
 "use client";
 
 import { use, type ReactNode } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach } from "vitest";
 import { WidgetBoundary } from "./WidgetBoundary";
 import {
   clearResource,
-  delayedResource,
   getResource,
 } from "../../lib/suspenseResource";
 
@@ -15,9 +14,16 @@ function FastWidget() {
   return <p>{value}</p>;
 }
 
+let resolveSlow: ((v: string) => void) | undefined;
 function SlowWidget() {
   const value = use(
-    delayedResource("widget-slow", () => Promise.resolve("slow-ready"), 60)
+    getResource(
+      "widget-slow",
+      () =>
+        new Promise<string>((resolve) => {
+          resolveSlow = resolve;
+        })
+    )
   );
   return <p>{value}</p>;
 }
@@ -29,23 +35,30 @@ function BoomWidget(): ReactNode {
 describe("WidgetBoundary (#625)", () => {
   beforeEach(() => {
     clearResource();
+    resolveSlow = undefined;
   });
 
   it("lets a delayed widget stream in last without blocking siblings", async () => {
-    render(
-      <>
-        <WidgetBoundary name="fast" minHeight="4rem">
-          <FastWidget />
-        </WidgetBoundary>
-        <WidgetBoundary name="slow" minHeight="8rem">
-          <SlowWidget />
-        </WidgetBoundary>
-      </>
-    );
+    await act(async () => {
+      render(
+        <>
+          <WidgetBoundary name="fast" minHeight="4rem">
+            <FastWidget />
+          </WidgetBoundary>
+          <WidgetBoundary name="slow" minHeight="8rem">
+            <SlowWidget />
+          </WidgetBoundary>
+        </>
+      );
+    });
 
-    expect(await screen.findByText("fast-ready")).toBeInTheDocument();
+    expect(screen.getByText("fast-ready")).toBeInTheDocument();
     expect(screen.getByLabelText("Loading slow")).toBeInTheDocument();
     expect(screen.queryByText("slow-ready")).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveSlow?.("slow-ready");
+    });
 
     await waitFor(() => {
       expect(screen.getByText("slow-ready")).toBeInTheDocument();
@@ -53,32 +66,32 @@ describe("WidgetBoundary (#625)", () => {
   });
 
   it("reserves the same minHeight on skeleton and content (no CLS)", async () => {
-    render(
-      <WidgetBoundary name="chart" minHeight="20rem">
-        <FastWidget />
-      </WidgetBoundary>
-    );
-    const skeleton = screen.queryByLabelText("Loading chart");
-    if (skeleton) {
-      expect(skeleton).toHaveStyle({ minHeight: "20rem" });
-    }
-    const content = await screen.findByText("fast-ready");
+    await act(async () => {
+      render(
+        <WidgetBoundary name="chart" minHeight="20rem">
+          <FastWidget />
+        </WidgetBoundary>
+      );
+    });
+    const content = screen.getByText("fast-ready");
     expect(content.parentElement).toHaveStyle({ minHeight: "20rem" });
   });
 
   it("keeps siblings visible when one widget throws", async () => {
-    render(
-      <>
-        <WidgetBoundary name="fast" minHeight="4rem">
-          <FastWidget />
-        </WidgetBoundary>
-        <WidgetBoundary name="broken" minHeight="8rem">
-          <BoomWidget />
-        </WidgetBoundary>
-      </>
-    );
+    await act(async () => {
+      render(
+        <>
+          <WidgetBoundary name="fast" minHeight="4rem">
+            <FastWidget />
+          </WidgetBoundary>
+          <WidgetBoundary name="broken" minHeight="8rem">
+            <BoomWidget />
+          </WidgetBoundary>
+        </>
+      );
+    });
 
-    expect(await screen.findByText("fast-ready")).toBeInTheDocument();
+    expect(screen.getByText("fast-ready")).toBeInTheDocument();
     expect(screen.getByText(/Couldn't load this widget/i)).toBeInTheDocument();
   });
 });

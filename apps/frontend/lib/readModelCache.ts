@@ -96,9 +96,17 @@ function recordId(family: QueryFamily, key: string): string {
 
 /** JSON stringify that round-trips bigint as `{ $b: "123" }`. */
 export function serializePayload(value: unknown): string {
-  return JSON.stringify(value, (_k, v) =>
-    typeof v === "bigint" ? { $b: v.toString() } : v
-  );
+  const originalToJSON = (BigInt.prototype as { toJSON?: unknown }).toJSON;
+  try {
+    delete (BigInt.prototype as { toJSON?: unknown }).toJSON;
+    return JSON.stringify(value, (_k, v) =>
+      typeof v === "bigint" ? { $b: v.toString() } : v
+    );
+  } finally {
+    if (originalToJSON) {
+      (BigInt.prototype as { toJSON?: unknown }).toJSON = originalToJSON;
+    }
+  }
 }
 
 export function deserializePayload<T>(raw: string): T {

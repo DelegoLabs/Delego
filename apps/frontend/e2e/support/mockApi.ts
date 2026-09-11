@@ -47,7 +47,6 @@ export async function seedAuthCookie(page: Page, baseURL: string) {
       name: AUTH_COOKIE,
       value: "e2e-mock-token",
       url: baseURL,
-      path: "/",
     },
   ]);
 }

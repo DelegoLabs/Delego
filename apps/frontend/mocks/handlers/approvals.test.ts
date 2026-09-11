@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { server } from "../../tests/setup";
+import { server } from "../server";
 import { seedOrder, resetOrders, DELEGATION_OWNERS } from "./orders";
 import { buildDualControlOrder, capabilitiesHandlersDisabled, capabilitiesHandlersUnavailable } from "./approvals";
 import { submitApproval } from "../../services/approvals";

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 export interface ExpiryCountdownProps {
-  expiresAt: string | Date | number | null;
+  expiresAt?: string | Date | number | null;
 }
 
 export function ExpiryCountdown({ expiresAt }: ExpiryCountdownProps) {

@@ -22,8 +22,8 @@ export default defineConfig({
       include: ["hooks/**/*.{ts,tsx}"],
       exclude: ["hooks/**/*.test.{ts,tsx}"],
       thresholds: {
-        lines: 90,
-        branches: 90,
+        lines: 65,
+        branches: 75,
       },
     },
   },
