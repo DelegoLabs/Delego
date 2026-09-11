@@ -5,9 +5,17 @@ import { useParams } from "next/navigation";
 import { Button, Card } from "@delegolabs/ui";
 import { useOrders } from "../../../hooks/useOrders";
 import { useNetwork } from "../../../hooks/useNetwork";
+import dynamic from "next/dynamic";
 import { ReceiptPanel } from "../../../components/orders/ReceiptPanel";
-import { OnChainVerificationPanel } from "../../../components/escrows/OnChainVerificationPanel";
 import { getConfiguredContracts } from "../../../lib/contracts";
+
+const OnChainVerificationPanel = dynamic(
+  () =>
+    import("../../../components/escrows/OnChainVerificationPanel").then(
+      (m) => m.OnChainVerificationPanel
+    ),
+  { ssr: false }
+);
 
 /** Order detail page — buyer-facing receipt for a single order (proof of purchase). */
 export default function OrderDetailPage() {

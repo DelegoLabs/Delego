@@ -350,6 +350,9 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
 
+      - name: Build shared packages
+        run: pnpm --filter "./packages/*" build
+
       # Restore a previously recorded baseline from the cache so the delta
       # column in the report is meaningful. On first run it will be empty.
       - name: Restore bundle size baseline

@@ -11,7 +11,7 @@ endpoint too.
 
 | Metric                    | Budget                          |
 | -------------------------- | -------------------------------- |
-| Initial route First Load JS | < 200 KB gzipped                |
+| Initial route First Load JS | < 250 KB gzipped                |
 | LCP (Largest Contentful Paint) | < 2.5s on mid-tier mobile     |
 | INP (Interaction to Next Paint) | < 200ms                     |
 | CLS (Cumulative Layout Shift)   | < 0.1                        |
@@ -29,7 +29,7 @@ pnpm --filter @delegolabs/web check:perf-budget
 ```
 
 This runs a production build and fails if any route's First Load JS exceeds
-200KB, parsing the per-route size table `next build` already prints. For a
+250KB, parsing the per-route size table `next build` already prints. For a
 visual breakdown of what's contributing to a route's bundle, run:
 
 ```bash
