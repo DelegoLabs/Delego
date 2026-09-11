@@ -14,6 +14,39 @@ if (typeof BigInt !== "undefined" && !("toJSON" in BigInt.prototype)) {
   });
 }
 
+// Minimal Canvas 2D context mock used by jsdom/axe/qr libraries in tests
+if (typeof HTMLCanvasElement !== "undefined") {
+  Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+    configurable: true,
+    value: function (type: string) {
+      if (type === "2d") {
+        return {
+          fillRect: () => {},
+          clearRect: () => {},
+          getImageData: (_x: number, _y: number, w: number, h: number) => ({
+            data: new Uint8ClampedArray(w * h * 4),
+          }),
+          putImageData: () => {},
+          createImageData: () => ({ data: [] }),
+          setTransform: () => {},
+          drawImage: () => {},
+          save: () => {},
+          fillText: () => {},
+          measureText: () => ({ width: 0 }),
+          restore: () => {},
+          beginPath: () => {},
+          closePath: () => {},
+          moveTo: () => {},
+          lineTo: () => {},
+          arc: () => {},
+          stroke: () => {},
+        };
+      }
+      return null;
+    },
+  });
+}
+
 // Polyfill Blob.prototype.text for jsdom
 if (typeof Blob !== "undefined" && typeof Blob.prototype.text !== "function") {
   Blob.prototype.text = function (this: Blob) {
