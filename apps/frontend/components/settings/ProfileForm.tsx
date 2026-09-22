@@ -46,8 +46,8 @@ export function ProfileForm({ user, onSave }: ProfileFormProps) {
     setSaving(true);
     try {
       await onSave({
-        displayName: displayName.trim() || null,
-        email: email.trim() || null,
+        displayName: displayName.trim() || undefined,
+        email: email.trim(),
       });
       setStatus({ type: "success", message: "Profile updated" });
     } catch (err) {

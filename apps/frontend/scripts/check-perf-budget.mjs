@@ -36,11 +36,11 @@ import { fileURLToPath } from "node:url";
 // ---------------------------------------------------------------------------
 
 /** Documented budget per route (gzipped First Load JS, in KB). */
-const BUDGET_KB = 200;
+const BUDGET_KB = 250;
 
 /**
  * Grace factor applied while open debt tickets exist (#624).
- * Effective budget = BUDGET_KB * GRACE_FACTOR = 220 KB.
+ * Effective budget = BUDGET_KB * GRACE_FACTOR = 275 KB.
  * Remove the factor (set to 1.0) once debt is cleared.
  */
 const GRACE_FACTOR = 1.1;

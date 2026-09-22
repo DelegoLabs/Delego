@@ -8,6 +8,9 @@ import deMessages from "../../messages/de.json";
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
+vi.mock("../tour/TourProvider", () => ({
+  useTour: () => ({ start: vi.fn(), active: false, stepIndex: 0 }),
+}));
 
 describe("Sidebar", () => {
   it("renders nav labels from the en message catalog", () => {

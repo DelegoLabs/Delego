@@ -20,6 +20,7 @@ import { DemoBanner } from "../demo/DemoBanner";
 import { IdleSessionGuard } from "../session/IdleSessionGuard";
 import { DomainWarningBanner } from "../security/DomainWarningBanner";
 import { ConsentBanner } from "../consent/ConsentBanner";
+import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvider";
 
 /**
  * Client-side context providers shared across the app shell.
@@ -54,15 +55,17 @@ export function AppProviders({ children }: { children: ReactNode }) {
               <AnnounceProvider>
                 <NotificationProvider>
                   <TourProvider>
-                    <DomainWarningBanner />
-                    <ConsentBanner />
-                    <DemoBanner />
-                    <SentryBreadcrumbs />
-                    <WebVitalsReporter />
-                    <QueueInspectorModal />
-                    {children}
-                    <NetworkMismatchModal />
-                    <IdleSessionGuard />
+                    <CommandPaletteProvider>
+                      <DomainWarningBanner />
+                      <ConsentBanner />
+                      <DemoBanner />
+                      <SentryBreadcrumbs />
+                      <WebVitalsReporter />
+                      <QueueInspectorModal />
+                      {children}
+                      <NetworkMismatchModal />
+                      <IdleSessionGuard />
+                    </CommandPaletteProvider>
                   </TourProvider>
                 </NotificationProvider>
               </AnnounceProvider>

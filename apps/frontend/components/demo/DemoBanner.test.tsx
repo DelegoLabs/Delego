@@ -33,10 +33,8 @@ describe("DemoBanner", () => {
   it("exits demo mode when the exit button is clicked", async () => {
     enableDemoMode();
     const originalLocation = window.location;
-    // @ts-expect-error -- overriding window.location for the test
     delete (window as any).location;
-    // @ts-expect-error -- partial Location stub is enough for this assertion
-    window.location = { href: "" };
+    (window as any).location = { href: "" };
 
     const user = userEvent.setup();
     render(<DemoBanner />);
@@ -47,6 +45,6 @@ describe("DemoBanner", () => {
     expect(isDemoMode()).toBe(false);
     expect(window.location.href).toBe("/");
 
-    window.location = originalLocation;
+    (window as any).location = originalLocation;
   });
 });

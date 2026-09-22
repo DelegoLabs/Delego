@@ -14,7 +14,7 @@ export interface OrderTableProps {
 }
 
 function itemCount(order: Order): number {
-  return order.lineItems.reduce((sum, item) => sum + item.quantity, 0);
+  return (order.lineItems ?? []).reduce((sum, item) => sum + item.quantity, 0);
 }
 
 /** Read-only table of orders. Empty/loading states are handled by the caller. */
@@ -61,7 +61,7 @@ export function OrderTable({ orders }: OrderTableProps) {
               </td>
               <td>
                 {formatDateTimeWithPreferences(
-                  order.createdAt,
+                  new Date(order.createdAt),
                   locale,
                   timeFormatPreferences,
                   { year: "numeric", month: "short", day: "numeric" }

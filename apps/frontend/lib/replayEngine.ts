@@ -49,28 +49,25 @@ export async function replayOfflineQueue(): Promise<ReplayResult> {
         await updateMutationStatus(item.id, "replaying");
 
         try {
-          let res: {
-            error?: { message?: string; status?: number; code?: string };
-            data?: unknown;
-          } | null = null;
+          let res: any = null;
 
           if (item.mutationClass === "approve_order") {
-            res = (await api.approveOrder(item.resourceId)) as typeof res;
+            res = await api.approveOrder(item.resourceId);
           } else if (item.mutationClass === "reject_order") {
             const reason = (item.payload.reason as string) ?? undefined;
             const reasonCode = (item.payload.reasonCode as string) ?? undefined;
-            res = (await api.rejectOrder(
+            res = await api.rejectOrder(
               item.resourceId,
               reason,
               reasonCode
-            )) as typeof res;
+            );
           } else if (item.mutationClass === "update_delegation") {
-            res = (await api.updateDelegation(
+            res = await api.updateDelegation(
               item.resourceId,
               item.payload
-            )) as typeof res;
+            );
           } else if (item.mutationClass === "revoke_delegation") {
-            res = (await api.revokeDelegation(item.resourceId)) as typeof res;
+            res = await api.revokeDelegation(item.resourceId);
           }
 
           const resAny = res as any;

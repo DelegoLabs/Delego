@@ -21,12 +21,12 @@ async function exportOrdersCsv(): Promise<void> {
   const res: ApiResponse<Order[]> = await api.getOrders({});
   if (res.error || !Array.isArray(res.data)) return;
 
-  const rows = res.data.map((order) => [
-    order.id,
-    order.merchantId,
-    order.status,
+  const rows: string[][] = res.data.map((order) => [
+    order.id ?? "",
+    order.merchantId ?? "",
+    order.status ?? "",
     formatXlm(order.totalStroops),
-    order.createdAt?.toString(),
+    order.createdAt ? String(order.createdAt) : "",
   ]);
 
   downloadCsv(

@@ -100,7 +100,7 @@ export function useSLANudge(
     for (const approval of pendingApprovals) {
       const eligible = isNudgeEligible(
         approval.id,
-        approval.createdAt.getTime(),
+        new Date(approval.createdAt).getTime(),
         now,
         { amberThresholdMs, nudgeLeadMs }
       );

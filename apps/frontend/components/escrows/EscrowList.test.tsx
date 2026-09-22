@@ -2,12 +2,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Escrow } from "@delegolabs/types";
+import { CurrencyProvider } from "../../hooks/useCurrency";
 import { EscrowList } from "./EscrowList";
 
 const mockUseEscrows = vi.fn();
 vi.mock("../../hooks/useEscrows", () => ({
   useEscrows: () => mockUseEscrows(),
 }));
+
+function renderEscrowList() {
+  return render(
+    <CurrencyProvider>
+      <EscrowList />
+    </CurrencyProvider>
+  );
+}
 
 function makeEscrow(overrides: Partial<Escrow> = {}): Escrow {
   return {
@@ -32,13 +41,13 @@ describe("EscrowList", () => {
 
   it("shows the empty state when there are no escrows", () => {
     mockUseEscrows.mockReturnValue({ escrows: [], loading: false, error: null });
-    render(<EscrowList />);
+    renderEscrowList();
     expect(screen.getByText("No escrows yet.")).toBeInTheDocument();
   });
 
   it("surfaces a load error", () => {
     mockUseEscrows.mockReturnValue({ escrows: [], loading: false, error: "Failed to load escrows" });
-    render(<EscrowList />);
+    renderEscrowList();
     expect(screen.getByRole("alert")).toHaveTextContent("Failed to load escrows");
   });
 
@@ -48,7 +57,7 @@ describe("EscrowList", () => {
       loading: false,
       error: null,
     });
-    render(<EscrowList />);
+    renderEscrowList();
     expect(screen.queryByTestId("sticky-action-bar")).toBeNull();
   });
 
@@ -59,7 +68,7 @@ describe("EscrowList", () => {
       error: null,
     });
     const user = userEvent.setup();
-    render(<EscrowList />);
+    renderEscrowList();
 
     await user.click(screen.getByLabelText("Select escrow esc-a"));
     expect(screen.getByTestId("sticky-action-bar")).toHaveTextContent("1 selected");
@@ -72,7 +81,7 @@ describe("EscrowList", () => {
       error: null,
     });
     const user = userEvent.setup();
-    render(<EscrowList />);
+    renderEscrowList();
 
     await user.click(screen.getByLabelText("Select all escrows"));
     expect(screen.getByTestId("sticky-action-bar")).toHaveTextContent("2 selected");
@@ -88,7 +97,7 @@ describe("EscrowList", () => {
       error: null,
     });
     const user = userEvent.setup();
-    render(<EscrowList />);
+    renderEscrowList();
 
     await user.click(screen.getByLabelText("Select escrow esc-a"));
     await user.click(screen.getByRole("button", { name: "Clear" }));

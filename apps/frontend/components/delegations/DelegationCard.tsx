@@ -219,24 +219,24 @@ export function DelegationCard({
         </div>
 
         <LimitUsageBar
-          spent={0n} cap={delegation.policy.maxTotal} periodRollover={delegation.policy.expiresAt}
-          currency={currencyId as any}
-          rate={rate}
+          spent={0n}
+          cap={delegation.policy.maxTotal}
+          periodRollover={delegation.policy.expiresAt}
         />
 
         {editing ? (
           <div className="delegation-card-edit-form">
             <div className="form-group">
+              <label className="form-label">Max per transaction</label>
               <StroopsInput
-                label="Max per transaction"
                 value={maxPerTransaction}
                 onChange={setMaxPerTransaction}
                 disabled={saving}
               />
             </div>
             <div className="form-group">
+              <label className="form-label">Max total budget</label>
               <StroopsInput
-                label="Max total budget"
                 value={maxTotal}
                 onChange={setMaxTotal}
                 disabled={saving}
@@ -244,15 +244,14 @@ export function DelegationCard({
             </div>
 
             <MerchantWhitelistPicker
-              allowedMerchants={allowedMerchants}
+              value={allowedMerchants}
+              onChange={setAllowedMerchants}
               unrestricted={unrestrictedMerchants}
-              onAllowedMerchantsChange={setAllowedMerchants}
               onUnrestrictedChange={(unrestricted) => {
                 setUnrestrictedMerchants(unrestricted);
                 if (unrestricted) setShowEmptyWhitelistError(false);
               }}
-              showEmptyError={showEmptyWhitelistError}
-              disabled={saving}
+              showEmptyWhitelistError={showEmptyWhitelistError}
             />
 
             <div className="delegation-card-edit-actions">
@@ -281,7 +280,7 @@ export function DelegationCard({
               <Amount
                 stroops={delegation.policy.maxPerTransaction}
                 currency={currencyId as any}
-                rate={rate}
+                xlmUsdRate={rate?.xlmUsdRate}
               />
             </div>
             <div className="policy-summary-row">
@@ -289,7 +288,7 @@ export function DelegationCard({
               <Amount
                 stroops={delegation.policy.maxTotal}
                 currency={currencyId as any}
-                rate={rate}
+                xlmUsdRate={rate?.xlmUsdRate}
               />
             </div>
             <div className="policy-summary-row">
@@ -362,7 +361,11 @@ export function DelegationCard({
 
         {showQr && (
           <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-900 rounded border">
-            <DelegationQR delegation={delegation} />
+            <DelegationQR
+              delegationId={delegation.id}
+              userId={delegation.userId}
+              agentId={delegation.agentId}
+            />
           </div>
         )}
       </Card>
@@ -370,7 +373,7 @@ export function DelegationCard({
       {showPauseModal && (
         <PauseResumeConfirmModal
           isOpen={showPauseModal}
-          isPaused={isPaused}
+          action={isPaused ? "resume" : "pause"}
           agentId={delegation.agentId}
           onConfirm={handleConfirmPauseToggle}
           onCancel={() => setShowPauseModal(false)}

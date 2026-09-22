@@ -177,7 +177,7 @@ export function ApprovalDrawer({
       >
         <div className="approval-drawer-header">
           <h2>Order {order.id}</h2>
-          <ApprovalAgeBadge createdAt={order.createdAt} />
+          <ApprovalAgeBadge createdAt={new Date(order.createdAt)} />
           <button
             type="button"
             aria-label="Close"
@@ -279,7 +279,7 @@ export function ApprovalDrawer({
               </tr>
             </thead>
             <tbody>
-              {order.lineItems.map((item) => {
+              {(order.lineItems ?? []).map((item) => {
                 const productId = item.productId ?? "";
                 const range = priceRangeByProductId?.[productId];
                 const imageUrl = imageUrlByProductId?.[productId];

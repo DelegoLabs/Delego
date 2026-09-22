@@ -184,7 +184,8 @@ async function poll(tx: TrackedTx, currentIntervalMs: number): Promise<void> {
 
     if (status === "success" || status === "failed") {
       stopPoll(tx.hash);
-      markTerminal(tx.hash, status);
+      const tracked = loadTracked().filter((t) => t.hash !== tx.hash);
+      saveTracked(tracked);
       notifyListeners({ hash: tx.hash, status, elapsedMs });
       return;
     }
