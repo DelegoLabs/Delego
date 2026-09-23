@@ -3,6 +3,12 @@ import "fake-indexeddb/auto";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { server } from "../mocks/server";
 
+// Ensure Node Uint8Array/ArrayBuffer instances pass in JSDOM environment for @stellar/stellar-sdk
+if (typeof window !== "undefined") {
+  window.Uint8Array = Uint8Array;
+  window.ArrayBuffer = ArrayBuffer;
+}
+
 // Polyfill BigInt.prototype.toJSON for MSW and test JSON serialization
 if (typeof BigInt !== "undefined" && !("toJSON" in BigInt.prototype)) {
   Object.defineProperty(BigInt.prototype, "toJSON", {

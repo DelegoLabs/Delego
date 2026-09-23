@@ -19,7 +19,7 @@
     "build": "echo 'Source-only package — no build step needed'"
   },
   "devDependencies": {
-    "@delegolabs/types": "workspace:*",
+    "@delegolabs/types": "^0.1.1",
     "typescript": "^5.7.0"
   }
 }

@@ -109,7 +109,7 @@ function decodeAmountArg(scVal: xdr.ScVal): bigint | null {
  * it doesn't have an exact mapping for.
  */
 function decodeInvokeHostFunctionOp(
-  op: Operation.InvokeHostFunction
+  op: any
 ): DecodedOperation {
   const hostFn = op.func;
 
@@ -163,9 +163,9 @@ function decodeInvokeHostFunctionOp(
   };
 }
 
-function decodeOperation(op: Operation): DecodedOperation {
+function decodeOperation(op: any): DecodedOperation {
   if (op.type === "invokeHostFunction") {
-    return decodeInvokeHostFunctionOp(op as Operation.InvokeHostFunction);
+    return decodeInvokeHostFunctionOp(op);
   }
 
   return {
