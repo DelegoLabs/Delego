@@ -19,8 +19,8 @@ import {
 // XDR strings) so the decoder is exercised against genuinely valid,
 // checksummed envelopes — matching the issue's "golden XDR fixtures" ask.
 
-const SOURCE = Keypair.fromSecret(
-  "SBUCRG645IHKH2FRIP6KL5U2IV643HK5LLF3Q7B3QWMFKXAT4REW76MX"
+const SOURCE = Keypair.fromPublicKey(
+  "GDW2SJPNBGAKQ2KGNVOLONQ53QRNGI3UKHVULXMUAC7UH6V7ZWLXAGVF"
 );
 const RECIPIENT = "GBZH4MBWR3TBGRKE33DXVCMZKPCOLHYQOAFB2GNFY57ETYBTBQPLVLOD";
 const ESCROW_CONTRACT_ID = StrKey.encodeContract(Buffer.alloc(32, 7));
