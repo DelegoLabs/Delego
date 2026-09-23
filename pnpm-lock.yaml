@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@delegolabs/types': ^0.1.1
   axios: '>=1.16.0'
 
 importers:
@@ -412,9 +413,6 @@ packages:
 
   '@delegolabs/sdk@0.0.1':
     resolution: {integrity: sha512-OD5GxtYzLXcG34buT/H3H+FXsXmeGCheUGwulG17anmDaZuRrgWFE7FBbt+/wdYtu4vd15YVRU/jmBxX+EsDYw==, tarball: https://npm.pkg.github.com/download/@delegolabs/sdk/0.0.1/69e7bcb1a8d1f474918f45e68ab8958a79e4a793}
-
-  '@delegolabs/types@0.0.1':
-    resolution: {integrity: sha512-Hh7tsKdVwjNnPIHsl+wwg+LPJL4qszgZrFhYcDHCF4BzbEfYU357vvHxQpS9Ytdz5Otxetb8CJB8siwGNhi9CQ==, tarball: https://npm.pkg.github.com/download/@delegolabs/types/0.0.1/097b30b2c72daaa985b74e4484aa8891cef9ba4a}
 
   '@delegolabs/types@0.1.1':
     resolution: {integrity: sha512-gECVw6XxXqEemy6KeVBwNvc5HYJGQvsh6JpuYLU2HH66oWxZ+AXb5JUDhsxtk5NOgbRis54aewiBfpGNsUMBfQ==, tarball: https://npm.pkg.github.com/download/@delegolabs/types/0.1.1/61d0558bb646af8ab5ca555fbd959c2727298e90}
@@ -4813,10 +4811,8 @@ snapshots:
 
   '@delegolabs/sdk@0.0.1':
     dependencies:
-      '@delegolabs/types': 0.0.1
+      '@delegolabs/types': 0.1.1
       zod: 3.25.76
-
-  '@delegolabs/types@0.0.1': {}
 
   '@delegolabs/types@0.1.1':
     dependencies:
