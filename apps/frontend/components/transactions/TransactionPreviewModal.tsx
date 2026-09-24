@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Button } from "@delegolabs/ui";
 import {
   decodeTransactionPreview,
@@ -9,6 +9,11 @@ import {
   type DecodedOperation,
 } from "../../lib/decodeTransactionPreview";
 import { useNetwork } from "../../hooks/useNetwork";
+import {
+  simulateTransactionEnvelope,
+  type SimulationDryRunResult,
+} from "../../lib/simulationDryRun";
+import { SimulationDryRunModal } from "./SimulationDryRunModal";
 
 export interface TransactionPreviewModalProps {
   /** Unsigned transaction envelope XDR, built but not yet signed. */
@@ -138,6 +143,10 @@ export function TransactionPreviewModal({
   confirming = false,
 }: TransactionPreviewModalProps) {
   const { network } = useNetwork();
+  const dryRunRequest = useRef(0);
+  const [dryRunOpen, setDryRunOpen] = useState(false);
+  const [dryRunLoading, setDryRunLoading] = useState(false);
+  const [dryRun, setDryRun] = useState<SimulationDryRunResult | null>(null);
 
   const preview = useMemo<TransactionPreview | { error: string }>(() => {
     try {
@@ -151,6 +160,29 @@ export function TransactionPreviewModal({
   }, [xdr, network.networkPassphrase]);
 
   const hasError = "error" in preview;
+  const confirmBlockedByRevert = dryRun !== null && !dryRun.success;
+
+  async function handleOpenDryRun() {
+    const requestId = dryRunRequest.current + 1;
+    dryRunRequest.current = requestId;
+    setDryRunOpen(true);
+    setDryRunLoading(true);
+    setDryRun(null);
+    const result = await simulateTransactionEnvelope(
+      xdr,
+      network.sorobanRpcUrl,
+      network.networkPassphrase
+    );
+    if (dryRunRequest.current !== requestId) return;
+    setDryRun(result);
+    setDryRunLoading(false);
+  }
+
+  function handleCloseDryRun() {
+    dryRunRequest.current += 1;
+    setDryRunOpen(false);
+    setDryRunLoading(false);
+  }
 
   return (
     <div className="approval-drawer-overlay" onClick={onCancel}>
@@ -210,14 +242,34 @@ export function TransactionPreviewModal({
             Cancel
           </Button>
           <Button
+            variant="secondary"
+            type="button"
+            onClick={() => void handleOpenDryRun()}
+            disabled={hasError || confirming}
+          >
+            Review simulation
+          </Button>
+          <Button
             variant="primary"
             onClick={() => void onConfirm()}
-            disabled={hasError || confirming}
+            disabled={hasError || confirming || confirmBlockedByRevert}
             loading={confirming}
           >
             Confirm & sign
           </Button>
         </div>
+        <SimulationDryRunModal
+          isOpen={dryRunOpen}
+          result={dryRun}
+          loading={dryRunLoading}
+          confirming={confirming}
+          onClose={handleCloseDryRun}
+          onConfirm={async () => {
+            if (!dryRun?.success) return;
+            await onConfirm();
+            handleCloseDryRun();
+          }}
+        />
       </div>
     </div>
   );
