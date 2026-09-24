@@ -20,6 +20,7 @@ import { NetworkContractsCard } from "../../components/settings/NetworkContracts
 import { OfflineDataCard } from "../../components/settings/OfflineDataCard";
 import { PrivacyExportCard } from "../../components/settings/PrivacyExportCard";
 import { DataErasureCard } from "../../components/settings/DataErasureCard";
+import { KillSwitchCard } from "../../components/settings/KillSwitchCard";
 import { ConsentSettingsCard } from "../../components/settings/ConsentSettingsCard";
 
 /**
@@ -87,6 +88,7 @@ export default function SettingsPage() {
       <ConsentSettingsCard />
       <PrivacyExportCard user={user} preferences={preferences} />
       <DataErasureCard />
+      <KillSwitchCard />
     </div>
   );
 }

@@ -3310,3 +3310,178 @@ body {
     content: " · Page " counter(page);
   }
 }
+
+/* ── Emergency kill-switch (#719) ────────────────────────────────── */
+.kill-switch-card {
+  border: 1px solid var(--color-error-border);
+}
+.kill-switch-button {
+  font-weight: 700;
+}
+.kill-switch-modal {
+  background: var(--color-bg-surface);
+  border: 2px solid var(--color-error-text);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  max-width: 28rem;
+  width: 100%;
+  margin: 10vh auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.kill-switch-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+/* ── Merchant allowlist / blocklist (#717) ───────────────────────── */
+.merchant-filter-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+.merchant-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 10rem;
+}
+.merchant-filter-field-wide {
+  flex-basis: 100%;
+}
+.merchant-filter-error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-error-text);
+}
+.merchant-filter-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.merchant-filter-tags {
+  display: flex;
+  gap: 0.25rem;
+}
+.merchant-filter-tag {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.merchant-filter-tag[aria-pressed="true"] {
+  background: var(--color-accent-bg);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* ── Category budget sliders (#716) ──────────────────────────────── */
+.category-budget-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.category-budget-bar {
+  display: flex;
+  height: 0.75rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: var(--color-bg-subtle);
+  margin-bottom: 1rem;
+}
+.category-budget-bar-segment {
+  height: 100%;
+  transition: width 0.15s ease;
+}
+.category-budget-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.category-budget-row-header,
+.category-budget-row-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.category-budget-row-footer {
+  justify-content: space-between;
+  font-size: 0.8125rem;
+}
+.category-budget-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 0.1875rem;
+}
+.category-budget-name {
+  font-weight: 500;
+}
+.category-budget-amount {
+  margin-left: auto;
+}
+.category-budget-slider {
+  width: 100%;
+}
+.category-budget-usage-ok {
+  color: var(--color-success-text);
+}
+.category-budget-usage-warning {
+  color: var(--color-warning-text);
+}
+.category-budget-usage-over {
+  color: var(--color-error-text);
+}
+
+/* ── Dual-control approval board (#718) ──────────────────────────── */
+.dual-control-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+}
+.dual-control-column {
+  background: var(--color-bg-subtle);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.dual-control-column-title {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+.dual-control-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.dual-control-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.dual-control-signers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8125rem;
+}

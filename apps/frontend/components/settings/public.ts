@@ -18,3 +18,4 @@ export { AddressPicker } from "./AddressPicker";
 export type { AddressPickerProps } from "./AddressPicker";
 export { AddressBookPage } from "./AddressBookPage";
 export type { AddressBookPageProps } from "./AddressBookPage";
+export { KillSwitchCard } from "./KillSwitchCard";

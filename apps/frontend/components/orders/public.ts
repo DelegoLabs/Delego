@@ -16,3 +16,5 @@ export { ReceiptPanel } from "./ReceiptPanel";
 export type { ApprovalCardProps } from "./ApprovalCard";
 export type { ApprovalDrawerProps } from "./ApprovalDrawer";
 export type { ReceiptPanelProps } from "./ReceiptPanel";
+export { DualControlBoard } from "./DualControlBoard";
+export type { DualControlBoardProps } from "./DualControlBoard";
