@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Button, Card } from "@delegolabs/ui";
@@ -24,6 +24,11 @@ import {
   explorerContractUrl,
 } from "../../../lib/contracts";
 import { escrowKey } from "../../../lib/escrows";
+import {
+  simulateContractCall,
+  type SimulationDryRunResult,
+} from "../../../lib/simulationDryRun";
+import { SimulationDryRunModal } from "../../../components/transactions/SimulationDryRunModal";
 
 /** Escrow detail page — dispute lifecycle and contract explorer link for a single escrow. */
 export default function EscrowDetailPage() {
@@ -31,7 +36,13 @@ export default function EscrowDetailPage() {
   const escrowId = (params?.id as string) ?? "";
   const { escrows, loading } = useEscrows();
   const escrow = escrows.find((e) => e.escrowId === escrowId);
-  const { networkId } = useNetwork();
+  const { networkId, network } = useNetwork();
+  const simulationRequest = useRef(0);
+  const [simulationOpen, setSimulationOpen] = useState(false);
+  const [simulationLoading, setSimulationLoading] = useState(false);
+  const [simulation, setSimulation] = useState<SimulationDryRunResult | null>(
+    null
+  );
   const {
     dispute,
     submitting,
@@ -93,6 +104,32 @@ export default function EscrowDetailPage() {
             Open dispute
           </Button>
         )}
+        {escrowContract?.address && escrowContract.addressValid ? (
+          <Button
+            variant="secondary"
+            onClick={() => {
+              const contractId = escrowContract.address as string;
+              const requestId = simulationRequest.current + 1;
+              simulationRequest.current = requestId;
+              setSimulationOpen(true);
+              setSimulationLoading(true);
+              setSimulation(null);
+              void simulateContractCall({
+                rpcUrl: network.sorobanRpcUrl,
+                networkPassphrase: network.networkPassphrase,
+                contractId,
+                method: "get_buyer_receipt",
+                args: [escrowKey(escrow)],
+              }).then((result) => {
+                if (simulationRequest.current !== requestId) return;
+                setSimulation(result);
+                setSimulationLoading(false);
+              });
+            }}
+          >
+            Simulate contract call
+          </Button>
+        ) : null}
         {escrowContract?.address && escrowContract.addressValid ? (
           <Button
             variant="ghost"
@@ -171,6 +208,21 @@ export default function EscrowDetailPage() {
           if (result) setShowDisputeModal(false);
         }}
         onClose={() => setShowDisputeModal(false)}
+      />
+
+      <SimulationDryRunModal
+        isOpen={simulationOpen}
+        result={simulation}
+        loading={simulationLoading}
+        onClose={() => {
+          simulationRequest.current += 1;
+          setSimulationOpen(false);
+          setSimulationLoading(false);
+        }}
+        onConfirm={() => {
+          simulationRequest.current += 1;
+          setSimulationOpen(false);
+        }}
       />
     </div>
   );

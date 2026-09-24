@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { FormField, StroopsInput } from "@delegolabs/ui";
 import { HelpLink } from "../../help/HelpLink";
+import { YieldEscrowToggle } from "../../escrows/YieldEscrowToggle";
 
 export interface WizardStepLimitsProps {
   maxPerTransaction: string;
@@ -12,6 +13,11 @@ export interface WizardStepLimitsProps {
   expiresAt: string;
   onExpiresAtChange: (value: string) => void;
   maxTotalError?: string;
+  principalStroops: bigint;
+  yieldEnabled: boolean;
+  escrowTimeoutDays: number;
+  onYieldEnabledChange: (enabled: boolean) => void;
+  onEscrowTimeoutDaysChange: (days: number) => void;
 }
 
 /** Step 3 — spending limits and expiry (#523). */
@@ -23,6 +29,11 @@ export function WizardStepLimits({
   expiresAt,
   onExpiresAtChange,
   maxTotalError,
+  principalStroops,
+  yieldEnabled,
+  escrowTimeoutDays,
+  onYieldEnabledChange,
+  onEscrowTimeoutDaysChange,
 }: WizardStepLimitsProps) {
   const t = useTranslations("delegations.wizard");
 
@@ -78,6 +89,14 @@ export function WizardStepLimits({
           onChange: (e) => onExpiresAtChange(e.target.value),
           style: { width: "100%" },
         }}
+      />
+
+      <YieldEscrowToggle
+        principalStroops={principalStroops}
+        enabled={yieldEnabled}
+        timeoutDays={escrowTimeoutDays}
+        onEnabledChange={onYieldEnabledChange}
+        onTimeoutDaysChange={onEscrowTimeoutDaysChange}
       />
     </div>
   );

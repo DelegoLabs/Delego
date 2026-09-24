@@ -25,6 +25,8 @@ import { submitApproval } from "../../services/approvals";
 import { setLocalApprovalNote } from "../../lib/localApprovalNotes";
 import { ApprovalNoteField, APPROVAL_NOTE_MAX_LENGTH } from "./ApprovalNoteField";
 import { ApprovalNoteDisplay } from "./ApprovalNoteDisplay";
+import { YieldEscrowToggle } from "../escrows/YieldEscrowToggle";
+import { parseStroopsAmount } from "../../lib/yieldEscrow";
 
 export interface ApprovalDrawerProps {
   order: Order | null;
@@ -65,6 +67,8 @@ export function ApprovalDrawer({
   const { getTag } = useDelegationTags();
   const tag = order ? getTag(order.delegationId) : undefined;
   const [note, setNote] = useState("");
+  const [yieldEnabled, setYieldEnabled] = useState(false);
+  const [yieldTimeoutDays, setYieldTimeoutDays] = useState(7);
   const { address: walletAddress } = useWallet();
   // Approve-with-note (#573): see ApprovalCard for the capability-detection
   // rationale — false means the note is kept local-only rather than sent.
@@ -119,6 +123,8 @@ export function ApprovalDrawer({
   // Reset the draft note whenever the drawer is opened for a different order.
   useEffect(() => {
     setNote("");
+    setYieldEnabled(false);
+    setYieldTimeoutDays(7);
   }, [order?.id]);
 
   useEffect(() => {
@@ -436,6 +442,14 @@ export function ApprovalDrawer({
             + Add reason
           </button>
         )}
+
+        <YieldEscrowToggle
+          principalStroops={parseStroopsAmount(order.totalStroops)}
+          enabled={yieldEnabled}
+          timeoutDays={yieldTimeoutDays}
+          onEnabledChange={setYieldEnabled}
+          onTimeoutDaysChange={setYieldTimeoutDays}
+        />
 
         <ApprovalNoteField
           id={`approval-drawer-note-${order.id}`}

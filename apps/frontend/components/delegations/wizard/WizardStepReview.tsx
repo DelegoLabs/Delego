@@ -4,6 +4,11 @@ import { useTranslations } from "next-intl";
 import { Amount } from "@delegolabs/ui";
 import { useCurrency } from "../../../hooks/useCurrency";
 import type { DelegationWizardDraft } from "../../../lib/delegationWizard";
+import {
+  buildYieldEscrowOption,
+  parseStroopsAmount,
+  parseTimeoutDays,
+} from "../../../lib/yieldEscrow";
 
 export interface WizardStepReviewProps {
   draft: DelegationWizardDraft;
@@ -22,6 +27,11 @@ function formatExpiry(expiresAt: string): string {
 export function WizardStepReview({ draft }: WizardStepReviewProps) {
   const t = useTranslations("delegations.wizard.steps.review");
   const { currencyId, rate } = useCurrency();
+  const yieldOption = buildYieldEscrowOption(
+    draft.yieldEnabled === true,
+    parseStroopsAmount(draft.maxTotal),
+    parseTimeoutDays(draft.escrowTimeoutDays ?? "7")
+  );
 
   const merchantScope = draft.unrestrictedMerchants
     ? t("merchantScopeAll")
@@ -93,6 +103,23 @@ export function WizardStepReview({ draft }: WizardStepReviewProps) {
         <div className="wallet-detail-row">
           <dt>Expires</dt>
           <dd>{draft.expiresAt ? formatExpiry(draft.expiresAt) : "Never"}</dd>
+        </div>
+        <div className="wallet-detail-row">
+          <dt>Blend yield</dt>
+          <dd>
+            {yieldOption.isEnabled ? (
+              <>
+                On, projected{" "}
+                <Amount
+                  stroops={BigInt(yieldOption.estimatedEarningsStroops)}
+                  currency={currencyId}
+                  xlmUsdRate={rate?.xlmUsdRate}
+                />
+              </>
+            ) : (
+              "Off"
+            )}
+          </dd>
         </div>
       </dl>
     </div>

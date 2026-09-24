@@ -4,3 +4,5 @@
  */
 export { TransactionStatusCard } from "./TransactionStatusCard";
 export type { TransactionStatusCardProps } from "./TransactionStatusCard";
+export { SimulationDryRunModal } from "./SimulationDryRunModal";
+export type { SimulationDryRunModalProps } from "./SimulationDryRunModal";

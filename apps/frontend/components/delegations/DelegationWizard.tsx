@@ -21,6 +21,7 @@ import {
   validateStep,
   type DelegationWizardStepId,
 } from "../../lib/delegationWizard";
+import { parseStroopsAmount, parseTimeoutDays } from "../../lib/yieldEscrow";
 import { WizardStepAgent } from "./wizard/WizardStepAgent";
 import { WizardStepScope } from "./wizard/WizardStepScope";
 import { WizardStepLimits } from "./wizard/WizardStepLimits";
@@ -286,6 +287,15 @@ export function DelegationWizard({
             updateDraft({ ...draft, expiresAt })
           }
           maxTotalError={showError("maxTotal") ? errors.maxTotal : undefined}
+          principalStroops={parseStroopsAmount(draft.maxTotal)}
+          yieldEnabled={draft.yieldEnabled === true}
+          escrowTimeoutDays={parseTimeoutDays(draft.escrowTimeoutDays ?? "7")}
+          onYieldEnabledChange={(yieldEnabled) =>
+            updateDraft({ ...draft, yieldEnabled })
+          }
+          onEscrowTimeoutDaysChange={(days) =>
+            updateDraft({ ...draft, escrowTimeoutDays: String(days) })
+          }
         />
       )}
 
