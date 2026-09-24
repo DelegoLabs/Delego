@@ -41,4 +41,14 @@ export {
   accruedYieldUnits,
   type AccruedYieldProps,
 } from "./YieldCounter.js";
+export {
+  AgentTraceViewer,
+  type AgentTraceViewerProps,
+  type AgentExecutionStep,
+} from "./AgentTraceViewer.js";
+export {
+  PromptChipsBar,
+  type PromptChipsBarProps,
+  type PromptChip,
+} from "./PromptChipsBar.js";
 
