@@ -41,4 +41,8 @@ export {
   accruedYieldUnits,
   type AccruedYieldProps,
 } from "./YieldCounter.js";
+export {
+  MerchantReputationBadge,
+  type MerchantReputationProps,
+} from "./MerchantReputationBadge.js";
 
