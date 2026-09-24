@@ -28,4 +28,12 @@ export {
   type FeeTier,
   type FeeTierOption,
 } from "./FeeSelector.js";
+export {
+  ShipmentTracker,
+  carrierTrackingUrl,
+  sortMilestones,
+  type ShipmentTrackerProps,
+  type TrackingMilestone,
+  type TrackingStatus,
+} from "./ShipmentTracker.js";
 
