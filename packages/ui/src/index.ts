@@ -22,4 +22,10 @@ export {
   type ActivityTimelineEvent,
   type ActivityTone,
 } from "./ActivityTimeline.js";
+export {
+  FeeSelector,
+  type FeeSelectorProps,
+  type FeeTier,
+  type FeeTierOption,
+} from "./FeeSelector.js";
 
