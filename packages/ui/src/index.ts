@@ -36,4 +36,9 @@ export {
   type TrackingMilestone,
   type TrackingStatus,
 } from "./ShipmentTracker.js";
+export {
+  YieldCounter,
+  accruedYieldUnits,
+  type AccruedYieldProps,
+} from "./YieldCounter.js";
 
