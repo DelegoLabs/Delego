@@ -7,6 +7,7 @@ import { useNetwork } from "../../hooks/useNetwork";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useBalanceHistory } from "../../hooks/useBalanceHistory";
 import { WalletConnectButton } from "../../components/wallet/WalletConnectButton";
+import { FeeTierField } from "../../components/wallet/FeeTierField";
 import { BalanceSparkline } from "../../components/wallet/BalanceSparkline";
 import { AssetBreakdownTable } from "../../components/wallet/AssetBreakdownTable";
 import { CopyButton } from "../../components/wallet/CopyButton";
@@ -180,6 +181,8 @@ export default function WalletPage() {
           </div>
         </div>
       </Card>
+
+      <FeeTierField />
 
       {/* Historical View & Asset Breakdown Card */}
       {isConnected && (

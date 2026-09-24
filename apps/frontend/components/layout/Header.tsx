@@ -10,6 +10,7 @@ import { NotificationBell } from "../notifications/NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
 import { CommandPaletteTrigger } from "../command-palette/CommandPaletteTrigger";
 import { DataSaverChip } from "./DataSaverChip";
+import { BalanceSwitcher } from "./BalanceSwitcher";
 
 /**
  * Top application bar.
@@ -48,6 +49,8 @@ export function Header() {
       <NetworkToggle />
 
       <NotificationBell />
+
+      <BalanceSwitcher />
 
       <WalletConnectButton />
 
