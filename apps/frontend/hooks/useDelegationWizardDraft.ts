@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   createEmptyDraft,
+  normalizeDraft,
   DELEGATION_WIZARD_STEPS,
   type DelegationWizardDraft,
   type DelegationWizardStepId,
@@ -96,7 +97,7 @@ export function useDelegationWizardDraft(defaultWalletId = "") {
       if (raw) {
         const parsed: unknown = JSON.parse(raw);
         if (isStoredDraft(parsed)) {
-          setDraft(parsed.draft);
+          setDraft(normalizeDraft(parsed.draft, defaultWalletId));
           setStepIndex(parsed.stepIndex);
         }
       }
@@ -104,6 +105,7 @@ export function useDelegationWizardDraft(defaultWalletId = "") {
       // Ignore — the current in-memory draft is left as-is.
     }
     setHasStoredDraft(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- defaultWalletId is read when the user resumes
   }, []);
 
   const discardDraft = useCallback(() => {

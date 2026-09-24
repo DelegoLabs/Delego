@@ -23,6 +23,9 @@ export interface DelegationWizardDraft {
   unrestrictedMerchants: boolean;
   allowedCategories: string;
   expiresAt: string;
+  /** Blend yield while escrowed funds are held (#701). Optional for drafts saved earlier. */
+  yieldEnabled?: boolean;
+  escrowTimeoutDays?: string;
 }
 
 export function createEmptyDraft(defaultWalletId = ""): DelegationWizardDraft {
@@ -37,6 +40,28 @@ export function createEmptyDraft(defaultWalletId = ""): DelegationWizardDraft {
     unrestrictedMerchants: true,
     allowedCategories: "",
     expiresAt: "",
+    yieldEnabled: false,
+    escrowTimeoutDays: "7",
+  };
+}
+
+/** Fills yield fields missing from drafts saved before the Blend toggle existed. */
+export function normalizeDraft(
+  draft: Partial<DelegationWizardDraft>,
+  defaultWalletId = ""
+): DelegationWizardDraft {
+  const empty = createEmptyDraft(
+    typeof draft.walletId === "string" ? draft.walletId : defaultWalletId
+  );
+  return {
+    ...empty,
+    ...draft,
+    walletId: typeof draft.walletId === "string" ? draft.walletId : empty.walletId,
+    yieldEnabled: draft.yieldEnabled === true,
+    escrowTimeoutDays:
+      typeof draft.escrowTimeoutDays === "string" && draft.escrowTimeoutDays.trim()
+        ? draft.escrowTimeoutDays
+        : empty.escrowTimeoutDays,
   };
 }
 
