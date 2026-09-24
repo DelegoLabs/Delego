@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Card } from "@delegolabs/ui";
+import { Button, Card } from "@delegolabs/ui";
+import { PasskeyRegisterModal } from "../../components/wallet/PasskeyRegisterModal";
 import { useWallet } from "../../hooks/useWallet";
 import { useNetwork } from "../../hooks/useNetwork";
 import { useNotifications } from "../../hooks/useNotifications";
@@ -29,6 +30,7 @@ export default function WalletPage() {
   const { network: activeNetwork } = useNetwork();
   const notifications = useNotifications();
   const [funding, setFunding] = useState(false);
+  const [passkeyOpen, setPasskeyOpen] = useState(false);
   const [fundError, setFundError] = useState<string | null>(null);
   const { isDemoMode } = useDemoModeGuard();
 
@@ -177,7 +179,30 @@ export default function WalletPage() {
 
           <div className="form-actions">
             <WalletConnectButton showDetails={false} />
+            {isConnected && (
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => setPasskeyOpen(true)}
+              >
+                Register passkey
+              </Button>
+            )}
           </div>
+          <PasskeyRegisterModal
+            isOpen={passkeyOpen}
+            stellarAddress={address ?? ""}
+            onClose={() => setPasskeyOpen(false)}
+            onSuccess={() => {
+              setPasskeyOpen(false);
+              notifications.add({
+                type: "success",
+                title: "Passkey registered",
+                message:
+                  "This device can approve agent transactions without a browser-extension prompt.",
+              });
+            }}
+          />
         </div>
       </Card>
 
