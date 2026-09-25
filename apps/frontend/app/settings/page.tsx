@@ -21,6 +21,7 @@ import { OfflineDataCard } from "../../components/settings/OfflineDataCard";
 import { PrivacyExportCard } from "../../components/settings/PrivacyExportCard";
 import { DataErasureCard } from "../../components/settings/DataErasureCard";
 import { ConsentSettingsCard } from "../../components/settings/ConsentSettingsCard";
+import { MerchantWebhookCard } from "../../components/settings/MerchantWebhookCard";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -84,6 +85,7 @@ export default function SettingsPage() {
       <CurrencySwitcher />
       <TimeFormatSwitcher />
       <NetworkContractsCard />
+      <MerchantWebhookCard />
       <ConsentSettingsCard />
       <PrivacyExportCard user={user} preferences={preferences} />
       <DataErasureCard />

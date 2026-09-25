@@ -6,6 +6,7 @@ import { GlobalSearch } from "../search/GlobalSearch";
 import { MobileNav } from "./MobileNav";
 import { WalletConnectButton } from "../wallet/WalletConnectButton";
 import { NetworkToggle } from "../network/NetworkToggle";
+import { SorobanHealthIndicator } from "../network/SorobanHealthIndicator";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
 import { CommandPaletteTrigger } from "../command-palette/CommandPaletteTrigger";
@@ -47,6 +48,8 @@ export function Header() {
       <ThemeToggle />
 
       <NetworkToggle />
+
+      <SorobanHealthIndicator />
 
       <NotificationBell />
 

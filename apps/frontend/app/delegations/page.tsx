@@ -8,6 +8,7 @@ import { useWallet } from "../../hooks/useWallet";
 import { useQueryParamState } from "../../hooks/useQueryParamState";
 import { useAnnounce } from "../../hooks/useAnnounce";
 import { DelegationWizard } from "../../components/delegations/DelegationWizard";
+import { SessionKeyGrantModal } from "../../components/delegations/SessionKeyGrantModal";
 import { DelegationFilters } from "../../components/delegations/DelegationFilters";
 import { DelegationList } from "../../components/delegations/DelegationList";
 import { NotificationPermissionPrompt } from "../../components/notifications/NotificationPermissionPrompt";
@@ -34,6 +35,7 @@ export default function DelegationsPage() {
 
   const { address } = useWallet();
   const [showForm, setShowForm] = useState(false);
+  const [showSessionKeyModal, setShowSessionKeyModal] = useState(false);
   const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
   const { announce } = useAnnounce();
 
@@ -141,7 +143,20 @@ export default function DelegationsPage() {
         >
           {showForm ? "Close" : "New delegation"}
         </Button>
+        <Button
+          variant="secondary"
+          onClick={() => setShowSessionKeyModal(true)}
+          ariaLabel="Grant a temporary session key"
+        >
+          Grant session key
+        </Button>
       </div>
+
+      <SessionKeyGrantModal
+        open={showSessionKeyModal}
+        onClose={() => setShowSessionKeyModal(false)}
+        allowedContractCalls={["escrow.release", "order.approve"]}
+      />
 
       {showNotifyPrompt && (
         <NotificationPermissionPrompt message="Get notified about approvals for this delegation, even when this tab isn't in focus." />
