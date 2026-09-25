@@ -23,6 +23,7 @@ import { DataErasureCard } from "../../components/settings/DataErasureCard";
 import { ConsentSettingsCard } from "../../components/settings/ConsentSettingsCard";
 import { AgentSettingsCard } from "../../components/settings/AgentSettingsCard";
 import type { AgentPersonaConfig } from "../../lib/agentConfig";
+import { MerchantWebhookCard } from "../../components/settings/MerchantWebhookCard";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -101,6 +102,7 @@ export default function SettingsPage() {
       <TimeFormatSwitcher />
       <NetworkContractsCard />
       <AgentSettingsCard config={PLACEHOLDER_AGENT_CONFIG} />
+      <MerchantWebhookCard />
       <ConsentSettingsCard />
       <PrivacyExportCard user={user} preferences={preferences} />
       <DataErasureCard />

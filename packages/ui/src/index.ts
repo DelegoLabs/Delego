@@ -51,4 +51,13 @@ export {
   type PromptChipsBarProps,
   type PromptChip,
 } from "./PromptChipsBar.js";
+export {
+  MerchantReputationBadge,
+  type MerchantReputationProps,
+} from "./MerchantReputationBadge.js";
+export {
+  PathPaymentWidget,
+  type PathPaymentWidgetProps,
+  type PathPaymentEstimate,
+} from "./PathPaymentWidget.js";
 
