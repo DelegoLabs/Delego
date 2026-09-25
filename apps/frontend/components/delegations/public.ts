@@ -14,3 +14,7 @@ export { DelegationQR } from "./DelegationQR";
 export { ExpiryCountdown } from "./ExpiryCountdown";
 export { DelegationTagBadge } from "./DelegationTagBadge";
 export { DelegationTagPicker } from "./DelegationTagPicker";
+export { MerchantFilterManager } from "./MerchantFilterManager";
+export type { MerchantFilterManagerProps } from "./MerchantFilterManager";
+export { CategoryBudgetSliders } from "./CategoryBudgetSliders";
+export type { CategoryBudgetSlidersProps } from "./CategoryBudgetSliders";
