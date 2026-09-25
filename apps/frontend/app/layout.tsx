@@ -9,6 +9,7 @@ import { AppProviders } from "../components/providers/AppProviders";
 import { AnnouncementBanner } from "../components/announcements/AnnouncementBanner";
 import { ServiceWorkerRegistration } from "../components/pwa/ServiceWorkerRegistration";
 import { InstallPromptCard } from "../components/pwa/InstallPromptCard";
+import { AgentLiveStatusBanner } from "../components/layout/AgentLiveStatusBanner";
 import { TestnetFaucetBanner } from "../components/network/TestnetFaucetBanner";
 import { UpdatePromptToast } from "../components/pwa/UpdatePromptToast";
 import { themeBootstrapScript } from "../hooks/useTheme";
@@ -72,6 +73,7 @@ export default async function RootLayout({
                 <Sidebar />
                 <div className="app-main">
                   <Header />
+                  <AgentLiveStatusBanner />
                   <TestnetFaucetBanner />
                   <InstallPromptCard />
                   <main className="app-content">{children}</main>
