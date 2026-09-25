@@ -11,6 +11,8 @@ import dynamic from "next/dynamic";
 import { EscrowCard } from "../../../components/escrows/EscrowCard";
 import { DisputeModal } from "../../../components/escrows/DisputeModal";
 import { DisputeStatusPanel } from "../../../components/escrows/DisputeStatusPanel";
+import { ReleaseCTA } from "../../../components/escrows/ReleaseCTA";
+import { apiFetch } from "../../../lib/apiFetch";
 
 const OnChainVerificationPanel = dynamic(
   () =>
@@ -99,6 +101,14 @@ export default function EscrowDetailPage() {
       />
 
       <div className="form-actions">
+        {/* Release CTA — queries the contract's eligibility getter before
+            enabling; ineligible state renders the exact reason in a tooltip. */}
+        <ReleaseCTA
+          escrow={escrow}
+          onRelease={async (e) => {
+            await apiFetch(`/escrows/${escrowKey(e)}/release`, { method: "POST" });
+          }}
+        />
         {showDisputeCta && (
           <Button variant="secondary" onClick={() => setShowDisputeModal(true)}>
             Open dispute
