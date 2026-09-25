@@ -22,6 +22,9 @@ import { PrivacyExportCard } from "../../components/settings/PrivacyExportCard";
 import { DataErasureCard } from "../../components/settings/DataErasureCard";
 import { KillSwitchCard } from "../../components/settings/KillSwitchCard";
 import { ConsentSettingsCard } from "../../components/settings/ConsentSettingsCard";
+import { AgentSettingsCard } from "../../components/settings/AgentSettingsCard";
+import type { AgentPersonaConfig } from "../../lib/agentConfig";
+import { MerchantWebhookCard } from "../../components/settings/MerchantWebhookCard";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -35,6 +38,20 @@ const PLACEHOLDER_USER: User = {
   email: "",
   createdAt: new Date(),
   updatedAt: new Date(),
+};
+
+/**
+ * Placeholder agent config until the API exposes a GET counterpart to
+ * `PUT /api/agent/config`. TODO: replace with a `useAgentConfig` hook once
+ * that read endpoint exists.
+ */
+const PLACEHOLDER_AGENT_CONFIG: AgentPersonaConfig = {
+  agentId: "agent-placeholder",
+  name: "Shopping Agent",
+  strategy: "balanced",
+  maxAutonomousBudgetStroops: "500000000",
+  negotiationAllowed: true,
+  preferredAsset: "USDC",
 };
 
 const PLACEHOLDER_PREFERENCES: UserPreferences = {
@@ -85,6 +102,8 @@ export default function SettingsPage() {
       <CurrencySwitcher />
       <TimeFormatSwitcher />
       <NetworkContractsCard />
+      <AgentSettingsCard config={PLACEHOLDER_AGENT_CONFIG} />
+      <MerchantWebhookCard />
       <ConsentSettingsCard />
       <PrivacyExportCard user={user} preferences={preferences} />
       <DataErasureCard />

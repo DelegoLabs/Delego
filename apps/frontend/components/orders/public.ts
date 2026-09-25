@@ -18,3 +18,5 @@ export type { ApprovalDrawerProps } from "./ApprovalDrawer";
 export type { ReceiptPanelProps } from "./ReceiptPanel";
 export { DualControlBoard } from "./DualControlBoard";
 export type { DualControlBoardProps } from "./DualControlBoard";
+export { ReceiptInvoiceModal } from "./ReceiptInvoiceModal";
+export type { ReceiptInvoiceModalProps } from "./ReceiptInvoiceModal";

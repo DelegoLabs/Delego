@@ -41,4 +41,23 @@ export {
   accruedYieldUnits,
   type AccruedYieldProps,
 } from "./YieldCounter.js";
+export {
+  AgentTraceViewer,
+  type AgentTraceViewerProps,
+  type AgentExecutionStep,
+} from "./AgentTraceViewer.js";
+export {
+  PromptChipsBar,
+  type PromptChipsBarProps,
+  type PromptChip,
+} from "./PromptChipsBar.js";
+export {
+  MerchantReputationBadge,
+  type MerchantReputationProps,
+} from "./MerchantReputationBadge.js";
+export {
+  PathPaymentWidget,
+  type PathPaymentWidgetProps,
+  type PathPaymentEstimate,
+} from "./PathPaymentWidget.js";
 
