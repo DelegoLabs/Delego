@@ -41,4 +41,9 @@ export {
   accruedYieldUnits,
   type AccruedYieldProps,
 } from "./YieldCounter.js";
+export {
+  PathPaymentWidget,
+  type PathPaymentWidgetProps,
+  type PathPaymentEstimate,
+} from "./PathPaymentWidget.js";
 
