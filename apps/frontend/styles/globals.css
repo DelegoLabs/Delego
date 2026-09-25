@@ -3310,3 +3310,115 @@ body {
     content: " · Page " counter(page);
   }
 }
+
+/* ── Spend forecast chart (#721) ─────────────────────────────────── */
+.spend-forecast {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.spend-forecast-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* ── Receipt / tax invoice modal (#714) ──────────────────────────── */
+.receipt-invoice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.receipt-invoice-barcode {
+  width: 12rem;
+  height: 3rem;
+  flex-shrink: 0;
+  color: #000;
+  background: #fff;
+}
+.receipt-invoice-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  word-break: break-all;
+}
+.receipt-invoice-hash {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* ── Escrow timeout refund (#713) ────────────────────────────────── */
+.timeout-refund {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+/* ── Return shipping label modal (#712) ──────────────────────────── */
+.return-label-tracking {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.return-label-address {
+  display: flex;
+  flex-direction: column;
+  font-style: normal;
+}
+.return-label-preview {
+  width: 100%;
+  height: 22rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg-subtle);
+}
+.return-label-open-link {
+  align-self: center;
+  margin-right: auto;
+  color: var(--color-accent);
+}
+
+/*
+ * Printable modal sheets (receipt invoice, return label): when one is open,
+ * print only that sheet, laid out as a plain page.
+ */
+@media print {
+  body:has(.print-sheet) * {
+    visibility: hidden;
+  }
+  body:has(.print-sheet) .print-sheet,
+  body:has(.print-sheet) .print-sheet * {
+    visibility: visible;
+  }
+  body:has(.print-sheet) .approval-drawer-overlay {
+    position: static;
+    background: none;
+  }
+  .print-sheet {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000;
+  }
+  .print-sheet .receipt-line-items,
+  .print-sheet .receipt-totals,
+  .print-sheet .return-label-preview {
+    break-inside: avoid;
+  }
+  .print-sheet .return-label-preview {
+    height: 60vh;
+    border: none;
+  }
+}

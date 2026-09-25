@@ -27,6 +27,7 @@
     "@delegolabs/sdk": "^0.0.1",
     "@delegolabs/types": "^0.1.1",
     "@delegolabs/ui": "workspace:*",
+    "@tanstack/react-virtual": "^3.10.9",
     "@sentry/nextjs": "^8.47.0",
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^16.0.0",
