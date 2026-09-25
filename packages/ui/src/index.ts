@@ -60,4 +60,10 @@ export {
   type PathPaymentWidgetProps,
   type PathPaymentEstimate,
 } from "./PathPaymentWidget.js";
+export {
+  ProductCard,
+  type ProductCardProps,
+  type RecommendedProduct,
+  type Currency,
+} from "./ProductCard.js";
 
