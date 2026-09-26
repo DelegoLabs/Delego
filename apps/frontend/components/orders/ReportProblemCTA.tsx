@@ -103,10 +103,10 @@ function EscalationBanner({
       }}
     >
       <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem" }}>
-        Your issue hasn't been resolved yet.
+        Your issue hasn&apos;t been resolved yet.
       </p>
       <p style={{ margin: 0, fontSize: "0.8125rem" }}>
-        If you'd like to escalate this to a formal dispute, your details will be
+        If you&apos;d like to escalate this to a formal dispute, your details will be
         carried forward — no need to retype anything.
       </p>
       <a
@@ -248,8 +248,8 @@ export function ReportProblemCTA({
           style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
         >
           <p style={{ margin: 0, fontSize: "0.875rem" }}>
-            Something not right? Let us know and we'll route it to the merchant
-            or agent. This won't start a formal dispute.
+            Something not right? Let us know and we&apos;ll route it to the merchant
+            or agent. This won&apos;t start a formal dispute.
           </p>
           <Button variant="secondary" onClick={() => setOpen(true)}>
             Report a problem

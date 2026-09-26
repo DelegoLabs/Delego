@@ -10,10 +10,16 @@ import {
   receiptFilename,
   receiptSubtotalStroops,
 } from "../../lib/receipts";
+import { computeTaxBreakdown } from "../../lib/taxBreakdown";
+import { TaxBreakdownPanel } from "./TaxBreakdownPanel";
 import { orderStatusLabel } from "../../lib/orders";
 
 export interface ReceiptPanelProps {
   order: Order;
+  /** ISO country code used to resolve the sales tax / VAT rate. */
+  jurisdictionCode?: string;
+  /** Order category, e.g. "digital" to zero-rate the breakdown. */
+  category?: string;
 }
 
 function formatTimestamp(value?: Date | string | null): string {
@@ -28,10 +34,16 @@ function formatTimestamp(value?: Date | string | null): string {
  * cleanly on its own for `@media print`, and offers a raw JSON download for
  * bookkeeping/expense-reporting integrations.
  */
-export function ReceiptPanel({ order }: ReceiptPanelProps) {
+export function ReceiptPanel({ order, jurisdictionCode, category }: ReceiptPanelProps) {
   const { currencyId, rate } = useCurrency();
   const subtotal = receiptSubtotalStroops(order);
   const fee = receiptFeeStroops(order);
+  const tax = computeTaxBreakdown({
+    subtotalStroops: subtotal,
+    networkFeeStroops: fee,
+    category: category ?? (order as { category?: string | null }).category,
+    jurisdictionCode,
+  });
 
   const handleDownload = () => {
     const record = buildReceiptRecord(order);
@@ -135,6 +147,13 @@ export function ReceiptPanel({ order }: ReceiptPanelProps) {
           <strong>
             <Amount stroops={order.totalStroops} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
           </strong>
+        </div>
+        <div className="receipt-totals-row no-print">
+          <TaxBreakdownPanel
+            breakdown={tax}
+            networkFeeStroops={fee.toString()}
+            variant="receipt"
+          />
         </div>
       </div>
     </Card>

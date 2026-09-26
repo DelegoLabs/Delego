@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Button } from "@delegolabs/ui";
 import type { Order, RejectionReasonCode } from "@delegolabs/types";
-import { formatXlm } from "../../lib/orders";
+import { formatXlm, isHighValue } from "../../lib/orders";
 import { REJECTION_REASON_OPTIONS } from "../../lib/rejectionReasons";
 import type { OrderExplainability } from "../../lib/approvalExplainability";
 import {
@@ -25,6 +25,7 @@ import { submitApproval } from "../../services/approvals";
 import { setLocalApprovalNote } from "../../lib/localApprovalNotes";
 import { ApprovalNoteField, APPROVAL_NOTE_MAX_LENGTH } from "./ApprovalNoteField";
 import { ApprovalNoteDisplay } from "./ApprovalNoteDisplay";
+import { BiometricApprovalPrompt } from "./BiometricApprovalPrompt";
 import { YieldEscrowToggle } from "../escrows/YieldEscrowToggle";
 import { parseStroopsAmount } from "../../lib/yieldEscrow";
 
@@ -62,6 +63,9 @@ export function ApprovalDrawer({
   onClose,
 }: ApprovalDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Shared `Button` does not forward refs, so the PIN fallback focuses the
+  // approve control by id instead of through a ref.
+  const approveButtonId = order ? `approval-drawer-approve-${order.id}` : undefined;
   const isOpen = order !== null;
   const { announce } = useAnnounce();
   const { getTag } = useDelegationTags();
@@ -77,6 +81,8 @@ export function ApprovalDrawer({
   const [showReasonPicker, setShowReasonPicker] = useState(false);
   const [reasonCode, setReasonCode] = useState<RejectionReasonCode | "">("");
   const [reasonNote, setReasonNote] = useState("");
+  /** WebAuthn approval proof for this order, when the user verified with biometrics (#724). */
+  const [biometricProof, setBiometricProof] = useState<string | null>(null);
 
   // Tracks which line-item images failed to load (#622) — merchant image
   // URLs are arbitrary, unwhitelisted hosts (see OrderExplainability's
@@ -125,6 +131,7 @@ export function ApprovalDrawer({
     setNote("");
     setYieldEnabled(false);
     setYieldTimeoutDays(7);
+    setBiometricProof(null);
   }, [order?.id]);
 
   useEffect(() => {
@@ -148,7 +155,12 @@ export function ApprovalDrawer({
         await onApprove(order.id);
         if (trimmedNote) setLocalApprovalNote(order.id, trimmedNote);
       }
-      announce(`Order ${order.id} approved.`, "polite");
+      announce(
+        biometricProof
+          ? `Order ${order.id} approved with biometric verification.`
+          : `Order ${order.id} approved.`,
+        "polite"
+      );
       onClose();
     } catch {
       announce(`Failed to approve order ${order.id}.`, "assertive");
@@ -459,8 +471,30 @@ export function ApprovalDrawer({
           variant="textarea"
         />
 
+        {/* Biometric quick-approval (#724): offered for high-value orders as a
+            faster alternative to the wallet PIN. It never blocks approval —
+            after MAX_BIOMETRIC_ATTEMPTS failures it hands the user back to the
+            PIN path, which is what the Approve button always does. */}
+        {isHighValue(order) && (
+          <BiometricApprovalPrompt
+            orderId={order.id}
+            amount={`${formatXlm(order.totalStroops)} XLM`}
+            onSuccess={(signature) => {
+              setBiometricProof(signature);
+              announce("Biometric verification succeeded.", "polite");
+            }}
+            onError={(error) => {
+              announce(error, "assertive");
+            }}
+            onPinFallback={() =>
+              document.getElementById(approveButtonId ?? "")?.focus()
+            }
+          />
+        )}
+
         <div className="form-actions">
           <Button
+            id={approveButtonId}
             variant="primary"
             onClick={handleApprove}
             disabled={

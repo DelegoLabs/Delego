@@ -3594,3 +3594,68 @@ body {
   padding: 0;
   font-size: 0.8125rem;
 }
+
+/* ── #722 expense report export modal ─────────────────────────────────────── */
+.export-report-modal fieldset {
+  margin: 0;
+}
+
+/* ── #723 collapsible tax breakdown ───────────────────────────────────────── */
+.tax-breakdown {
+  font-size: 0.875rem;
+}
+
+/* ── #724 biometric quick-approval prompt ─────────────────────────────────── */
+.biometric-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.875rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.625rem;
+  background: var(--color-bg-subtle, #f9fafb);
+}
+.biometric-glyph {
+  background: #fff;
+  border: 1px solid var(--color-border, #e5e7eb);
+}
+.biometric-glyph.is-scanning {
+  border-color: #16a34a;
+}
+@keyframes biometric-pulse {
+  0% {
+    transform: scale(0.88);
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45);
+  }
+  70% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 12px rgba(22, 163, 74, 0);
+  }
+  100% {
+    transform: scale(0.88);
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .biometric-glyph.is-scanning {
+    animation: none;
+  }
+}
+
+/* ── #725 webhook delivery log viewer ─────────────────────────────────────── */
+.webhook-delivery-logs pre {
+  margin: 0;
+}
+
+/* Screen-reader-only text (table captions, icon-only labels). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

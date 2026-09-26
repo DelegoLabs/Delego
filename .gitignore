@@ -23,6 +23,10 @@ target/
 
 # Logs
 logs/
+# The webhook delivery log diagnostics route lives under a `logs/` directory
+# that must be tracked despite the rule above (#725).
+!apps/frontend/app/settings/webhooks/logs/
+!apps/frontend/app/settings/webhooks/logs/**
 *.log
 npm-debug.log*
 pnpm-debug.log*
