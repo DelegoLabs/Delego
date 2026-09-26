@@ -5,7 +5,6 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@delegolabs/types': ^0.1.1
   axios: '>=1.16.0'
 
 importers:
@@ -34,11 +33,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/api-generated
       '@delegolabs/sdk':
-        specifier: ^0.0.1
-        version: 0.0.1
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@delegolabs/types':
-        specifier: ^0.1.1
-        version: 0.1.1
+        specifier: workspace:*
+        version: link:../../packages/types
       '@delegolabs/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -152,11 +151,19 @@ importers:
   packages/api-generated:
     devDependencies:
       '@delegolabs/types':
-        specifier: ^0.1.1
-        version: 0.1.1
+        specifier: workspace:*
+        version: link:../types
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+
+  packages/sdk: {}
+
+  packages/types:
+    dependencies:
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
 
   packages/ui:
     dependencies:
@@ -413,12 +420,6 @@ packages:
   '@csstools/css-tokenizer@3.0.4':
     resolution: {integrity: sha512-Vd/9EVDiu6PPJt9yAh6roZP6El1xHrdvIVGjyBsHR0RYwNHgL7FJPyIIW4fANJNG6FtyZfvlRPpFI4ZM/lubvw==}
     engines: {node: '>=18'}
-
-  '@delegolabs/sdk@0.0.1':
-    resolution: {integrity: sha512-OD5GxtYzLXcG34buT/H3H+FXsXmeGCheUGwulG17anmDaZuRrgWFE7FBbt+/wdYtu4vd15YVRU/jmBxX+EsDYw==, tarball: https://npm.pkg.github.com/download/@delegolabs/sdk/0.0.1/69e7bcb1a8d1f474918f45e68ab8958a79e4a793}
-
-  '@delegolabs/types@0.1.1':
-    resolution: {integrity: sha512-gECVw6XxXqEemy6KeVBwNvc5HYJGQvsh6JpuYLU2HH66oWxZ+AXb5JUDhsxtk5NOgbRis54aewiBfpGNsUMBfQ==, tarball: https://npm.pkg.github.com/download/@delegolabs/types/0.1.1/61d0558bb646af8ab5ca555fbd959c2727298e90}
 
   '@discoveryjs/json-ext@0.5.7':
     resolution: {integrity: sha512-dBVuXR082gk3jsFp7Rd/JI4kytwGHecnCoTtXFb7DB6CNHp4rg5k1bhg0nWdLGLnOV71lmDzGQaLMy8iPLY0pw==}
@@ -4820,15 +4821,6 @@ snapshots:
       '@csstools/css-tokenizer': 3.0.4
 
   '@csstools/css-tokenizer@3.0.4': {}
-
-  '@delegolabs/sdk@0.0.1':
-    dependencies:
-      '@delegolabs/types': 0.1.1
-      zod: 3.25.76
-
-  '@delegolabs/types@0.1.1':
-    dependencies:
-      zod: 3.25.76
 
   '@discoveryjs/json-ext@0.5.7': {}
 

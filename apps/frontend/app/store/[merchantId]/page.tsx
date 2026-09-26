@@ -8,20 +8,14 @@ type StoreParams = { merchantId: string };
 
 const loadStorefront = cache((merchantId: string) => fetchStorefront(merchantId));
 
-async function readParams(
-  params: StoreParams | Promise<StoreParams>
-): Promise<StoreParams> {
-  return params;
-}
-
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
 }: {
-  params: StoreParams | Promise<StoreParams>;
+  params: Promise<StoreParams>;
 }): Promise<Metadata> {
-  const { merchantId } = await readParams(params);
+  const { merchantId } = await params;
   const store = isSafeMerchantId(merchantId)
     ? await loadStorefront(merchantId)
     : null;
@@ -38,9 +32,9 @@ export async function generateMetadata({
 export default async function StorePage({
   params,
 }: {
-  params: StoreParams | Promise<StoreParams>;
+  params: Promise<StoreParams>;
 }) {
-  const { merchantId } = await readParams(params);
+  const { merchantId } = await params;
   if (!isSafeMerchantId(merchantId)) notFound();
 
   const store = await loadStorefront(merchantId);

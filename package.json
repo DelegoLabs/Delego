@@ -29,7 +29,6 @@
   },
   "pnpm": {
     "overrides": {
-      "@delegolabs/types": "^0.1.1",
       "axios": ">=1.16.0"
     }
   }
