@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { OrderStatus } from "@delegolabs/types";
+import { Button } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
 import { useQueryParamState } from "../../hooks/useQueryParamState";
 import {
@@ -14,6 +15,7 @@ import {
 import { OrderFilters } from "../../components/orders/OrderFilters";
 import { OrderTable } from "../../components/orders/OrderTable";
 import { Pagination } from "../../components/orders/Pagination";
+import { ExpenseReportExportModal } from "../../components/orders/ExpenseReportExportModal";
 import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
 import { StaleBadge } from "../../components/offline/StaleBadge";
 
@@ -22,6 +24,7 @@ const PAGE_SIZE = 10;
 /** Transaction history — filterable, sortable, paginated view of all orders. */
 export default function OrdersPage() {
   const { orders, loading, error, stale, cachedAt, ttlMs } = useOrders();
+  const [exportOpen, setExportOpen] = useState(false);
 
   const [search, setSearch] = useQueryParamState<string>({
     key: "q",
@@ -43,6 +46,16 @@ export default function OrdersPage() {
     key: "page",
     defaultValue: 1,
   });
+
+  // Distinct categories present in the loaded orders, for the export filter.
+  const orderCategories = useMemo(() => {
+    const seen = new Set<string>();
+    for (const order of orders) {
+      const category = (order as { category?: string | null }).category;
+      if (category) seen.add(category);
+    }
+    return Array.from(seen).sort();
+  }, [orders]);
 
   // Recompute the derived view whenever the data, filters, or sort change.
   // Resetting to page 1 on filter change is handled by the change callbacks.
@@ -94,7 +107,12 @@ export default function OrdersPage() {
               ttlMs={ttlMs}
             />
           </div>
-          <CopyViewLinkButton />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Button variant="secondary" onClick={() => setExportOpen(true)}>
+              Export expense report
+            </Button>
+            <CopyViewLinkButton />
+          </div>
         </div>
       </header>
 
@@ -142,6 +160,13 @@ export default function OrdersPage() {
           />
         </>
       )}
+
+      <ExpenseReportExportModal
+        isOpen={exportOpen}
+        orders={orders}
+        categories={orderCategories}
+        onClose={() => setExportOpen(false)}
+      />
     </div>
   );
 }
