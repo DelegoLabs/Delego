@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Keypair, StrKey } from "@stellar/stellar-sdk";
+import { StrKey } from "@stellar/stellar-sdk";
 import {
   filterMerchantRules,
   validateNewRule,
@@ -7,7 +7,12 @@ import {
   type MerchantFilterRule,
 } from "./merchantFilters";
 
-const ACCOUNT = Keypair.random().publicKey();
+// Fixed, deterministic ed25519 account/secret pair. `Keypair.random()` cannot
+// be used here: under jsdom the SDK hands @noble/ed25519 a Buffer from a
+// different realm, which it rejects as "not a Uint8Array".
+const ACCOUNT = "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57";
+const ACCOUNT_SECRET =
+  "SADQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQP54X";
 const CONTRACT = StrKey.encodeContract(Buffer.alloc(32, 3));
 
 describe("validateStellarAddress", () => {
@@ -19,7 +24,7 @@ describe("validateStellarAddress", () => {
 
   it("explains each failure mode", () => {
     expect(validateStellarAddress("").error).toMatch(/Enter/);
-    expect(validateStellarAddress(Keypair.random().secret()).error).toMatch(/secret key/);
+    expect(validateStellarAddress(ACCOUNT_SECRET).error).toMatch(/secret key/);
     expect(validateStellarAddress(ACCOUNT.toLowerCase()).error).toMatch(/upper-case/);
     expect(validateStellarAddress(`X${ACCOUNT.slice(1)}`).error).toMatch(/start with G/);
     expect(validateStellarAddress(`${ACCOUNT.slice(0, 55)}1`).error).toMatch(/2–7/);
