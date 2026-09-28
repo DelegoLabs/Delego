@@ -7,6 +7,8 @@
     "boundaries/include": ["components/**/*"],
     "boundaries/elements": [
       { "type": "feature-analytics",       "pattern": "components/analytics/**"       },
+      { "type": "feature-agent",           "pattern": "components/agent/**"           },
+      { "type": "feature-storefront",      "pattern": "components/storefront/**"      },
       { "type": "feature-announcements",   "pattern": "components/announcements/**"   },
       { "type": "feature-command-palette", "pattern": "components/command-palette/**" },
       { "type": "feature-delegations",     "pattern": "components/delegations/**"     },
@@ -43,6 +45,8 @@
               "feature-settings",
               "feature-notifications",
               "feature-analytics",
+              "feature-agent",
+              "feature-storefront",
               "feature-announcements",
               "feature-command-palette",
               "feature-filters",
@@ -57,6 +61,8 @@
           {
             "from": [
               "feature-analytics",
+              "feature-agent",
+              "feature-storefront",
               "feature-announcements",
               "feature-command-palette",
               "feature-delegations",
@@ -76,6 +82,8 @@
             "allow": [
               "shared",
               "feature-analytics",
+              "feature-agent",
+              "feature-storefront",
               "feature-announcements",
               "feature-command-palette",
               "feature-delegations",
