@@ -11,9 +11,17 @@ import {
   MERCHANT_CATEGORIES,
   isValidContactEmail,
   registerMerchant,
+  importMerchantCatalog,
+  validateStorePayoutAddress,
   type MerchantRegistrationForm,
   type OnboardingStep,
 } from "../../../lib/merchantRegistration";
+import {
+  parseCatalogCsv,
+  readCatalogCsvFile,
+  CATALOG_CSV_HEADER,
+  type CatalogRowError,
+} from "../../../lib/catalogCsv";
 import {
   WALLET_CANCELLED_MESSAGE,
   WalletActionError,
@@ -23,6 +31,7 @@ import {
 
 const STEPS: { id: OnboardingStep; label: string }[] = [
   { id: "store_info", label: "Store info" },
+  { id: "catalog_import", label: "Catalog" },
   { id: "wallet_verify", label: "Verify wallet" },
   { id: "contract_register", label: "Register" },
   { id: "complete", label: "Complete" },
@@ -43,6 +52,7 @@ export default function MerchantRegisterPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [form, setForm] = useState<MerchantRegistrationForm>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof MerchantRegistrationForm, string>>>({});
+  const [validatingAddress, setValidatingAddress] = useState(false);
   const [walletProof, setWalletProof] = useState<{ signerAddress: string; signedMessage: string } | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifyNotice, setVerifyNotice] = useState<string | null>(null);
@@ -51,9 +61,16 @@ export default function MerchantRegisterPage() {
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
 
+  const [catalogFileName, setCatalogFileName] = useState<string | null>(null);
+  const [catalogRowErrors, setCatalogRowErrors] = useState<CatalogRowError[]>([]);
+  const [catalogParseError, setCatalogParseError] = useState<string | null>(null);
+  const [catalogImporting, setCatalogImporting] = useState(false);
+  const [catalogImportError, setCatalogImportError] = useState<string | null>(null);
+  const [catalogImportedCount, setCatalogImportedCount] = useState<number | null>(null);
+
   const step = STEPS[stepIndex].id;
 
-  function validateStoreInfo(): boolean {
+  function validateStoreInfoFormat(): boolean {
     const errors: typeof formErrors = {};
     if (!form.storeName.trim()) errors.storeName = "Store name is required.";
     if (!form.description.trim()) errors.description = "Description is required.";
@@ -65,8 +82,53 @@ export default function MerchantRegisterPage() {
     return Object.keys(errors).length === 0;
   }
 
-  function handleStoreInfoNext() {
-    if (validateStoreInfo()) setStepIndex(1);
+  async function handleStoreInfoNext() {
+    if (!validateStoreInfoFormat()) return;
+    setValidatingAddress(true);
+    try {
+      const result = await validateStorePayoutAddress(form.stellarPayoutAddress, network);
+      if (!result.valid) {
+        setFormErrors((prev) => ({ ...prev, stellarPayoutAddress: result.error }));
+        return;
+      }
+      setStepIndex(1);
+    } finally {
+      setValidatingAddress(false);
+    }
+  }
+
+  async function handleCatalogFileChange(file: File | null) {
+    setCatalogParseError(null);
+    setCatalogRowErrors([]);
+    if (!file) {
+      setCatalogFileName(null);
+      setForm((prev) => ({ ...prev, catalogRows: undefined }));
+      return;
+    }
+    setCatalogFileName(file.name);
+    try {
+      const text = await readCatalogCsvFile(file);
+      const { rows, errors } = parseCatalogCsv(text);
+      setCatalogRowErrors(errors);
+      setForm((prev) => ({ ...prev, catalogRows: rows.length > 0 ? rows : undefined }));
+      if (rows.length === 0 && errors.length === 0) {
+        setCatalogParseError("The file has no product rows.");
+      }
+    } catch (err) {
+      setCatalogParseError(err instanceof Error ? err.message : "Couldn't read that file.");
+    }
+  }
+
+  function handleCatalogSkip() {
+    setForm((prev) => ({ ...prev, catalogRows: undefined }));
+    setCatalogFileName(null);
+    setCatalogRowErrors([]);
+    setCatalogParseError(null);
+    setStepIndex(2);
+  }
+
+  function handleCatalogNext() {
+    setStepIndex(2);
   }
 
   async function handleVerifyWallet() {
@@ -96,7 +158,7 @@ export default function MerchantRegisterPage() {
             ? result.signedMessage
             : Buffer.from(result.signedMessage).toString("base64"),
       });
-      setStepIndex(2);
+      setStepIndex(3);
     } catch (err) {
       if (isUserDeclined(err)) {
         setVerifyNotice(WALLET_CANCELLED_MESSAGE);
@@ -115,7 +177,21 @@ export default function MerchantRegisterPage() {
     try {
       const result = await registerMerchant(form, walletProof);
       setTransactionHash(result.transactionHash);
-      setStepIndex(3);
+      if (form.catalogRows && form.catalogRows.length > 0) {
+        setCatalogImporting(true);
+        setCatalogImportError(null);
+        try {
+          const imported = await importMerchantCatalog(form.catalogRows);
+          setCatalogImportedCount(imported.imported);
+        } catch (err) {
+          setCatalogImportError(
+            err instanceof Error ? err.message : "Catalog import failed. You can import it later from the catalog page."
+          );
+        } finally {
+          setCatalogImporting(false);
+        }
+      }
+      setStepIndex(4);
     } catch (err) {
       setRegisterError(err instanceof Error ? err.message : "Registration failed.");
     } finally {
@@ -200,10 +276,64 @@ export default function MerchantRegisterPage() {
           <button
             type="button"
             onClick={handleStoreInfoNext}
-            style={{ padding: "0.625rem 1rem", borderRadius: "0.5rem", border: "none", background: "#2563eb", color: "#fff", fontWeight: 600, cursor: "pointer" }}
+            disabled={validatingAddress}
+            style={{ padding: "0.625rem 1rem", borderRadius: "0.5rem", border: "none", background: "#2563eb", color: "#fff", fontWeight: 600, cursor: validatingAddress ? "wait" : "pointer" }}
           >
-            Continue
+            {validatingAddress ? "Checking address…" : "Continue"}
           </button>
+        </div>
+      )}
+
+      {step === "catalog_import" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <p style={{ fontSize: "0.8125rem", color: "#374151" }}>
+            Optionally import your product catalog now. Upload a CSV with columns:{" "}
+            <code>{CATALOG_CSV_HEADER.join(", ")}</code>. You can also add products later from the catalog page.
+          </p>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            aria-label="Catalog CSV file"
+            onChange={(e) => handleCatalogFileChange(e.target.files?.[0] ?? null)}
+          />
+          {catalogParseError && (
+            <p role="alert" style={{ fontSize: "0.8125rem", color: "#dc2626" }}>
+              {catalogParseError}
+            </p>
+          )}
+          {catalogFileName && form.catalogRows && (
+            <p style={{ fontSize: "0.8125rem", color: "#166534" }}>
+              {catalogFileName}: {form.catalogRows.length} product{form.catalogRows.length === 1 ? "" : "s"} ready to import.
+            </p>
+          )}
+          {catalogRowErrors.length > 0 && (
+            <div role="alert" style={{ fontSize: "0.75rem", color: "#dc2626" }}>
+              <p>{catalogRowErrors.length} row{catalogRowErrors.length === 1 ? "" : "s"} skipped:</p>
+              <ul>
+                {catalogRowErrors.slice(0, 10).map((err) => (
+                  <li key={`${err.row}-${err.message}`}>
+                    Row {err.row}: {err.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              type="button"
+              onClick={handleCatalogSkip}
+              style={{ padding: "0.625rem 1rem", borderRadius: "0.5rem", border: "1px solid #d1d5db", background: "#fff", color: "#374151", fontWeight: 600, cursor: "pointer" }}
+            >
+              Skip for now
+            </button>
+            <button
+              type="button"
+              onClick={handleCatalogNext}
+              style={{ padding: "0.625rem 1rem", borderRadius: "0.5rem", border: "none", background: "#2563eb", color: "#fff", fontWeight: 600, cursor: "pointer" }}
+            >
+              Continue
+            </button>
+          </div>
         </div>
       )}
 
@@ -272,6 +402,19 @@ export default function MerchantRegisterPage() {
               </a>
             )}
           </div>
+          {catalogImporting && (
+            <p style={{ fontSize: "0.8125rem", color: "#374151" }}>Importing your catalog…</p>
+          )}
+          {catalogImportedCount !== null && (
+            <p style={{ fontSize: "0.8125rem", color: "#166534" }}>
+              Imported {catalogImportedCount} product{catalogImportedCount === 1 ? "" : "s"} to your catalog.
+            </p>
+          )}
+          {catalogImportError && (
+            <p role="alert" style={{ fontSize: "0.8125rem", color: "#dc2626" }}>
+              {catalogImportError}
+            </p>
+          )}
         </div>
       )}
     </div>
