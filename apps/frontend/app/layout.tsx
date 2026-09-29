@@ -41,9 +41,9 @@ export const metadata: Metadata = {
 };
 
 /**
- * Two theme-color entries so the browser chrome / status bar tints match
- * light vs dark mode (#310) immediately via `prefers-color-scheme`, ahead of
- * ThemeToggle's JS-driven `data-theme` override running. Values mirror
+ * Three theme-color entries so the browser chrome / status bar tints match
+ * light, dark, and high-contrast modes immediately via `prefers-color-scheme`,
+ * ahead of ThemeToggle's JS-driven `data-theme` override running. Values mirror
  * `--color-bg-primary` in styles/globals.css.
  */
 export const viewport: Viewport = {
@@ -62,7 +62,7 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
+    <html lang={locale} suppressHydrationWarning>
       {/* Inline theme and accessibility bootstrap: reads localStorage and sets data attributes
           and root font-size before React hydrates, preventing flashes (#639, #607). */}
       {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}
@@ -72,13 +72,13 @@ export default async function RootLayout({
         {/* Externally referenced CDN scripts with Subresource Integrity (SRI) (#763) */}
         <script
           src={EXTERNAL_SCRIPTS.turnstile.src}
-          integrity={EXTERNAL_SCRIPTS.turnstile.integrity}
+          integrity=xEXTERNAL_SCRIPTS.turnstile.integrity}
           crossOrigin={EXTERNAL_SCRIPTS.turnstile.crossOrigin}
           async
         />
       </head>
 
-      <body className={inter.className}>
+      <body className={`${inter.className} theme-transition` suppressHydrationWarning>
         <StrictMode>
           <NextIntlClientProvider locale={locale} messages={messages}>
             <AppProviders>

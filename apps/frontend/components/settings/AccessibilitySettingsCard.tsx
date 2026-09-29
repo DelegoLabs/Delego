@@ -5,6 +5,7 @@ import {
   useAccessibility,
   type ReduceMotionMode,
 } from "../../hooks/useAccessibility";
+import { useTheme, type ThemeMode } from "../../hooks/useTheme";
 
 /**
  * Settings page section for managing accessibility preferences (#607):
@@ -12,6 +13,7 @@ import {
  * and link underline toggle.
  */
 export function AccessibilitySettingsCard() {
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const {
     preferences,
     setTextScale,
@@ -27,6 +29,40 @@ export function AccessibilitySettingsCard() {
       ariaLabel="Accessibility preferences"
     >
       <div className="settings-section">
+        {/* Theme Switcher */}
+        <div className="settings-toggle-row">
+          <span>
+            <span className="settings-toggle-label" id="theme-mode-label">
+              Color theme
+            </span>
+            <p className="settings-toggle-hint">
+              {theme === "system"
+                ? `Following system preference (currently ${resolvedTheme}).`
+                : theme === "high-contrast"
+                  ? "High contrast mode with WCAG AAA contrast ratios."
+                  : `Using ${theme} theme.`}
+            </p>
+          </span>
+          <select
+            value={theme}
+            onChange={(e) => setTheme(e.target.value as ThemeMode)}
+            aria-labelledby="theme-mode-label"
+            style={{
+              padding: "0.375rem 0.625rem",
+              borderRadius: "0.375rem",
+              border: "1px solid var(--color-border)",
+              background: "var(--color-bg-surface)",
+              color: "var(--color-text-primary)",
+              fontSize: "0.875rem",
+            }}
+          >
+            <option value="system">System default</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="high-contrast">High contrast</option>
+          </select>
+        </div>
+
         {/* Text Scale Slider */}
         <div
           className="settings-toggle-row"

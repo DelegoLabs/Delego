@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTheme } from "../../hooks/useTheme";
 import { useDelegations } from "../../hooks/useDelegations";
 import { useOrders } from "../../hooks/useOrders";
 import {
@@ -42,6 +43,7 @@ function matchesQuery(
 export function GlobalSearch() {
   const { delegations } = useDelegations();
   const { orders } = useOrders();
+  const { resolvedTheme, setTheme } = useTheme();
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -161,6 +163,27 @@ export function GlobalSearch() {
           aria-label="Toggle search filters"
         >
           Filters
+        </button>
+        <button
+          type="button"
+          className="global-search-theme-toggle"
+          onClick={() =>
+            setTheme(
+              resolvedTheme === "light"
+                ? "dark"
+                : resolvedTheme === "dark"
+                  ? "high-contrast"
+                  : "light"
+            )
+          }
+          aria-label="Toggle color theme"
+          title={`Current theme: ${resolvedTheme}`}
+        >
+          {resolvedTheme === "light"
+            ? "Light"
+            : resolvedTheme === "dark"
+              ? "Dark"
+              : "High Contrast"}
         </button>
       </div>
 

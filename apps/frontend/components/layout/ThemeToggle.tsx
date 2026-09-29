@@ -1,4 +1,4 @@
-"use client";
+"tuse client";
 
 import { useState } from "react";
 import {
@@ -10,22 +10,28 @@ import {
 const MODE_ICONS: Record<ThemeMode, string> = {
   light: "☀",
   dark: "☾",
+  high-contrast: "◎",
   system: "⊙",
-  scheduled: "⏱",
 };
 
 const MODE_LABELS: Record<ThemeMode, string> = {
   light: "Light",
   dark: "Dark",
+  high-contrast: "High Contrast",
   system: "System",
-  scheduled: "Scheduled",
 };
 
-const ORDERED_MODES: ThemeMode[] = ["light", "dark", "system", "scheduled"];
+const ORDERED_MODES: ThemeMode[] = [
+  "light",
+  "dark",
+  "high-contrast",
+  "system",
+];
 
 /**
- * Theme toggle that cycles through light → dark → system → scheduled modes.
- * Scheduled mode adds an expandable time-range picker (local 24-hour clock).
+ * Theme toggle that cycles through light → dark → high-contrast → system modes.
+ * The active theme is persisted in localStorage by the useTheme hook and applied
+ * to the document root before paint to avoid a flash of unstyled content.
  * All transitions honour prefers-reduced-motion via the useTheme hook.
  */
 export function ThemeToggle() {
@@ -38,9 +44,7 @@ export function ThemeToggle() {
     const nextIndex = (ORDERED_MODES.indexOf(mode) + 1) % ORDERED_MODES.length;
     const next = ORDERED_MODES[nextIndex]!;
     setMode(next);
-    if (next === "scheduled") {
-      setScheduleOpen(true);
-    } else {
+    if (next === "high-contrast") {
       setScheduleOpen(false);
     }
   };
@@ -62,13 +66,13 @@ export function ThemeToggle() {
         className="theme-toggle"
         onClick={cycleMode}
         aria-label={`Theme: ${MODE_LABELS[mode]}. Click to switch to ${MODE_LABELS[ORDERED_MODES[(ORDERED_MODES.indexOf(mode) + 1) % ORDERED_MODES.length]!]}`}
-        aria-pressed={mode === "dark"}
+        aria-pressed={mode === "dark"|| mode === "high-contrast"}
         title={`Current theme: ${MODE_LABELS[mode]}`}
       >
         <span aria-hidden="true">{MODE_ICONS[mode]}</span>
       </button>
 
-      {mode === "scheduled" && (
+      {mode === "system" && (
         <button
           type="button"
           className="theme-schedule-trigger"
