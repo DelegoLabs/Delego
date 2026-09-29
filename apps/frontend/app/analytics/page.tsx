@@ -40,7 +40,7 @@ export default function AnalyticsPage() {
         onRangeChange={setRange}
       />
 
-      <SpendForecastChart locale={locale} />
+      <SpendForecastChart range={range} locale={locale} />
     </div>
   );
 }

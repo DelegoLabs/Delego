@@ -31,144 +31,167 @@ export type ForecastHorizon = 30 | 60 | 90;
 
 export const FORECAST_HORIZONS: ForecastHorizon[] = [30, 60, 90];
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+/**
+ * Number of historical days used to derive the purchasing frequency.
+ */
+const HISTORY_WINDOW_DAYS = 30;
 
-const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}/;
+/**
+ * z-score for a 95% confidence interval.
+ */
+const CONFIDENCE_Z = 1.96;
 
 function toDayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-function dayKeyToTime(key: string): number {
-  return Date.parse(`${key}T00:00:00.000Z`);
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date.getTime());
+  next.setDate(next.getDate() + days);
+  return next;
 }
 
-function normalizeDayKey(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  if (DAY_PATTERN.test(value)) return value.slice(0, 10);
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return null;
-  return toDayKey(new Date(parsed));
-}
+/**
+ * Derive a daily spend series from delegations. The amount of a delegation is
+ * amortized across the days it has been active, which gives a stable daily
+ * spend estimate from the available delegation metadata.
+ */
+function buildDailySpendSeries(
+  delegations: Delegation[],
+  endDate: Date,
+  windowDays: number
+): Map<string, number> {
+  const series = new Map<string, number>();
+  const windowStart = addDays(endDate, -(windowDays - 1));
+  windowStart.setHours(0, 0, 0, 0);
 
-function toNumber(value: unknown): number {
-  if (typeof value === "number" && Number.finite(value)) return value;
-  if (typeof value === "bigint") return Number(value);
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.finite(parsed)) return parsed;
-  }
-  return 0;
-}
+  for (const delegation of delegations) {
+    const amount = Number(BigInt(delegation.policy.maxTotal));
+    if (!Number.finite(amount) || amount <= 0) continue;
 
-export interface SpendTransaction {
-  date?: string;
-  timestamp?: number | string;
-  amount?: number | bigint | string;
-  spend?: number | bigint | string;
-  value?: number | bigint | string;
-  [key: string]: unknown;
-}
+    const createdRaw = (delegation as { createdAt?: string | Date }).createdAt;
+    const created = createdRaw ? new Date(createdRaw) : windowStart;
+    if (Number.isNaN(created.getTime())) continue;
 
-export function extractSpendDate(tx: SpendTransaction): string | null {
-  const candidates: unknown[] = [
-    tx.date,
-    tx.timestamp,
-    tx.createdAt,
-    tx.executedAt,
-    tx.updatedAt,
-  ];
-  for (const candidate of candidates) {
-    if (typeof candidate === "number" && Number.finite(candidate)) {
-      const ms = candidate > 1e11 ? candidate : candidate * 1000;
-      return toDayKey(new Date(ms));
+    const activeStart = created < windowStart ? windowStart : created;
+    const activeDays = Math.max(
+      1,
+      Math.round(
+        (endDate.getTime() - activeStart.getTime()) / (86400000)
+      ) + 1
+    );
+    const dailyAmount = amount / activeDays;
+
+    for (let day = 0; day < windowDays; day += 1) {
+      const cursor = addDays(windowStart, day);
+      if (cursor.getTime() < activeStart.getTime()) continue;
+      const key = toDayKey(cursor);
+      series.set(key, (series.get(key) ?? 0) + dailyAmount);
     }
-    const normalized = normalizeDayKey(candidate);
-    if (normalized) return normalized;
-  }
-  return null;
-}
-
-export function extractSpendAmount(tx: SpendTransaction): number {
-  const candidates: unknown[] = [tx.amount, tx.spend, tx.value];
-  for (const candidate of candidates) {
-    if (candidate === undefined || candidate === null) continue;
-    const num = toNumber(candidate);
-    if (num !== 0) return num;
-  }
-  return 0;
-}
-
-export function buildDailySpendSeries(
-  transactions: SpendTransaction[],
-  endDate: Date = new Date(),
-  days: number = 90
-): { date: string; spend: number }[] {
-  const buckets = new Map<string, number>();
-  for (const tx of transactions) {
-    const day = extractSpendDate(tx);
-    if (!day) continue;
-    const amount = extractSpendAmount(tx);
-    buckets.set(day, (buckets.get(day) || 0) + amount);
   }
 
-  const series: { date: string; spend: number }[] = [];
-  const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
-  for (let i = days - 1; i >= 0; i -= 1) {
-    const d = new Date(end.getTime() - i * MS_PER_DAY);
-    const key = toDayKey(d);
-    series.push({ date: key, spend: buckets.get(key) || 0 });
-  }
   return series;
 }
 
-export function computeSpendForecast(
-  transactions: SpendTransaction[],
+/**
+ * Linear regression over the historical series, used to project future daily spend.
+ */
+function linearRegression(values: number[]): { intercept: number; slope: number } {
+  const n = values.length;
+  if (n === 0) return { intercept: 0, slope: 0 };
+  if (n === 1) return { intercept: values[0], slope: 0 };
+
+  let sumX = 0;
+  let sumY = 0;
+  let sumXY = 0;
+  let sumXX = 0;
+  for (let i = 0; i < n; i += 1) {
+    sumX += i;
+    sumY += values[i];
+    sumXY += i * values[i];
+    sumXX += i * i;
+  }
+  const denominator = n * sumXX - sumX * sumX;
+
+  if (denominator === 0) {
+    return { intercept: sumY / n, slope: 0 };
+  }
+
+  const slope = (n * sumXY - sumX * sumY) / denominator;
+  const intercept = (sumY - slope * sumX) / n;
+  return { intercept, slope };
+}
+
+/**
+ * Standard deviation of the residuals around the regression line, used to
+ * derive the confidence interval width.
+ */
+function residualStandardDeviation(
+  values: number[],
+  intercept: number,
+  slope: number
+): number {
+  const n = values.length;
+  if (n <= 2) return 0;
+  let sumSquared = 0;
+  for (let i = 0; i < n; i += 1) {
+    const predicted = intercept + slope * i;
+    const residual = values[i] - predicted;
+    sumSquared += residual * residual;
+  }
+  return Math.sqrt(sumSquared / (n - 2));
+}
+
+/**
+ * Build the predictive spend forecast series for a given horizon.
+ */
+export function buildSpendForecast(
+  delegations: Delegation[],
   horizonDays: ForecastHorizon,
-  endDate: Date = new Date(),
+  now: Date = new Date()
 ): SpendForecastPoint[] {
-  const historyDays = Math.max(horizonDays, 30);
-  const history = buildDailySpendSeries(transactions, endDate, historyDays);
+  const endDate = new Date(now.getTime());
+  endDate.setHours(0, 0, 0, 0);
 
-  const nonzero = history.filter((p) => p.spend > 0);
-  const activeDays = nonzero.length;
-  const totalSpend = history.reduce((sum, p) => sum + p.spend, 0);
-  const mean = history.length > 0 ? totalSpend / history.length : 0;
-  const dailyRate = activeDays > 0 ? totalSpend / activeDays : mean;
+  const history = buildDailySpendSeries(delegations, endDate, HISTORY_WINDOW_DAYS);
+  const historyStart = addDays(endDate, -(HISTORY_WINDOW_DAYS - 1));
 
-  const variance =
-    history.length > 1
-      ? history.reduce((sum, p) => sum + (p.spend - mean) * (p.spend - mean), 0) /
-        (history.length - 1)
-      : 0;
-  const stdDev = Math.sqrt(variance);
-  const zed = 1.96;
-
-  const lastDate = history.length > 0 ? history[history.length - 1].date : toDayKey(endDate);
-  const lastTime = dayKeyToTime(lastDate);
-
-  const points: SpendForecastPoint[] = history.map((p) => ({
-    date: p.date,
-    actualSpend: Number(p.spend.toFixed(2)),
-    forecastSpend: 0,
-    confidenceUpper: 0,
-    confidenceLower: 0,
-  }));
-
-  for (let i = 1; i <= horizonDays; i += 1) {
-    const date = toDayKey(new Date(lastTime + i * MS_PER_DAY));
-    const projected = dailyRate * i;
-    const interval = zed * stdDev * Math.sqrt(i);
-    points.push({
-      date,
-      actualSpend: 0,
-      forecastSpend: Number(projected.toFixed(2)),
-      confidenceUpper: Number(Math.max(0, projected + interval).toFixed(2)),
-      confidenceLower: Number(Math.max(0, projected - interval).toFixed(2)),
+  const historicalValues: number[] = [];
+  const historicalPoints: SpendForecastPoint[] = [];
+  for (let day = 0; day < HISTORY_WINDOW_DAYS; day += 1) {
+    const cursor = addDays(historyStart, day);
+    const key = toDayKey(cursor);
+    const actual = history.get(key) ?? 0;
+    historicalValues.push(actual);
+    historicalPoints.push({
+      date: key,
+      actualSpend: actual,
+      forecastSpend: actual,
+      confidenceUpper: actual,
+      confidenceLower: actual,
     });
   }
 
-  return points;
+  const { intercept, slope } = linearRegression(historicalValues);
+  const sigma = residualStandardDeviation(historicalValues, intercept, slope);
+  const lastIndex = HISTORY_WINDOW_DAYS - 1;
+
+  const forecastPoints: SpendForecastPoint[] = [];
+  for (let day = 1; day <= horizonDays; day += 1) {
+    const cursor = addDays(endDate, day);
+    const index = lastIndex + day;
+    const projected = Math.max(0, intercept + slope * index);
+    const margin = CONFIDENCE_Z * sigma;
+    forecastPoints.push({
+      date: toDayKey(cursor),
+      actualSpend: 0,
+      forecastSpend: projected,
+      confidenceUpper: Math.max(0, projected + margin),
+      confidenceLower: Math.max(0, projected - margin),
+    });
+  }
+
+  return [...historicalPoints, ...forecastPoints];
 }
 
 export function useAnalytics() {
@@ -177,8 +200,7 @@ export function useAnalytics() {
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const [cachedAt, setCachedAt] = useState<number | null>(null);
-  const [transactions, setTransactions] = useState<SpendTransaction[]>([]);
-  const [horizonDays, setHorizonDays] = useState<ForecastHorizon>(30);
+  const [forecastHorizon, setForecastHorizon] = useState<ForecastHorizon>(30);
 
   useEffect(() => {
     let cancelled = false;
@@ -221,39 +243,6 @@ export function useAnalytics() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function fetchTransactions() {
-      const cached = await peekReadModel<SpendTransaction[]>(
-        "analytics",
-        "spendTransactions"
-      );
-      if (cancelled) return;
-      if (cached && Array.isArray(cached.payload)) {
-        setTransactions(cached.payload);
-      }
-      try {
-        const response = await api.getSpendTransactions();
-        if (cancelled) return;
-        if (response.data) {
-          setTransactions(response.data);
-          await writeReadModel(
-            "analytics",
-            "spendTransactions",
-            response.data
-          );
-        }
-      } catch {
-        // Transaction history is optional for the forecast; keep cached data.
-      }
-    }
-
-    fetchTransactions();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const overview: SpendingOverview = {
     totalDelegations: delegations.length,
     activeDelegations: delegations.filter((d) => d.status === "active").length,
@@ -264,7 +253,7 @@ export function useAnalytics() {
     ),
     averageSpendingLimit:
       delegations.length > 0
-        ? delegations.reduce((sum, d) => sum + BigInt(d.policy.maxTotal), 0n) /
+        ? delegations.reduce((sum, d) => sum + BigInt(d.policy.maxTotal), 0n() /
           BigInt(delegations.length)
         : 0n,
     delegationsByStatus: delegations.reduce(
@@ -276,17 +265,17 @@ export function useAnalytics() {
     ),
   };
 
-  const forecast = useMemo(
-    () => computeSpendForecast(transactions, horizonDays),
-    [transactions, horizonDays]
+  const spendForecast = useMemo(
+    () => buildSpendForecast(delegations, forecastHorizon),
+    [delegations, forecastHorizon]
   );
 
   return {
     delegations,
     overview,
-    forecast,
-    horizonDays,
-    setHorizonDays,
+    spendForecast,
+    forecastHorizon,
+    setForecastHorizon,
     loading,
     error,
     stale,
