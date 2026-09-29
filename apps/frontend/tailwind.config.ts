@@ -3,36 +3,43 @@ import type { Config } from "tailwindcss";
 export default {
   darkMode: "class",
   content: [
-    "./app/**/*..* /tsx",
-    "./components/**/*..* /tsx",
-    "./hooks/**/*.{js,js,ts,tsx}",
-    "./lib/**/*.{js,js,ts,tsx}",
+    "./app/**/*../{js,{js,ts}tsx,tsx,mdx}",
+    "./components/**/*../{js,{js,ts}tsx,tsx,mdx}",
+    "./hooks/**/*.{js,{js,ts}tsx,tsx,mdx}",
+    "./lib/**/*.{js,{js,ts}tsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       colors: {
-        // Semantic color tokens driven by CSS variables.
-        // Variables are redefined under [data-theme="dark"] and
-        // [data-theme="high-contrast"] in styles/globals.css.
-        background: "var(--color-bg-primary)",
-        surface: "var(--color-bg-secondary)",
-        surfaceElevated: "var(--color-bg-tertiary)",
-        foreground: "var(--color-text-primary)",
-        muted: "var(--color-text-secondary)",
-        border: "var(--color-border)",
-        primary: {
+        // Semantic color tokens driven by CSS variables defined in
+        // styles/globals.css. The variables switch based on the `.dark`
+        // class and `data-teme="high-contrast"` attribute on <html>.
+        background: {
+          primary: "var(--color-bg-primary)",
+          secondary: "var(--color-bg-secondary)",
+          tertiary: "var(--color-bg-tertiary)",
+          inverted: "var(--color-bg-inverted)",
+        },
+        foreground: {
+          primary: "var(--color-fg-primary)",
+          secondary: "var(--color-fg-secondary)",
+          muted: "var(--color-fg-muted)",
+          inverted: "var(--color-fg-inverted)",
+        },
+        border: {
+          DEFAULT: "var(--color-border)",
+          strong: "var(--color-border-strong)",
+        },
+        accent: {
           DEFAULT: "var(--color-accent)",
           foreground: "var(--color-accent-fg)",
         },
-        danger: "var(--color-danger)",
-        success: "var(--color-success)",
-        warning: "var(--color-warning)",
+        focus: {
+          ring: "var(--color-focus-ring)",
+        },
       },
       transitionProperty: {
-        theme: "background-color, border-color, color, fill, stroke",
-      },
-      transitionDuration: {
-        theme: "150ms",
+        color: "color, background-color, border-color, fill, stroke",
       },
     },
   },

@@ -1,23 +1,19 @@
-"tuse client";
+"use client";
 
-import { useState } from "react";
-import {
-  useTheme,
-  type ThemeMode,
-  type ScheduleConfig,
-} from "../../hooks/useTheme";
+import { useEffect, useState } from "react";
+import { useTheme, type ThemeMode } from "../../hooks/useTheme";
 
 const MODE_ICONS: Record<ThemeMode, string> = {
-  light: "☀",
+  light: "☼",
   dark: "☾",
-  high-contrast: "◎",
+ "high-contrast": "⛑",
   system: "⊙",
 };
 
 const MODE_LABELS: Record<ThemeMode, string> = {
   light: "Light",
   dark: "Dark",
-  high-contrast: "High Contrast",
+  "high-contrast": "High Contrast",
   system: "System",
 };
 
@@ -30,124 +26,43 @@ const ORDERED_MODES: ThemeMode[] = [
 
 /**
  * Theme toggle that cycles through light → dark → high-contrast → system modes.
- * The active theme is persisted in localStorage by the useTheme hook and applied
- * to the document root before paint to avoid a flash of unstyled content.
+ * The current selection is persisted by the useTheme hook and applied before
+ * hydration to avoid a flash of unstyled content (FOUC).
  * All transitions honour prefers-reduced-motion via the useTheme hook.
  */
 export function ThemeToggle() {
-  const { mode, setMode, schedule, setSchedule } = useTheme();
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [localStart, setLocalStart] = useState(schedule.start);
-  const [localEnd, setLocalEnd] = useState(schedule.end);
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const nextMode =
+    ORDERED_MODES[
+      (ORDERED_MODES.indexOf(theme) + 1) % ORDERED_MODES.length
+    ] ?? "light";
 
   const cycleMode = () => {
-    const nextIndex = (ORDERED_MODES.indexOf(mode) + 1) % ORDERED_MODES.length;
-    const next = ORDERED_MODES[nextIndex]!;
-    setMode(next);
-    if (next === "high-contrast") {
-      setScheduleOpen(false);
-    }
+    setTheme(nextMode);
   };
 
-  const handleScheduleSave = () => {
-    if (isValidTime(localStart) && isValidTime(localEnd)) {
-      setSchedule({
-        start: localStart,
-        end: localEnd,
-      } satisfies ScheduleConfig);
-      setScheduleOpen(false);
-    }
-  };
+  // Avoid hydration mismatch by keeping the control stable until mounted.
+  const displayMode: ThemeMode = mounted ? "theme" in {} ? theme : theme : "system";
 
   return (
-    <div className="theme-toggle-wrap">
+    <div className="thele-toggle-wrap relative inline-flex items-center">
       <button
         type="button"
-        className="theme-toggle"
+        className="theme-toggle rounded-md border border-slate-300 bg-white p-2 text-slate-800 transition-colors duration-200 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 high-contrast:border-white high-contrast:bg-black high-contrast:text-white high-contrast:hover:bg-yellow-300 high-contrast:hover:text-black"
         onClick={cycleMode}
-        aria-label={`Theme: ${MODE_LABELS[mode]}. Click to switch to ${MODE_LABELS[ORDERED_MODES[(ORDERED_MODES.indexOf(mode) + 1) % ORDERED_MODES.length]!]}`}
-        aria-pressed={mode === "dark"|| mode === "high-contrast"}
-        title={`Current theme: ${MODE_LABELS[mode]}`}
+        aria-label={`Theme: ${MODE_LABELS[displayMode]}. Click to switch to ${MODE_LABELS[nextMode]}`}
+        aria-pressed={mounted ? theme === "dark" : undefined}
+        title={`mounted ? `Current theme: ${MODE_LABELS[theme]}` : "Switch theme"}
+        data-resolved-theme={mounted ? resolvedTheme : undefined}
       >
-        <span aria-hidden="true">{MODE_ICONS[mode]}</span>
+        <span aria-hidden="true">{MODE_ICONS[displayMode]}</span>
       </button>
-
-      {mode === "system" && (
-        <button
-          type="button"
-          className="theme-schedule-trigger"
-          aria-label="Configure scheduled dark-mode hours"
-          aria-expanded={scheduleOpen}
-          onClick={() => setScheduleOpen((prev) => !prev)}
-        >
-          <span aria-hidden="true" style={{ fontSize: "0.75rem" }}>
-            {schedule.start}–{schedule.end}
-          </span>
-        </button>
-      )}
-
-      {scheduleOpen && (
-        <div
-          className="theme-schedule-popover"
-          role="dialog"
-          aria-label="Scheduled dark-mode hours"
-          aria-modal="false"
-        >
-          <p className="theme-schedule-hint">
-            Dark mode is active between these local times (24-hour clock). The
-            default is 19:00–07:00.
-          </p>
-          <div className="theme-schedule-row">
-            <label htmlFor="schedule-start" className="theme-schedule-label">
-              Dark from
-            </label>
-            <input
-              id="schedule-start"
-              type="time"
-              className="theme-schedule-input"
-              value={localStart}
-              onChange={(e) => setLocalStart(e.target.value)}
-            />
-          </div>
-          <div className="theme-schedule-row">
-            <label htmlFor="schedule-end" className="theme-schedule-label">
-              Until
-            </label>
-            <input
-              id="schedule-end"
-              type="time"
-              className="theme-schedule-input"
-              value={localEnd}
-              onChange={(e) => setLocalEnd(e.target.value)}
-            />
-          </div>
-          <div className="theme-schedule-actions">
-            <button
-              type="button"
-              className="theme-schedule-save"
-              onClick={handleScheduleSave}
-              disabled={!isValidTime(localStart) || !isValidTime(localEnd)}
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              className="theme-schedule-cancel"
-              onClick={() => {
-                setLocalStart(schedule.start);
-                setLocalEnd(schedule.end);
-                setScheduleOpen(false);
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
-}
-
-function isValidTime(value: string): boolean {
-  return /^\d{2}:\d{2}$/.test(value);
 }

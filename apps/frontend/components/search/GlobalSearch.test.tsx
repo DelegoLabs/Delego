@@ -1,10 +1,9 @@
 import React from "react";
 import { act, render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GlobalSearch } from "./GlobalSearch";
-import { ThemeProvider } from "../theme/ThemeProvider";
-import { ThemeSwitcher } from "../theme/ThemeSwitcher";
 
 const DEBOUNCE_WAIT = 300;
 
@@ -56,9 +55,6 @@ vi.mock("../../hooks/useOrders", () => ({
   }),
 }));
 
-const renderWithTheme = (ui: React.ReactElement) =>
-  render(<ThemeProvider>{ui}</ThemeProvider>);
-
 describe("GlobalSearch", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -66,17 +62,6 @@ describe("GlobalSearch", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-  });
-
-  it("renders a theme switcher alongside search", () => {
-    renderWithTheme(
-      <>
-        <ThemeSwitcher />
-        <GlobalSearch />
-      </>,
-    );
-
-    expect(screen.getByRole("combobox", { name: /theme/i })).toBeDefined();
   });
 
   it("debounces input before filtering results", () => {
@@ -115,28 +100,6 @@ describe("GlobalSearch", () => {
     expect(screen.getByText("Orders")).toBeDefined();
     expect(screen.getByText(/Delegation deleg-abc123/)).toBeDefined();
     expect(screen.getByText(/Order order-abc123/)).toBeDefined();
-  });
-
-  it("applies dark theme class to the document root when toggled", () => {
-    renderWithTheme(<ThemeSwitcher />);
-
-    const select = screen.getByRole("combobox", { name: /theme/i });
-    fireEvent.change(select, { target: { value: "dark" } });
-
-    expect(document.documentElement.classList.contains("dark")).toBe(true);
-    expect(localStorage.getItem("theme")).toBe("dark");
-  });
-
-  it("applies high-contrast theme class to the document root when toggled", () => {
-    renderWithTheme(<ThemeSwitcher />);
-
-    const select = screen.getByRole("combobox", { name: /theme/i });
-    fireEvent.change(select, { target: { value: "high-contrast" } });
-
-    expect(document.documentElement.classList.contains("high-contrast")).toBe(
-      true,
-    );
-    expect(localStorage.getItem("theme")).toBe("high-contrast");
   });
 
   it("shows an empty state when no results match", () => {

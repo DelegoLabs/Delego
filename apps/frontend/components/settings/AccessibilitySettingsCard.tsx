@@ -13,7 +13,6 @@ import { useTheme, type ThemeMode } from "../../hooks/useTheme";
  * and link underline toggle.
  */
 export function AccessibilitySettingsCard() {
-  const { theme, resolvedTheme, setTheme } = useTheme();
   const {
     preferences,
     setTextScale,
@@ -22,6 +21,7 @@ export function AccessibilitySettingsCard() {
     setUnderlineLinks,
     resetToDefaults,
   } = useAccessibility();
+  const { theme, resolvedTheme, setTheme } = useTheme();
 
   return (
     <Card
@@ -29,38 +29,67 @@ export function AccessibilitySettingsCard() {
       ariaLabel="Accessibility preferences"
     >
       <div className="settings-section">
-        {/* Theme Switcher */}
-        <div className="settings-toggle-row">
-          <span>
-            <span className="settings-toggle-label" id="theme-mode-label">
-              Color theme
-            </span>
-            <p className="settings-toggle-hint">
-              {theme === "system"
-                ? `Following system preference (currently ${resolvedTheme}).`
-                : theme === "high-contrast"
-                  ? "High contrast mode with WCAG AAA contrast ratios."
-                  : `Using ${theme} theme.`}
-            </p>
-          </span>
-          <select
-            value={theme}
-            onChange={(e) => setTheme(e.target.value as ThemeMode)}
-            aria-labelledby="theme-mode-label"
+        {/* Theme Mode Switcher */}
+        <div
+          className="settings-toggle-row"
+          style={{
+            flexDirection: "column",
+            alignItems: "stretch",
+            gap: "0.5rem",
+          }}
+        >
+          <div
             style={{
-              padding: "0.375rem 0.625rem",
-              borderRadius: "0.375rem",
-              border: "1px solid var(--color-border)",
-              background: "var(--color-bg-surface)",
-              color: "var(--color-text-primary)",
-              fontSize: "0.875rem",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
             }}
           >
-            <option value="system">System default</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-            <option value="high-contrast">High contrast</option>
-          </select>
+            <span className="settings-toggle-label" id="theme-mode-label">
+              Theme ({resolvedTheme})
+            </span>
+            <div
+              role="radiogroup"
+              aria-labelledby="theme-mode-label"
+              style={{ display: "flex", gap: "0.375rem" }}
+            >
+              {(["light", "dark", "high-contrast", "system"] as ThemeMode[]).map(
+                (mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="radio"
+                    aria-checked={theme === mode}
+                    onClick={() => setTheme(mode)}
+                    style={{
+                      fontSize: "0.75rem",
+                      padding: "0.25rem 0.5rem",
+                      borderRadius: "0.25rem",
+                      border: "1px solid var(--color-border)",
+                      background:
+                        theme === mode
+                          ? "var(--color-accent-bg)"
+                          : "var(--color-bg-surface)",
+                      color:
+                        theme === mode
+                          ? "var(--color-accent)"
+                          : "var(--color-text-primary)",
+                      cursor: "pointer",
+                      fontWeight: theme === mode ? 600 : 400,
+                    }}
+                  >
+                    {mode === "high-contrast"
+                      ? "High contrast"
+                      : mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  </button>
+                ),
+              )}
+            </div>
+          </div>
+          <p className="settings-toggle-hint">
+            Choose Light, Dark, or High Contrast (WCAG AAA). System follows your
+            OS preference and updates automatically.
+          </p>
         </div>
 
         {/* Text Scale Slider */}
@@ -139,8 +168,11 @@ export function AccessibilitySettingsCard() {
           </span>
           <input
             type="checkbox"
-            checked={preferences.highContrast}
-            onChange={(e) => setHighContrast(e.target.checked)}
+            checked={preferences.highContrast || resolvedTheme === "high-contrast"}
+            onChange={(e) => {
+              setHighContrast(e.target.checked);
+              if (e.target.checked) setTheme("high-contrast");
+            }}
             style={{
               width: "1.125rem",
               height: "1.125rem",
@@ -214,7 +246,13 @@ export function AccessibilitySettingsCard() {
             justifyContent: "flex-end",
           }}
         >
-          <Button variant="ghost" onClick={resetToDefaults}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              resetToDefaults();
+              setTheme("system");
+            }}
+          >
             Reset accessibility defaults
           </Button>
         </div>
