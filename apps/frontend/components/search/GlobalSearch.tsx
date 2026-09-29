@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useTheme } from "../../hooks/useTheme";
 import { useDelegations } from "../../hooks/useDelegations";
 import { useOrders } from "../../hooks/useOrders";
 import {
@@ -11,6 +10,7 @@ import {
   type EntityTypeFilters,
   type SearchEntityType,
 } from "./FilterPanel";
+import { useTheme } from "../../hooks/useTheme";
 
 const DEBOUNCE_MS = 300;
 
@@ -34,6 +34,14 @@ function matchesQuery(
   return fields.some((field) => field?.toLowerCase().includes(query));
 }
 
+const THEME_CYCLE = ["light", "dark", "high-contrast", "system"] as const;
+const THEME_LABELS: Record<(typeof THEME_CYCLE)[number], string> = {
+  light: "Light",
+  dark: "Dark",
+  "high-contrast": "High Contrast",
+  system: "System",
+};
+
 /**
  * Global search accessible from the app header. Queries across
  * delegations, orders, and transactions (escrowed orders), grouping
@@ -43,7 +51,7 @@ function matchesQuery(
 export function GlobalSearch() {
   const { delegations } = useDelegations();
   const { orders } = useOrders();
-  const { resolvedTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -70,6 +78,12 @@ export function GlobalSearch() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const cycleTheme = () => {
+    const currentIndex = THEME_CYCLE.indexOf(theme);
+    const nextTheme = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
+    setTheme(nextTheme);
+  };
 
   const groups = useMemo<SearchResultGroup[]>(() => {
     if (!debouncedQuery) return [];
@@ -144,7 +158,7 @@ export function GlobalSearch() {
   const showResults = debouncedQuery.length > 0;
 
   return (
-    <div className="global-search" data-theme={resolvedTheme}>
+    <div className="global-search">
       <div className="global-search-input-wrap">
         <input
           type="search"
@@ -164,29 +178,35 @@ export function GlobalSearch() {
         >
           Filters
         </button>
+        <button
+          type="button"
+          className="global-search-theme-toggle"
+          onClick={cycleTheme}
+          aria-label={`Switch theme (current: ${THEME_LABELS[theme]}, resolved: ${resolvedTheme})`}
+          title={`Theme: ${THEME_LABELS[theme]}`}
+          data-theme={resolvedTheme}
+        >
+          {THEME_LABELS[theme]}
+        </button>
       </div>
 
       {filtersOpen && <FilterPanel filters={filters} onChange={setFilters} />}
 
       {showResults && (
         <div
-          className="global-search-results bg-white text-gray-900 transition-colors duration-200 dark:bg-gray-900 dark:text-gray-100"
+          className="global-search-results"
           role="listbox"
           aria-label="Search results"
         >
           {groups.length === 0 ? (
-            <p className="global-search-empty text-gray-500 dark:text-gray-400">
-              No results found
-            </p>
+            <p className="global-search-empty">No results found</p>
           ) : (
             groups.map((group) => (
               <div className="global-search-group" key={group.type}>
-                <p className="global-search-group-label text-gray-500 dark:text-gray-400">
-                  {group.label}
-                </p>
+                <p className="global-search-group-label">{group.label}</p>
                 {group.items.map((item) => (
                   <div
-                    className="global-search-item transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    className="global-search-item"
                     role="option"
                     aria-selected={false}
                     key={`${item.type}-${item.id}`}

@@ -5,8 +5,7 @@ import {
   useAccessibility,
   type ReduceMotionMode,
 } from "../../hooks/useAccessibility";
-import { useTheme } from "../../hooks/useTheme";
-import type { ThemeMode } from "../../hooks/useTheme";
+import { useTheme, type ThemeMode } from "../../hooks/useTheme";
 
 /**
  * Settings page section for managing accessibility preferences (#607):
@@ -46,22 +45,22 @@ export function AccessibilitySettingsCard() {
               alignItems: "center",
             }}
           >
-            <span className="settings-toggle-label" id="theme-label">
+            <span className="settings-toggle-label" id="theme-mode-label">
               Theme
             </span>
             <div
               role="radiogroup"
-              aria-labelledby="theme-label"
+              aria-labelledby="theme-mode-label"
               style={{ display: "flex", gap: "0.375rem" }}
             >
               {(
                 [
-                  { value: "light", label: "Light" },
-                  { value: "dark", label: "Dark" },
-                  { value: "high-contrast", label: "High contrast" },
-                  { value: "system", label: "System" },
+                  ["system", "System"],
+                  ["light", "Light"],
+                  ["dark", "Dark"],
+                  ["high-contrast", "High contrast"],
                 ] as const
-              ).map(({ value, label }) => (
+              ).map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
@@ -93,7 +92,8 @@ export function AccessibilitySettingsCard() {
           <p className="settings-toggle-hint">
             {theme === "system"
               ? `Following system preference (currently ${resolvedTheme}).`
-              : `Using ${resolvedTheme} theme.`}
+              : `Active theme: ${resolvedTheme}.`}{" "}
+            High contrast meets WCAG AAA contrast requirements.
           </p>
         </div>
 
