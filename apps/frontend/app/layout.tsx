@@ -16,6 +16,7 @@ import { themeBootstrapScript } from "../hooks/useTheme";
 import { Inter } from "next/font/google";
 import { a11yBootstrapScript } from "../hooks/useAccessibility";
 import { EXTERNAL_SCRIPTS } from "../lib/sri";
+import { AgentFab } from "../components/layout/AgentFab";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -71,9 +72,9 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: a11yBootstrapScript }} />
         {/* Externally referenced CDN scripts with Subresource Integrity (SRI) (#763) */}
         <script
-          src={EXTERNAL_SCRIPTS.turnstile.src}
+          src=xEXTERNAL_SCRIPTS.turnstile.src}
           integrity={EXTERNAL_SCRIPTS.turnstile.integrity}
-          crossOrigin={EXTERNAL_SCRIPTS.turnstile.crossOrigin}
+          crossOrigin=xEXTERNAL_SCRIPTS.turnstile.crossOrigin}
           async
         />
       </head>
@@ -94,6 +95,7 @@ export default async function RootLayout({
                   <main className="app-content">{children}</main>
                 </div>
               </div>
+              <AgentFab />
               <Suspense fallback={null}>
                 <UpdatePromptToast />
               </Suspense>
