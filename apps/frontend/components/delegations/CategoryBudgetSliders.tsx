@@ -14,7 +14,6 @@ import {
   validateBudgets,
   type CategoryBudget,
 } from "../../lib/categoryBudgets";
-import { CategoryBudgetDonut } from "./CategoryBudgetDonut";
 
 export interface CategoryBudgetSlidersProps {
   /** The parent delegation's spending limit — category budgets can't exceed it in total. */
@@ -27,7 +26,7 @@ export interface CategoryBudgetSlidersProps {
 /** Slider granularity: whole XLM. */
 const STEP_STROOPS = 10_000_000n;
 
-/** Percentage of a category limit at which we surface a warning. */
+/** Usage percentage at which the "approaching cap" alert is shown. */
 const WARNING_THRESHOLD = 90;
 
 const TONE_LABELS = {
@@ -60,15 +59,12 @@ export function CategoryBudgetSliders({
 
   return (
     <Card title="Category budgets" ariaLabel="Category budget allocation">
-      <div className="category-budget-layout">
-        <CategoryBudgetDonut parentLimitStroops={parentLimit} budgets={budgets} />
-        <div className="category-budget-summary">
-          <span>
-            {formatXlm(allocated, locale)} of {formatXlm(parentLimit, locale)} XLM allocated (
-            {percentOf(allocated, parentLimit)}%)
-          </span>
-          <span className="stat-label">{formatXlm(unallocated, locale)} XLM unallocated</span>
-        </div>
+      <div className="category-budget-summary">
+        <span>
+          {formatXlm(allocated, locale)} of {formatXlm(parentLimit, locale)} XLM allocated (
+          {percentOf(allocated, parentLimit)}%)
+        </span>
+        <span className="stat-label">{formatXlm(unallocated, locale)} XLM unallocated</span>
       </div>
 
       <div
@@ -104,9 +100,9 @@ export function CategoryBudgetSliders({
           const spent = toStroops(b.spentStroops);
           const max = maxAllocationFor(budgets, i, parentLimit);
           const tone = usageTone(b);
+          const usagePct = allocation > 0n ? percentOf(spent, allocation) : 0;
+          const approachingCap = tone !== "over" && usagePct >= WARNING_THRESHOLD;
           const sliderId = `${idPrefix}-${i}`;
-          const usagePct = percentOf(spent, allocation);
-          const nearCap = allocation > 0n && usagePct >= WARNING_THRESHOLD;
           return (
             <li key={b.category} className="category-budget-row">
               <div className="category-budget-row-header">
@@ -118,7 +114,7 @@ export function CategoryBudgetSliders({
                   {b.limitPeriod === "weekly" ? "per week" : "per month"}
                 </span>
                 <strong className="category-budget-amount">
-                  {formatPlm(allocation, locale)} XLM · {percentOf(allocation, parentLimit)}%
+                  {formatXlm(allocation, locale)} XLM · {percentOf(allocation, parentLimit)}%
                 </strong>
               </div>
               <input
@@ -134,14 +130,14 @@ export function CategoryBudgetSliders({
                 style={{ accentColor: categoryColor(i) }}
               />
               <div className="category-budget-row-footer">
-                <span className={Kcategory-budget-usage category-budget-usage-${tone}`}>
-                  {TONE_LABELS[tone]}: {formatPlm(spent, locale)} XLM spent
+                <span className={`category-budget-usage category-budget-usage-${tone}`}>
+                  {TONE_LABELS[tone]}: {formatXlm(spent, locale)} XLM spent
                 </span>
                 <span className="stat-label">Max {formatXlm(max, locale)} XLM</span>
               </div>
-              {nearCap ? ({
-                <div className="category-budget-alert" role="alert">
-                  {usagePct}% of the {b.category} budget has been used — approaching the cap.
+              {approachingCap ? (
+                <div className="settings-status warning" role="alert">
+                  Approaching cap: {usagePct}% of the {b.category} budget used ({formatXbm(spent, locale)} of {formatXbm(allocation, locale)} XLM).
                 </div>
               ) : null}
             </li>
