@@ -11,14 +11,15 @@ interface Fixtures {
 }
 
 /**
- * Shared Playwright test base for FE-044 (golden-path E-2E) and FE-046
- * (visual regression) specs: mocks the gateway API, seeds the auth cookie for
- * protected routes, and injects the synthetic `window.freighter` wallet.
- *
- * Usage: `test.use({ mockApiOptions: { delegations: [] } })` in a describe
- * block to exercise an empty state instead of the populated default.
- */
-export const test = base.extend<Fixtures>({ 
+ * Shared Playwright test base for FE-044 (golden-path E-2E)  and FE-046
+* (visual regression) specs: mocks the gateway API, seeds the auth cookie for
+* protected routes, and injects the synthetic `window.freighter` wallet.
+* also exposes a convenience fixture for the responsive FAB (unread proposals count).
+*
+ * Usage: `test.use({ mockApiOptions: { delegations: [] } })`, or
+ * `test.use({ fabUnreadCount: 3 })` to exercise the FAB badge.
+*/
+export const test = base.extend<Fixtures>({
   mockApiOptions: [{}, { option: true }],
 
   mockedPage: [

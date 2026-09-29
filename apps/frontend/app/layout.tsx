@@ -45,7 +45,7 @@ export const metadata: Metadata = {
  * Two theme-color entries so the browser chrome / status bar tints match
  * light vs dark mode (#310) immediately via `prefers-color-scheme`, ahead of
  * ThemeToggle's JS-driven `data-theme` override running. Values mirror
- * `--color-bg-primary` in styles/globals.css.
+ * `--color-bg-primary` in styles/globals.css
  */
 export const viewport: Viewport = {
   themeColor: [
@@ -72,9 +72,9 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: a11yBootstrapScript }} />
         {/* Externally referenced CDN scripts with Subresource Integrity (SRI) (#763) */}
         <script
-          src=xEXTERNAL_SCRIPTS.turnstile.src}
+          src={EXTERNAL_SCRIPTS.turnstile.src}
           integrity={EXTERNAL_SCRIPTS.turnstile.integrity}
-          crossOrigin=xEXTERNAL_SCRIPTS.turnstile.crossOrigin}
+          crossOrigin={EXTERNAL_SCRIPTS.turnstile.crossOrigin}
           async
         />
       </head>

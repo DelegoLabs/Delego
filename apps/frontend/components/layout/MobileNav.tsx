@@ -6,30 +6,43 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { activeNavHref, navItems } from "./navItems";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-
-export interface FabButtonProps {
-  unreadProposalsCount: number;
-  onClick(): void;
-}
+import { FabButton } from "./FabButton";
 
 export interface MobileNavProps {
   /** Whether the drawer is currently open */
   open: boolean;
   /** Called when the drawer requests to close (backdrop, close button, nav) */
   onClose: () => void;
+  /** Number of unread proposals surfaced on the FAB badge */
+  unreadProposalsCount?: number;
 }
 
 /**
  * Off-canvas navigation drawer for small screens.
  * Rendered by the Header, which owns the open/close state.
  */
-export function MobileNav({ open, onClose }: MobileNavProps) {
+export function MobileNav({
+  open,
+  onClose,
+  unreadProposalsCount = 0,
+}: MobileNavProps) {
   const pathname = usePathname();
   const panelRef = useRef<HTMLDivElement>(null);
-  const [fabVisible, setFabVisible] = useState(false);
-  const [unreadProposalsCount, setUnreadProposalsCount] = useState(0);
   const t = useTranslations("nav");
   const tApp = useTranslations("app");
+  const [fabVisible, setFabVisible] = useState(false);
+
+  // Reveal the FAB once the user scrolls past the first viewport height.
+  useEffect(() => {
+    const onScroll = () => setFabVisible(window.scrollY > 120);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const handleFabClick = () => {
+    onClose();
+  };
 
   // Escape closes the drawer; the trap then restores focus to the hamburger
   // button that opened it (#752).
@@ -44,37 +57,6 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
-
-  // Reveal the FAB once the user scrolls past a small threshold.
-  useEffect(() => {
-    const onScroll = () => {
-      setFabVisible(window.scrollY > 24);
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // Track unread proposal count for the FAB badge.
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/proposals/unread-count");
-        if (!res.ok) return;
-        const data = (await res.json()) as { count?: number };
-        if (!cancelled) setUnreadProposalsCount(data.count ?? 0);
-      } catch {
-        // Non-fatal: badge simply stays at its last known value.
-      }
-    };
-    load();
-    const interval = window.setInterval(load, 60_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, []);
 
   return (
     <>
@@ -132,26 +114,11 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
           </ul>
         </nav>
       </div>
-      <button
-        type="button"
-        className={`mobile-fab${fabVisible ? " visible" : ""}`}
-        onClick={onClose}
-        aria-label={t("openAssistant")}
-        aria-hidden={!fabVisible}
-        tabIndex={fabVisible && !open ? 0 : -1}
-      >
-        <span className="mobile-fab-icon" aria-hidden="true">
-          ✦
-        </span>
-        {unreadProposalsCount > 0 && (
-          <span
-            className="mobile-fab-badge"
-            aria-label={t("unreadProposals", { count: unreadProposalsCount })}
-          >
-            {unreadProposalsCount > 99 ? "99+" : unreadProposalsCount}
-          </span>
-        )}
-      </button>
+      <FabButton
+        unreadProposalsCount={unreadProposalsCount}
+        onClick={handleFabClick}
+        visible={fabVisible && !open}
+      />
     </>
   );
 }
