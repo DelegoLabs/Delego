@@ -20,9 +20,9 @@ export interface NavItem {
 /** Canonical navigation items for the main application shell. */
 export const navItems: NavItem[] = [
   { labelKey: "dashboard", href: "/", icon: "🏠" },
-  { labelKey: "delegations", href: "/delegations", icon: "🤝" },
-  { labelKey: "orders", href: "/orders", icon: "📦" },
-  { labelKey: "approvals", href: "/approvals", icon: "🛡️" },
+  { labelKey: "delegations", href: "/delegations", icon: "🤔" },
+  { labelKey: "orders", href: "/orders", icon: "📆" },
+  { labelKey: "approvals", href: "/approvals", icon: "🡶" },
   { labelKey: "approvalsHistory", href: "/approvals/history", icon: "🗂️" },
   { labelKey: "tracking", href: "/tracking", icon: "🚚" },
   { labelKey: "analytics", href: "/analytics", icon: "📊" },

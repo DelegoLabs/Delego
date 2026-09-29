@@ -16,7 +16,7 @@ import { themeBootstrapScript } from "../hooks/useTheme";
 import { Inter } from "next/font/google";
 import { a11yBootstrapScript } from "../hooks/useAccessibility";
 import { EXTERNAL_SCRIPTS } from "../lib/sri";
-import { AgentFab } from "../components/layout/AgentFab";
+import { AgentFabButton } from "../components/layout/AgentFabButton";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -95,7 +95,7 @@ export default async function RootLayout({
                   <main className="app-content">{children}</main>
                 </div>
               </div>
-              <AgentFab />
+              <AgentFabButton />
               <Suspense fallback={null}>
                 <UpdatePromptToast />
               </Suspense>
