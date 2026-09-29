@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Dispute } from "@delegolabs/types";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { disputeReasonLabel } from "../../lib/disputes";
 import { submitDisputeResponse } from "../../lib/disputeResponses";
 
@@ -35,6 +36,11 @@ export function DisputeResponseDrawer({
   const [counterOfferStroops, setCounterOfferStroops] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Traps the panel, not the overlay: the backdrop is a sibling of the panel
+  // and must stay out of the tab cycle (#752).
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap({ containerRef: panelRef, isActive: open, onEscape: onClose });
 
   if (!open) return null;
 
@@ -62,17 +68,19 @@ export function DisputeResponseDrawer({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Respond to dispute"
-      style={{ position: "fixed", inset: 0, zIndex: 50 }}
-    >
+    <div style={{ position: "fixed", inset: 0, zIndex: 50 }}>
       <div
         onClick={onClose}
         style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }}
       />
+      {/* The panel carries the dialog semantics; the wrapper and backdrop are
+          presentational so screen readers announce one dialog, not two. */}
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Respond to dispute"
+        tabIndex={-1}
         style={{
           position: "absolute",
           top: 0,

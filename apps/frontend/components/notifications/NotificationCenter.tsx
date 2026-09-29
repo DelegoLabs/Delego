@@ -197,7 +197,7 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
   } = useNotifications();
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useFocusTrap(panelRef, true);
+  useFocusTrap({ containerRef: panelRef, isActive: true });
 
   // Lazy prune on center open (#605) safely
   useEffect(() => {

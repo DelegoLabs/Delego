@@ -1,8 +1,10 @@
 import * as Sentry from "@sentry/nextjs";
+import { scrubSentryEvent } from "./lib/observability/scrub-sentry";
 
 /**
- * Browser-side Sentry init (#511). Scrubs auth tokens and localStorage
- * contents from every event before it leaves the client — see `beforeSend`.
+ * Browser-side Sentry init (#511, #761). Every event is deep-scrubbed for PII
+ * and secret material before it leaves the client, and session replays mask all
+ * text and input values.
  */
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -10,29 +12,23 @@ Sentry.init({
   release: process.env.NEXT_PUBLIC_SENTRY_RELEASE,
   tracesSampleRate: Number(process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE ?? "0.1"),
   enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
+  integrations: [
+    Sentry.replayIntegration({
+      maskAllText: true,
+      maskAllInputs: true,
+      blockAllMedia: true,
+    }),
+  ],
+  replaysSessionSampleRate: Number(
+    process.env.NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE ?? "0.1"
+  ),
+  replaysOnErrorSampleRate: Number(
+    process.env.NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE ?? "1.0"
+  ),
   beforeSend(event) {
-    return scrubEvent(event);
+    return scrubSentryEvent(event);
   },
 });
 
-/** Strip auth tokens, cookies, and any localStorage snapshot from an event. */
-export function scrubEvent<T extends { request?: unknown; extra?: Record<string, unknown> }>(
-  event: T
-): T {
-  if (event.request && typeof event.request === "object") {
-    const request = event.request as Record<string, unknown>;
-    delete request.cookies;
-    if (request.headers && typeof request.headers === "object") {
-      const headers = request.headers as Record<string, unknown>;
-      delete headers.authorization;
-      delete headers.Authorization;
-      delete headers.cookie;
-      delete headers.Cookie;
-    }
-  }
-  if (event.extra) {
-    delete event.extra.localStorage;
-    delete event.extra.sessionStorage;
-  }
-  return event;
-}
+/** Sentry filtering entry point. Also exported for tests and runtime adapters. */
+export { scrubSentryEvent, scrubSentryEvent as scrubEvent };

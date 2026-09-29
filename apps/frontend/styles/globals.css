@@ -45,6 +45,98 @@
   --color-status-pending-text: #1e40af;
 }
 
+/* Image Uploader Component Styles */
+.image-uploader {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.image-uploader-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.image-uploader-item {
+  position: relative;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: var(--color-bg-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.image-uploader-thumbnail {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--color-bg-subtle);
+}
+
+.image-uploader-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.image-uploader-filename {
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.image-uploader-filesize {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.image-uploader-remove {
+  margin-top: auto;
+}
+
+.image-uploader-add-button {
+  align-self: flex-start;
+}
+
+.image-uploader-error {
+  padding: 0.75rem;
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+  border: 1px solid var(--color-error-border);
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.image-uploader-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--color-info-bg);
+  border: 1px solid var(--color-info-border);
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.image-uploader-privacy-notice {
+  color: var(--color-info-text);
+  margin: 0;
+}
+
+.image-uploader-count {
+  color: var(--color-text-muted);
+  margin: 0;
+  font-size: 0.75rem;
+}
+
 [data-theme="dark"] {
   --color-bg-primary: #0b0f19;
   --color-bg-surface: #111827;
@@ -140,10 +232,6 @@ html[data-underline-links="true"] a {
 
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
 }
@@ -2647,6 +2735,7 @@ body {
   justify-content: center;
   width: 2rem;
   height: 2rem;
+  aspect-ratio: 1/1;
   border-radius: 50%;
   background: var(--color-accent-bg);
   color: var(--color-accent);
@@ -3593,4 +3682,535 @@ body {
   margin: 0;
   padding: 0;
   font-size: 0.8125rem;
+}
+
+/* ── Custom expense report builder (#793) ────────────────────────── */
+.expense-report-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.expense-report-field input,
+.expense-report-field select {
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+}
+/* ── Return label barcode (#796) ─────────────────────────────────── */
+.return-label-barcode {
+  width: 100%;
+  max-height: 6rem;
+  object-fit: contain;
+  background: #fff;
+}
+.return-label-rma {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+}
+/* ── Voice input mic button / agent chat drawer (#800) ───────────── */
+.voice-input-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.voice-input-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.voice-input-button.is-listening {
+  color: #fff;
+  background: var(--color-error-text, #dc2626);
+  border-color: var(--color-error-text, #dc2626);
+}
+.voice-input-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--color-error-text, #dc2626);
+  animation: voice-input-pulse 1.4s ease-out infinite;
+}
+@keyframes voice-input-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+.agent-chat-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 1rem;
+}
+.agent-chat-drawer {
+  width: min(26rem, 100%);
+  background: var(--color-bg-surface, #fff);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 12px 32px var(--color-shadow, rgba(0, 0, 0, 0.18));
+}
+.agent-chat-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+.agent-chat-input {
+  width: 100%;
+  resize: vertical;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border);
+  font: inherit;
+}
+.agent-chat-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.agent-chat-actions button:first-child {
+  margin-right: auto;
+}
+/* ── Storefront fiat currency switcher (#805) ────────────────────── */
+.fiat-price {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.fiat-price-loading {
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+.fiat-currency-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.fiat-currency-switcher select {
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+}
+.expense-report-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.expense-report-checkboxes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.expense-report-checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.expense-report-total {
+  margin: 0.75rem 0 0;
+  font-weight: 600;
+}
+/* ── #722 expense report export modal ─────────────────────────────────────── */
+.export-report-modal fieldset {
+  margin: 0;
+}
+
+/* ── #723 collapsible tax breakdown ───────────────────────────────────────── */
+.tax-breakdown {
+  font-size: 0.875rem;
+}
+
+/* ── #724 biometric quick-approval prompt ─────────────────────────────────── */
+.biometric-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.875rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.625rem;
+  background: var(--color-bg-subtle, #f9fafb);
+}
+.biometric-glyph {
+  background: #fff;
+  border: 1px solid var(--color-border, #e5e7eb);
+}
+.biometric-glyph.is-scanning {
+  border-color: #16a34a;
+}
+@keyframes biometric-pulse {
+  0% {
+    transform: scale(0.88);
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45);
+  }
+  70% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 12px rgba(22, 163, 74, 0);
+  }
+  100% {
+    transform: scale(0.88);
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .biometric-glyph.is-scanning {
+    animation: none;
+  }
+}
+
+/* ── #725 webhook delivery log viewer ─────────────────────────────────────── */
+.webhook-delivery-logs pre {
+  margin: 0;
+}
+
+/* Screen-reader-only text (table captions, icon-only labels). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Escrow auto-release grace + delivery confirmation (#707, #708, #715)
+--------------------------------------------------------------------------- */
+
+/* Fixed top banner shown during the auto-release grace window. Sits below the
+   app header in stacking order but above page content. */
+.auto-release-grace-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  padding: 0.625rem 1rem;
+  background: var(--color-warning-bg, #fffbeb);
+  border-bottom: 1px solid var(--color-warning-border, #fde68a);
+  color: var(--color-warning-text, #92400e);
+}
+
+.auto-release-grace-banner__inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.auto-release-grace-banner__copy {
+  flex: 1 1 18rem;
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.auto-release-grace-banner__error {
+  max-width: 72rem;
+  margin: 0.375rem auto 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* Decorative release celebration (#707). The global prefers-reduced-motion
+   block zeroes animation durations, and <ConfettiBurst> skips rendering
+   entirely in that case, so this is purely additive. Per-particle travel and
+   flip are expressed as four variants rather than CSS custom properties so
+   the component only ever sets standard inline styles. */
+.release-confetti-piece {
+  position: absolute;
+  top: -12px;
+  width: 6px;
+  height: 10px;
+  border-radius: 1px;
+  opacity: 0;
+  animation-duration: 1500ms;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+.release-confetti-piece--a {
+  animation-name: release-confetti-fall-a;
+}
+
+.release-confetti-piece--b {
+  animation-name: release-confetti-fall-b;
+}
+
+.release-confetti-piece--c {
+  animation-name: release-confetti-fall-c;
+}
+
+.release-confetti-piece--d {
+  animation-name: release-confetti-fall-d;
+}
+
+@keyframes release-confetti-fall-a {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-28px, 200px, 0) rotate(200deg);
+  }
+}
+
+@keyframes release-confetti-fall-b {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(32px, 200px, 0) rotate(-240deg);
+  }
+}
+
+@keyframes release-confetti-fall-c {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-12px, 200px, 0) rotate(320deg);
+  }
+}
+
+@keyframes release-confetti-fall-d {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(18px, 200px, 0) rotate(-140deg);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Catalog filter sidebar & mobile drawer (#785)
+--------------------------------------------------------------------------- */
+
+/* Layout: sidebar + product grid on desktop */
+.catalog-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.catalog-filter-sidebar {
+  flex: 0 0 220px;
+  min-width: 0;
+}
+
+.catalog-products {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+/* Sidebar filter controls */
+.catalog-filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.catalog-filter-section:last-child {
+  border-bottom: none;
+}
+
+.catalog-filter-section-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.25rem;
+}
+
+.catalog-filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.catalog-filter-price-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.catalog-filter-price-input {
+  width: 0;
+  flex: 1 1 0%;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+.catalog-filter-price-input:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-color: var(--color-accent);
+}
+
+.catalog-filter-rating-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.catalog-filter-rating-select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.catalog-filter-rating-select:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Mobile "Filters" trigger button */
+.catalog-filter-mobile-trigger {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg-surface);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+
+.catalog-filter-mobile-trigger:hover {
+  background: var(--color-bg-subtle);
+}
+
+/* Mobile drawer overlay + panel — mirrors .mobile-nav-* pattern */
+.catalog-filter-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  z-index: 40;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease-in-out,
+    visibility 0.2s ease-in-out;
+}
+
+.catalog-filter-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.catalog-filter-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 85%;
+  max-width: 320px;
+  background: var(--color-bg-surface);
+  z-index: 50;
+  padding: 1.25rem 1rem;
+  box-shadow: 2px 0 12px var(--color-shadow);
+  transform: translateX(-100%);
+  transition: transform 0.25s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.catalog-filter-drawer.open {
+  transform: translateX(0);
+}
+
+.catalog-filter-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.catalog-filter-drawer-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.catalog-filter-drawer-close {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.5rem;
+  color: var(--color-text-muted);
+  line-height: 1;
+  border-radius: 0.375rem;
+}
+
+.catalog-filter-drawer-close:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+}
+
+/* Responsive breakpoint — below 768 px switch to mobile drawer */
+@media (max-width: 768px) {
+  .catalog-filter-sidebar {
+    display: none;
+  }
+
+  .catalog-filter-mobile-trigger {
+    display: inline-flex;
+  }
 }

@@ -6,6 +6,7 @@ import {
   DEMO_WALLET_ADDRESS,
   DEMO_NETWORK,
 } from "../lib/demoMode";
+import { WALLET_CANCELLED_MESSAGE } from "../services/wallet";
 
 const {
   mockIsConnected,
@@ -155,14 +156,33 @@ describe("useWallet", () => {
       expect(result.current.address).toBe("GXYZ789");
     });
 
-    it("reports an error when the user denies access", async () => {
+    it("treats a user decline as a cancellation, not an error (#743)", async () => {
       mockIsConnected.mockResolvedValue({ isConnected: false });
       const { result } = renderHook(() => useWallet());
       await waitFor(() => expect(result.current.status).toBe("unavailable"));
 
       mockRequestAccess.mockResolvedValue({
         address: null,
-        error: { message: "User declined access" },
+        error: { code: -4, message: "User declined to sign the transaction" },
+      });
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      expect(result.current.status).toBe("disconnected");
+      expect(result.current.error).toBeNull();
+      expect(result.current.toast).toBe(WALLET_CANCELLED_MESSAGE);
+    });
+
+    it("still reports a real error when access fails for a non-decline reason", async () => {
+      mockIsConnected.mockResolvedValue({ isConnected: false });
+      const { result } = renderHook(() => useWallet());
+      await waitFor(() => expect(result.current.status).toBe("unavailable"));
+
+      mockRequestAccess.mockResolvedValue({
+        address: null,
+        error: { message: "Wallet is locked. Unlock the extension and retry." },
       });
 
       await act(async () => {
@@ -170,7 +190,10 @@ describe("useWallet", () => {
       });
 
       expect(result.current.status).toBe("error");
-      expect(result.current.error).toBe("User declined access");
+      expect(result.current.error).toBe(
+        "Wallet is locked. Unlock the extension and retry."
+      );
+      expect(result.current.toast).toBeNull();
     });
 
     it("marks unavailable when requestAccess throws", async () => {
@@ -377,6 +400,75 @@ describe("useWallet", () => {
 
       expect(result.current.address).toBe(DEMO_WALLET_ADDRESS);
       expect(mockIsConnected).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("multi-wallet selection (#774)", () => {
+    beforeEach(() => {
+      window.sessionStorage.clear();
+    });
+
+    it("defaults to Freighter and exposes all registered options", async () => {
+      mockIsConnected.mockResolvedValue({ isConnected: false });
+      const { result } = renderHook(() => useWallet());
+
+      await waitFor(() => expect(result.current.status).toBe("unavailable"));
+      expect(result.current.walletId).toBe("freighter");
+      expect(result.current.walletOptions.map((o) => o.id).sort()).toEqual([
+        "albedo",
+        "freighter",
+        "lobstr",
+        "walletconnect",
+        "xbull",
+      ]);
+    });
+
+    it("persists the selected wallet across hook mounts", async () => {
+      mockIsConnected.mockResolvedValue({ isConnected: false });
+      const first = renderHook(() => useWallet());
+      await waitFor(() => expect(first.result.current.status).toBe("unavailable"));
+
+      act(() => {
+        first.result.current.selectWallet("xbull");
+      });
+      expect(first.result.current.walletId).toBe("xbull");
+      expect(window.sessionStorage.getItem("delego.activeWallet")).toBe("xbull");
+      first.unmount();
+
+      const second = renderHook(() => useWallet());
+      expect(second.result.current.walletId).toBe("xbull");
+      second.unmount();
+    });
+
+    it("surfaces a precise unavailable status for non-extension wallets", async () => {
+      mockIsConnected.mockResolvedValue({ isConnected: false });
+      const { result } = renderHook(() => useWallet());
+      await waitFor(() => expect(result.current.status).toBe("unavailable"));
+
+      await act(async () => {
+        await result.current.connect("albedo");
+      });
+
+      expect(result.current.walletId).toBe("albedo");
+      expect(result.current.status).toBe("unavailable");
+      expect(result.current.error).toMatch(/Albedo/);
+      expect(mockRequestAccess).not.toHaveBeenCalled();
+    });
+
+    it("clears the persisted choice on disconnect", async () => {
+      mockIsConnected.mockResolvedValue({ isConnected: false });
+      const { result } = renderHook(() => useWallet());
+      await waitFor(() => expect(result.current.status).toBe("unavailable"));
+
+      act(() => {
+        result.current.selectWallet("xbull");
+      });
+      expect(window.sessionStorage.getItem("delego.activeWallet")).toBe("xbull");
+
+      act(() => {
+        result.current.disconnect();
+      });
+      expect(window.sessionStorage.getItem("delego.activeWallet")).toBeNull();
     });
   });
 });

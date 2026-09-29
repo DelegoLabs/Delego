@@ -26,6 +26,7 @@ import { submitApproval } from "../../services/approvals";
 import { ApprovalNoteField, APPROVAL_NOTE_MAX_LENGTH } from "./ApprovalNoteField";
 import { ApprovalNoteDisplay } from "./ApprovalNoteDisplay";
 import { setLocalApprovalNote } from "../../lib/localApprovalNotes";
+import { TaxBreakdownDisplay } from "./TaxBreakdownDisplay";
 
 export interface ApprovalCardProps {
   order: Order;
@@ -33,6 +34,8 @@ export interface ApprovalCardProps {
   pending?: boolean;
   /** True when a mutation for this order is queued offline awaiting reconnect replay (#618). */
   pendingOffline?: boolean;
+  /** Delivery postal code for tax calculation. If provided, shows tax breakdown before approval. */
+  deliveryPostalCode?: string;
   onApprove: (id: string) => void | Promise<unknown>;
   onReject: (
     id: string,
@@ -52,6 +55,7 @@ export function ApprovalCard({
   order,
   pending = false,
   pendingOffline = false,
+  deliveryPostalCode,
   onApprove,
   onReject,
   onDualControlUpdate,
@@ -275,6 +279,25 @@ export function ApprovalCard({
               </tbody>
             </table>
           </div>
+
+          {/* Tax breakdown section - shows before approval if postal code is provided */}
+          {deliveryPostalCode && (
+            <div className="approval-tax-section">
+              <TaxBreakdownDisplay
+                subtotalStroops={(() => {
+                  // Calculate subtotal from line items
+                  const items = order.items || (order as any).lineItems || [];
+                  return items.reduce((sum: bigint, item: any) => {
+                    const unitPrice = BigInt(item.unitPriceStroops || item.price || 0);
+                    const quantity = BigInt(item.quantity || 0);
+                    return sum + (unitPrice * quantity);
+                  }, 0n);
+                })()}
+                postalCode={deliveryPostalCode}
+                showDetails={true}
+              />
+            </div>
+          )}
 
           <div className="approval-card-total">
             <span>Total:</span>

@@ -46,3 +46,20 @@ export function deadlineUrgency(deadline: string, now: Date): DeadlineUrgency {
   if (msLeft <= 24 * 60 * 60 * 1000) return "amber";
   return "normal";
 }
+
+export interface PayoutProjection {
+  pendingGrossStroops: bigint;
+  estimatedPlatformFees: bigint;
+  projectedNetPayout: bigint;
+}
+
+export const PLATFORM_FEE_BPS = 100n;
+
+export function computePayoutProjections(orders: MerchantEscrowOrder[]): PayoutProjection {
+  const activeOrders = orders.filter((o) => o.status !== "released");
+  const pendingGrossStroops = activeOrders.reduce((sum, o) => sum + BigInt(o.amountStroops), 0n);
+  const estimatedPlatformFees = (pendingGrossStroops * PLATFORM_FEE_BPS) / 10000n;
+  const projectedNetPayout = pendingGrossStroops - estimatedPlatformFees;
+  return { pendingGrossStroops, estimatedPlatformFees, projectedNetPayout };
+}
+

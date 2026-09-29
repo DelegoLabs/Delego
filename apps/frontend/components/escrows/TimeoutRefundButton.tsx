@@ -13,6 +13,10 @@ import {
   invokeEscrowRefund,
   signWithFreighter,
 } from "../../lib/timeoutRefund";
+import {
+  WALLET_CANCELLED_MESSAGE,
+  isUserDeclined,
+} from "../../services/wallet";
 
 export interface TimeoutRefundButtonProps {
   /** Escrow contract address ("C..."). */
@@ -43,6 +47,7 @@ export function TimeoutRefundButton({
   const [currentLedger, setCurrentLedger] = useState<number | null>(initialLedger ?? null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const inFlightRef = useRef(false);
 
@@ -77,6 +82,7 @@ export function TimeoutRefundButton({
     inFlightRef.current = true;
     setSubmitting(true);
     setError(null);
+    setNotice(null);
     try {
       const result = await invokeEscrowRefund({
         rpcUrl: network.sorobanRpcUrl,
@@ -89,7 +95,14 @@ export function TimeoutRefundButton({
       setTxHash(result.txHash);
       onRefunded?.(result.txHash);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Refund failed. Please try again.");
+      if (isUserDeclined(err)) {
+        // Dismissing the wallet popup isn't an error — show a neutral notice.
+        setNotice(WALLET_CANCELLED_MESSAGE);
+      } else {
+        setError(
+          err instanceof Error ? err.message : "Refund failed. Please try again."
+        );
+      }
     } finally {
       setSubmitting(false);
       inFlightRef.current = false;
@@ -138,6 +151,16 @@ export function TimeoutRefundButton({
         )}
         {state?.canRefund && !address && " Connect your wallet to claim it."}
       </p>
+      {notice && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="wallet-notice"
+          style={{ margin: 0 }}
+        >
+          {notice}
+        </p>
+      )}
       {error && (
         <p role="alert" className="settings-status error" style={{ margin: 0 }}>
           {error}

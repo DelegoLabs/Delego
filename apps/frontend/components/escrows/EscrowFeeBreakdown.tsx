@@ -185,6 +185,7 @@ export function EscrowFeeBreakdown({
                 style={{
                   transform: expanded ? "rotate(90deg)" : "none",
                   transition: "transform 0.15s ease",
+                  aspectRatio: "1/1",
                 }}
                 aria-hidden="true"
               >

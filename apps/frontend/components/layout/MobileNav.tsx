@@ -24,25 +24,19 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
   const t = useTranslations("nav");
   const tApp = useTranslations("app");
 
-  useFocusTrap(panelRef, open);
+  // Escape closes the drawer; the trap then restores focus to the hamburger
+  // button that opened it (#752).
+  useFocusTrap({ containerRef: panelRef, isActive: open, onEscape: onClose });
 
-  // Close on Escape and lock body scroll while the drawer is open.
+  // Lock body scroll while the drawer covers the viewport.
   useEffect(() => {
     if (!open) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
     <>
