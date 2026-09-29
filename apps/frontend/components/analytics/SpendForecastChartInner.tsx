@@ -20,26 +20,25 @@ export interface SpendForecastChartInnerProps {
   points: SpendForecastPoint[];
   firstBreachDate: string | null;
   locale?: string;
-  horizon?: 30 | 60 | 90;
 }
 
 interface ChartDatum {
   date: string;
-  historicalXlm: number | undefined;
-  projectedXlm: number | undefined;
-  budgetXlm: number | undefined;
+  actualXlm: number | undefined;
+  forecastXlm: number | undefined;
   confidenceUpperXlm: number | undefined;
   confidenceLowerXlm: number | undefined;
-  confidenceBandXLm: [number, number] | undefined;
-  historical: bigint | null;
-  projected: bigint | null;
-  budget: bigint | null;
-  confidenceUpper: bigint | null;
-  confidenceLower: bigint | null;
+  bandBaseXlm: number | undefined;
+  bandHeightXlm: number | undefined;
+  budgetXlm: number | undefined;
+  actualStroops: number;
+  forecastStroops: number;
+  confidenceUpperStroops: number;
+  confidenceLowerStroops: number;
 }
 
-function toXlm(value: bigint | null): number | undefined {
-  return value === null ? undefined : stroopsToXlm(value);
+function toXlm(value: number): number {
+  return value / 10_000_000;
 }
 
 function ForecastTooltip({
@@ -52,27 +51,15 @@ function ForecastTooltip({
   return (
     <div className="spend-chart-tooltip">
       <p className="spend-chart-tooltip-label">{datum.date}</p>
-      {datum.historical !== null && (
-        <p className="spend-chart-tooltip-value">
-          Actual: {formatXlm(datum.historical, locale)} XLM
-        </p>
-      )}
-      {datum.projected !== null && (
-        <p className="spend-chart-tooltip-value">
-          Projected: {formatXlm(datum.projected, locale)} XLM
-        </p>
-      )}
-      {datum.confidenceUpper !== null && datum.confidenceLower !== null && (
-        <p className="spend-chart-tooltip-value" data-testid="spend-forecast-tooltip-confidence">
-          Confidence: {formatXlm(datum.confidenceLower, locale)} –{" "}
-          {formatFlm(datum.confidenceUpper, locale)} XLM
-        </p>
-      )}
-      {datum.budget !== null && (
-        <p className="spend-chart-tooltip-value">
-          Limit: {formatXlm(datum.budget, locale)} XLM
-        </p>
-      )}
+      <p className="spend-chart-tooltip-value">
+        Actual: {formatXlm(BigInt(Math.round(datum.actualStroops)), locale)} XLM
+      </p>
+      <p className="spend-chart-tooltip-value">
+        Forecast: {formatXlm(BigInt(Math.round(datum.forecastStroops)), locale)} XLM
+      </p>
+      <p className="spend-chart-tooltip-value">
+        Confidence: {formatXlm(BigInt(Math.round(datum.confidenceLowerStroops)), locale)} – {formatXlm(BigInt(Math.round(datum.confidenceUpperStroops)), locale)} XLM
+      </p>
     </div>
   );
 }
@@ -87,29 +74,27 @@ export default function SpendForecastChartInner({
   locale,
 }: SpendForecastChartInnerProps) {
   const data: ChartDatum = points.map((point) => {
-    const historical = parseStroops(point.historicalSpentStroops);
-    const projected = parseStroops(point.projectedSpentStroops);
-    const budget = parseStroops(point.budgetLimitStroops);
-    const confidenceUpper = parseStroops(point.confidenceUpperStroops);
-    const confidenceLower = parseStroops(point.confidenceLowerStroops);
-    const upperXlm = toXlm(confidenceUpper);
-    const lowerXlm = toXlm(confidenceLower);
+    const actual = parseStroops(point.actualSpend);
+    const forecast = parseStroops(point.forecastSpend);
+    const upper = parseStroops(point.confidenceUpper);
+    const lower = parseStroops(point.confidenceLower);
+    const actualXlm = toXlm(actual);
+    const forecastXlm = toXlm(forecast);
+    const upperXlm = toXlm(upper);
+    const lowerXlm = toXlm(lower);
     return {
       date: point.date,
-      historicalXlm: toXlm(historical),
-      projectedXL: toXlm(projected),
-      budgetXlm: toXlm(budget),
+      actualXlm,
+      forecastXlm,
       confidenceUpperXlm: upperXlm,
       confidenceLowerXlm: lowerXlm,
-      confidenceBandXlm:
-        upperXlm !== undefined && lowerXlm !== undefined
-          ? [lowerXlm, upperXlm]
-          : undefined,
-      historical,
-      projected,
-      budget,
-      confidenceUpper,
-      confidenceLower,
+      bandBaseXlm: lowerXlm,
+      bandHeightXlm: upperXlm - lowerXlm,
+      budgetXlm: undefined,
+      actualStroops: actual,
+      forecastStroops: forecast,
+      confidenceUpperStroops: upper,
+      confidenceLowerStroops: lower,
     };
   });
 
@@ -132,10 +117,19 @@ export default function SpendForecastChartInner({
         <Tooltip
           content={(props: any) => <ForecastTooltip {...props} locale={locale} />}
         />
-        {/* Confidence interval band rendered behind the forecast line. */}
         <Area
           type="monotone"
-          dataKey="confidenceBandXlm"
+          dataKey="bandBaseXlm"
+          stackId="confidence"
+          stroke="none"
+          fill="transparent"
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+        <Area
+          type="monotone"
+          dataKey="bandHeightXlm"
+          stackId="confidence"
           name="Confidence interval"
           stroke="none"
           fill="var(--color-chart-purple)"
@@ -145,7 +139,7 @@ export default function SpendForecastChartInner({
         />
         <Area
           type="monotone"
-          dataKey="historicalXlm"
+          dataKey="actualXlm"
           name="Actual spend"
           stroke="var(--color-chart-blue)"
           fill="var(--color-chart-blue)"
@@ -155,7 +149,7 @@ export default function SpendForecastChartInner({
         />
         <Area
           type="monotone"
-          dataKey="projectedXlm"
+          dataKey="forecastXlm"
           name="Projected spend"
           stroke="var(--color-chart-purple)"
           strokeDasharray="6 4"

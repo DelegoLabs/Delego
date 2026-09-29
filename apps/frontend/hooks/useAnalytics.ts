@@ -29,142 +29,142 @@ export interface SpendForecastPoint {
 
 export type ForecastHorizon = 30 | 60 | 90;
 
-const DAY_MS: number = 24 * 60 * 60 * 1000;
+export const FORECAST_HORIZONS: ForecastHorizon[] = [30, 60, 90];
 
-const DEFAULT_DAYLY_RATE: number = 0;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-function toDayKey(timestamp: number): string {
-  return new Date(timestamp).toISOString().slice(0, 10);
+const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}/;
+
+function toDayKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }
 
 function dayKeyToTime(key: string): number {
-  return new Date(`${key}T00:00:00.000Z`).getTime();
+  return Date.parse(`${key}T00:00:00.000Z`);
 }
 
-function extractSpendAmount(delegation: Delegation): number {
-  const candidate = delegation as unknown as {
-    spent?: unknown;
-    spentAmount?: unknown;
-    totalSpent?: unknown;
-    updatedAt?: unknown;
-    createdAt?: unknown;
-  };
-  const raw = candidate.spent ?? candidate.spentAmount ?? candidate.totalSpent;
-  if (typeof raw === "bigint") return Number(raw);
-  if (typeof raw === "number") return raw;
-  if (typeof raw === "string") {
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) ? parsed : 0;
+function normalizeDayKey(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  if (DAY_PATTERN.test(value)) return value.slice(0, 10);
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return null;
+  return toDayKey(new Date(parsed));
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === "number" && Number.finite(value)) return value;
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.finite(parsed)) return parsed;
   }
   return 0;
 }
 
-function extractTimestamp(delegation: Delegation): number {
-  const candidate = delegation as unknown as {
-    updatedAt?: unknown;
-    createdAt?: unknown;
-  };
-  const raw = candidate.updatedAt ?? candidate.createdAt;
-  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
-  if (typeof raw === "string") {
-    const parsed = Date.parse(raw);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return NaN;
+export interface SpendTransaction {
+  date?: string;
+  timestamp?: number | string;
+  amount?: number | bigint | string;
+  spend?: number | bigint | string;
+  value?: number | bigint | string;
+  [key: string]: unknown;
 }
 
-function buildDailySpend(delegations: Delegation[]): Map<string, number> {
-  const daily = new Map<string, number>();
-  for (const delegation of delegations) {
-    const amount = extractSpendAmount(delegation);
-    if (amount <= 0) continue;
-    const timestamp = extractTimestamp(delegation);
-    if (!Number.isFinite(timestamp)) continue;
-    const key = toDayKey(timestamp);
-    daily.set(key, (daily.get(key) ?? 0) + amount);
+export function extractSpendDate(tx: SpendTransaction): string | null {
+  const candidates: unknown[] = [
+    tx.date,
+    tx.timestamp,
+    tx.createdAt,
+    tx.executedAt,
+    tx.updatedAt,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "number" && Number.finite(candidate)) {
+      const ms = candidate > 1e11 ? candidate : candidate * 1000;
+      return toDayKey(new Date(ms));
+    }
+    const normalized = normalizeDayKey(candidate);
+    if (normalized) return normalized;
   }
-  return daily;
+  return null;
 }
 
-function linearRegression(values: number[]): { slope: number; intercept: number; residualStdev: number } {
-  const n = values.length;
-  if (n === 0) {
-    return { slope: 0, intercept: 0, residualStdev: 0 };
+export function extractSpendAmount(tx: SpendTransaction): number {
+  const candidates: unknown[] = [tx.amount, tx.spend, tx.value];
+  for (const candidate of candidates) {
+    if (candidate === undefined || candidate === null) continue;
+    const num = toNumber(candidate);
+    if (num !== 0) return num;
   }
-  if (n === 1) {
-    return { slope: 0, intercept: values[0], residualStdev: 0 };
+  return 0;
+}
+
+export function buildDailySpendSeries(
+  transactions: SpendTransaction[],
+  endDate: Date = new Date(),
+  days: number = 90
+): { date: string; spend: number }[] {
+  const buckets = new Map<string, number>();
+  for (const tx of transactions) {
+    const day = extractSpendDate(tx);
+    if (!day) continue;
+    const amount = extractSpendAmount(tx);
+    buckets.set(day, (buckets.get(day) || 0) + amount);
   }
-  const xMean = (n - 1) / 2;
-  const yMean = values.reduce((sum, v) => sum + v, 0) / n;
-  let num = 0;
-  let den = 0;
-  for (let i = 0; i < n; i++) {
-    num += (i - xMean) * (values[i] - yMean);
-    den += (i - xMean) * (i - xMean);
+
+  const series: { date: string; spend: number }[] = [];
+  const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(end.getTime() - i * MS_PER_DAY);
+    const key = toDayKey(d);
+    series.push({ date: key, spend: buckets.get(key) || 0 });
   }
-  const slope = den === 0 ? 0 : num / den;
-  const intercept = yMean - slope * xMean;
-  let sse = 0;
-  for (let i = 0; i < n; i++) {
-    const predicted = intercept + slope * i;
-    const diff = values[i] - predicted;
-    sse += diff * diff;
-  }
-  const residualStdev = n > 2 ? Math.sqrt(sse / (n - 2)) : 0;
-  return { slope, intercept, residualStdev };
+  return series;
 }
 
 export function computeSpendForecast(
-  delegations: Delegation[],
+  transactions: SpendTransaction[],
   horizonDays: ForecastHorizon,
-  now: number = Date.now()
+  endDate: Date = new Date(),
 ): SpendForecastPoint[] {
-  const daily = buildDailySpend(delegations);
-  const historyLength = Math.min(horizonDays, 30);
-  const historyKeys: string[] = [];
-  const historyValues: number[] = [];
-  const todayKey = toDayKey(now);
-  const todayTime = dayKeyToTime(todayKey);
-  for (let i = historyLength - 1; i >= 0; i--) {
-    const key = toDayKey(todayTime - i * DAY_MS);
-    historyKeys.push(key);
-    historyValues.push(daily.get(key) ?? 0);
-  }
+  const historyDays = Math.max(horizonDays, 30);
+  const history = buildDailySpendSeries(transactions, endDate, historyDays);
 
-  const { slope, intercept, residualStdev } = linearRegression(historyValues);
-  const n = historyValues.length;
-  const xMean = n > 0 ? (n - 1) / 2 : 0;
-  const ssx = historyValues.reduce((sum, _, id) => sum + (id - xMean) * (id - xMean), 0);
-  const confidenceZeta = 1.96;
+  const nonzero = history.filter((p) => p.spend > 0);
+  const activeDays = nonzero.length;
+  const totalSpend = history.reduce((sum, p) => sum + p.spend, 0);
+  const mean = history.length > 0 ? totalSpend / history.length : 0;
+  const dailyRate = activeDays > 0 ? totalSpend / activeDays : mean;
 
-  const points: SpendForecastPoint[] = [];
-  for (let i = 0; i < historyKeng ? historyKeys.length : historyKeys.length; i++) {
-    const date = historyKeys[i];
-    const actual = historyValues[i];
-    const fitted = Math.max(0, intercept + slope * i);
-    const se = residualStdev * Math.sqrt(1 + 1 / Math.max(n, 1));
-    points.push({
-      date,
-      actualSpend: actual,
-      forecastSpend: fitted,
-      confidenceUpper: Math.max(0, fitted + confidenceZeta * se),
-      confidenceLower: Math.max(0, fitted - confidenceZeta * se),
-    });
-  }
+  const variance =
+    history.length > 1
+      ? history.reduce((sum, p) => sum + (p.spend - mean) * (p.spend - mean), 0) /
+        (history.length - 1)
+      : 0;
+  const stdDev = Math.sqrt(variance);
+  const zed = 1.96;
 
-  for (let i = 1; i <= horizonDays; i++) {
-    const date = toDayKey(todayTime + i * DAY_MS);
-    const futureX = n - 1 + i;
-    const forecast = Math.max(0, intercept + slope * futureX);
-    const se =
-      residualStdev *
-      Math.sqrt(1 + 1 / Math.max(n, 1) + (ssx > 0 ? (futureX - xMean) * (futtureX - xMean) / ssx : 0));
+  const lastDate = history.length > 0 ? history[history.length - 1].date : toDayKey(endDate);
+  const lastTime = dayKeyToTime(lastDate);
+
+  const points: SpendForecastPoint[] = history.map((p) => ({
+    date: p.date,
+    actualSpend: Number(p.spend.toFixed(2)),
+    forecastSpend: 0,
+    confidenceUpper: 0,
+    confidenceLower: 0,
+  }));
+
+  for (let i = 1; i <= horizonDays; i += 1) {
+    const date = toDayKey(new Date(lastTime + i * MS_PER_DAY));
+    const projected = dailyRate * i;
+    const interval = zed * stdDev * Math.sqrt(i);
     points.push({
       date,
       actualSpend: 0,
-      forecastSpend: forecast,
-      confidenceUpper: Math.max(0, forecast + confidenceZeta * se),
-      confidenceLower: Math.max(0, forecast - confidenceZeta * se),
+      forecastSpend: Number(projected.toFixed(2)),
+      confidenceUpper: Number(Math.max(0, projected + interval).toFixed(2)),
+      confidenceLower: Number(Math.max(0, projected - interval).toFixed(2)),
     });
   }
 
@@ -177,6 +177,7 @@ export function useAnalytics() {
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const [cachedAt, setCachedAt] = useState<number | null>(null);
+  const [transactions, setTransactions] = useState<SpendTransaction[]>([]);
   const [horizonDays, setHorizonDays] = useState<ForecastHorizon>(30);
 
   useEffect(() => {
@@ -220,6 +221,39 @@ export function useAnalytics() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchTransactions() {
+      const cached = await peekReadModel<SpendTransaction[]>(
+        "analytics",
+        "spendTransactions"
+      );
+      if (cancelled) return;
+      if (cached && Array.isArray(cached.payload)) {
+        setTransactions(cached.payload);
+      }
+      try {
+        const response = await api.getSpendTransactions();
+        if (cancelled) return;
+        if (response.data) {
+          setTransactions(response.data);
+          await writeReadModel(
+            "analytics",
+            "spendTransactions",
+            response.data
+          );
+        }
+      } catch {
+        // Transaction history is optional for the forecast; keep cached data.
+      }
+    }
+
+    fetchTransactions();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const overview: SpendingOverview = {
     totalDelegations: delegations.length,
     activeDelegations: delegations.filter((d) => d.status === "active").length,
@@ -243,8 +277,8 @@ export function useAnalytics() {
   };
 
   const forecast = useMemo(
-    () => computeSpendForecast(delegations, horizonDays),
-    [delegations, horizonDays]
+    () => computeSpendForecast(transactions, horizonDays),
+    [transactions, horizonDays]
   );
 
   return {

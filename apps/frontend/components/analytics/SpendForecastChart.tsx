@@ -1,17 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Badge } from "@delegolabs/ui";
-import type { SpendForecastPoint } from "../../lib/spendForecast";
+import type { SpendForecastPoint, ForecastHorizon } from "../../lib/spendForecast";
 import {
-  emptyForecast,
+  FORECAST_HORIZONS,
+  filterByHorizon,
+  isEmptyForecast,
   summarizeSpendForecast,
 } from "../../lib/spendForecast";
-import { formatFlm } from "../../lib/orders";
+import { formatXlm } from "../../lib/orders";
 import { useDataSaver } from "../../hooks/useDataSaver";
-
-export type ForecastHorizon = 30 | 60 | 90;
 
 export interface SpendForecastChartProps {
   points: SpendForecastPoint[];
@@ -19,8 +19,6 @@ export interface SpendForecastChartProps {
   horizon?: ForecastHorizon;
   onHorizonChange?: (horizon: ForecastHorizon) => void;
 }
-
-const HORIZON_OPTIONS: ForecastHorizon[] = [30, 60, 90];
 
 /** Same lazy-loading strategy as SpendChart: recharts stays out of the initial bundle. */
 const SpendForecastChartInner = dynamic(
@@ -39,13 +37,18 @@ const SpendForecastChartInner = dynamic(
 export function SpendForecastChart({
   points,
   locale,
-  horizon,
+  horizon: controlledHorizon,
   onHorizonChange,
 }: SpendForecastChartProps) {
   const { reducedModeActive } = useDataSaver();
-  const [internalHorizon, setInternalHorizon] = useState<ForecastHorizon>(30);
+  const [uncontrolledHorizon, setUncontrolledHorizon] =
+    useState<ForecastHorizon>(30);
+  const horizon = controlledHorizon ?? uncontrolledHorizon;
 
-  const activeHorizon = horizon ?? internalHorizon;
+  const handleHorizonChange = (next: ForecastHorizon) => {
+    if (controlledHorizon === undefined) setUncontrolledHorizon(next);
+    onHorizonChange?.(next);
+  };
 
   if (isEmptyForecast(points)) {
     return (
@@ -55,15 +58,12 @@ export function SpendForecastChart({
     );
   }
 
-  const summary = summarizeSpendForecast(points);
+  const visiblePoints = useMemo(
+    () => filterByHorizon(points, horizon),
+    [points, horizon]
+  );
 
-  const handleHorizonChange = (next: ForecastHorizon) => {
-    if (onHorizonChange) {
-      onHorizonChange(next);
-    } else {
-      setInternalHorizon(next);
-    }
-  };
+  const summary = summarizeSpendForecast(visiblePoints);
 
   return (
     <div className="spend-forecast">
@@ -78,36 +78,34 @@ export function SpendForecastChart({
         </div>
         <div className="spend-chart-summary-stat">
           <span className="spend-chart-summary-label">Monthly limit</span>
-          <strong>{formatFlm(summary.budgetLimitStroops, locale)} XLM</strong>
+          <strong>{formatXlm(summary.budgetLimitStroops, locale)} XLM</strong>
         </div>
         {summary.projectedBreach && (
           <Badge tone="error" role="alert" data-testid="spend-forecast-breach">
             Projected to exceed limit
             {summary.firstBreachDate ? ` by ${summary.firstBreachDate}` : ""}
-          </Badge>
+          </Bad>
         )}
       </div>
 
       <div
-        className="spend-forecast-horizon"
+        className="spend-forecast-horizon-toggle"
         role="group"
         aria-label="Forecast horizon"
-        data-testid="spend-forecast-horizon"
+        data-testid="spend-forecast-horizon-toggle"
       >
-        {HORIZON_OPTIONS.map((option) => (
+        {FORECAST_HORIZONS.map((option) => (
           <button
             key={option}
             type="button"
-            className={
-              activeHorizon === option
-                ? "spend-forecast-horizon-button is-active"
-                : "spend-forecast-horizon-button"
-            }
-            aria-pressed={activeHorizon === option}
+            className={`spend-forecast-horizon-button$ {
+              option === horizon ? " spend-forecast-horizon-button--active" : ""
+            }`}
+            aria-pressed={option === horizon}
             data-testid={`spend-forecast-horizon-${option}`}
             onClick={() => handleHorizonChange(option)}
           >
-            {option}d
+            {option}d 
           </button>
         ))}
       </div>
@@ -125,10 +123,9 @@ export function SpendForecastChart({
         </div>
       ) : (
         <SpendForecastChartInner
-          points={points}
+          points={visiblePoints}
           firstBreachDate={summary.firstBreachDate}
           locale={locale}
-          horizon={activeHorizon}
         />
       )}
     </div>
