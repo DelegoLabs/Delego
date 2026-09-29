@@ -1,5 +1,6 @@
 "use client";
 
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useDelegations } from "../../hooks/useDelegations";
 import { useOrders } from "../../hooks/useOrders";
@@ -141,21 +142,29 @@ export function GlobalSearch() {
 
   const showResults = debouncedQuery.length > 0;
 
+  const handleSearchKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setQuery("");
+      setFiltersOpen(false);
+    }
+  };
+
   return (
     <div className="global-search">
       <div className="global-search-input-wrap">
         <input
           type="search"
           role="searchbox"
-          className="global-search-input"
+          className="global-search-input focus-visible-ring"
           placeholder="Search delegations, orders, transactions..."
           aria-label="Search delegations, orders, and transactions"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
         />
         <button
           type="button"
-          className="global-search-filter-toggle"
+          className="global-search-filter-toggle focus-visible-ring"
           onClick={() => setFiltersOpen((open) => !open)}
           aria-expanded={filtersOpen}
           aria-label="Toggle search filters"
@@ -180,7 +189,7 @@ export function GlobalSearch() {
                 <p className="global-search-group-label">{group.label}</p>
                 {group.items.map((item) => (
                   <div
-                    className="global-search-item"
+                    className="global-search-item focus-visible-ring"
                     role="option"
                     aria-selected={false}
                     key={`${item.type}-${item.id}`}

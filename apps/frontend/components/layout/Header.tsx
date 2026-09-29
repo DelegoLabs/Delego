@@ -24,40 +24,45 @@ export function Header() {
   const tApp = useTranslations("app");
 
   return (
-    <header className="app-header">
-      <button
-        type="button"
-        className="hamburger"
-        onClick={() => setMobileNavOpen(true)}
-        aria-label={t("openMenu")}
-        aria-expanded={mobileNavOpen}
-      >
-        ☰
-      </button>
+    <>
+      <a href="#main-content" className="skip-to-content focus-visible-ring">
+        {t("skipToContent")}
+      </a>
+      <header className="app-header">
+        <button
+          type="button"
+          className="hamburger focus-visible-ring"
+          onClick={() => setMobileNavOpen(true)}
+          aria-label={t("openMenu")}
+          aria-expanded={mobileNavOpen}
+        >
+          ☓
+        </button>
 
-      <p className="app-header-brand">{tApp("brand")}</p>
+        <p className="app-header-brand">{tApp("brand")}</p>
 
-      <GlobalSearch />
+        <GlobalSearch />
 
-      <CommandPaletteTrigger />
+        <CommandPaletteTrigger />
 
-      <div className="app-header-spacer" />
+        <div className="app-header-spacer" />
 
-      <DataSaverChip />
+        <DataSaverChip />
 
-      <ThemeToggle />
+        <ThemeToggle />
 
-      <NetworkToggle />
+        <NetworkToggle />
 
-      <SorobanHealthIndicator />
+        <SorobanHealthIndicator />
 
-      <NotificationBell />
+        <NotificationBell />
 
-      <BalanceSwitcher />
+        <BalanceSwitcher />
 
-      <WalletConnectButton />
+        <WalletConnectButton />
 
-      <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
-    </header>
+        <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+      </header>
+    </>
   );
 }

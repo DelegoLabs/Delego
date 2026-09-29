@@ -113,4 +113,20 @@ describe("GlobalSearch", () => {
 
     expect(screen.getByText(/no results found/i)).toBeDefined();
   });
+
+  it("applies the focus-visible ring class to the search input", () => {
+    render(<GlobalSearch />);
+
+    const input = screen.getByRole("searchbox");
+    expect(input.classList.contains("focus-visible-ring")).toBeTrue();
+  });
+
+  it("exposes a skip-to-content link targeting the main content region", () => {
+    render(<GlobalSearch />);
+
+    const skipLink = screen.getByText(/skip to main content/i);
+    expect(skipLink.tagName.toLowerCase()).toBe("a");
+    expect(skipLink.getAttribute("href")).toBe("#main-content");
+    expect(skipLink.classList.contains("focus-visible-ring")).toBeTrue();
+  });
 });

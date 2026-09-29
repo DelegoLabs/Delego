@@ -13,7 +13,7 @@ import { AgentLiveStatusBanner } from "../components/layout/AgentLiveStatusBanne
 import { TestnetFaucetBanner } from "../components/network/TestnetFaucetBanner";
 import { UpdatePromptToast } from "../components/pwa/UpdatePromptToast";
 import { themeBootstrapScript } from "../hooks/useTheme";
-import { Inter } from "next/font/google";
+import { Inter } from "next-font/google";
 import { a11yBootstrapScript } from "../hooks/useAccessibility";
 import { EXTERNAL_SCRIPTS } from "../lib/sri";
 
@@ -82,6 +82,12 @@ export default async function RootLayout({
         <StrictMode>
           <NextIntlClientProvider locale={locale} messages={messages}>
             <AppProviders>
+              <a
+                href="#app-content"
+                className="skip-to-content"
+              >
+                Skip to main content
+              </a>
               <ServiceWorkerRegistration />
               <AnnouncementBanner />
               <div className="app-shell">
@@ -91,7 +97,9 @@ export default async function RootLayout({
                   <AgentLiveStatusBanner />
                   <TestnetFaucetBanner />
                   <InstallPromptCard />
-                  <main className="app-content">{children}</main>
+                  <main id="app-content" className="app-content" tabIndex={-1}>
+                    {children}
+                  </main>
                 </div>
               </div>
               <Suspense fallback={null}>
