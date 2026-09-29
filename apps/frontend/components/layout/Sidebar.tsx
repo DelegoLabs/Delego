@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -19,35 +18,15 @@ export function Sidebar() {
   const tApp = useTranslations("app");
   const { start } = useTour();
   const { reducedModeActive } = useDataSaver();
-  const skipLinkRef = useRef<HTMLAnchorElement>(null);
-
-  useEffect(() => {
-    const main = document.getElementById("main-content");
-    if (main && !main.hasAttribute("tabindex")) {
-      main.setAttribute("tabindex", "-1");
-    }
-  }, []);
-
-  const handleSkip = () => {
-    const main = document.getElementById("main-content");
-    main?.focus();
-  };
 
   return (
     <aside className="sidebar" aria-label={t("primaryNavigation")}>
+      <a href="#main-content" className="focus-visible-ring skip-link">
+        {t("skipToContent")}
+      </a>
       <p className="sidebar-brand">{tApp("brand")}</p>
       <nav>
         <ul className="nav-list">
-          <li>
-            <a
-              ref={skipLinkRef}
-              href="#main-content"
-              className="skip-link focus-visible-ring"
-              onClick={handleSkip}
-            >
-              {t("skipToContent")}
-            </a>
-          </li>
           {navItems.map((item) => {
             const isActive = item.href === activeNavHref(pathname);
             return (
@@ -78,7 +57,6 @@ export function Sidebar() {
         <button
           type="button"
           onClick={start}
-          className="focus-visible-ring"
           style={{
             display: "flex",
             alignItems: "center",
@@ -93,6 +71,7 @@ export function Sidebar() {
             color: "var(--color-text-secondary, #4b5563)",
             textAlign: "left",
           }}
+          className="focus-visible-ring"
           aria-label="Replay product tour"
         >
           <span aria-hidden="true">🎯</span> Take the tour

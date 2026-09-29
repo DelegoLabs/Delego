@@ -36,7 +36,7 @@ export function Header() {
           aria-label={t("openMenu")}
           aria-expanded={mobileNavOpen}
         >
-          ☓
+          ☰
         </button>
 
         <p className="app-header-brand">{tApp("brand")}</p>

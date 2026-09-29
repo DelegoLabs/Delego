@@ -1,9 +1,9 @@
 "use client";
 
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useDelegations } from "../../hooks/useDelegations";
 import { useOrders } from "../../hooks/useOrders";
+import { SkipToContent } from "../a11y/SkipToContent";
 import {
   DEFAULT_ENTITY_TYPE_FILTERS,
   ENTITY_TYPE_LABELS,
@@ -34,6 +34,12 @@ function matchesQuery(
   return fields.some((field) => field?.toLowerCase().includes(query));
 }
 
+const FOCUS_VISIBLE_RING_CLASS = "focus-visible-ring";
+
+function cx(...classes: (string | false | null | undefined)[]): string {
+  return classes.filter(Boolean).join(" ");
+}
+
 /**
  * Global search accessible from the app header. Queries across
  * delegations, orders, and transactions (escrowed orders), grouping
@@ -58,6 +64,17 @@ export function GlobalSearch() {
 
     return () => clearTimeout(timer);
   }, [query]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setQuery("");
+        setFiltersOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -142,29 +159,25 @@ export function GlobalSearch() {
 
   const showResults = debouncedQuery.length > 0;
 
-  const handleSearchKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Escape") {
-      setQuery("");
-      setFiltersOpen(false);
-    }
-  };
-
   return (
     <div className="global-search">
+      <SkipToContent targetId="global-search-results" />
       <div className="global-search-input-wrap">
         <input
           type="search"
           role="searchbox"
-          className="global-search-input focus-visible-ring"
+          className={cx("global-search-input", FOCUS_VISIBLE_RING_CLASS)}
           placeholder="Search delegations, orders, transactions..."
           aria-label="Search delegations, orders, and transactions"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleSearchKeyDown}
         />
         <button
           type="button"
-          className="global-search-filter-toggle focus-visible-ring"
+          className={cx(
+            "global-search-filter-toggle",
+            FOCUS_VISIBLE_RING_CLASS
+          )}
           onClick={() => setFiltersOpen((open) => !open)}
           aria-expanded={filtersOpen}
           aria-label="Toggle search filters"
@@ -177,7 +190,9 @@ export function GlobalSearch() {
 
       {showResults && (
         <div
-          className="global-search-results"
+          id="global-search-results"
+          tabIndex={-1}
+          className={cx("global-search-results", FOCUS_VISIBLE_RING_CLASS)}
           role="listbox"
           aria-label="Search results"
         >
@@ -189,7 +204,11 @@ export function GlobalSearch() {
                 <p className="global-search-group-label">{group.label}</p>
                 {group.items.map((item) => (
                   <div
-                    className="global-search-item focus-visible-ring"
+                    className={cx(
+                      "global-search-item",
+                      FOCUS_VISIBLE_RING_CLASS
+                    )}
+                    tabIndex={0}
                     role="option"
                     aria-selected={false}
                     key={`${item.type}-${item.id}`}
