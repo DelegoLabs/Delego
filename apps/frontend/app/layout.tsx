@@ -86,7 +86,7 @@ export default async function RootLayout({
                 href="#app-content"
                 className="skip-to-content"
               >
-                Skip to main content
+                Skip to Main Content
               </a>
               <ServiceWorkerRegistration />
               <AnnouncementBanner />

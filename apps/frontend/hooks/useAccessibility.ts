@@ -1,1 +1,161 @@
-InVzZSBjbGllbnQiOwoKaW1wb3J0IHsgdXNlQ2FsbGJhY2ssIHVzZUVmZmVjdCwgdXNlU3RhdGUgfSBmcm9tICJyZWFjdCI7CgpleHBvcnQgdHlwZSBSZWR1Y2VNb3Rpb25Nb2RlID0gIm9uIiB8ICJvZmYiIHwgInN5c3RlbSI7CgpleHBvcnQgaW50ZXJmYWNlIEExMXlQcmVmZXJlbmNlcyB7CiAgLyoqIFJvb3QgZm9udCBzaXplIHBlcmNlbnRhZ2U6IDkwJSB0byAxNTAlLiBEZWZhdWx0OiAxMDAgKi8KICB0ZXh0U2NhbGU6IG51bWJlcjsKICAvKiogRm9yY2VkIGhpZ2gtY29udHJhc3QgdGhlbWUgb3ZlcnJpZGUuIERlZmF1bHQ6IGZhbHNlICovCiAgaGlnaENvbnRyYXN0OiBib29sZWFuOwogIC8qKiBSZWR1Y2UtbW90aW9uIG92ZXJyaWRlOiAib24iIHwgIm9mZiIgfCAic3lzdGVtIi4gRGVmYXVsdDogInN5c3RlbSIgKi8KICByZWR1Y2VNb3Rpb246IFJlZHVjZU1vdGlvbk1vZGU7CiAgLyoqIEFsd2F5cyB1bmRlcmxpbmUgdGV4dCBsaW5rcy4gRGVmYXVsdDogZmFsc2UgKi8KICB1bmRlcmxpbmVMaW5rczogYm9vbGVhbjsKfQoKZXhwb3J0IGNvbnN0IERFRkFVTFRfQTExWV9QUkVGRVJFTkNFUzogQTExeVByZWZlcmVuY2VzID0gewogIHRleHRTY2FsZTogMTAwLAogIGhpZ2hDb250cmFzdDogZmFsc2UsCiAgcmVkdWNlTW90aW9uOiAic3lzdGVtIiwKICB1bmRlcmxpbmVMaW5rczogZmFsc2UsCn07Cgpjb25zdCBTVE9SQUdFX0tFWSA9ICJkZWxlZ28tYTExeS1wcmVmcyI7CgpmdW5jdGlvbiByZWFkU3RvcmVkUHJlZmVyZW5jZXMoKTogQTExeVByZWZlcmVuY2VzIHsKICBpZiAodHlwZW9mIHdpbmRvdyA9PT0gInVuZGVmaW5lZCIpIHJldHVybiBERUZBVUxUX0ExMVlfUFJFRkVSRU5DRVM7CiAgdHJ5IHsKICAgIGNvbnN0IHJhdyA9IGxvY2FsU3RvcmFnZS5nZXRJdGVtKFNUT1JBR0VfS0VZKTsKICAgIGlmICghcmF3KSByZXR1cm4gREVGQVVMVF9BMTFZX1BSRUZFUkVOQ0VTOwogICAgY29uc3QgcGFyc2VkID0gSlNPTi5wYXJzZShyYXcpIGFzIFBhcnRpYWw8QTExeVByZWZlcmVuY2VzPjsKICAgIHJldHVybiB7CiAgICAgIHRleHRTY2FsZToKICAgICAgICB0eXBlb2YgcGFyc2VkLnRleHRTY2FsZSA9PT0gIm51bWJlciIgJiYKICAgICAgICBwYXJzZWQudGV4dFNjYWxlID49IDkwICYmCiAgICAgICAgcGFyc2VkLnRleHRTY2FsZSA8PSAxNTAKICAgICAgICAgID8gcGFyc2VkLnRleHRTY2FsZQogICAgICAgICAgOiBERUZBVUxUX0ExMVlfUFJFRkVSRU5DRVMudGV4dFNjYWxlLAogICAgICBoaWdoQ29udHJhc3Q6IEJvb2xlYW4ocGFyc2VkLmhpZ2hDb250cmFzdCksCiAgICAgIHJlZHVjZU1vdGlvbjoKICAgICAgICBwYXJzZWQucmVkdWNlTW90aW9uID09PSAib24iIHx8CiAgICAgICAgcGFyc2VkLnJlZHVjZU1vdGlvbiA9PT0gIm9mZiIgfHwKICAgICAgICBwYXJzZWQucmVkdWNlTW90aW9uID09PSAic3lzdGVtIgogICAgICAgICAgPyBwYXJzZWQucmVkdWNlTW90aW9uCiAgICAgICAgICA6IERFRkFVTFRfQTExWV9QUkVGRVJFTkNFUy5yZWR1Y2VNb3Rpb24sCiAgICAgIHVuZGVybGluZUxpbmtzOiBCb29sZWFuKHBhcnNlZC51bmRlcmxpbmVMaW5rcyksCiAgICB9OwogIH0gY2F0Y2ggewogICAgcmV0dXJuIERFRkFVTFRfQTExWV9QUkVGRVJFTkNFUzsKICB9Cn0KCmZ1bmN0aW9uIGFwcGx5UHJlZmVyZW5jZXMocHJlZnM6IEExMXlQcmVmZXJlbmNlcyk6IHZvaWQgewogIGlmICh0eXBlb2YgZG9jdW1lbnQgPT09ICJ1bmRlZmluZWQiKSByZXR1cm47CiAgY29uc3QgaHRtbCA9IGRvY3VtZW50LmRvY3VtZW50RWxlbWVudDsKICBodG1sLnN0eWxlLmZvbnRTaXplID0gYCR7cHJlZnMudGV4dFNjYWxlfSVgOwogIGh0bWwuZGF0YXNldC5oaWdoQ29udHJhc3QgPSBwcmVmcy5oaWdoQ29udHJhc3QgPyAidHJ1ZSIgOiAiZmFsc2UiOwogIGh0bWwuZGF0YXNldC5yZWR1Y2VNb3Rpb24gPSBwcmVmcy5yZWR1Y2VNb3Rpb247CiAgaHRtbC5kYXRhc2V0LnVuZGVybGluZUxpbmtzID0gcHJlZnMudW5kZXJsaW5lTGlua3MgPyAidHJ1ZSIgOiAiZmFsc2UiOwp9CgpleHBvcnQgaW50ZXJmYWNlIFVzZUExMXlSZXR1cm4gewogIHByZWZlcmVuY2VzOiBBMTF5UHJlZmVyZW5jZXM7CiAgc2V0VGV4dFNjYWxlOiAoc2NhbGU6IG51bWJlcikgPT4gdm9pZDsKICBzZXRIaWdoQ29udHJhc3Q6IChlbmFibGVkOiBib29sZWFuKSA9PiB2b2lkOwogIHNldFJlZHVjZU1vdGlvbjogKG1vZGU6IFJlZHVjZU1vdGlvbk1vZGUpID0+IHZvaWQ7CiAgc2V0VW5kZXJsaW5lTGlua3M6IChlbmFibGVkOiBib29sZWFuKSA9PiB2b2lkOwogIHJlc2V0VG9EZWZhdWx0czogKCkgPT4gdm9pZDsKfQoKZXhwb3J0IGZ1bmN0aW9uIHVzZUExMXkoKTogVXNlQTExeVJldHVybiB7CiAgY29uc3QgW3ByZWZlcmVuY2VzLCBzZXRQcmVmZXJlbmNlc1N0YXRlXSA9IHVzZVN0YXRlPEExMXlQcmVmZXJlbmNlcz4oCiAgICBERUZBVUxUX0ExMVlfUFJFRkVSRU5DRVMKICApOwoKICB1c2VFZmZlY3QoKCkgPT4gewogICAgY29uc3Qgc3RvcmVkID0gcmVhZFN0b3JlZFByZWZlcmVuY2VzKCk7CiAgICBzZXRQcmVmZXJlbmNlc1N0YXRlKHN0b3JlZCk7CiAgICBhcHBseVByZWZlcmVuY2VzKHN0b3JlZCk7CiAgfSwgW10pOwoKICBjb25zdCB1cGRhdGVQcmVmZXJlbmNlcyA9IHVzZUNhbGxiYWNrKAogICAgKHVwZGF0ZXI6IChwcmV2OiBBMTF5UHJlZmVyZW5jZXMpID0+IEE xMXlQcmVmZXJlbmNlcykgPT4gewogICAgICBzZXRQcmVmZXJlbmNlc1N0YXRlKChwcmV2KSA9PiB7CiAgICAgICAgY29uc3QgbmV4dCA9IHVwZGF0ZXIocHJldik7CiAgICAgICAgdHJ5IHsKICAgICAgICAgIGxvY2FsU3RvcmFnZS5zZXRJdGVtKFNUT1JBR0VfS0VZLCBKU09OLnN0cmluZ2lmeShuZXh0KSk7CiAgICAgICAgfSBjYXRjaCB7CiAgICAgICAgICAvKiBpZ25vcmUgKi8KICAgICAgICB9CiAgICAgICAgYXBwbHlQcmVmZXJlbmNlcyhuZXh0KTsKICAgICAgICByZXR1cm4gbmV4dDsKICAgICAgfSk7CiAgICB9LAogICAgW10KICApOwoKICBjb25zdCBzZXRUZXh0U2NhbGUgPSB1c2VDYWxsYmFjaygKICAgIChzY2FsZTogbnVtYmVyKSA9PiB7CiAgICAgIGNvbnN0IGNsYW1wZWQgPSBNYXRoLm1pbigxNTAsIE1hdGgubWF4KDkwLCBNYXRoLnJvdW5kKHNjYWxlKSkpOwogICAgICB1cGRhdGVQcmVmZXJlbmNlcygocHJldikgPT4gKHsgLi4ucHJldiwgdGV4dFNjYWxlOiBjbGFtcGVkIH0pKTsKICAgIH0sCiAgICBbdXBkYXRlUHJlZmVyZW5jZXNdCiAgKTsKCiAgY29uc3Qgc2V0SGlnaENvbnRyYXN0ID0gdXNlQ2FsbGJhY2soCiAgICAoaGlnaENvbnRyYXN0OiBib29sZWFuKSA9PiB7CiAgICAgIHVwZGF0ZVByZWZlcmVuY2VzKChwcmV2KSA9PiAoeyAuLi5wcmV2LCBoaWdoQ29udHJhc3QgfSkpOwogICAgfSwKICAgIFt1cGRhdGVQcmVmZXJlbmNlc10KICApOwoKICBjb25zdCBzZXRSZWR1Y2VNb3Rpb24gPSB1c2VDYWxsYmFjaygKICAgIChyZWR1Y2VNb3Rpb246IFJlZHVjZU1vdGlvbk1vZGUpID0+IHsKICAgICAgdXBkYXRlUHJlZmVyZW5jZXMoKHByZXYpID0+ICh7IC4uLnByZXYsIHJlZHVjZU1vdGlvbiB9KSk7CiAgICB9LAogICAgW3VwZGF0ZVByZWZlcmVuY2VzXQogICk7CgogIGNvbnN0IHNldFVuZGVybGluZUxpbmtzID0gdXNlQ2FsbGJhY2soCiAgICAodW5kZXJsaW5lTGlua3M6IGJvb2xlYW4pID0+IHsKICAgICAgdXBkYXRlUHJlZmVyZW5jZXMoKHByZXYpID0+ICh7IC4uLnByZXYsIHVuZGVybGluZUxpbmtzIH0pKTsKICAgIH0sCiAgICBbdXBkYXRlUHJlZmVyZW5jZXNdCiAgKTsKCiAgY29uc3QgcmVzZXRUb0RlZmF1bHRzID0gdXNlQ2FsbGJhY2soKCkgPT4gewogICAgdXBkYXRlUHJlZmVyZW5jZXMoKCkgPT4gREVGQVVMVF9BMTFZX1BSRUZFUkVOQ0VTKTsKICB9LCBbdXBkYXRlUHJlZmVyZW5jZXNdKTsKCiAgcmV0dXJuIHsKICAgIHByZWZlcmVuY2VzLAogICAgc2V0VGV4dFNjYWxlLAogICAgc2V0SGlnaENvbnRyYXN0LAogICAgc2V0UmVkdWNlTW90aW9uLAogICAgc2V0VW5kZXJsaW5lTGlua3MsCiAgICByZXNldFRvRGVmYXVsdHMsCiAgfTsKfQoKLyoqCiAqIFByZS1oeWRyYXRpb24gaW5saW5lIGJvb3RzdHJhcCBzY3JpcHQgc3RyaW5nIHRvIHNldCByb290IGZvbnQtc2l6ZSBhbmQgZGF0YQogKiBhdHRyaWJ1dGVzIGJlZm9yZSBSZWFjdCBoeWRyYXRlcywgYXZvaWRpbmcgbGF5b3V0IGFuZCB2aXN1YWwgZmxhc2guCiAqLwpleHBvcnQgY29uc3QgYTExeUJvb3RzdHJhcFNjcmlwdCA9IC8qIGpzICovIGAKKGZ1bmN0aW9uKCl7CiAgdHJ5IHsKICAgIHZhciByYXcgPSBsb2NhbFN0b3JhZ2UuZ2V0SXRlbSgnZGVsZWdvLWExMXktcHJlZnMnKTsKICAgIHZhciBwID0gcmF3ID8gSlNPTi5wYXJzZShyYXcpIDoge307CiAgICB2YXIgc2NhbGUgPSAodHlwZW9mIHAudGV4dFNjYWxlID09PSAnbnVtYmVyJyAmJiBwLnRleHRTY2FsZSA+PSA5MCAmJiBwLnRleHRTY2FsZSA8PSAxNTApID8gcC50ZXh0U2NhbGUgOiAxMDA7CiAgICB2YXIgY29udHJhc3QgPSBwLmhpZ2hDb250cmFzdCA/ICd0cnVlJyA6ICdmYWxzZSc7CiAgICB2YXIgbW90aW9uID0gKHAucmVkdWNlTW90aW9uID09PSAnb24nIHx8IHAucmVkdWNlTW90aW9uID09PSAnb2ZmJyB8fCBwLnJlZHVjZU1vdGlvbiA9PT0gJ3N5c3RlbScpID8gcC5yZWR1Y2VNb3Rpb24gOiAnc3lzdGVtJzsKICAgIHZhciB1bmRlcmxpbmUgPSBwLnVuZGVybGluZUxpbmtzID8gJ3RydWUnIDogJ2ZhbHNlJzsKICAgIGRvY3VtZW50LmRvY3VtZW50RWxlbWVudC5zdHlsZS5mb250U2l6ZSA9IHNjYWxlICsgJyUnOwogICAgZG9jdW1lbnQuZG9jdW1lbnRFbGVtZW50LmRhdGFzZXQuaGlnaENvbnRyYXN0ID0gY29udHJhc3Q7CiAgICBkb2N1bWVudC5kb2N1bWVudEVsZW1lbnQuZGF0YXNldC5yZWR1Y2VNb3Rpb24gPSBtb3Rpb247CiAgICBkb2N1bWVudC5kb2N1bWVudEVsZW1lbnQuZGF0YXNldC51bmRlcmxpbmVMaW5rcyA9IHVuZGVybGluZTsKICB9IGNhdGNoKGUpIHt9Cn0pKCk7CmAudHJpbSgpOwo=
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+
+export type ReduceMotionMode = "on" | "off" | "system";
+
+export interface A11yPreferences {
+  /** Root font size percentage: 90% to 150%. Default: 100 */
+  textScale: number;
+  /** Forced high-contrast theme override. Default: false */
+  highContrast: boolean;
+  /** Reduce-motion override: "on" | "off" | "system". Default: "system" */
+  reduceMotion: ReduceMotionMode;
+  /** Always underline text links. Default: false */
+  underlineLinks: boolean;
+}
+
+export const DEFAULT_A11Y_PREFERENCES: A11yPreferences = {
+  textScale: 100,
+  highContrast: false,
+  reduceMotion: "system",
+  underlineLinks: false,
+};
+
+const STORAGE_KEY = "delego-a11y-prefs";
+
+function readStoredPreferences(): A11yPreferences {
+  if (typeof window === "undefined") return DEFAULT_A11Y_PREFERENCES;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_A11Y_PREFERENCES;
+    const parsed = JSON.parse(raw) as Partial<A11yPreferences>;
+    return {
+      textScale:
+        typeof parsed.textScale === "number" &&
+        parsed.textScale >= 90 &&
+        parsed.textScale <= 150
+          ? parsed.textScale
+          : DEFAULT_A11Y_PREFERENCES.textScale,
+      highContrast: Boolean(parsed.highContrast),
+      reduceMotion:
+        parsed.reduceMotion === "on" ||
+        parsed.reduceMotion === "off" ||
+        parsed.reduceMotion === "system"
+          ? parsed.reduceMotion
+          : DEFAULT_A11Y_PREFERENCES.reduceMotion,
+      underlineLinks: Boolean(parsed.underlineLinks),
+    };
+  } catch {
+    return DEFAULT_A11Y_PREFERENCES;
+  }
+}
+
+function applyPreferences(prefs: A11yPreferences): void {
+  if (typeof document === "undefined") return;
+  const html = document.documentElement;
+  html.style.fontSize = `${prefs.textScale}%`;
+  html.dataset.highContrast = prefs.highContrast ? "true" : "false";
+  html.dataset.reduceMotion = prefs.reduceMotion;
+  html.dataset.underlineLinks = prefs.underlineLinks ? "true" : "false";
+}
+
+export interface UseA11yReturn {
+  preferences: A11yPreferences;
+  setTextScale: (scale: number) => void;
+  setHighContrast: (enabled: boolean) => void;
+  setReduceMotion: (mode: ReduceMotionMode) => void;
+  setUnderlineLinks: (enabled: boolean) => void;
+  resetToDefaults: () => void;
+}
+
+export function useA11y(): UseA11yReturn {
+  const [preferences, setPreferencesState] = useState<A11yPreferences>(
+    DEFAULT_A11Y_PREFERENCES
+  );
+
+  useEffect(() => {
+    const stored = readStoredPreferences();
+    setPreferencesState(stored);
+    applyPreferences(stored);
+  }, []);
+
+  const updatePreferences = useCallback(
+    (updater: (prev: A11yPreferences) => A411yPreferences) => {
+      setPreferencesState((prev) => {
+        const next = updater(prev);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        applyPreferences(next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const setTextScale = useCallback(
+    (scale: number) => {
+      const clamped = Math.min(150, Math.max(90, Math.round(scale)));
+      updatePreferences((prev) => ({ ...prev, textScale: clamped }));
+    },
+    [updatePreferences]
+  );
+
+  const setHighContrast = useCallback(
+    (highContrast: boolean) => {
+      updatePreferences((prev) => ({ ...prev, highContrast }));
+    },
+    [updatePreferences]
+  );
+
+  const setReduceMotion = useCallback(
+    (reduceMotion: ReduceMotionMode) => {
+      updatePreferences((prev) => ({ ...prev, reduceMotion }));
+    },
+    [updatePreferences]
+  );
+
+  const setUnderlineLinks = useCallback(
+    (underlineLinks: boolean) => {
+      updatePreferences((prev) => ({ ...prev, underlineLinks }));
+    },
+    [updatePreferences]
+  );
+
+  const resetToDefaults = useCallback(() => {
+    updatePreferences(() => DEFAULT_A11Y_PREFERENCES);
+  }, [updatePreferences]);
+
+  return {
+    preferences,
+    setTextScale,
+    setHighContrast,
+    setReduceMotion,
+    setUnderlineLinks,
+    resetToDefaults,
+  };
+}
+
+/**
+ * Pre-hydration inline bootstrap script string to set root font-size and data
+ * attributes before React hydrates, avoiding layout and visual flash.
+ */
+export const a11yBootstrapScript = /* js */ `
+(function(){
+  try {
+    var raw = localStorage.getItem('delego-a11y-prefs');
+    var p = raw ? JSON.parse(raw) : {};
+    var scale = (typeof p.textScale === 'number' && p.textScale >= 90 && p.textScale <= 150) ? p.textScale : 100;
+    var contrast = p.highContrast ? 'true' : 'false';
+    var motion = (p.reduceMotion === 'on' || p.reduceMotion === 'off' || p.reduceMotion === 'system') ? p.reduceMotion : 'system';
+    var underline = p.underlineLinks ? 'true' : 'false';
+    document.documentElement.style.fontSize = scale + '%';
+    document.documentElement.dataset.highContrast = contrast;
+    document.documentElement.dataset.reduceMotion = motion;
+    document.documentElement.dataset.underlineLinks = underline;
+  } catch(e) {}
+})();
+`.trim();

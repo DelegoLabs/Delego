@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDelegations } from "../../hooks/useDelegations";
 import { useOrders } from "../../hooks/useOrders";
-import { SkipToContent } from "../a11y/SkipToContent";
 import {
   DEFAULT_ENTITY_TYPE_FILTERS,
   ENTITY_TYPE_LABELS,
@@ -32,12 +31,6 @@ function matchesQuery(
   ...fields: (string | null | undefined)[]
 ): boolean {
   return fields.some((field) => field?.toLowerCase().includes(query));
-}
-
-const FOCUS_VISIBLE_RING_CLASS = "focus-visible-ring";
-
-function cx(...classes: (string | false | null | undefined)[]): string {
-  return classes.filter(Boolean).join(" ");
 }
 
 /**
@@ -76,16 +69,12 @@ export function GlobalSearch() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setQuery("");
-        setFiltersOpen(false);
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      setQuery("");
+      setFiltersOpen(false);
+    }
+  };
 
   const groups = useMemo<SearchResultGroup[]>(() => {
     if (!debouncedQuery) return [];
@@ -160,24 +149,21 @@ export function GlobalSearch() {
   const showResults = debouncedQuery.length > 0;
 
   return (
-    <div className="global-search">
-      <SkipToContent targetId="global-search-results" />
+    <div className="global-search" onKeyDown={handleKeyDown}>
       <div className="global-search-input-wrap">
         <input
           type="search"
           role="searchbox"
-          className={cx("global-search-input", FOCUS_VISIBLE_RING_CLASS)}
+          className="global-search-input"
           placeholder="Search delegations, orders, transactions..."
           aria-label="Search delegations, orders, and transactions"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          className="global-search-input focus-visible-ring"
         />
         <button
           type="button"
-          className={cx(
-            "global-search-filter-toggle",
-            FOCUS_VISIBLE_RING_CLASS
-          )}
+          className="global-search-filter-toggle"
           onClick={() => setFiltersOpen((open) => !open)}
           aria-expanded={filtersOpen}
           aria-label="Toggle search filters"
@@ -190,9 +176,7 @@ export function GlobalSearch() {
 
       {showResults && (
         <div
-          id="global-search-results"
-          tabIndex={-1}
-          className={cx("global-search-results", FOCUS_VISIBLE_RING_CLASS)}
+          className="global-search-results"
           role="listbox"
           aria-label="Search results"
         >
@@ -200,15 +184,11 @@ export function GlobalSearch() {
             <p className="global-search-empty">No results found</p>
           ) : (
             groups.map((group) => (
-              <div className="global-search-group" key={group.type}>
+              <div className="global-search-group focus-visible-ring" key={group.type}>
                 <p className="global-search-group-label">{group.label}</p>
                 {group.items.map((item) => (
                   <div
-                    className={cx(
-                      "global-search-item",
-                      FOCUS_VISIBLE_RING_CLASS
-                    )}
-                    tabIndex={0}
+                    className="global-search-item"
                     role="option"
                     aria-selected={false}
                     key={`${item.type}-${item.id}`}
@@ -227,5 +207,16 @@ export function GlobalSearch() {
         </div>
       )}
     </div>
+  );
+}
+
+export function SkipToContent() {
+  return (
+    <a
+      href="#main-content"
+      className="skip-to-content focus-visible-ring"
+    >
+      Skip to main content
+    </a>
   );
 }

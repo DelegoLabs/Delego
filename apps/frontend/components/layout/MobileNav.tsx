@@ -68,7 +68,12 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
             ×
           </button>
         </div>
-        <a href="#main-content" className="skip-link" onClick={onClose}>
+        <a
+          href="#main-content"
+          className="focus-visible-ring skip-to-content"
+          onClick={onClose}
+          tabIndex={open ? 0 : -1}
+        >
           {t("skipToContent")}
         </a>
         <nav>

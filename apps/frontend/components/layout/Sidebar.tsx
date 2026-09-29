@@ -21,7 +21,7 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar" aria-label={t("primaryNavigation")}>
-      <a href="#main-content" className="focus-visible-ring skip-link">
+      <a href="#main-content" className="skip-link focus-visible-ring">
         {t("skipToContent")}
       </a>
       <p className="sidebar-brand">{tApp("brand")}</p>
@@ -57,6 +57,7 @@ export function Sidebar() {
         <button
           type="button"
           onClick={start}
+          className="focus-visible-ring"
           style={{
             display: "flex",
             alignItems: "center",
@@ -71,7 +72,6 @@ export function Sidebar() {
             color: "var(--color-text-secondary, #4b5563)",
             textAlign: "left",
           }}
-          className="focus-visible-ring"
           aria-label="Replay product tour"
         >
           <span aria-hidden="true">🎯</span> Take the tour
