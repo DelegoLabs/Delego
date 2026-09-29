@@ -37,5 +37,12 @@
       "label": "Sprache",
       "hint": "Wähle die im gesamten App verwendete Sprache"
     }
+  },
+  "invoice": {
+    "downloadPdf": "Rechnung herunterladen",
+    "downloadCsv": "CSV exportieren",
+    "generating": "Wird erstellt…",
+    "errorGeneric": "Rechnung konnte nicht erstellt werden.",
+    "ariaLabel": "PDF-Rechnung für Bestellung {orderId} herunterladen"
   }
 }

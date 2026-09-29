@@ -120,5 +120,12 @@
       "label": "Language",
       "hint": "Choose the language used throughout the app"
     }
+  },
+  "invoice": {
+    "downloadPdf": "Download Invoice",
+    "downloadCsv": "Export CSV",
+    "generating": "Generating…",
+    "errorGeneric": "Failed to generate invoice.",
+    "ariaLabel": "Download PDF invoice for order {orderId}"
   }
 }

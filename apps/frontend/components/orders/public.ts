@@ -20,3 +20,5 @@ export { DualControlBoard } from "./DualControlBoard";
 export type { DualControlBoardProps } from "./DualControlBoard";
 export { ReceiptInvoiceModal } from "./ReceiptInvoiceModal";
 export type { ReceiptInvoiceModalProps } from "./ReceiptInvoiceModal";
+export { DownloadInvoiceButton } from "./DownloadInvoiceButton";
+export type { DownloadInvoiceButtonProps } from "./DownloadInvoiceButton";
