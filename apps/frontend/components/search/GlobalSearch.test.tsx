@@ -1,9 +1,9 @@
 import React from "react";
 import { act, render, screen } from "@testing-library/react";
-import { act, render, screen } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GlobalSearch } from "./GlobalSearch";
+import { ThemeProvider } from "../../context/ThemeContext";
 
 const DEBOUNCE_WAIT = 300;
 
@@ -64,8 +64,11 @@ describe("GlobalSearch", () => {
     vi.useRealTimers();
   });
 
+  const renderWithTheme = (ui: React.ReactElement) =>
+    render(<ThemeProvider>{ui}</ThemeProvider>);
+
   it("debounces input before filtering results", () => {
-    render(<GlobalSearch />);
+    renderWithTheme(<GlobalSearch />);
 
     const input = screen.getByRole("searchbox");
     fireEvent.change(input, { target: { value: "abc123" } });
@@ -87,7 +90,7 @@ describe("GlobalSearch", () => {
   });
 
   it("shows results grouped by entity type", () => {
-    render(<GlobalSearch />);
+    renderWithTheme(<GlobalSearch />);
 
     const input = screen.getByRole("searchbox");
     fireEvent.change(input, { target: { value: "abc123" } });
@@ -103,7 +106,7 @@ describe("GlobalSearch", () => {
   });
 
   it("shows an empty state when no results match", () => {
-    render(<GlobalSearch />);
+    renderWithTheme(<GlobalSearch />);
 
     const input = screen.getByRole("searchbox");
     fireEvent.change(input, { target: { value: "no-such-match" } });
@@ -113,5 +116,46 @@ describe("GlobalSearch", () => {
     });
 
     expect(screen.getByText(/no results found/i)).toBeDefined();
+  });
+
+  it("applies the dark theme class when theme is set to dark", () => {
+    localStorage.setItem("theme", "dark");
+    renderWithTheme(<GlobalSearch />);
+
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+  });
+
+  it("applies the high-contrast theme class when theme is set to high-contrast", () => {
+    localStorage.setItem("theme", "high-contrast");
+    renderWithTheme(<GlobalSearch />);
+
+    expect(
+      document.documentElement.classList.contains("high-contrast"),
+    ).toBe(true);
+  });
+
+  it("resolves system preference to dark when prefers-color-scheme is dark", () => {
+    localStorage.setItem("theme", "system");
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === "(prefers-color-scheme: dark)",
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    renderWithTheme(<GlobalSearch />);
+
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+  });
+
+  it("persists the theme selection to localStorage", () => {
+    localStorage.setItem("theme", "light");
+    renderWithTheme(<GlobalSearch />);
+
+    expect(localStorage.getItem("theme")).toBe("light");
   });
 });

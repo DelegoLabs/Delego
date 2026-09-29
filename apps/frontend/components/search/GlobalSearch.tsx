@@ -43,7 +43,7 @@ function matchesQuery(
 export function GlobalSearch() {
   const { delegations } = useDelegations();
   const { orders } = useOrders();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -144,7 +144,7 @@ export function GlobalSearch() {
   const showResults = debouncedQuery.length > 0;
 
   return (
-    <div className="global-search">
+    <div className="global-search" data-theme={resolvedTheme}>
       <div className="global-search-input-wrap">
         <input
           type="search"
@@ -164,46 +164,29 @@ export function GlobalSearch() {
         >
           Filters
         </button>
-        <button
-          type="button"
-          className="global-search-theme-toggle"
-          onClick={() =>
-            setTheme(
-              resolvedTheme === "light"
-                ? "dark"
-                : resolvedTheme === "dark"
-                  ? "high-contrast"
-                  : "light"
-            )
-          }
-          aria-label="Toggle color theme"
-          title={`Current theme: ${resolvedTheme}`}
-        >
-          {resolvedTheme === "light"
-            ? "Light"
-            : resolvedTheme === "dark"
-              ? "Dark"
-              : "High Contrast"}
-        </button>
       </div>
 
       {filtersOpen && <FilterPanel filters={filters} onChange={setFilters} />}
 
       {showResults && (
         <div
-          className="global-search-results"
+          className="global-search-results bg-white text-gray-900 transition-colors duration-200 dark:bg-gray-900 dark:text-gray-100"
           role="listbox"
           aria-label="Search results"
         >
           {groups.length === 0 ? (
-            <p className="global-search-empty">No results found</p>
+            <p className="global-search-empty text-gray-500 dark:text-gray-400">
+              No results found
+            </p>
           ) : (
             groups.map((group) => (
               <div className="global-search-group" key={group.type}>
-                <p className="global-search-group-label">{group.label}</p>
+                <p className="global-search-group-label text-gray-500 dark:text-gray-400">
+                  {group.label}
+                </p>
                 {group.items.map((item) => (
                   <div
-                    className="global-search-item"
+                    className="global-search-item transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                     role="option"
                     aria-selected={false}
                     key={`${item.type}-${item.id}`}

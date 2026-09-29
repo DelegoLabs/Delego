@@ -1,47 +1,73 @@
 import type { Config } from "tailwindcss";
 
-export default {
-  darkMode: "class",
+function withOpacity(variable: string) {
+  return `"rgb(var(${variable}) / <alpha-value>)"`;
+}
+
+function solid(variable: string) {
+  return `var(${variable})`;
+}
+
+const themeColors = {
+  background: withOpacity("--color-bg"),
+  foreground: withOpacity("--color-fg"),
+  card: {
+    DEFAULT: withOpacity("--color-card"),
+    foreground: withOpacity("--color-card-fg"),
+  },
+  popover: {
+    DEFAULT: withOpacity("--color-popover"),
+    foreground: withOpacity("--color-popover-fg"),
+  },
+  muted: {
+    DEFAULT: withOpacity("--color-muted"),
+    foreground: withOpacity("--color-muted-fg"),
+  },
+  accent: {
+    DEFAULT: withOpacity("--color-accent"),
+    foreground: withOpacity("--color-accent-fg"),
+  },
+  border: withOpacity("--color-border"),
+  input: withOpacity("--color-input"),
+  ring: withOpacity("--color-ring"),
+  primary: {
+    DEFAULT: withOpacity("--color-primary"),
+    foreground: withOpacity("--color-primary-fg"),
+  },
+  secondary: {
+    DEFAULT: withOpacity("--color-secondary"),
+    foreground: withOpacity("--color-secondary-fg"),
+  },
+  danger: withOpacity("--color-danger"),
+  success: withOpacity("--color-success"),
+  warning: withOpacity("--color-warning"),
+} as const;
+
+const config = {
+  darkMode: ["class", ["data-theme='dark'", "data-theme='high-contrast'"]],
   content: [
-    "./app/**/*../{js,{js,ts}tsx,tsx,mdx}",
-    "./components/**/*../{js,{js,ts}tsx,tsx,mdx}",
-    "./hooks/**/*.{js,{js,ts}tsx,tsx,mdx}",
-    "./lib/**/*.{js,{js,ts}tsx,tsx,mdx}",
+    "./app/**/*.{tsx,ts,jsx,js}",
+    "./components/**/*.{tsx,ts,jsx,js}",
+    "./hooks/**/*.{tsx,ts,jsx,js}",
   ],
   theme: {
     extend: {
-      colors: {
-        // Semantic color tokens driven by CSS variables defined in
-        // styles/globals.css. The variables switch based on the `.dark`
-        // class and `data-teme="high-contrast"` attribute on <html>.
-        background: {
-          primary: "var(--color-bg-primary)",
-          secondary: "var(--color-bg-secondary)",
-          tertiary: "var(--color-bg-tertiary)",
-          inverted: "var(--color-bg-inverted)",
-        },
-        foreground: {
-          primary: "var(--color-fg-primary)",
-          secondary: "var(--color-fg-secondary)",
-          muted: "var(--color-fg-muted)",
-          inverted: "var(--color-fg-inverted)",
-        },
-        border: {
-          DEFAULT: "var(--color-border)",
-          strong: "var(--color-border-strong)",
-        },
-        accent: {
-          DEFAULT: "var(--color-accent)",
-          foreground: "var(--color-accent-fg)",
-        },
-        focus: {
-          ring: "var(--color-focus-ring)",
-        },
+      colors: themeColors,
+      transitionDuration: {
+        theme: "150ms",
       },
-      transitionProperty: {
-        color: "color, background-color, border-color, fill, stroke",
+      borderColor: {
+        DEFAULT: solid("--color-border"),
+      },
+      ringColor: {
+        DEFAULT: solid("--color-ring"),
+      },
+      outlineColor: {
+        DEFAULT: solid("--color-ring"),
       },
     },
   },
   plugins: [],
 } satisfies Config;
+
+export default config;

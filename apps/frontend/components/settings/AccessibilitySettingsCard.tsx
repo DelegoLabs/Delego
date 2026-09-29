@@ -5,7 +5,8 @@ import {
   useAccessibility,
   type ReduceMotionMode,
 } from "../../hooks/useAccessibility";
-import { useTheme, type ThemeMode } from "../../hooks/useTheme";
+import { useTheme } from "../../hooks/useTheme";
+import type { ThemeMode } from "../../hooks/useTheme";
 
 /**
  * Settings page section for managing accessibility preferences (#607):
@@ -13,6 +14,7 @@ import { useTheme, type ThemeMode } from "../../hooks/useTheme";
  * and link underline toggle.
  */
 export function AccessibilitySettingsCard() {
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const {
     preferences,
     setTextScale,
@@ -21,7 +23,6 @@ export function AccessibilitySettingsCard() {
     setUnderlineLinks,
     resetToDefaults,
   } = useAccessibility();
-  const { theme, resolvedTheme, setTheme } = useTheme();
 
   return (
     <Card
@@ -29,7 +30,7 @@ export function AccessibilitySettingsCard() {
       ariaLabel="Accessibility preferences"
     >
       <div className="settings-section">
-        {/* Theme Mode Switcher */}
+        {/* Theme Switcher */}
         <div
           className="settings-toggle-row"
           style={{
@@ -45,50 +46,54 @@ export function AccessibilitySettingsCard() {
               alignItems: "center",
             }}
           >
-            <span className="settings-toggle-label" id="theme-mode-label">
-              Theme ({resolvedTheme})
+            <span className="settings-toggle-label" id="theme-label">
+              Theme
             </span>
             <div
               role="radiogroup"
-              aria-labelledby="theme-mode-label"
+              aria-labelledby="theme-label"
               style={{ display: "flex", gap: "0.375rem" }}
             >
-              {(["light", "dark", "high-contrast", "system"] as ThemeMode[]).map(
-                (mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    role="radio"
-                    aria-checked={theme === mode}
-                    onClick={() => setTheme(mode)}
-                    style={{
-                      fontSize: "0.75rem",
-                      padding: "0.25rem 0.5rem",
-                      borderRadius: "0.25rem",
-                      border: "1px solid var(--color-border)",
-                      background:
-                        theme === mode
-                          ? "var(--color-accent-bg)"
-                          : "var(--color-bg-surface)",
-                      color:
-                        theme === mode
-                          ? "var(--color-accent)"
-                          : "var(--color-text-primary)",
-                      cursor: "pointer",
-                      fontWeight: theme === mode ? 600 : 400,
-                    }}
-                  >
-                    {mode === "high-contrast"
-                      ? "High contrast"
-                      : mode.charAt(0).toUpperCase() + mode.slice(1)}
-                  </button>
-                ),
-              )}
+              {(
+                [
+                  { value: "light", label: "Light" },
+                  { value: "dark", label: "Dark" },
+                  { value: "high-contrast", label: "High contrast" },
+                  { value: "system", label: "System" },
+                ] as const
+              ).map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={theme === value}
+                  onClick={() => setTheme(value as ThemeMode)}
+                  style={{
+                    fontSize: "0.75rem",
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "0.25rem",
+                    border: "1px solid var(--color-border)",
+                    background:
+                      theme === value
+                        ? "var(--color-accent-bg)"
+                        : "var(--color-bg-surface)",
+                    color:
+                      theme === value
+                        ? "var(--color-accent)"
+                        : "var(--color-text-primary)",
+                    cursor: "pointer",
+                    fontWeight: theme === value ? 600 : 400,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
           <p className="settings-toggle-hint">
-            Choose Light, Dark, or High Contrast (WCAG AAA). System follows your
-            OS preference and updates automatically.
+            {theme === "system"
+              ? `Following system preference (currently ${resolvedTheme}).`
+              : `Using ${resolvedTheme} theme.`}
           </p>
         </div>
 
@@ -168,11 +173,8 @@ export function AccessibilitySettingsCard() {
           </span>
           <input
             type="checkbox"
-            checked={preferences.highContrast || resolvedTheme === "high-contrast"}
-            onChange={(e) => {
-              setHighContrast(e.target.checked);
-              if (e.target.checked) setTheme("high-contrast");
-            }}
+            checked={preferences.highContrast}
+            onChange={(e) => setHighContrast(e.target.checked)}
             style={{
               width: "1.125rem",
               height: "1.125rem",
@@ -246,13 +248,7 @@ export function AccessibilitySettingsCard() {
             justifyContent: "flex-end",
           }}
         >
-          <Button
-            variant="ghost"
-            onClick={() => {
-              resetToDefaults();
-              setTheme("system");
-            }}
-          >
+          <Button variant="ghost" onClick={resetToDefaults}>
             Reset accessibility defaults
           </Button>
         </div>
