@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
 import { AnalyticsDashboard } from "../../components/analytics/AnalyticsDashboard";
+import { SpendForecastChart } from "../../components/analytics/SpendForecastChart";
 import {
   parseAnalyticsRange,
   type AnalyticsRange,
@@ -38,6 +39,8 @@ export default function AnalyticsPage() {
         locale={locale}
         onRangeChange={setRange}
       />
+
+      <SpendForecastChart locale={locale} />
     </div>
   );
 }

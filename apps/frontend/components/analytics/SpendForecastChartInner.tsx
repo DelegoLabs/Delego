@@ -20,16 +20,22 @@ export interface SpendForecastChartInnerProps {
   points: SpendForecastPoint[];
   firstBreachDate: string | null;
   locale?: string;
+  horizon?: 30 | 60 | 90;
 }
 
 interface ChartDatum {
   date: string;
-  historicalXlm?: number;
-  projectedXlm?: number;
-  budgetXlm?: number;
+  historicalXlm: number | undefined;
+  projectedXlm: number | undefined;
+  budgetXlm: number | undefined;
+  confidenceUpperXlm: number | undefined;
+  confidenceLowerXlm: number | undefined;
+  confidenceBandXLm: [number, number] | undefined;
   historical: bigint | null;
   projected: bigint | null;
   budget: bigint | null;
+  confidenceUpper: bigint | null;
+  confidenceLower: bigint | null;
 }
 
 function toXlm(value: bigint | null): number | undefined {
@@ -56,6 +62,12 @@ function ForecastTooltip({
           Projected: {formatXlm(datum.projected, locale)} XLM
         </p>
       )}
+      {datum.confidenceUpper !== null && datum.confidenceLower !== null && (
+        <p className="spend-chart-tooltip-value" data-testid="spend-forecast-tooltip-confidence">
+          Confidence: {formatXlm(datum.confidenceLower, locale)} –{" "}
+          {formatFlm(datum.confidenceUpper, locale)} XLM
+        </p>
+      )}
       {datum.budget !== null && (
         <p className="spend-chart-tooltip-value">
           Limit: {formatXlm(datum.budget, locale)} XLM
@@ -74,18 +86,30 @@ export default function SpendForecastChartInner({
   firstBreachDate,
   locale,
 }: SpendForecastChartInnerProps) {
-  const data: ChartDatum[] = points.map((point) => {
+  const data: ChartDatum = points.map((point) => {
     const historical = parseStroops(point.historicalSpentStroops);
     const projected = parseStroops(point.projectedSpentStroops);
     const budget = parseStroops(point.budgetLimitStroops);
+    const confidenceUpper = parseStroops(point.confidenceUpperStroops);
+    const confidenceLower = parseStroops(point.confidenceLowerStroops);
+    const upperXlm = toXlm(confidenceUpper);
+    const lowerXlm = toXlm(confidenceLower);
     return {
       date: point.date,
       historicalXlm: toXlm(historical),
-      projectedXlm: toXlm(projected),
+      projectedXL: toXlm(projected),
       budgetXlm: toXlm(budget),
+      confidenceUpperXlm: upperXlm,
+      confidenceLowerXlm: lowerXlm,
+      confidenceBandXlm:
+        upperXlm !== undefined && lowerXlm !== undefined
+          ? [lowerXlm, upperXlm]
+          : undefined,
       historical,
       projected,
       budget,
+      confidenceUpper,
+      confidenceLower,
     };
   });
 
@@ -107,6 +131,17 @@ export default function SpendForecastChartInner({
         />
         <Tooltip
           content={(props: any) => <ForecastTooltip {...props} locale={locale} />}
+        />
+        {/* Confidence interval band rendered behind the forecast line. */}
+        <Area
+          type="monotone"
+          dataKey="confidenceBandXlm"
+          name="Confidence interval"
+          stroke="none"
+          fill="var(--color-chart-purple)"
+          fillOpacity={0.15}
+          connectNulls={false}
+          isAnimationActive={false}
         />
         <Area
           type="monotone"

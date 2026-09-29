@@ -7,4 +7,7 @@ export { SpendingOverview } from "./SpendingOverview";
 export { SpendChart } from "./SpendChart";
 export { RangeSwitcher } from "./RangeSwitcher";
 export { SpendForecastChart } from "./SpendForecastChart";
-export type { SpendForecastChartProps } from "./SpendForecastChart";
+export type {
+  SpendForecastChartProps,
+  ForecastHorizon,
+} from "./SpendForecastChart";
