@@ -16,7 +16,7 @@ import { themeBootstrapScript } from "../hooks/useTheme";
 import { Inter } from "next/font/google";
 import { a11yBootstrapScript } from "../hooks/useAccessibility";
 import { EXTERNAL_SCRIPTS } from "../lib/sri";
-import { AgentFabButton } from "../components/layout/AgentFabButton";
+import { AgentFab } from "../components/agent/AgentFab";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
  * Two theme-color entries so the browser chrome / status bar tints match
  * light vs dark mode (#310) immediately via `prefers-color-scheme`, ahead of
  * ThemeToggle's JS-driven `data-theme` override running. Values mirror
- * `--color-bg-primary` in styles/globals.css
+ * `--color-bg-primary` in styles/globals.css.
  */
 export const viewport: Viewport = {
   themeColor: [
@@ -95,7 +95,7 @@ export default async function RootLayout({
                   <main className="app-content">{children}</main>
                 </div>
               </div>
-              <AgentFabButton />
+              <AgentFab />
               <Suspense fallback={null}>
                 <UpdatePromptToast />
               </Suspense>

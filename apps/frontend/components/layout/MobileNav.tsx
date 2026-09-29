@@ -6,43 +6,26 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { activeNavHref, navItems } from "./navItems";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { FabButton } from "./FabButton";
+import { FabButton } from "../ui/FabButton";
 
 export interface MobileNavProps {
   /** Whether the drawer is currently open */
   open: boolean;
   /** Called when the drawer requests to close (backdrop, close button, nav) */
   onClose: () => void;
-  /** Number of unread proposals surfaced on the FAB badge */
-  unreadProposalsCount?: number;
 }
 
 /**
  * Off-canvas navigation drawer for small screens.
  * Rendered by the Header, which owns the open/close state.
  */
-export function MobileNav({
-  open,
-  onClose,
-  unreadProposalsCount = 0,
-}: MobileNavProps) {
+export function MobileNav({ open, onClose }: MobileNavProps) {
   const pathname = usePathname();
   const panelRef = useRef<HTMLDivElement>(null);
+  const [fabVisible, setFabVisible] = useState(false);
+  const [unreadProposalsCount, setUnreadProposalsCount] = useState(0);
   const t = useTranslations("nav");
   const tApp = useTranslations("app");
-  const [fabVisible, setFabVisible] = useState(false);
-
-  // Reveal the FAB once the user scrolls past the first viewport height.
-  useEffect(() => {
-    const onScroll = () => setFabVisible(window.scrollY > 120);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  const handleFabClick = () => {
-    onClose();
-  };
 
   // Escape closes the drawer; the trap then restores focus to the hamburger
   // button that opened it (#752).
@@ -57,6 +40,37 @@ export function MobileNav({
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
+
+  // Reveal the FAB once the user scrolls past the fold.
+  useEffect(() => {
+    const onScroll = () => {
+      setFabVisible(window.scrollY > 120);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Poll for unread proposal count; replace with real data source when wired.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/proposals/unread-count");
+        if (!res.ok) return;
+        const data = (await res.json()) as { count?: number };
+        if (!cancelled) setUnreadProposalsCount(data.count ?? 0);
+      } catch {
+        // Non-fatal: badge simply stays at its previous value.
+      }
+    };
+    load();
+    const id = window.setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
   return (
     <>
@@ -116,8 +130,11 @@ export function MobileNav({
       </div>
       <FabButton
         unreadProposalsCount={unreadProposalsCount}
-        onClick={handleFabClick}
-        visible={fabVisible && !open}
+        onClick={() => {
+          onClose();
+          window.dispatchEvent(new CustomEvent("open-agent"));
+        }}
+        className={fabVisible ? "fab-visible" : "fab-hidden"}
       />
     </>
   );
