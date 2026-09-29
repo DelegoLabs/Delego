@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Horizon, TransactionBuilder } from "@stellar/stellar-sdk";
 import { StroopsInput } from "@delegolabs/ui";
 import { useWallet } from "../../hooks/useWallet";
@@ -10,6 +10,7 @@ import {
   SESSION_DURATION_OPTIONS,
   buildSessionKeyAuthTx,
   generateSessionKeypair,
+  initSessionKeyWorker,
   loadSessionKeyGrant,
   revokeSessionKeyGrant,
   saveSessionKeyGrant,
@@ -21,6 +22,7 @@ import {
   classifyWalletError,
   isUserDeclined,
 } from "../../services/wallet";
+import type { SessionKeyWorkerMessage } from "../../lib/sessionKeys";
 
 export interface SessionKeyGrantModalProps {
   open: boolean;
@@ -41,6 +43,8 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [activeGrant, setActiveGrant] = useState<SessionKeyGrant | null>(loadSessionKeyGrant);
+  const workerRef = useRef<Worker | null>(null);
+  const keyIdRef = useRef<string | null>(null);
 
   if (!open) return null;
 
@@ -49,6 +53,20 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
       setErrorMessage("Connect a wallet first.");
       return;
     }
+
+    useEffect(() => {
+      return () => {
+        const worker = workerRef.current;
+        if (worker) {
+          const message: SessionKeyWorkerMessage = { type: "CLEAR_KEY" };
+          worker.postMessage(message);
+          worker.terminate();
+          workerRef.current = null;
+        }
+        keyIdRef.current = null;
+      };
+    }, []);
+
     if (maxAllowanceStroops <= 0n) {
       setErrorMessage("Enter a spending budget greater than zero.");
       return;
@@ -60,6 +78,13 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
     try {
       const sessionKeypair = generateSessionKeypair();
       const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+      const worker = initSessionKeyWorker();
+      workerRef.current = worker;
+      const keyId = sessionKeypair.publicKey();
+      keyIdRef.current = keyId;
+      const initMessage: SessionKeyWorkerMessage = { type: "INIT_KEY", keyId };
+      worker.postMessage(initMessage);
+
       const grant: SessionKeyGrant = {
         sessionPublicKey: sessionKeypair.publicKey(),
         maxAllowanceStroops: maxAllowanceStroops.toString(),
@@ -86,6 +111,13 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
       const signedTx = TransactionBuilder.fromXDR(signed.signedTxXdr, network.networkPassphrase);
       await horizon.submitTransaction(signedTx);
 
+      const signMessage: SessionKeyWorkerMessage = {
+        type: "SIGN_PAYLOAD",
+        payload: new TextEncoder().encode(signed.signedTxXdr),
+        keyId,
+      };
+      worker.postMessage(signMessage);
+
       saveSessionKeyGrant(grant);
       setActiveGrant(grant);
       setStep("active");
@@ -102,6 +134,14 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
   }
 
   function handleRevoke() {
+    const worker = workerRef.current;
+    if (worker) {
+      const message: SessionKeyWorkerMessage = { type: "CLEAR_KEY" };
+      worker.postMessage(message);
+      worker.terminate();
+      workerRef.current = null;
+    }
+    keyIdRef.current = null;
     revokeSessionKeyGrant();
     setActiveGrant(null);
     setStep("form");
