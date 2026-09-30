@@ -6,6 +6,7 @@ import { useMerchantEscrowOrders } from "../../../hooks/useMerchantEscrowOrders"
 import { useNow } from "../../../hooks/useNow";
 import { ExpiryCountdown } from "../../../components/delegations/ExpiryCountdown";
 import { ShipmentUploadModal } from "../../../components/orders/ShipmentUploadModal";
+import { VirtualTable } from "../../../components/orders/VirtualTable";
 import { deadlineUrgency, type MerchantEscrowOrder } from "../../../lib/merchantEscrowOrders";
 
 type Tab = "toShip" | "shipped" | "settled";
@@ -77,12 +78,15 @@ export default function MerchantOrdersPage() {
       ) : visibleOrders.length === 0 ? (
         <p style={{ color: "#6b7280" }}>No orders in this queue.</p>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-          {visibleOrders.map((order) => {
+        <VirtualTable<MerchantEscrowOrder>
+          data={visibleOrders}
+          estimateRowHeight={80}
+          renderRow={(order) => {
             const urgency = deadlineUrgency(order.deadline, now);
             return (
               <div
                 key={order.orderId}
+                data-testid={`merchant-order-row-${order.orderId}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -91,6 +95,8 @@ export default function MerchantOrdersPage() {
                   padding: "0.875rem 1rem",
                   borderRadius: "0.75rem",
                   border: "1px solid #e5e7eb",
+                  marginBottom: "0.625rem",
+                  background: "#fff",
                 }}
               >
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
@@ -131,8 +137,8 @@ export default function MerchantOrdersPage() {
                 </div>
               </div>
             );
-          })}
-        </div>
+          }}
+        />
       )}
 
       <ShipmentUploadModal

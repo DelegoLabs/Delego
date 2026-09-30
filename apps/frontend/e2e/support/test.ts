@@ -11,7 +11,7 @@ interface Fixtures {
 }
 
 /**
- * Shared Playwright test base for FE-044 (golden-path E2E) and FE-046
+ * Shared Playwright test base for FE-044 (golden-path E-2E and FE-046
  * (visual regression) specs: mocks the gateway API, seeds the auth cookie for
  * protected routes, and injects the synthetic `window.freighter` wallet.
  *
