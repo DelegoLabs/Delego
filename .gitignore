@@ -60,3 +60,4 @@ apps/frontend/.bundle-size-baseline.json
 
 # Generated demo-world snapshot (`pnpm seed:demo --export`)
 apps/frontend/mocks/fixtures/demo-world.json
+.npmrc
