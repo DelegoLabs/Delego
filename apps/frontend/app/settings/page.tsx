@@ -89,7 +89,6 @@ const PLACEHOLDER_CATEGORY_BUDGETS: CategoryBudgetAllocation[] = [
   { category: "Entertainment", monthlyLimitStroops: 150000000n, currentSpentStroops: 40000000n },
   { category: "Utilities", monthlyLimitStroops: 250000000n, currentSpentStroops: 110000000n },
 ];
-
 /** Props for the emergency delegation kill-switch modal. */
 export interface KillSwitchModalProps {
   activeDelegationCount: number;
@@ -238,7 +237,6 @@ export default function SettingsPage() {
     // endpoint exists in @delegolabs/sdk.
     setCategoryBudgets(allocations);
   };
-
   const handleConfirmRevokeAll = async () => {
     // TODO: broadcast revocation on-chain via api.revokeAllDelegations() once
     // the endpoint exists in @delegolabs/sdk.

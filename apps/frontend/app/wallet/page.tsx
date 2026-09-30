@@ -27,7 +27,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function WalletPage() {
-  const { status, address, network, networkPassphrase, error } = useWallet();
+  const { status, address, network, networkPassphrase, error, toast } = useWallet();
   const { network: activeNetwork } = useNetwork();
   const notifications = useNotifications();
   const [funding, setFunding] = useState(false);
@@ -156,6 +156,12 @@ export default function WalletPage() {
                 </div>
               )}
             </dl>
+          )}
+
+          {toast && (
+            <p className="wallet-notice" role="status" aria-live="polite">
+              {toast}
+            </p>
           )}
 
           {status !== "connected" && error && (

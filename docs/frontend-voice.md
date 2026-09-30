@@ -63,7 +63,7 @@ full list of what was checked, not just what changed):
 | ------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------ |
 | `Export failed.` (fallback when the export hook has no specific message) | `Couldn't export your data. Please try again.`           | `apps/frontend/components/settings/PrivacyExportCard.tsx`      |
 | `Retry` (button label)                                                   | `Try again`                                              | `apps/frontend/app/escrows/page.tsx`                            |
-| `Could not read wallet address` (fallback when Freighter returns no error message) | `Couldn't read the wallet address. Please try again.` | `apps/frontend/hooks/useWallet.ts`                              |
+| `Could not read wallet address` (fallback when Freighter returns no error message) | `Couldn't read the wallet address. Please try again.` | `apps/frontend/lib/wallet/freighterAdapter.ts`               |
 
 All three are small, deliberate copy edits — no logic, no test behavior
 changed. `ConflictResolutionCard`'s `Retry my decision` button was

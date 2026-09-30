@@ -8,6 +8,10 @@ import {
   parseAnalyticsRange,
   type AnalyticsRange,
 } from "../../lib/analytics";
+import {
+  parseForecastHorizon,
+  type ForecastHorizonDays,
+} from "../../lib/spendForecast";
 
 export default function AnalyticsPage() {
   const locale = useLocale();
@@ -16,11 +20,21 @@ export default function AnalyticsPage() {
   const searchParams = useSearchParams();
 
   const range = parseAnalyticsRange(searchParams.get("range"));
+  const forecastHorizon = parseForecastHorizon(searchParams.get("forecast"));
 
   const setRange = useCallback(
     (next: AnalyticsRange) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("range", next);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [router, pathname, searchParams]
+  );
+
+  const setForecastHorizon = useCallback(
+    (next: ForecastHorizonDays) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("forecast", String(next));
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [router, pathname, searchParams]
@@ -37,6 +51,8 @@ export default function AnalyticsPage() {
         range={range}
         locale={locale}
         onRangeChange={setRange}
+        forecastHorizon={forecastHorizon}
+        onForecastHorizonChange={setForecastHorizon}
       />
     </div>
   );

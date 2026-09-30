@@ -31,18 +31,13 @@ export function PasskeyRegisterModal({
   const [error, setError] = useState<string | null>(null);
   const supported = isWebAuthnSupported();
 
-  useFocusTrap(panelRef, isOpen);
+  useFocusTrap({ containerRef: panelRef, isActive: isOpen, onEscape: onClose });
 
   useEffect(() => {
     if (!isOpen) return;
     setName("");
     setError(null);
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

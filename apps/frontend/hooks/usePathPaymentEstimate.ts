@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useNetwork } from "./useNetwork";
-import type { PathPaymentEstimate } from "@delegolabs/ui";
+import type { PathPaymentEstimate, PathPaymentQuote } from "@delegolabs/ui";
 
 interface HorizonPathRecord {
   source_asset_type: string;
@@ -31,9 +31,10 @@ export function usePathPaymentEstimate(
   destinationAmount: string,
   sourceAccount: string | null,
   slippageTolerancePercent = 0.5
-): { estimate: PathPaymentEstimate | null; loading: boolean } {
+): { estimate: PathPaymentEstimate | null; quote: PathPaymentQuote | null; loading: boolean } {
   const { network } = useNetwork();
   const [estimate, setEstimate] = useState<PathPaymentEstimate | null>(null);
+  const [quote, setQuote] = useState<PathPaymentQuote | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export function usePathPaymentEstimate(
       sourceAssetCode === destinationAssetCode
     ) {
       setEstimate(null);
+      setQuote(null);
       return;
     }
 
@@ -65,23 +67,52 @@ export function usePathPaymentEstimate(
         const record = json._embedded?.records?.[0];
         if (!record) {
           setEstimate(null);
+          setQuote(null);
           return;
         }
         const sourceAmount = Number(record.source_amount);
         const sourceAmountMax = (sourceAmount * (1 + slippageTolerancePercent / 100)).toFixed(7);
         const estimatedRate = (Number(record.destination_amount) / sourceAmount).toFixed(7);
+        const sourceAsset = assetLabel(record.source_asset_type, record.source_asset_code);
+        const destinationAsset = assetLabel(record.destination_asset_type, record.destination_asset_code);
+
+        // Price impact estimation: compare execution rate against best baseline if multiple paths exist,
+        // or small trade marginal rate approximation
+        let estimatedPriceImpactPercent = 0;
+        const records = json._embedded?.records ?? [];
+        if (records.length > 1) {
+          const alternateSource = Number(records[1].source_amount);
+          if (alternateSource > 0 && alternateSource > sourceAmount) {
+            estimatedPriceImpactPercent = Number(
+              (((alternateSource - sourceAmount) / alternateSource) * 100).toFixed(2)
+            );
+          }
+        }
+
         setEstimate({
-          sourceAsset: assetLabel(record.source_asset_type, record.source_asset_code),
-          destinationAsset: assetLabel(record.destination_asset_type, record.destination_asset_code),
+          sourceAsset,
+          destinationAsset,
           sourceAmountMax,
           destinationAmount: record.destination_amount,
           estimatedRate,
           slippageTolerancePercent,
           path: record.path.map((p) => assetLabel(p.asset_type, p.asset_code)),
         });
+
+        setQuote({
+          sourceToken: sourceAsset,
+          sourceAmount: record.source_amount,
+          destinationToken: destinationAsset,
+          destinationAmount: record.destination_amount,
+          estimatedPriceImpactPercent,
+          slippageTolerancePercent,
+        });
       })
       .catch(() => {
-        if (!cancelled) setEstimate(null);
+        if (!cancelled) {
+          setEstimate(null);
+          setQuote(null);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -99,5 +130,5 @@ export function usePathPaymentEstimate(
     slippageTolerancePercent,
   ]);
 
-  return { estimate, loading };
+  return { estimate, quote, loading };
 }

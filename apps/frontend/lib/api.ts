@@ -1,6 +1,8 @@
 import { DelegoClient } from "@delegolabs/sdk";
 import { env } from "./env";
 import { isDemoMode } from "./demoMode";
+import { apiFetch } from "./apiFetch";
+import type { PurchaseProposal } from "../types/proposal";
 
 /** Thrown when a mutating request is attempted while demo mode is active. */
 export class DemoModeWriteBlockedError extends Error {
@@ -112,3 +114,23 @@ export const api = new DelegoClient({
     }
   },
 } as ConstructorParameters<typeof DelegoClient>[0] & { fetch?: typeof fetch });
+
+/**
+ * Approve a purchase proposal (#678). Triggers a 1-click escrow
+ * authorisation on the backend.
+ */
+export async function approveProposal(proposalId: string) {
+  return apiFetch<PurchaseProposal>(`/proposals/${proposalId}/approve`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Decline a purchase proposal (#678) with an optional free-text reason.
+ */
+export async function declineProposal(proposalId: string, reason?: string) {
+  return apiFetch<PurchaseProposal>(`/proposals/${proposalId}/decline`, {
+    method: "POST",
+    body: reason ? JSON.stringify({ reason }) : undefined,
+  });
+}

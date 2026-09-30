@@ -13,6 +13,9 @@ const envSchema = z
     NEXT_PUBLIC_IDLE_TIMEOUT_MINUTES: z.string().optional(),
     NEXT_PUBLIC_IDLE_WARNING_SECONDS: z.string().optional(),
     NEXT_PUBLIC_CANONICAL_HOSTS: z.string().optional(),
+    // Web Push VAPID public key (#web-push). Required to subscribe to push
+    // notifications — leave unset to disable the feature entirely.
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().optional(),
   })
   .passthrough();
 

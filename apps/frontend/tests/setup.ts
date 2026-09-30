@@ -3,10 +3,27 @@ import "fake-indexeddb/auto";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { server } from "../mocks/server";
 
-// Ensure Node Uint8Array/ArrayBuffer instances pass in JSDOM environment for @stellar/stellar-sdk
-if (typeof window !== "undefined") {
-  window.Uint8Array = Uint8Array;
-  window.ArrayBuffer = ArrayBuffer;
+// Ensure Node Uint8Array/ArrayBuffer instances pass in JSDOM environment for @stellar/stellar-sdk.
+//
+// jsdom installs its *own* `Uint8Array`/`ArrayBuffer` intrinsics on the shared
+// global, while Node's `Buffer` still inherits from Node's — so
+// `Buffer.alloc(32) instanceof Uint8Array` is false here. @noble/ed25519's
+// `isBytes` then rejects every seed stellar-sdk generates ("expected
+// Uint8Array … got type=object"), which makes `Keypair.random()` throw at
+// import time in any jsdom test. Re-point both globals at Node's intrinsics so
+// Buffer/Uint8Array/ArrayBuffer interoperate again.
+if (typeof window !== "undefined" && typeof Buffer !== "undefined") {
+  const nodeBuffer = Buffer.alloc(1);
+  const NodeUint8Array = Object.getPrototypeOf(Buffer.prototype)?.constructor;
+  const NodeArrayBuffer = Object.getPrototypeOf(nodeBuffer.buffer)?.constructor;
+  if (
+    typeof NodeUint8Array === "function" &&
+    typeof NodeArrayBuffer === "function" &&
+    !(nodeBuffer instanceof Uint8Array)
+  ) {
+    globalThis.Uint8Array = NodeUint8Array;
+    globalThis.ArrayBuffer = NodeArrayBuffer;
+  }
 }
 
 // Polyfill BigInt.prototype.toJSON for MSW and test JSON serialization

@@ -3,6 +3,7 @@ import { act, render, screen } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GlobalSearch } from "./GlobalSearch";
+import { ThemeProvider } from "../theme/ThemeProvider";
 
 const DEBOUNCE_WAIT = 300;
 
@@ -63,8 +64,11 @@ describe("GlobalSearch", () => {
     vi.useRealTimers();
   });
 
+  const renderWithTheme = (ui: React.ReactElement) =>
+    render(<ThemeProvider>{ui}</ThemeProvider>);
+
   it("debounces input before filtering results", () => {
-    render(<GlobalSearch />);
+    renderWithTheme(<GlobalSearch />);
 
     const input = screen.getByRole("searchbox");
     fireEvent.change(input, { target: { value: "abc123" } });
@@ -86,7 +90,7 @@ describe("GlobalSearch", () => {
   });
 
   it("shows results grouped by entity type", () => {
-    render(<GlobalSearch />);
+    renderWithTheme(<GlobalSearch />);
 
     const input = screen.getByRole("searchbox");
     fireEvent.change(input, { target: { value: "abc123" } });
@@ -102,7 +106,7 @@ describe("GlobalSearch", () => {
   });
 
   it("shows an empty state when no results match", () => {
-    render(<GlobalSearch />);
+    renderWithTheme(<GlobalSearch />);
 
     const input = screen.getByRole("searchbox");
     fireEvent.change(input, { target: { value: "no-such-match" } });
@@ -112,5 +116,21 @@ describe("GlobalSearch", () => {
     });
 
     expect(screen.getByText(/no results found/i)).toBeDefined();
+  });
+
+  it("applies the focus-visible ring class to the search input", () => {
+    render(<GlobalSearch />);
+
+    const input = screen.getByRole("searchbox");
+    expect(input.classList.contains("focus-visible-ring")).toBeTrue();
+  });
+
+  it("exposes a skip-to-content link targeting the main content region", () => {
+    render(<GlobalSearch />);
+
+    const skipLink = screen.getByText(/skip to main content/i);
+    expect(skipLink.tagName)..toBe("A");
+    expect(skipLink.getAttribute("href")).toBe("#main-content");
+    expect(skipLink.classList.contains("focus-visible-ring")).toBeTrue();
   });
 });

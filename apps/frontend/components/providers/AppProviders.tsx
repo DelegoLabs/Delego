@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 
+import { ThemeProvider } from "./ThemeProvider";
 import { NetworkProvider } from "../../hooks/useNetwork";
 import { NotificationProvider } from "../../hooks/useNotifications";
 import { AnnounceProvider } from "../../hooks/useAnnounce";
 import { CurrencyProvider } from "../../hooks/useCurrency";
 import { TimeFormatProvider } from "../../hooks/useTimeFormat";
+import { AudioNotificationsProvider } from "../../hooks/useAudioNotifications";
 import { FeatureFlagProvider } from "./FeatureFlagProvider";
 import { MockApiProvider } from "./MockApiProvider";
 import { SentryBreadcrumbs } from "./SentryBreadcrumbs";
@@ -21,6 +24,13 @@ import { IdleSessionGuard } from "../session/IdleSessionGuard";
 import { DomainWarningBanner } from "../security/DomainWarningBanner";
 import { ConsentBanner } from "../consent/ConsentBanner";
 import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvider";
+
+// Ephemeral session signing keys live only inside this worker's isolated
+// memory. Loaded client-side only so it never runs during SSR.
+const SessionKeyWorkerProvider = dynamic(
+  () => import("../session/SessionKeyWorkerProvider").then((m) => m.SessionKeyWorkerProvider),
+  { ssr: false },
+);
 
 /**
  * Client-side context providers shared across the app shell.
@@ -47,32 +57,38 @@ export function AppProviders({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <FeatureFlagProvider>
+    <ThemeProvider>
+      <FeatureFlagProvider>
       <MockApiProvider>
         <NetworkProvider>
           <CurrencyProvider>
             <TimeFormatProvider>
-              <AnnounceProvider>
-                <NotificationProvider>
-                  <TourProvider>
-                    <CommandPaletteProvider>
-                      <DomainWarningBanner />
-                      <ConsentBanner />
-                      <DemoBanner />
-                      <SentryBreadcrumbs />
-                      <WebVitalsReporter />
-                      <QueueInspectorModal />
-                      {children}
-                      <NetworkMismatchModal />
-                      <IdleSessionGuard />
-                    </CommandPaletteProvider>
-                  </TourProvider>
-                </NotificationProvider>
-              </AnnounceProvider>
+              <AudioNotificationsProvider>
+                <AnnounceProvider>
+                  <NotificationProvider>
+                    <TourProvider>
+                      <SessionKeyWorkerProvider>
+                      <CommandPaletteProvider>
+                        <DomainWarningBanner />
+                        <ConsentBanner />
+                        <DemoBanner />
+                        <SentryBreadcrumbs />
+                        <WebVitalsReporter />
+                        <QueueInspectorModal />
+                        {children}
+                        <NetworkMismatchModal />
+                        <IdleSessionGuard />
+                      </CommandPaletteProvider>
+                      </SessionKeyWorkerProvider>
+                    </TourProvider>
+                  </NotificationProvider>
+                </AnnounceProvider>
+              </AudioNotificationsProvider>
             </TimeFormatProvider>
           </CurrencyProvider>
         </NetworkProvider>
       </MockApiProvider>
-    </FeatureFlagProvider>
+      </FeatureFlagProvider>
+    </ThemeProvider>
   );
 }

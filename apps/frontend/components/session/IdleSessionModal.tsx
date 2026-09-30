@@ -25,7 +25,9 @@ export function IdleSessionModal({
   onStay,
 }: IdleSessionModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(panelRef, open);
+  // No `onEscape` here: Escape means "I'm still here" for this modal rather
+  // than "close", so it keeps its own keydown handler below.
+  useFocusTrap({ containerRef: panelRef, isActive: open });
 
   useEffect(() => {
     if (!open) return;
