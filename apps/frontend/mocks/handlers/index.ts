@@ -6,6 +6,7 @@ import { contractHandlers } from "./contracts";
 import { healthHandlers } from "./health";
 import { capabilitiesHandlers } from "./approvals";
 import { erasureHandlers } from "./erasure";
+import { pushHandlers } from "./push";
 
 /**
  * Default handler set for tests, Storybook, and dev-mode mocking (FE-045).
@@ -23,6 +24,7 @@ export const handlers = [
   ...healthHandlers,
   ...capabilitiesHandlers,
   ...erasureHandlers,
+  ...pushHandlers,
 ];
 
 export {
@@ -74,3 +76,9 @@ export {
 export { contractHandlers } from "./contracts";
 export { healthHandlers } from "./health";
 export { applyDemoWorld } from "./applyDemoWorld";
+export {
+  pushHandlers,
+  pushHandlersError,
+  resetPushSubscriptions,
+  getPushSubscriptions,
+} from "./push";

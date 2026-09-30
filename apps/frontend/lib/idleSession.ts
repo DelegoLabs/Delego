@@ -23,6 +23,22 @@ export const DEFAULT_IDLE_WARNING_SECONDS = 60;
 /** Lower bound on the warning window regardless of configuration. */
 const MIN_WARNING_SECONDS = 10;
 
+export interface InactivityTimeoutConfig {
+  timeoutMinutes: number; // e.g. 15 minutes
+  warningMinutes: number; // e.g. 2 minutes before logout
+  onTimeout(): void;
+}
+
+export function configureInactivityTimeout(
+  config: Partial<InactivityTimeoutConfig> = {}
+): InactivityTimeoutConfig {
+  return {
+    timeoutMinutes: config.timeoutMinutes ?? DEFAULT_IDLE_TIMEOUT_MINUTES,
+    warningMinutes: config.warningMinutes ?? 2,
+    onTimeout: config.onTimeout ?? (() => {}),
+  };
+}
+
 export interface IdleSessionConfig {
   /** When false the hook installs no listeners and the modal never shows. */
   enabled: boolean;

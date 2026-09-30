@@ -1,29 +1,51 @@
-"use client";
+use client;
 
 import { Card } from "@delegolabs/ui";
 import { CopyButton } from "../../../components/wallet/CopyButton";
 import { useMerchantPayouts } from "../../../hooks/useMerchantPayouts";
+import { useMerchantEscrowOrders } from "../../../hooks/useMerchantEscrowOrders";
 import { useNetwork } from "../../../hooks/useNetwork";
 import { resolveProofHashExplorerUrl, truncateHash } from "../../../lib/proofAttachments";
 import { stroopsToDisplay, totalNetEarningsStroops } from "../../../lib/merchantPayouts";
+import { computePayoutProjections } from "../../../lib/merchantEscrowOrders";
 
 export default function MerchantPayoutsPage() {
   const { payouts, loading, error } = useMerchantPayouts();
+  const { orders } = useMerchantEscrowOrders();
   const { network } = useNetwork();
+  
   const totalNet = totalNetEarningsStroops(payouts);
+  const projections = computePayoutProjections(orders);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <h1>Payouts</h1>
 
-      <Card title="Total earnings" ariaLabel="Total net earnings">
-        <p style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>
-          {stroopsToDisplay(totalNet)} XLM
-        </p>
-        <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: 0 }}>
-          Net of fees, across {payouts.length} settled payout{payouts.length === 1 ? "" : "s"}.
-        </p>
-      </Card>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+        <Card title="Total earnings" ariaLabel="Total net earnings">
+          <p style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>
+            {stroopsToDisplay(totalNet)} XLM
+          </p>
+          <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: 0 }}>
+            Net of fees, across {payouts.length} settled payout{payouts.length === 1 ? "" : "s"}.
+          </p>
+        </Card>
+
+        <Card title="Projected net payouts" ariaLabel="Projected net payouts from active orders">
+          <p style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }} title="Estimated net after platform fees">
+            {stroopsToDisplay(projections.projectedNetPayout)} XLM
+          </p>
+          <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: 0 }}>
+            <span title="Pending gross amount locked in active escrows">
+              Gross: {stroopsToDisplay(projections.pendingGrossStroops)} XLM
+            </span>
+            {" ? "}
+            <span title="Estimated 1% platform fee withheld at release">
+              Fees: {stroopsToDisplay(projections.estimatedPlatformFees)} XLM
+            </span>
+          </p>
+        </Card>
+      </div>
 
       {error && (
         <div role="alert" style={{ color: "#dc2626", fontSize: "0.8125rem" }}>
@@ -32,7 +54,7 @@ export default function MerchantPayoutsPage() {
       )}
 
       {loading ? (
-        <p style={{ color: "#6b7280" }}>Loading payout history…</p>
+        <p style={{ color: "#6b7280" }}>Loading payout history?</p>
       ) : payouts.length === 0 ? (
         <p style={{ color: "#6b7280" }}>No payouts yet.</p>
       ) : (
@@ -83,3 +105,4 @@ export default function MerchantPayoutsPage() {
     </div>
   );
 }
+

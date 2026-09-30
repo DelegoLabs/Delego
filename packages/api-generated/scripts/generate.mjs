@@ -7,11 +7,12 @@
  *
  *   1. Reads packages/api-generated/openapi.yaml
  *   2. Computes the spec SHA-256 hash
- *   3. Writes the hash and timestamp into src/index.ts (replacing placeholders)
+ *   3. Writes the hash into src/index.ts (replacing placeholders)
  *
  * When the upstream gateway exposes a versioned artifact, swap step 1 with a
  * fetch of that artifact. The generated output must remain deterministic so
- * PR diffs are reviewable (same spec → same output, always).
+ * PR diffs are reviewable (same spec → same output, always) and Turborepo
+ * remote cache hits are reliable across machines.
  *
  * Usage:
  *   pnpm --filter @delegolabs/api-generated generate
@@ -32,12 +33,15 @@ const specContent = readFileSync(specPath, "utf8");
 // 2. Compute hash
 const specHash = createHash("sha256").update(specContent).digest("hex").slice(0, 16);
 
-// 3. Stamp the generated file
+// 3. Stamp the generated file — deterministic output (no timestamp) so that
+//    Turborepo artifact hashes are stable across machines and CI runs.
 const generatedPath = join(ROOT, "src", "index.ts");
 let generated = readFileSync(generatedPath, "utf8");
 generated = generated
   .replace(/\{\{SPEC_HASH\}\}/g, specHash)
-  .replace(/\{\{GENERATED_AT\}\}/g, new Date().toISOString());
+  // Remove the GENERATED_AT placeholder line entirely for deterministic output.
+  // The spec hash alone is sufficient to identify the generated artifact.
+  .replace(/\s*Generated at:.*\n/g, "\n");
 
 writeFileSync(generatedPath, generated, "utf8");
 

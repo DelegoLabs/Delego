@@ -4,34 +4,123 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
-      "inputs": ["src/**", "app/**", "components/**", "hooks/**", "lib/**", "mocks/**", "styles/**", "*.ts", "*.tsx", "*.json", "!**/*.test.*", "!**/*.spec.*"]
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "hooks/**",
+        "lib/**",
+        "mocks/**",
+        "styles/**",
+        "scripts/**",
+        "public/**",
+        "*.ts",
+        "*.tsx",
+        "*.json",
+        "!**/*.test.*",
+        "!**/*.spec.*",
+        "!**/node_modules/**",
+        "!**/.turbo/**",
+        "!**/dist/**",
+        "!**/.next/**",
+        "!**/coverage/**",
+        "!**/*.log",
+        "!**/tmp/**",
+        "!**/temp/**"
+      ]
     },
     "typecheck": {
       "dependsOn": ["^build"],
-      "outputs": []
+      "outputs": [],
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "hooks/**",
+        "lib/**",
+        "*.ts",
+        "*.tsx",
+        "*.json",
+        "!**/*.test.*",
+        "!**/*.spec.*",
+        "!**/node_modules/**",
+        "!**/.turbo/**",
+        "!**/dist/**",
+        "!**/.next/**"
+      ]
     },
     "lint": {
-      "outputs": []
+      "outputs": [],
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "hooks/**",
+        "lib/**",
+        "*.ts",
+        "*.tsx",
+        "*.json",
+        "!**/node_modules/**",
+        "!**/.turbo/**",
+        "!**/dist/**",
+        "!**/.next/**"
+      ]
     },
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
-      "inputs": ["src/**", "app/**", "components/**", "hooks/**", "lib/**", "mocks/**", "*.test.*", "*.spec.*", "vitest.config.*"]
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "hooks/**",
+        "lib/**",
+        "mocks/**",
+        "*.test.*",
+        "*.spec.*",
+        "vitest.config.*",
+        "!**/node_modules/**",
+        "!**/.turbo/**",
+        "!**/dist/**",
+        "!**/.next/**"
+      ]
     },
     "test:coverage": {
       "dependsOn": ["^build"],
-      "outputs": ["coverage/**"]
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "hooks/**",
+        "lib/**",
+        "mocks/**",
+        "*.test.*",
+        "*.spec.*",
+        "vitest.config.*",
+        "!**/node_modules/**",
+        "!**/.turbo/**",
+        "!**/dist/**",
+        "!**/.next/**"
+      ]
     },
     "check:i18n": {
-      "outputs": []
+      "outputs": [],
+      "inputs": ["messages/**", "i18n/**", "src/**", "app/**", "components/**", "hooks/**", "lib/**"]
     },
     "check:microcopy": {
-      "outputs": []
+      "outputs": [],
+      "inputs": ["messages/**", "i18n/**", "src/**", "app/**", "components/**", "hooks/**", "lib/**"]
     },
     "check:no-coverage-ignores": {
-      "outputs": []
+      "outputs": [],
+      "inputs": ["src/**", "app/**", "components/**", "hooks/**", "lib/**", "*.test.*", "*.spec.*"]
     },
     "check:drift": {
+      "outputs": [],
+      "inputs": ["packages/api-generated/openapi.yaml", "packages/api-generated/src/**", "packages/api-generated/scripts/**"]
+    },
+    "check:sri": {
       "outputs": []
     },
     "dev": {

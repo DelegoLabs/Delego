@@ -13,6 +13,10 @@ import {
   TransactionBuilder,
   rpc,
 } from "@stellar/stellar-sdk";
+import {
+  WalletActionError,
+  classifyWalletError,
+} from "../services/wallet";
 
 export interface TimeoutRefundState {
   canRefund: boolean;
@@ -126,9 +130,16 @@ export async function signWithFreighter(
   address: string
 ): Promise<string> {
   const freighter = await import("@stellar/freighter-api");
-  const res = await freighter.signTransaction(xdr, { networkPassphrase, address });
-  if (res.error || !res.signedTxXdr) {
-    throw new Error(res.error?.message ?? "Signing was rejected.");
+  try {
+    const res = await freighter.signTransaction(xdr, { networkPassphrase, address });
+    if (res.error || !res.signedTxXdr) {
+      throw new WalletActionError(
+        classifyWalletError(res.error ?? "Signing was rejected.")
+      );
+    }
+    return res.signedTxXdr;
+  } catch (err) {
+    if (err instanceof WalletActionError) throw err;
+    throw new WalletActionError(classifyWalletError(err));
   }
-  return res.signedTxXdr;
 }

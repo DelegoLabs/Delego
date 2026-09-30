@@ -7,6 +7,7 @@ import { NotificationProvider } from "../../hooks/useNotifications";
 import { AnnounceProvider } from "../../hooks/useAnnounce";
 import { CurrencyProvider } from "../../hooks/useCurrency";
 import { TimeFormatProvider } from "../../hooks/useTimeFormat";
+import { AudioNotificationsProvider } from "../../hooks/useAudioNotifications";
 import { FeatureFlagProvider } from "./FeatureFlagProvider";
 import { MockApiProvider } from "./MockApiProvider";
 import { SentryBreadcrumbs } from "./SentryBreadcrumbs";
@@ -52,23 +53,25 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <NetworkProvider>
           <CurrencyProvider>
             <TimeFormatProvider>
-              <AnnounceProvider>
-                <NotificationProvider>
-                  <TourProvider>
-                    <CommandPaletteProvider>
-                      <DomainWarningBanner />
-                      <ConsentBanner />
-                      <DemoBanner />
-                      <SentryBreadcrumbs />
-                      <WebVitalsReporter />
-                      <QueueInspectorModal />
-                      {children}
-                      <NetworkMismatchModal />
-                      <IdleSessionGuard />
-                    </CommandPaletteProvider>
-                  </TourProvider>
-                </NotificationProvider>
-              </AnnounceProvider>
+              <AudioNotificationsProvider>
+                <AnnounceProvider>
+                  <NotificationProvider>
+                    <TourProvider>
+                      <CommandPaletteProvider>
+                        <DomainWarningBanner />
+                        <ConsentBanner />
+                        <DemoBanner />
+                        <SentryBreadcrumbs />
+                        <WebVitalsReporter />
+                        <QueueInspectorModal />
+                        {children}
+                        <NetworkMismatchModal />
+                        <IdleSessionGuard />
+                      </CommandPaletteProvider>
+                    </TourProvider>
+                  </NotificationProvider>
+                </AnnounceProvider>
+              </AudioNotificationsProvider>
             </TimeFormatProvider>
           </CurrencyProvider>
         </NetworkProvider>

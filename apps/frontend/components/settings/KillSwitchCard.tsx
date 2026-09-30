@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button, Card } from "@delegolabs/ui";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useNetwork } from "../../hooks/useNetwork";
@@ -15,6 +15,10 @@ import {
   type KillSwitchResult,
 } from "../../lib/killSwitch";
 import { signWithFreighter } from "../../lib/sorobanInvoke";
+import {
+  WALLET_CANCELLED_MESSAGE,
+  isUserDeclined,
+} from "../../services/wallet";
 
 type Step = "review" | "confirm";
 
@@ -35,9 +39,8 @@ export function KillSwitchCard() {
   const [confirmText, setConfirmText] = useState("");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [result, setResult] = useState<KillSwitchResult | null>(null);
-
-  useFocusTrap(panelRef, open);
 
   const close = useCallback(() => {
     if (running) return;
@@ -47,14 +50,7 @@ export function KillSwitchCard() {
     setError(null);
   }, [running]);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, close]);
+  useFocusTrap({ containerRef: panelRef, isActive: open, onEscape: close });
 
   const payload: KillSwitchPayload | null = address
     ? {
@@ -85,7 +81,20 @@ export function KillSwitchCard() {
       setStep("review");
       setConfirmText("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The kill-switch failed. Please try again.");
+      if (isUserDeclined(err)) {
+        // Wallet dismissal is a cancellation, not a failure: close the modal
+        // and surface the neutral notice instead of an error banner.
+        setNotice(WALLET_CANCELLED_MESSAGE);
+        setOpen(false);
+        setStep("review");
+        setConfirmText("");
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "The kill-switch failed. Please try again."
+        );
+      }
     } finally {
       setRunning(false);
     }
@@ -122,12 +131,19 @@ export function KillSwitchCard() {
           </div>
         )}
 
+        {notice && (
+          <div className="wallet-notice" role="status" aria-live="polite">
+            {notice}
+          </div>
+        )}
+
         <div className="form-actions">
           <Button
             variant="destructive"
             className="kill-switch-button"
             onClick={() => {
               setResult(null);
+              setNotice(null);
               setOpen(true);
             }}
             disabled={!address}

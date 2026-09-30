@@ -14,8 +14,21 @@ test.describe("golden path: connect wallet", () => {
   test("wallet page shows the connected address", async ({ page }) => {
     await page.goto("/wallet");
 
-    await expect(page.getByRole("button", { name: /connect wallet/i })).toBeVisible();
-    await page.getByRole("button", { name: /connect wallet/i }).click();
+    // The app header renders its own wallet control, so scope to the card.
+    const connectionCard = page.getByRole("region", {
+      name: "Wallet connection status",
+    });
+    await connectionCard
+      .getByRole("button", { name: /connect wallet/i })
+      .click();
+
+    // The picker lists every registered wallet: installed ones get a connect
+    // action, missing ones an install link.
+    const picker = page.getByRole("dialog");
+    await expect(picker).toBeVisible();
+    await expect(picker.getByRole("button", { name: "Connect with Freighter" })).toBeVisible();
+    await expect(picker.getByRole("link", { name: "Install LOBSTR" })).toBeVisible();
+    await picker.getByRole("button", { name: "Connect with Freighter" }).click();
 
     await expect(page.getByText(E2E_WALLET_ADDRESS.slice(0, 6))).toBeVisible();
   });

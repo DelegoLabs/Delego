@@ -1,50 +1,41 @@
 import { useState } from "react";
 
-export interface AgentExecutionStep {
-  stepIndex: number;
-  title: string;
-  status: "pending" | "running" | "completed" | "failed";
-  details?: string;
-  durationMs?: number;
-  timestamp: string;
+export interface AgentThoughtStep {
+  stepId: string;
+  description: string;
+  status: "running" | "completed" | "failed";
+  timestamp: number;
+  logs?: string[];
 }
 
 export interface AgentTraceViewerProps {
-  steps: AgentExecutionStep[];
+  steps: AgentThoughtStep[];
   /** When true, a running step's pulsing indicator animates. */
-  isLive: boolean;
+  isLive?: boolean;
 }
 
-const STATUS_STYLE: Record<AgentExecutionStep["status"], { color: string; label: string }> = {
-  pending: { color: "#9ca3af", label: "Pending" },
-  running: { color: "#2563eb", label: "Running" },
+const STATUS_STYLE: Record<AgentThoughtStep["status"], { color: string; label: string }> = {
+  running: { color: "#2563eb", label: "Thinking..." },
   completed: { color: "#16a34a", label: "Completed" },
   failed: { color: "#dc2626", label: "Failed" },
 };
 
-function formatDuration(durationMs?: number): string | null {
-  if (durationMs == null) return null;
-  if (durationMs < 1000) return `${durationMs}ms`;
-  return `${(durationMs / 1000).toFixed(durationMs % 1000 === 0 ? 0 : 1)}s`;
-}
-
 /** Accordion-style visualizer for an agent's step-by-step execution trace. */
-export function AgentTraceViewer({ steps, isLive }: AgentTraceViewerProps) {
+export function AgentTraceViewer({ steps, isLive = true }: AgentTraceViewerProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(
     steps.findIndex((s) => s.status === "running" || s.status === "failed")
   );
 
   return (
-    <div role="list" aria-label="Agent execution trace" style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-      {steps.map((step) => {
+    <div role="list" aria-label="Agent thought trace" style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+      {steps.map((step, index) => {
         const { color, label } = STATUS_STYLE[step.status];
-        const expanded = expandedIndex === step.stepIndex;
+        const expanded = expandedIndex === index;
         const isFailed = step.status === "failed";
-        const duration = formatDuration(step.durationMs);
 
         return (
           <div
-            key={step.stepIndex}
+            key={step.stepId}
             role="listitem"
             style={{
               border: `1px solid ${isFailed ? "#fecaca" : "#e5e7eb"}`,
@@ -55,7 +46,7 @@ export function AgentTraceViewer({ steps, isLive }: AgentTraceViewerProps) {
           >
             <button
               type="button"
-              onClick={() => setExpandedIndex(expanded ? null : step.stepIndex)}
+              onClick={() => setExpandedIndex(expanded ? null : index)}
               aria-expanded={expanded}
               style={{
                 width: "100%",
@@ -84,25 +75,29 @@ export function AgentTraceViewer({ steps, isLive }: AgentTraceViewerProps) {
                 }}
               />
               <span style={{ flex: 1, fontSize: "0.8125rem", fontWeight: 600, color: isFailed ? "#991b1b" : "#111827" }}>
-                {step.stepIndex + 1}. {step.title}
+                {index + 1}. {step.description}
               </span>
               <span style={{ fontSize: "0.6875rem", color, fontWeight: 600 }}>{label}</span>
-              {duration && (
-                <span style={{ fontSize: "0.6875rem", color: "#6b7280", fontVariantNumeric: "tabular-nums" }}>
-                  {duration}
-                </span>
-              )}
             </button>
 
-            {expanded && step.details && (
+            {expanded && step.logs && step.logs.length > 0 && (
               <div
                 style={{
                   padding: "0 0.75rem 0.75rem 1.625rem",
                   fontSize: "0.75rem",
                   color: isFailed ? "#991b1b" : "#374151",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.25rem",
                 }}
+                role="region"
+                aria-label="Tool invocation logs"
               >
-                {step.details}
+                {step.logs.map((log, i) => (
+                  <div key={i} style={{ fontFamily: "monospace", whiteSpace: "pre-wrap", background: "#f3f4f6", padding: "0.5rem", borderRadius: "0.25rem", color: "#111827" }}>
+                    {log}
+                  </div>
+                ))}
               </div>
             )}
           </div>

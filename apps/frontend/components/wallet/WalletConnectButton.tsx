@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@delegolabs/ui";
 import { useWallet } from "../../hooks/useWallet";
+import { WalletSelectorModal } from "./WalletSelectorModal";
+import type { SupportedWallet } from "../../lib/wallets";
 
 function truncateAddress(address: string): string {
   if (address.length <= 12) return address;
@@ -14,13 +17,43 @@ export interface WalletConnectButtonProps {
 }
 
 /**
- * Connect/disconnect control for the Freighter browser wallet.
+ * Connect/disconnect control for Stellar wallets.
+ * Opens the wallet selector for switching between supported wallets.
  * Reusable in the header, dashboard, and the dedicated wallet page.
  */
 export function WalletConnectButton({
   showDetails = true,
 }: WalletConnectButtonProps) {
-  const { status, address, network, error, connect, disconnect } = useWallet();
+  const {
+    status,
+    address,
+    network,
+    error,
+    connect,
+    disconnect,
+    walletId,
+    walletOptions,
+    selectWallet,
+  } = useWallet();
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [pendingId, setPendingId] = useState<SupportedWallet | null>(null);
+
+  const openSelector = () => setSelectorOpen(true);
+
+  const handleConnect = async (id: SupportedWallet) => {
+    setPendingId(id);
+    try {
+      await connect(id);
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  const switchWalletButton = (
+    <Button variant="ghost" onClick={openSelector}>
+      Switch wallet
+    </Button>
+  );
 
   if (status === "checking") {
     return (
@@ -63,6 +96,20 @@ export function WalletConnectButton({
         <Button variant="ghost" onClick={disconnect}>
           Disconnect
         </Button>
+        {switchWalletButton}
+        <WalletSelectorModal
+          open={selectorOpen}
+          options={walletOptions}
+          activeId={walletId}
+          pendingId={pendingId}
+          onSelect={(id) => {
+            selectWallet(id);
+          }}
+          onConnect={(id) => {
+            void handleConnect(id);
+          }}
+          onClose={() => setSelectorOpen(false)}
+        />
       </div>
     );
   }
@@ -71,11 +118,25 @@ export function WalletConnectButton({
     <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
       <Button
         variant="primary"
-        onClick={connect}
+        onClick={() => void connect()}
         disabled={status === "connecting"}
       >
         {status === "connecting" ? "Connecting…" : "Connect Wallet"}
       </Button>
+      {switchWalletButton}
+      <WalletSelectorModal
+        open={selectorOpen}
+        options={walletOptions}
+        activeId={walletId}
+        pendingId={pendingId}
+        onSelect={(id) => {
+          selectWallet(id);
+        }}
+        onConnect={(id) => {
+          void handleConnect(id);
+        }}
+        onClose={() => setSelectorOpen(false)}
+      />
       {status === "error" && error && (
         <span className="wallet-error" role="alert">
           {error}

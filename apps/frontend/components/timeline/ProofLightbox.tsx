@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { ProofImageAttachment } from "../../lib/proofAttachments";
 
@@ -18,15 +18,7 @@ export interface ProofLightboxProps {
 export function ProofLightbox({ image, onClose }: ProofLightboxProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
-  useFocusTrap(panelRef, true);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useFocusTrap({ containerRef: panelRef, isActive: true, onEscape: onClose });
 
   return (
     <div className="proof-lightbox-overlay" onClick={onClose}>

@@ -14,6 +14,12 @@ import {
   type MerchantRegistrationForm,
   type OnboardingStep,
 } from "../../../lib/merchantRegistration";
+import {
+  WALLET_CANCELLED_MESSAGE,
+  WalletActionError,
+  classifyWalletError,
+  isUserDeclined,
+} from "../../../services/wallet";
 
 const STEPS: { id: OnboardingStep; label: string }[] = [
   { id: "store_info", label: "Store info" },
@@ -39,6 +45,7 @@ export default function MerchantRegisterPage() {
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof MerchantRegistrationForm, string>>>({});
   const [walletProof, setWalletProof] = useState<{ signerAddress: string; signedMessage: string } | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [verifyNotice, setVerifyNotice] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
@@ -64,6 +71,7 @@ export default function MerchantRegisterPage() {
 
   async function handleVerifyWallet() {
     setVerifyError(null);
+    setVerifyNotice(null);
     if (!isConnected) {
       await connect();
       return;
@@ -77,7 +85,9 @@ export default function MerchantRegisterPage() {
         address: address ?? undefined,
       });
       if (result.error || !result.signedMessage) {
-        throw new Error(result.error?.message ?? "Signature was cancelled or failed.");
+        throw new WalletActionError(
+          classifyWalletError(result.error ?? "Signature was cancelled or failed.")
+        );
       }
       setWalletProof({
         signerAddress: result.signerAddress,
@@ -88,7 +98,11 @@ export default function MerchantRegisterPage() {
       });
       setStepIndex(2);
     } catch (err) {
-      setVerifyError(err instanceof Error ? err.message : "Wallet verification failed.");
+      if (isUserDeclined(err)) {
+        setVerifyNotice(WALLET_CANCELLED_MESSAGE);
+      } else {
+        setVerifyError(err instanceof Error ? err.message : "Wallet verification failed.");
+      }
     } finally {
       setVerifying(false);
     }
@@ -200,6 +214,11 @@ export default function MerchantRegisterPage() {
               ? "Sign a message with your wallet to prove you control this address before registering."
               : "Connect your wallet to continue."}
           </p>
+          {verifyNotice && (
+            <p role="status" aria-live="polite" className="wallet-notice" style={{ fontSize: "0.8125rem" }}>
+              {verifyNotice}
+            </p>
+          )}
           {verifyError && (
             <p role="alert" style={{ fontSize: "0.8125rem", color: "#dc2626" }}>
               {verifyError}

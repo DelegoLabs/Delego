@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Button, formatAmount } from "@delegolabs/ui";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { SimulationDryRunResult } from "../../lib/simulationDryRun";
@@ -37,17 +37,8 @@ export function SimulationDryRunModal({
   onConfirm,
 }: SimulationDryRunModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(panelRef, isOpen);
+  useFocusTrap({ containerRef: panelRef, isActive: isOpen, onEscape: onClose });
   const confirmBlocked = loading || !result?.success || confirming;
-
-  useEffect(() => {
-    if (!isOpen) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
