@@ -10,6 +10,7 @@ import {
   type EntityTypeFilters,
   type SearchEntityType,
 } from "./FilterPanel";
+import { useTheme } from "../../hooks/useTheme";
 
 const DEBOUNCE_MS = 300;
 
@@ -33,6 +34,14 @@ function matchesQuery(
   return fields.some((field) => field?.toLowerCase().includes(query));
 }
 
+const THEME_CYCLE = ["light", "dark", "high-contrast", "system"] as const;
+const THEME_LABELS: Record<(typeof THEME_CYCLE)[number], string> = {
+  light: "Light",
+  dark: "Dark",
+  "high-contrast": "High Contrast",
+  system: "System",
+};
+
 /**
  * Global search accessible from the app header. Queries across
  * delegations, orders, and transactions (escrowed orders), grouping
@@ -42,6 +51,7 @@ function matchesQuery(
 export function GlobalSearch() {
   const { delegations } = useDelegations();
   const { orders } = useOrders();
+  const { theme, resolvedTheme, setTheme } = useTheme();
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -68,6 +78,12 @@ export function GlobalSearch() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const cycleTheme = () => {
+    const currentIndex = THEME_CYCLE.indexOf(theme);
+    const nextTheme = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
+    setTheme(nextTheme);
+  };
 
   const groups = useMemo<SearchResultGroup[]>(() => {
     if (!debouncedQuery) return [];
@@ -161,6 +177,16 @@ export function GlobalSearch() {
           aria-label="Toggle search filters"
         >
           Filters
+        </button>
+        <button
+          type="button"
+          className="global-search-theme-toggle"
+          onClick={cycleTheme}
+          aria-label={`Switch theme (current: ${THEME_LABELS[theme]}, resolved: ${resolvedTheme})`}
+          title={`Theme: ${THEME_LABELS[theme]}`}
+          data-theme={resolvedTheme}
+        >
+          {THEME_LABELS[theme]}
         </button>
       </div>
 

@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 
+import { ThemeProvider } from "./ThemeProvider";
 import { NetworkProvider } from "../../hooks/useNetwork";
 import { NotificationProvider } from "../../hooks/useNotifications";
 import { AnnounceProvider } from "../../hooks/useAnnounce";
@@ -56,7 +57,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <FeatureFlagProvider>
+    <ThemeProvider>
+      <FeatureFlagProvider>
       <MockApiProvider>
         <NetworkProvider>
           <CurrencyProvider>
@@ -86,6 +88,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
           </CurrencyProvider>
         </NetworkProvider>
       </MockApiProvider>
-    </FeatureFlagProvider>
+      </FeatureFlagProvider>
+    </ThemeProvider>
   );
 }
