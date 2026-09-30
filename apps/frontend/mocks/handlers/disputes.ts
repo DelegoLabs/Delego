@@ -25,6 +25,14 @@ export function seedDisputes(next: any[]) {
   disputesByEscrowId = new Map(next.map((d) => [d.escrowId, d]));
 }
 
+/** In-memory store for submitted dispute responses, keyed by disputeId. */
+let disputeResponsesByDisputeId = new Map<string, any>();
+
+/** Reset submitted dispute responses between tests. */
+export function resetDisputeResponses() {
+  disputeResponsesByDisputeId = new Map();
+}
+
 export const disputeHandlers = [
   http.get(`${BASE_URL}/escrows/:id/disputes/current`, ({ params }) => {
     const escrowId = params.id as string;
@@ -53,6 +61,54 @@ export const disputeHandlers = [
     const dispute = buildDispute(escrowId, escrow?.orderId ?? "unknown-order", input);
     disputesByEscrowId.set(escrowId, dispute);
     return HttpResponse.json(okResponse(dispute));
+  }),
+
+  /**
+   * POST /disputes/:id/respond — merchant submits a counter-evidence response.
+   *
+   * Accepts multipart/form-data with the following fields:
+   *   - merchantStatement (required string)
+   *   - carrierTrackingUrl (optional string)
+   *   - receiptFiles (0–5 File objects)
+   *
+   * Stores the parsed response in `disputeResponsesByDisputeId` so tests can
+   * inspect what was submitted without setting up a real backend.
+   */
+  http.post(`${BASE_URL}/disputes/:id/respond`, async ({ params, request }) => {
+    const disputeId = params.id as string;
+
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      return HttpResponse.json(
+        errorResponse("Expected multipart/form-data body", "invalid_content_type"),
+        { status: 400 }
+      );
+    }
+
+    const merchantStatement = formData.get("merchantStatement");
+    if (!merchantStatement || String(merchantStatement).trim().length === 0) {
+      return HttpResponse.json(
+        errorResponse("merchantStatement is required", "invalid_input"),
+        { status: 400 }
+      );
+    }
+
+    const carrierTrackingUrl = formData.get("carrierTrackingUrl");
+    const receiptFiles = formData.getAll("receiptFiles") as File[];
+
+    const now = new Date().toISOString();
+    const response = {
+      disputeId,
+      merchantStatement: String(merchantStatement).trim(),
+      carrierTrackingUrl: carrierTrackingUrl ? String(carrierTrackingUrl).trim() : null,
+      receiptFileCount: receiptFiles.length,
+      submittedAt: now,
+    };
+
+    disputeResponsesByDisputeId.set(disputeId, response);
+    return HttpResponse.json(okResponse(response));
   }),
 ];
 
