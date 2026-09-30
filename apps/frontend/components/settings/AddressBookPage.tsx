@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card } from "@delegolabs/ui";
+import { StrKey } from "@stellar/stellar-sdk";
 import type { NetworkId } from "../../lib/networks";
 import {
   addAddressEntry,
@@ -113,8 +114,9 @@ export function AddressBookPage({ networkId }: AddressBookPageProps) {
     e.target.value = "";
   };
 
+  const isValidAddress = !form.address.trim().startsWith("S") && StrKey.isValidEd25519PublicKey(form.address.trim());
   const isFormValid =
-    form.label.trim().length > 0 && form.address.trim().length > 0;
+    form.label.trim().length > 0 && isValidAddress;
 
   return (
     <section aria-labelledby="address-book-heading">
@@ -201,18 +203,43 @@ export function AddressBookPage({ networkId }: AddressBookPageProps) {
               </div>
               <div className="form-field">
                 <label htmlFor="ab-address">Stellar Address *</label>
-                <input
-                  id="ab-address"
-                  type="text"
-                  value={form.address}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, address: e.target.value }))
-                  }
-                  placeholder="G…"
-                  required
-                  aria-required="true"
-                  style={{ fontFamily: "monospace" }}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    id="ab-address"
+                    type="text"
+                    value={form.address}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, address: e.target.value }))
+                    }
+                    placeholder="G…"
+                    required
+                    aria-required="true"
+                    style={{ fontFamily: "monospace", width: "100%", paddingRight: "30px" }}
+                  />
+                  {form.address.trim().length > 0 && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {form.address.trim().startsWith("S") ? "❌" : StrKey.isValidEd25519PublicKey(form.address.trim()) ? "✅" : "❌"}
+                    </span>
+                  )}
+                </div>
+                {form.address.trim().startsWith("S") && (
+                  <p className="settings-status error" role="alert" style={{ marginTop: "4px" }}>
+                    <strong>Critical Warning:</strong> You pasted a secret key (starts with 'S'). Never share or save your secret key!
+                  </p>
+                )}
+                {!form.address.trim().startsWith("S") && form.address.trim().length > 0 && !StrKey.isValidEd25519PublicKey(form.address.trim()) && (
+                  <p className="settings-status error" role="alert" style={{ marginTop: "4px" }}>
+                    Invalid Stellar address.
+                  </p>
+                )}
               </div>
               <div className="form-field">
                 <label htmlFor="ab-notes">Notes</label>
