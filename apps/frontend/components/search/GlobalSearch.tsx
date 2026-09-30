@@ -79,6 +79,13 @@ export function GlobalSearch() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      setQuery("");
+      setFiltersOpen(false);
+    }
+  };
+
   const cycleTheme = () => {
     const currentIndex = THEME_CYCLE.indexOf(theme);
     const nextTheme = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
@@ -158,7 +165,7 @@ export function GlobalSearch() {
   const showResults = debouncedQuery.length > 0;
 
   return (
-    <div className="global-search">
+    <div className="global-search" onKeyDown={handleKeyDown}>
       <div className="global-search-input-wrap">
         <input
           type="search"
@@ -168,6 +175,7 @@ export function GlobalSearch() {
           aria-label="Search delegations, orders, and transactions"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          className="global-search-input focus-visible-ring"
         />
         <button
           type="button"
@@ -202,7 +210,7 @@ export function GlobalSearch() {
             <p className="global-search-empty">No results found</p>
           ) : (
             groups.map((group) => (
-              <div className="global-search-group" key={group.type}>
+              <div className="global-search-group focus-visible-ring" key={group.type}>
                 <p className="global-search-group-label">{group.label}</p>
                 {group.items.map((item) => (
                   <div
@@ -225,5 +233,16 @@ export function GlobalSearch() {
         </div>
       )}
     </div>
+  );
+}
+
+export function SkipToContent() {
+  return (
+    <a
+      href="#main-content"
+      className="skip-to-content focus-visible-ring"
+    >
+      Skip to main content
+    </a>
   );
 }

@@ -102,6 +102,14 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
             ×
           </button>
         </div>
+        <a
+          href="#main-content"
+          className="focus-visible-ring skip-to-content"
+          onClick={onClose}
+          tabIndex={open ? 0 : -1}
+        >
+          {t("skipToContent")}
+        </a>
         <nav>
           <ul className="nav-list">
             {navItems.map((item) => {
@@ -112,7 +120,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                     href={item.href}
                     // Same policy as the desktop Sidebar — see #621.
                     prefetch={true}
-                    className={`nav-link${isActive ? " active" : ""}`}
+                    className={`nav-link focus-visible-ring${isActive ? " active" : ""}`}
                     aria-current={isActive ? "page" : undefined}
                     onClick={onClose}
                     tabIndex={open ? 0 : -1}

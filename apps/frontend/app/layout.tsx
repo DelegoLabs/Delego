@@ -84,6 +84,12 @@ export default async function RootLayout({
         <StrictMode>
           <NextIntlClientProvider locale={locale} messages={messages}>
             <AppProviders>
+              <a
+                href="#app-content"
+                className="skip-to-content"
+              >
+                Skip to Main Content
+              </a>
               <ServiceWorkerRegistration />
               <AnnouncementBanner />
               <div className="app-shell">
@@ -93,7 +99,9 @@ export default async function RootLayout({
                   <AgentLiveStatusBanner />
                   <TestnetFaucetBanner />
                   <InstallPromptCard />
-                  <main className="app-content">{children}</main>
+                  <main id="app-content" className="app-content" tabIndex={-1}>
+                    {children}
+                  </main>
                 </div>
               </div>
               <AgentFab />
