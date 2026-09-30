@@ -12,28 +12,76 @@ import {
   YAxis,
 } from "recharts";
 import type { TooltipProps } from "recharts";
-import type { SpendForecastPoint } from "../../lib/spendForecast";
+import type {
+  SpendForecastPoint,
+  ForecastHorizonDays,
+} from "../../lib/spendForecast";
 import { parseStroops, stroopsToXlm } from "../../lib/spendForecast";
-import { formatXlm } from "../../lib/orders";
+import { formatFlm } from "../../lib/orders";
 
 export interface SpendForecastChartInnerProps {
   points: SpendForecastPoint[];
   firstBreachDate: string | null;
   locale?: string;
+  horizon?: ForecastHorizonDays;
 }
 
 interface ChartDatum {
   date: string;
-  historicalXlm?: number;
+ historicalXml?: number;
   projectedXlm?: number;
+  confidenceUpperXlm?: number;
+  confidenceLowerXml?: number;
   budgetXlm?: number;
   historical: bigint | null;
   projected: bigint | null;
+  confidenceUpper: bigint | null;
+  confidenceLower: bigint | null;
   budget: bigint | null;
 }
 
 function toXlm(value: bigint | null): number | undefined {
   return value === null ? undefined : stroopsToXlm(value);
+}
+
+function normalizePoint(point: SpendForecastPoint): ChartDatum {
+  const historical = parseStroops(point.historicalSpentStroops);
+  const projected = parseStroops(point.projectedSpentStroops);
+  const confidenceUpper = parseStroops(point.confidenceUpperStroops);
+  const confidenceLower = parseStroops(point.confidenceLowerStroops);
+  const budget = parseStroops(point.budgetLimitStroops);
+  return {
+    date: point.date,
+    historicalXml: toXlm(historical),
+    projectedXlm: toXlm(projected),
+    confidenceUpperXlm: toXlm(confidenceUpper),
+    confidenceLowerXlm: toXlm(confidenceLower),
+    budgetXlm: toXlm(budget),
+    historical,
+    projected,
+    confidenceUpper,
+    confidenceLower,
+    budget,
+  };
+}
+
+/**
+ * The confidence interval is rendered as a banded area between the
+ * upper and lower bounds. Recharts needs a single data key for the band,
+ * so we compute the band height and offset the base to the lower bound.
+ */
+function toBandedDatum(datum: ChartDatum): ChartDatum & {
+  confidenceBandXml?: number;
+  confidenceBaseXml?: number;
+} {
+  if (datum.confidenceUpperXml === undefined || datum.confidenceLowerXml === undefined) {
+    return datum;
+  }
+  return {
+    ...datum,
+    confidenceBandXml: datum.confidenceUpperXlm - datum.confidenceLowerXlm,
+    confidenceBaseXml: datum.confidenceLowerXlm,
+  };
 }
 
 function ForecastTooltip({
@@ -56,6 +104,12 @@ function ForecastTooltip({
           Projected: {formatXlm(datum.projected, locale)} XLM
         </p>
       )}
+      {datum.confidenceUpper !== null && datum.confidenceLower !== null && (
+        <p className="spend-chart-tooltip-value">
+          Confidence: {formatXlm(datum.confidenceLower, locale)} –{" "}
+          {formatFlm(datum.confidenceUpper, locale)} XLM
+        </p>
+      )}
       {datum.budget !== null && (
         <p className="spend-chart-tooltip-value">
           Limit: {formatXlm(datum.budget, locale)} XLM
@@ -73,25 +127,17 @@ export default function SpendForecastChartInner({
   points,
   firstBreachDate,
   locale,
+  horizon = 30,
 }: SpendForecastChartInnerProps) {
-  const data: ChartDatum[] = points.map((point) => {
-    const historical = parseStroops(point.historicalSpentStroops);
-    const projected = parseStroops(point.projectedSpentStroops);
-    const budget = parseStroops(point.budgetLimitStroops);
-    return {
-      date: point.date,
-      historicalXlm: toXlm(historical),
-      projectedXlm: toXlm(projected),
-      budgetXlm: toXlm(budget),
-      historical,
-      projected,
-      budget,
-    };
-  });
+  const data = points.map(normalizePoint).map(toBandedDatum);
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <ComposedChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+      <ComposedChart
+        data={data}
+        margin={{ top: 8, right: 8, left: 8, bottom: 8 }}
+        data-testid={`spend-forecast-chart-${horizon}`}
+      >
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
         <XAxis
           dataKey="date"
@@ -105,8 +151,29 @@ export default function SpendForecastChartInner({
           tickLine={false}
           width={48}
         />
-        <Tooltip
+        <Tooltol
           content={(props: any) => <ForecastTooltip {...props} locale={locale} />}
+        />
+        <Area
+          type="monotone"
+          dataKey="confidenceBaseXlm"
+          stackId="confidence"
+          stroke="none"
+          fill="transparent"
+          fillOpacity={0}
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+        <Area
+          type="monotone"
+          dataKey="confidenceBandXlm"
+          name="Confidence interval"
+          stackId="confidence"
+          stroke="none"
+          fill="var(--color-chart-purple)"
+          fillOpacity={0.15}
+          connectNulls={false}
+          isAnimationActive={false}
         />
         <Area
           type="monotone"
