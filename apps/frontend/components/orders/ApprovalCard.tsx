@@ -279,7 +279,7 @@ export function ApprovalCard({
           <div className="approval-card-total">
             <span>Total:</span>
             <strong className="approval-total-amount">
-              <Amount stroops={order.amount} currency={currencyId as any} xlmUsdRate={rate?.xlmUsdRate} />
+              <Amount stroops={order.amount ?? order.totalStroops} currency={currencyId as any} xlmUsdRate={rate?.xlmUsdRate} />
             </strong>
           </div>
 

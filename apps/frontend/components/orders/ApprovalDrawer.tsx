@@ -344,17 +344,22 @@ export function ApprovalDrawer({
                       </div>
                     </td>
                     <td>{item.quantity}</td>
-                    <td>{formatXlm(item.unitPriceStroops)} XLM</td>
                     <td>
-                      {formatXlm(item.unitPriceStroops * BigInt(item.quantity))}{" "}
-                      XLM
+                      {item.unitPriceStroops !== undefined
+                        ? `${formatXlm(item.unitPriceStroops)} XLM`
+                        : "—"}
+                    </td>
+                    <td>
+                      {item.unitPriceStroops !== undefined
+                        ? `${formatXlm(item.unitPriceStroops * BigInt(item.quantity))} XLM`
+                        : "—"}
                     </td>
                     {priceRangeByProductId && (
                       <td>
                         {range ? (
                           <span
                             className={
-                              item.unitPriceStroops > range.highStroops
+                              (item.unitPriceStroops ?? 0n) > range.highStroops
                                 ? "approval-price-hint approval-price-hint-above"
                                 : "approval-price-hint"
                             }

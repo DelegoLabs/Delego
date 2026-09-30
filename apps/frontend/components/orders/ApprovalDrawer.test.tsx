@@ -444,7 +444,9 @@ describe("ApprovalDrawer", () => {
     const approve = screen.getByRole("button", { name: "Approve" });
     expect(approve).toBeDisabled();
 
-    await user.click(screen.getByRole("checkbox"));
+    await user.click(
+      screen.getByRole("checkbox", { name: "Acknowledge above-range price" })
+    );
     expect(approve).toBeEnabled();
     await user.click(approve);
     expect(onApprove).toHaveBeenCalledWith("order-1");
@@ -465,7 +467,9 @@ describe("ApprovalDrawer", () => {
         onClose={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Acknowledge above-range price" })
+    );
     unmount();
 
     // A different above-range order opened later this session: no re-tick needed.
@@ -479,7 +483,9 @@ describe("ApprovalDrawer", () => {
       />
     );
     expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
-    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Acknowledge above-range price" })
+    ).toBeChecked();
   });
 
   it("traps focus inside the dialog while open", () => {

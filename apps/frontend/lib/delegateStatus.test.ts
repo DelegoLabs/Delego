@@ -12,7 +12,7 @@ function mk(overrides: Partial<Delegation> = {}): Delegation {
     userId: "u1",
     agentId: "a1",
     status: "active",
-    policy: { maxPerTransaction: "0", maxTotal: "1000", allowedMerchants: [] },
+    policy: { maxPerTransaction: 0n, maxTotal: 1000n, allowedMerchants: [] },
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
     ...overrides,
@@ -47,8 +47,8 @@ describe("deriveDelegateChip", () => {
       mk({
         status: "active",
         policy: {
-          maxPerTransaction: "0",
-          maxTotal: "1000",
+          maxPerTransaction: 0n,
+          maxTotal: 1000n,
           allowedMerchants: [],
           expiresAt: "2020-01-01T00:00:00Z",
         },

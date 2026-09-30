@@ -147,6 +147,37 @@ if (
  * to these defaults in `afterEach` via `resetHandlers`.
  */
 beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }));
+
+/**
+ * jsdom's AbortSignal is a *different class* from the one @mswjs/interceptors
+ * validates against (its CJS bundle captures Node's native class when first
+ * required, which races with the per-file jsdom environment swap). Any fetch
+ * called with `signal: controller.signal` — as `useOrders` always does —
+ * throws before reaching MSW handlers:
+ *
+ *   TypeError: RequestInit: Expected signal ("AbortSignal {}") to be an
+ *   instance of AbortSignal.
+ *
+ * Fix: registered AFTER the MSW `beforeAll` above (hooks run in registration
+ * order), this wrapper strips the signal before the interceptor proxy sees
+ * it. An already-aborted signal still rejects immediately, and `useOrders`
+ * re-checks `signal.aborted` after every await, so dropping the physical
+ * cancellation has no observable effect under MSW (handlers settle at once).
+ */
+beforeAll(() => {
+  const interceptedFetch = globalThis.fetch;
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.signal) {
+      const { signal, ...rest } = init;
+      if (signal.aborted) {
+        return Promise.reject(new DOMException("The operation was aborted.", "AbortError"));
+      }
+      return interceptedFetch(input, rest as RequestInit);
+    }
+    return interceptedFetch(input, init);
+  }) as typeof fetch;
+});
+
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 

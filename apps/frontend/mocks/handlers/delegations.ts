@@ -16,7 +16,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.example.com";
 
 let delegations =
   process.env.NEXT_PUBLIC_SEED_DEMO === "true"
-    ? (generateDemoWorld().delegations as Delegation[])
+    ? (generateDemoWorld().delegations as unknown as Delegation[])
     : buildDelegationList(5);
 
 /** Reset in-memory fixture state between tests. */

@@ -55,8 +55,17 @@ function shouldRetryResponse(response: Response) {
   return response.status === 429 || response.status >= 500;
 }
 
+/**
+ * Late-bound default base fetch: resolves `globalThis.fetch` at call time
+ * rather than capturing it at import time. Test runners (MSW) and other
+ * tooling patch `globalThis.fetch` *after* this module is evaluated, so a
+ * captured reference would silently bypass every interceptor and hit the
+ * real network.
+ */
+const lateBoundFetch: typeof fetch = (...args) => fetch(...args);
+
 export function createRetryingFetch(
-  baseFetch: typeof fetch = fetch,
+  baseFetch: typeof fetch = lateBoundFetch,
   retryOptions: RetryOptions = {}
 ): typeof fetch {
   const options = { ...DEFAULT_RETRY_OPTIONS, ...retryOptions };

@@ -24,8 +24,8 @@
   },
   "dependencies": {
     "@delegolabs/api-generated": "workspace:*",
-    "@delegolabs/sdk": "^0.0.1",
-    "@delegolabs/types": "^0.1.1",
+    "@delegolabs/sdk": "workspace:*",
+    "@delegolabs/types": "workspace:*",
     "@delegolabs/ui": "workspace:*",
     "@tanstack/react-virtual": "^3.10.9",
     "@sentry/nextjs": "^8.47.0",

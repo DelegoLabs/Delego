@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { activeNavHref, navItems } from "./navItems";
 import { useTour } from "../tour/TourProvider";
 import { useDataSaver } from "../../hooks/useDataSaver";
+import { ApprovalsBadge } from "../approvals/ApprovalsBadge";
 
 /**
  * Desktop sidebar navigation.
@@ -42,6 +43,7 @@ export function Sidebar() {
                     {item.icon}
                   </span>
                   {t(item.labelKey)}
+                  {item.labelKey === "approvals" && <ApprovalsBadge />}
                 </Link>
               </li>
             );

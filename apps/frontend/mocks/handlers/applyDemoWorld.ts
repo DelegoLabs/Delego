@@ -11,7 +11,7 @@ import { seedDisputes } from "./disputes";
  * to prove the snapshot is consumable by the existing handler suite.
  */
 export function applyDemoWorld(world = generateDemoWorld()) {
-  seedDelegations(world.delegations as Delegation[]);
+  seedDelegations(world.delegations as unknown as Delegation[]);
   seedOrders(world.orders as unknown as Order[]);
   seedEscrows(world.escrows as unknown as Escrow[]);
   seedDisputes(world.disputes as any[]);

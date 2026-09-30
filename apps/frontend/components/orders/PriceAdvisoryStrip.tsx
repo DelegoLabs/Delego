@@ -58,6 +58,7 @@ export function PriceAdvisoryStrip({
         <label className="approval-advisory-ack">
           <input
             type="checkbox"
+            aria-label="Acknowledge above-range price"
             checked={acknowledged}
             onChange={(e) => onAcknowledgedChange(e.target.checked)}
           />

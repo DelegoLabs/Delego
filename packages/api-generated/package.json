@@ -16,10 +16,10 @@
     "generate": "node scripts/generate.mjs",
     "check:drift": "node scripts/check-drift.mjs",
     "typecheck": "tsc --noEmit",
-    "build": "echo 'Source-only package — no build step needed'"
+    "build": "echo 'Source-only package \u2014 no build step needed'"
   },
   "devDependencies": {
-    "@delegolabs/types": "^0.1.1",
+    "@delegolabs/types": "workspace:*",
     "typescript": "^5.7.0"
   }
 }

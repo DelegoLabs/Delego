@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { activeNavHref, navItems } from "./navItems";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { ApprovalsBadge } from "../approvals/ApprovalsBadge";
 
 export interface MobileNavProps {
   /** Whether the drawer is currently open */
@@ -93,6 +94,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                       {item.icon}
                     </span>
                     {t(item.labelKey)}
+                    {item.labelKey === "approvals" && <ApprovalsBadge />}
                   </Link>
                 </li>
               );

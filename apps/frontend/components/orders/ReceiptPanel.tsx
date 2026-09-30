@@ -102,18 +102,26 @@ export function ReceiptPanel({ order }: ReceiptPanelProps) {
                 <td>{item.productId}</td>
                 <td>{item.quantity}</td>
                 <td>
-                  <Amount
-                    stroops={item.unitPriceStroops}
-                    currency={currencyId}
-                    xlmUsdRate={rate?.xlmUsdRate}
-                  />
+                  {item.unitPriceStroops !== undefined ? (
+                    <Amount
+                      stroops={item.unitPriceStroops}
+                      currency={currencyId}
+                      xlmUsdRate={rate?.xlmUsdRate}
+                    />
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td>
-                  <Amount
-                    stroops={item.unitPriceStroops * BigInt(item.quantity)}
-                    currency={currencyId}
-                    xlmUsdRate={rate?.xlmUsdRate}
-                  />
+                  {item.unitPriceStroops !== undefined ? (
+                    <Amount
+                      stroops={item.unitPriceStroops * BigInt(item.quantity)}
+                      currency={currencyId}
+                      xlmUsdRate={rate?.xlmUsdRate}
+                    />
+                  ) : (
+                    "—"
+                  )}
                 </td>
               </tr>
             ))}

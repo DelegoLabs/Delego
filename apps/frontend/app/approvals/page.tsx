@@ -11,6 +11,11 @@ import { useNotifications } from "../../hooks/useNotifications";
 import { useApprovalNotifications } from "../../hooks/useApprovalNotifications";
 import { useQueryParamState } from "../../hooks/useQueryParamState";
 import {
+  usePendingApprovals,
+  type PendingApprovalItem,
+} from "../../hooks/usePendingApprovals";
+import { useWallet } from "../../hooks/useWallet";
+import {
   HIGH_VALUE_THRESHOLD_STROOPS,
   needsApproval,
   sortOrders,
@@ -19,6 +24,7 @@ import {
 import { STALE_DIGEST_THRESHOLD_HOURS, countStaleApprovals } from "../../lib/approvals";
 import { ApprovalDrawer } from "../../components/orders/ApprovalDrawer";
 import { VirtualApprovalList } from "../../components/orders/VirtualApprovalList";
+import { MultiSigApprovalQueue } from "../../components/approvals/MultiSigApprovalQueue";
 import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
 import { HelpLink } from "../../components/help/HelpLink";
 import { ConflictResolutionCard } from "../../components/offline/ConflictResolutionCard";
@@ -53,6 +59,43 @@ export default function ApprovalsPage() {
 
   const { announce } = useAnnounce();
   const { currencyId, rate } = useCurrency();
+
+  // ── Multi-sig dual-control queue (#780) ──────────────────────────────────
+  const {
+    items: multiSigItems,
+    loading: multiSigLoading,
+    error: multiSigError,
+    pendingIds: multiSigPendingIds,
+    approve: multiSigApprove,
+    reject: multiSigReject,
+  } = usePendingApprovals();
+
+  const { address: walletAddress } = useWallet();
+
+  const handleMultiSigApprove = useCallback(
+    async (item: PendingApprovalItem, approverAddress: string) => {
+      const ok = await multiSigApprove(item.orderId, approverAddress);
+      announce(
+        ok
+          ? `Order ${item.orderId} approved and signed.`
+          : `Failed to approve order ${item.orderId}.`
+      );
+    },
+    [multiSigApprove, announce]
+  );
+
+  const handleMultiSigReject = useCallback(
+    async (item: PendingApprovalItem, approverAddress: string) => {
+      const ok = await multiSigReject(item.orderId, approverAddress);
+      announce(
+        ok
+          ? `Order ${item.orderId} rejected.`
+          : `Failed to reject order ${item.orderId}.`
+      );
+    },
+    [multiSigReject, announce]
+  );
+  // ── /Multi-sig dual-control queue ────────────────────────────────────────
 
   const handleApprove = useCallback(
     async (id: string) => {
@@ -179,6 +222,24 @@ export default function ApprovalsPage() {
           Sort: {oldestFirst ? "Oldest first" : "Newest first"}
         </Button>
       </div>
+
+      {/* ── Multi-sig dual-control queue (#780) ────────────────────────── */}
+      <section aria-labelledby="multi-sig-heading" style={{ marginBottom: "1.5rem" }}>
+        <h2 id="multi-sig-heading" style={{ marginBottom: "0.75rem" }}>
+          Multi-Sig Pending Signatures
+        </h2>
+        <MultiSigApprovalQueue
+          items={multiSigItems}
+          pendingIds={multiSigPendingIds}
+          loading={multiSigLoading}
+          error={multiSigError}
+          approverAddress={walletAddress ?? null}
+          onApprove={handleMultiSigApprove}
+          onReject={handleMultiSigReject}
+          now={now}
+        />
+      </section>
+      {/* ── /Multi-sig dual-control queue ──────────────────────────────── */}
 
       {loading && orders.length === 0 ? (
         <div className="card skeleton">
