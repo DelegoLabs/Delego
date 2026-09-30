@@ -26,6 +26,7 @@ import { DataErasureCard } from "../../components/settings/DataErasureCard";
 import { KillSwitchCard } from "../../components/settings/KillSwitchCard";
 import { ConsentSettingsCard } from "../../components/settings/ConsentSettingsCard";
 import { AgentSettingsCard } from "../../components/settings/AgentSettingsCard";
+import { AgentUserPreferencesList } from "../../components/settings/AgentUserPreferencesList";
 import type { AgentPersonaConfig } from "../../lib/agentConfig";
 import { MerchantWebhookCard } from "../../components/settings/MerchantWebhookCard";
 import { CategoryBudgetAllocationCard } from "../../components/settings/CategoryBudgetAllocationCard";
@@ -302,6 +303,7 @@ export default function SettingsPage() {
         onSave={handleSaveCategoryBudgets}
       />
       <AgentSettingsCard config={PLACEHOLDER_AGENT_CONFIG} />
+      <AgentUserPreferencesList />
       <MerchantWebhookCard />
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
         <Link href="/settings/webhooks/logs" prefetch={true}>

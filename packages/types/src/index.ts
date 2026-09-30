@@ -284,4 +284,10 @@ export interface ApiResponse<T> {
   error: ApiError | null;
 }
 
+export interface UserPreferenceItem {
+  key: string;
+  value: string;
+  learnedFromOrder?: string;
+}
+
 export * from "./schemas.js";
