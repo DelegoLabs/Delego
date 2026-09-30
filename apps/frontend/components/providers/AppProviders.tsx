@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 
 import { NetworkProvider } from "../../hooks/useNetwork";
 import { NotificationProvider } from "../../hooks/useNotifications";
@@ -22,6 +23,13 @@ import { IdleSessionGuard } from "../session/IdleSessionGuard";
 import { DomainWarningBanner } from "../security/DomainWarningBanner";
 import { ConsentBanner } from "../consent/ConsentBanner";
 import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvider";
+
+// Ephemeral session signing keys live only inside this worker's isolated
+// memory. Loaded client-side only so it never runs during SSR.
+const SessionKeyWorkerProvider = dynamic(
+  () => import("../session/SessionKeyWorkerProvider").then((m) => m.SessionKeyWorkerProvider),
+  { ssr: false },
+);
 
 /**
  * Client-side context providers shared across the app shell.
@@ -57,6 +65,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
                 <AnnounceProvider>
                   <NotificationProvider>
                     <TourProvider>
+                      <SessionKeyWorkerProvider>
                       <CommandPaletteProvider>
                         <DomainWarningBanner />
                         <ConsentBanner />
@@ -68,6 +77,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
                         <NetworkMismatchModal />
                         <IdleSessionGuard />
                       </CommandPaletteProvider>
+                      </SessionKeyWorkerProvider>
                     </TourProvider>
                   </NotificationProvider>
                 </AnnounceProvider>

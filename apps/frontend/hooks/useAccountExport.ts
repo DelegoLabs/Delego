@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { User, UserPreferences } from "@delegolabs/types";
 import { buildAccountExport, type ExportProgress } from "../lib/export";
 import { downloadBlob } from "../lib/download";
+import type { SessionKeyWorkerMessage } from "../lib/sessionKeyWorker";
 
 export type ExportStatus = "idle" | "running" | "done" | "cancelled" | "error";
 
@@ -21,8 +22,18 @@ export function useAccountExport(): UseAccountExportResult {
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
+  const workerRef = useRef<Worker | null>(null);
 
   const start = useCallback((user: User, preferences: UserPreferences) => {
+    // Ephemeral session signing keys live only inside the worker; never in localStorage.
+    if (typeof window !== "undefined" && !workerRef.current) {
+      workerRef.current = new Worker(
+        new URL("../workers/sessionKey.worker.ts", import.meta.url),
+        { type: "module" },
+      );
+      const init: SessionKeyWorkerMessage = { type: "INIT_KEY" };
+      workerRef.current.postMessage(init);
+    }
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -54,7 +65,19 @@ export function useAccountExport(): UseAccountExportResult {
     controllerRef.current?.abort();
   }, []);
 
-  useEffect(() => () => controllerRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      controllerRef.current?.abort();
+      // Wipe ephemeral key memory on unmount / page close.
+      if (workerRef.current) {
+        const clear: SessionKeyWorkerMessage = { type: "CLEAR_KEY" };
+        workerRef.current.postMessage(clear);
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+    },
+    [],
+  );
 
   return { status, progress, error, start, cancel };
 }
