@@ -14,6 +14,8 @@ export { EvidenceLightbox } from "./EvidenceLightbox";
 export type { EvidenceLightboxProps } from "./EvidenceLightbox";
 export { ResolutionCountdown } from "./ResolutionCountdown";
 export type { ResolutionCountdownProps } from "./ResolutionCountdown";
+export { DisputeResponseDrawer } from "./DisputeResponseDrawer";
+export type { DisputeResponseDrawerProps } from "./DisputeResponseDrawer";
 export { TimeoutRefundButton } from "./TimeoutRefundButton";
 export type { TimeoutRefundButtonProps } from "./TimeoutRefundButton";
 export { ReturnLabelModal } from "./ReturnLabelModal";

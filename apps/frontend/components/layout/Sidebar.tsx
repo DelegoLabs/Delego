@@ -21,6 +21,9 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar" aria-label={t("primaryNavigation")}>
+      <a href="#main-content" className="skip-link focus-visible-ring">
+        {t("skipToContent")}
+      </a>
       <p className="sidebar-brand">{tApp("brand")}</p>
       <nav>
         <ul className="nav-list">
@@ -34,7 +37,7 @@ export function Sidebar() {
                   // destinations, so eager viewport prefetch is worth the
                   // bandwidth (docs/architecture/prefetch-policy.md, #621).
                   prefetch={reducedModeActive ? false : true}
-                  className={`nav-link${isActive ? " active" : ""}`}
+                  className={`nav-link focus-visible-ring${isActive ? " active" : ""}`}
                   aria-current={isActive ? "page" : undefined}
                   data-nav={item.labelKey}
                 >
@@ -54,6 +57,7 @@ export function Sidebar() {
         <button
           type="button"
           onClick={start}
+          className="focus-visible-ring"
           style={{
             display: "flex",
             alignItems: "center",

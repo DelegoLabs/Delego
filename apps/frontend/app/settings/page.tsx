@@ -28,6 +28,8 @@ import { ConsentSettingsCard } from "../../components/settings/ConsentSettingsCa
 import { AgentSettingsCard } from "../../components/settings/AgentSettingsCard";
 import type { AgentPersonaConfig } from "../../lib/agentConfig";
 import { MerchantWebhookCard } from "../../components/settings/MerchantWebhookCard";
+import { CategoryBudgetAllocationCard } from "../../components/settings/CategoryBudgetAllocationCard";
+import type { CategoryBudgetAllocation } from "../../components/settings/CategoryBudgetAllocationCard";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -75,6 +77,18 @@ const PLACEHOLDER_PREFERENCES: UserPreferences = {
  */
 const PLACEHOLDER_ACTIVE_DELEGATION_COUNT = 3;
 
+/**
+ * Placeholder category budget allocations until the API exposes a budget
+ * allocation endpoint. TODO: replace with a `useCategoryBudgets` hook once
+ * that read endpoint exists in @delegolabs/sdk.
+ */
+const PLACEHOLDER_CATEGORY_BUDGETS: CategoryBudgetAllocation[] = [
+  { category: "Groceries", monthlyLimitStroops: 500000000n, currentSpentStroops: 320000000n },
+  { category: "Dining", monthlyLimitStroops: 300000000n, currentSpentStroops: 285000000n },
+  { category: "Transport", monthlyLimitStroops: 200000000n, currentSpentStroops: 90000000n },
+  { category: "Entertainment", monthlyLimitStroops: 150000000n, currentSpentStroops: 40000000n },
+  { category: "Utilities", monthlyLimitStroops: 250000000n, currentSpentStroops: 110000000n },
+];
 /** Props for the emergency delegation kill-switch modal. */
 export interface KillSwitchModalProps {
   activeDelegationCount: number;
@@ -202,6 +216,9 @@ export default function SettingsPage() {
     PLACEHOLDER_PREFERENCES
   );
   const [isKillSwitchOpen, setIsKillSwitchOpen] = useState(false);
+  const [categoryBudgets, setCategoryBudgets] = useState<
+    CategoryBudgetAllocation[]
+  >(PLACEHOLDER_CATEGORY_BUDGETS);
 
   const handleSaveProfile = async (values: ProfileFormValues) => {
     // TODO: persist via api.updateProfile(values) once the endpoint exists.
@@ -213,6 +230,13 @@ export default function SettingsPage() {
     setPreferences((prev) => ({ ...prev, ...values }));
   };
 
+  const handleSaveCategoryBudgets = async (
+    allocations: CategoryBudgetAllocation[]
+  ) => {
+    // TODO: persist via api.updateCategoryBudgets(allocations) once the
+    // endpoint exists in @delegolabs/sdk.
+    setCategoryBudgets(allocations);
+  };
   const handleConfirmRevokeAll = async () => {
     // TODO: broadcast revocation on-chain via api.revokeAllDelegations() once
     // the endpoint exists in @delegolabs/sdk.
@@ -273,6 +297,10 @@ export default function SettingsPage() {
       <TimeFormatSwitcher />
       <ChatAudioSettingsCard />
       <NetworkContractsCard />
+      <CategoryBudgetAllocationCard
+        allocations={categoryBudgets}
+        onSave={handleSaveCategoryBudgets}
+      />
       <AgentSettingsCard config={PLACEHOLDER_AGENT_CONFIG} />
       <MerchantWebhookCard />
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>

@@ -60,7 +60,7 @@ function applyPreferences(prefs: A11yPreferences): void {
   html.dataset.underlineLinks = prefs.underlineLinks ? "true" : "false";
 }
 
-export interface UseAccessibilityReturn {
+export interface UseA11yReturn {
   preferences: A11yPreferences;
   setTextScale: (scale: number) => void;
   setHighContrast: (enabled: boolean) => void;
@@ -69,7 +69,7 @@ export interface UseAccessibilityReturn {
   resetToDefaults: () => void;
 }
 
-export function useAccessibility(): UseAccessibilityReturn {
+export function useA11y(): UseA11yReturn {
   const [preferences, setPreferencesState] = useState<A11yPreferences>(
     DEFAULT_A11Y_PREFERENCES
   );
@@ -81,7 +81,7 @@ export function useAccessibility(): UseAccessibilityReturn {
   }, []);
 
   const updatePreferences = useCallback(
-    (updater: (prev: A11yPreferences) => A11yPreferences) => {
+    (updater: (prev: A11yPreferences) => A411yPreferences) => {
       setPreferencesState((prev) => {
         const next = updater(prev);
         try {
