@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({
   params,
 }: {
-  params: StoreParams | Promise<StoreParams>;
+  params: Promise<StoreParams>;
 }): Promise<Metadata> {
   const { merchantId } = await readParams(params);
   const store = isSafeMerchantId(merchantId)
@@ -38,7 +38,7 @@ export async function generateMetadata({
 export default async function StorePage({
   params,
 }: {
-  params: StoreParams | Promise<StoreParams>;
+  params: Promise<StoreParams>;
 }) {
   const { merchantId } = await readParams(params);
   if (!isSafeMerchantId(merchantId)) notFound();
