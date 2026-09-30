@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StrKey } from "@stellar/stellar-sdk";
 import { Stepper } from "@delegolabs/ui";
 import { useWallet } from "../../../hooks/useWallet";
@@ -15,6 +15,13 @@ import {
   type OnboardingStep,
 } from "../../../lib/merchantRegistration";
 import {
+  encryptKycDocument,
+  uploadKycDocument,
+  pollKycVerificationStatus,
+  type KycDocumentType,
+  type KycVerificationStatus,
+} from "../../../lib/kycUpload";
+import {
   WALLET_CANCELLED_MESSAGE,
   WalletActionError,
   classifyWalletError,
@@ -27,6 +34,14 @@ const STEPS: { id: OnboardingStep; label: string }[] = [
   { id: "contract_register", label: "Register" },
   { id: "complete", label: "Complete" },
 ];
+
+const KYC_DOCUMENT_TYPES: { value: KycDocumentType; label: string }[] = [
+  { value: "passport", label: "Passport" },
+  { value: "id_card", label: "Identity card" },
+  { value: "business_license", label: "Business license" },
+];
+
+const MAX_KYC_FILE_BYTES = 10 * 1024 * 1024;
 
 const EMPTY_FORM: MerchantRegistrationForm = {
   storeName: "",
@@ -50,6 +65,17 @@ export default function MerchantRegisterPage() {
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
+
+  // KYC uploader state
+  const [kycDocumentType, setKycDocumentType] = useState<KycDocumentType>("passport");
+  const [kycFile, setKycFile] = useState<File | null>(null);
+  const [kycError, setKycError] = useState<string | null>(null);
+  const [kycUploading, setKycUploading] = useState(false);
+  const [kycProgress, setKycProgress] = useState(0);
+  const [kycUploadId, setKycUploadId] = useState<string | null>(null);
+  const [kycStatus, setKycStatus] = useState<KycVerificationStatus | null>(null);
+  const [kycPollingError, setKycPollingError] = useState<string | null>(null);
+  const kycPollAbortRef = useRef<AbortController | null>(null);
 
   const step = STEPS[stepIndex].id;
 
@@ -108,6 +134,83 @@ export default function MerchantRegisterPage() {
     }
   }
 
+  const handleKycFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setKycError(null);
+    const file = e.target.files?.[0] ?? null;
+    if (!file) {
+      setKycFile(null);
+      return;
+    }
+    if (file.size > MAX_KYC_FILE_BYTES) {
+      setKycError("KyC documents must be 10 MB or smaller.");
+      setKycFile(null);
+      return;
+    }
+    setKycFile(file);
+  }, []);
+
+  const handleKycUpload = useCallback(async () => {
+    if (!kycFile) {
+      setKycError("Select a document to upload.");
+      return;
+    }
+    if (!walletProof?.signerAddress) {
+      setKycError("Wallet verification is required before uploading KYC documents.");
+      return;
+    }
+    setKycError(null);
+    setKycPollingError(null);
+    setKycUploading(true);
+    setKycProgress(0);
+    try {
+      const encrypted = await encryptKycDocument(kycFile);
+      const result = await uploadKycDocument(
+        {
+          documentType: kycDocumentType,
+          encryptedFileBlob: encrypted.blob,
+          merchantId: walletProof.signerAddress,
+        },
+        {
+          onProgress: (percent) => setKycProgress(percent),
+          signerAddress: walletProof.signerAddress,
+        }
+      );
+      setKycUploadId(result.uploadId);
+      setKycStatus(result.status);
+      setKycProgress(100);
+    } catch (err) {
+      setKycError(err instanceof Error ? err.message : "KYC document upload failed.");
+    } finally {
+      setKycUploading(false);
+    }
+  }, [kycFile, kycDocumentType, walletProof]);
+
+  // Poll verification status while the upload is pending.
+  useEffect(() => {
+    if (!kycUploadId || !walletProof?.signerAddress) {
+      return;
+    }
+    if (kycStatus && kycStatus !== "pending") {
+      return;
+    }
+    const controller = new AbortController();
+    kycPollAbortRef.current = controller;
+    pollKycVerificationStatus(kycUploadId, {
+      signerAddress: walletProof.signerAddress,
+      signal: controller.signal,
+      onStatus: (status) => setKycStatus(status),
+    }).catch((err) => {
+      if (controller.signal.aborted) return;
+      setKycPollingError(err instanceof Error ? err.message : "Unable to poll verification status.");
+    });
+    return () => {
+      controller.abort();
+      if (kycPollAbortRef.current === controller) {
+        kycPollAbortRef.current = null;
+      }
+    };
+  }, [kycUploadId, kycStatus, walletProof]);
+
   async function handleRegister() {
     if (!walletProof) return;
     setRegistering(true);
@@ -125,11 +228,24 @@ export default function MerchantRegisterPage() {
 
   const explorerUrl = transactionHash ? resolveProofHashExplorerUrl(transactionHash, network.id) : null;
 
+  const kycStatusLabel = (function () {
+    switch (kycStatus) {
+      case "pending":
+        return "Verification pending";
+      case "verified":
+        return "Verified";
+      case "rejected":
+        return "Rejected";
+      default:
+        return null;
+    }
+  })();
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", maxWidth: 520 }}>
       <h1>Register your store</h1>
 
-      <Stepper steps={STEPS} currentIndex={stepIndex} />
+      <Stepper steps={STEPP} currentIndex={stepIndex} />
 
       {step === "store_info" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
@@ -138,7 +254,7 @@ export default function MerchantRegisterPage() {
               ["storeName", "Store name", "text"],
               ["contactEmail", "Contact email", "email"],
               ["stellarPayoutAddress", "Stellar payout address", "text"],
-              ["websiteUrl", "Website URL (optional)", "url"],
+              ["websiteUrl", "Website URL ((optional)", "url"],
             ] as const
           ).map(([field, label, type]) => (
             <label key={field} style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
@@ -241,6 +357,135 @@ export default function MerchantRegisterPage() {
             Wallet verified as <code>{walletProof?.signerAddress}</code>. Submit your registration to the
             delego-marketplace contract.
           </p>
+
+          <fieldset
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem",
+              border: "1px solid #e5e7eb",
+              borderRadius: "0.5rem",
+              padding: "0.75rem",
+            }}
+          >
+            <legend style={{ fontSize: "0.8125rem", fontWeight: 600 }}>
+              Tier-2 KYC document
+            </legend>
+            <p style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+              Documents are encrypted in your browser before upload. Only the verification
+              service can decrypt them.
+            </p>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Document type</span>
+              <select
+                value={kycDocumentType}
+                onChange={(e) => setKycDocumentType(e.target.value as KycDocumentType)}
+                disabled={kycUploading}
+                style={{ padding: "0.5rem 0.625rem", borderRadius: "0.5rem", border: "1px solid #d1d5db" }}
+              >
+                {KYC_DOCUMENT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Document file</span>
+              <input
+                type="file"
+                accept="application/pdf,image/png,image/jpeg,image/webp"
+                onChange={handleKycFileChange}
+                disabled={kycUploading}
+                style={{ fontSize: "0.8125rem" }}
+              />
+              {kycFile && (
+                <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+                  {kycFile.name} ({Math.round(kycFile.size / 1024)} KB)
+                </span>
+              )}
+            </label>
+
+            {kycUploading || kycProgress > 0 || kycUploadId ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <div
+                  role="progressbar"
+                  aria-valuenow={Math.round(kycProgress)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Kow document upload progress"
+                  style={{
+                    width: "100%",
+                    height: 8,
+                    backgroundColor: "#e5e7eb",
+                    borderRadius: 999,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.min(100, Math.max(0, kycProgress))}%`,
+                      height: "100%",
+                      backgroundColor: "#2563eb",
+                      transition: "width 0.2s ease-out",
+                    }}
+                  />
+                </div>
+                <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+                  {kycUploading ? `Uploading … ${Math.round(kycProgress)}%` : `Upload complete (${Math.round(kycProgress)}%)`}
+                </span>
+              </div>
+            ) : null}
+
+            {kycUploadId && kycStatusLabel && (
+              <p role="status" aria-live="polite" style={{ fontSize: "0.8125rem", color: "#374151" }}>
+                Verification status: {kycStatusLabel}
+              </p>
+            )}
+
+            {kycPollingError && (
+              <p role="alert" style={{ fontSize: "0.8125rem", color: "#dc2626" }}>
+                {kycPollingError}
+              </p>
+            )}
+
+            {kycPollingError && kycUploadId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setKycPollingError(null);
+                  setKycStatus("pending");
+                }}
+                style={{ alignSelf: "flex-start", padding: "0.375rem 0.75rem", borderRadius: "0.5rem", border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}
+              >
+                Retry status check
+              </button>
+            )}
+
+            {kycUploadId && kycStatus === "verified" && (
+              <p style={{ fontSize: "0.8125rem", color: "#166534" }}>
+                Tier-2 trading is enabled for your account.
+              </p>
+            )}
+
+            {kycError && (
+              <p role="alert" style={{ fontSize: "0.8125rem", color: "#dc2626" }}>
+                {kycError}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleKycUpload}
+              disabled={kycUploading || !kycFile}
+              style={{ alignSelf: "flex-start", padding: "0.5rem 0.875rem", borderRadius: "0.5rem", border: "none", background: "#2563eb", color: "#fff", fontWeight: 600, cursor: kycUploading ? "wait" : "pointer" }}
+            >
+              {kycUploading ? "Encrypting & uploading…" : kycUploadId ? "Replace document" : "Encrypt & upload"}
+            </button>
+          </fieldset>
+
           {registerError && (
             <p role="alert" style={{ fontSize: "0.8125rem", color: "#dc2626" }}>
               {registerError}
