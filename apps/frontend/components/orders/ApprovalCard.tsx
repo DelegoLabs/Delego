@@ -14,6 +14,10 @@ import {
   useDemoModeGuard,
   DEMO_MODE_BLOCKED_MESSAGE,
 } from "../../hooks/useDemoModeGuard";
+import {
+  useOnlineStatus,
+  OFFLINE_BLOCKED_MESSAGE,
+} from "../../hooks/useOnlineStatus";
 import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
 import { DelegationTagBadge } from "../delegations/public";
 import { useDelegationTags } from "../../hooks/useDelegationTags";
@@ -73,6 +77,7 @@ export function ApprovalCard({
   const { currencyId, rate } = useCurrency();
   const { announce } = useAnnounce();
   const { isDemoMode, guard } = useDemoModeGuard();
+  const { isOffline } = useOnlineStatus();
   const { getTag } = useDelegationTags();
   const tag = getTag(order.delegationId);
 
@@ -91,13 +96,15 @@ export function ApprovalCard({
     dualControlFlagEnabled && dualControlCapable && order.dualControl?.required === true;
   const [dcSubmitting, setDcSubmitting] = useState(false);
 
-  const disabled = pending || dcSubmitting || isMismatched || isDemoMode;
+  const disabled = pending || dcSubmitting || isMismatched || isDemoMode || isOffline;
 
-  const actionTitle = isDemoMode
-    ? DEMO_MODE_BLOCKED_MESSAGE
-    : isMismatched
-      ? "Cannot execute action while wallet and app network are mismatched"
-      : undefined;
+  const actionTitle = isOffline
+    ? OFFLINE_BLOCKED_MESSAGE
+    : isDemoMode
+      ? DEMO_MODE_BLOCKED_MESSAGE
+      : isMismatched
+        ? "Cannot execute action while wallet and app network are mismatched"
+        : undefined;
 
   const handleApprove = guard(async () => {
     const trimmedNote = note.trim();

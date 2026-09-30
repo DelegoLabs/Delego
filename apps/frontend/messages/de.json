@@ -3,6 +3,9 @@
     "brand": "Delego",
     "tagline": "Delegiere Einkäufe an KI-Agenten mit Ausgabenkontrolle"
   },
+  "offline": {
+    "banner": "Offline-Modus — Nur Browsen"
+  },
   "nav": {
     "dashboard": "Übersicht",
     "delegations": "Delegationen",

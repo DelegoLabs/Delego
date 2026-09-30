@@ -290,4 +290,16 @@ export interface UserPreferenceItem {
   learnedFromOrder?: string;
 }
 
+/**
+ * Connectivity snapshot surfaced by the frontend's `useOnlineStatus` hook
+ * (#773). `cachedOrdersCount`/`lastSyncedAt` describe what is readable from
+ * the offline cache while disconnected so the storefront can stay browsable
+ * and CTAs can be gated honestly.
+ */
+export interface OfflineStatus {
+  isOffline: boolean;
+  cachedOrdersCount: number;
+  lastSyncedAt: Date | null;
+}
+
 export * from "./schemas.js";
