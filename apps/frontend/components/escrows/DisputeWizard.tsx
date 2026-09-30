@@ -1,271 +1,273 @@
+"use client";
+
 import { useState } from "react";
-import { Stepper, Button, Card, FormField } from "@delegolabs/ui";
-import type { DisputeReason, DisputeInitiationForm } from "@delegolabs/types";
-import { DISPUTE_REASON_OPTIONS } from "../../../lib/disputes";
+import { Button, Stepper } from "@delegolabs/ui";
+import { DisputeDropzone } from "./DisputeDropzone";
+import { blobToDataUrl, scrubExifMetadata } from "../../lib/exif";
+import { useDemoModeGuard } from "../../hooks/useDemoModeGuard";
+import {
+  DISPUTE_WIZARD_OUTCOMES,
+  DISPUTE_WIZARD_OUTCOME_LABELS,
+  DISPUTE_WIZARD_REASONS,
+  DISPUTE_WIZARD_REASON_LABELS,
+  DISPUTE_WIZARD_STEPS,
+  MAX_DESCRIPTION_LENGTH,
+  buildCreateDisputeInput,
+  createEmptyDisputeFormDraft,
+  hasErrors,
+  isDisputeFormComplete,
+  validateDisputeStep,
+  type DisputeFieldErrors,
+  type DisputeFormDraft,
+} from "../../lib/disputeWizard";
 
 export interface DisputeWizardProps {
-  escrowId: string;
-  escrowStatus: string;
-  initialData?: Partial<DisputeInitiationForm>;
-  onSubmit: (formData: DisputeInitiationForm) => Promise<void> | void;
-  onCancel?: () => void;
+  isOpen: boolean;
+  submitting?: boolean;
+  error?: string | null;
+  onSubmit: (input: ReturnType<typeof buildCreateDisputeInput>) => void | Promise<unknown>;
+  onClose: () => void;
 }
 
-const STEPS = [
-  { id: "reason", label: "Reason" },
-  { id: "details", label: "Details" },
-  { id: "evidence", label: "Evidence" },
-  { id: "review", label: "Review" },
-];
+interface OptionGroupProps<T extends string> {
+  legend: string;
+  name: string;
+  values: readonly T[];
+  labels: Record<T, string>;
+  selected: T | null;
+  onSelect: (value: T) => void;
+  error?: string;
+}
 
+function OptionGroup<T extends string>({
+  legend,
+  name,
+  values,
+  labels,
+  selected,
+  onSelect,
+  error,
+}: OptionGroupProps<T>) {
+  return (
+    <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
+      <legend className="dispute-modal-label">{legend}</legend>
+      {values.map((value) => (
+        <label key={value} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.375rem 0" }}>
+          <input
+            type="radio"
+            name={name}
+            value={value}
+            checked={selected === value}
+            onChange={() => onSelect(value)}
+          />
+          {labels[value]}
+        </label>
+      ))}
+      {error && (
+        <p className="settings-status error" role="alert">
+          {error}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
+/**
+ * Guided "Open dispute" wizard (#783): Reason, Details (description and
+ * photo dropzone), Outcome, Review. Same props contract as `DisputeModal`.
+ * Photos are EXIF-scrubbed at submit time and sent as data URLs in
+ * `evidenceUrls`, exactly like the modal does.
+ */
 export function DisputeWizard({
-  escrowId,
-  escrowStatus,
-  initialData,
+  isOpen,
+  submitting = false,
+  error,
   onSubmit,
-  onCancel,
+  onClose,
 }: DisputeWizardProps) {
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [reason, setReason] = useState<DisputeReason>(
-    initialData?.reason ?? "item_not_received"
-  );
-  const [description, setDescription] = useState(
-    initialData?.description ?? ""
-  );
-  const [requestedAction, setRequestedAction] = useState<
-    "full_refund" | "partial_refund" | "replacement"
-  >(initialData?.requestedAction ?? "full_refund");
-  const [evidenceFiles, setEvidenceFiles] = useState<File[]>(
-    initialData?.evidenceFiles ?? []
-  );
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
+  const [draft, setDraft] = useState<DisputeFormDraft>(createEmptyDisputeFormDraft);
+  const [errors, setErrors] = useState<DisputeFieldErrors>({});
+  const [processing, setProcessing] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const { disabledProps, guard } = useDemoModeGuard();
 
-  const isReleasedOrRefunded =
-    escrowStatus.toLowerCase() === "released" ||
-    escrowStatus.toLowerCase() === "refunded";
+  if (!isOpen) return null;
+
+  const busy = submitting || processing;
+  const lastStep = DISPUTE_WIZARD_STEPS.length - 1;
+
+  const update = (patch: Partial<DisputeFormDraft>) =>
+    setDraft((prev) => ({ ...prev, ...patch }));
+
+  const goTo = (index: number) => {
+    setErrors({});
+    setStep(index);
+  };
 
   const handleNext = () => {
-    if (currentStepIndex === 1 && !description.trim()) {
-      setError("Please provide a description of the issue.");
+    const stepErrors = validateDisputeStep(step, draft);
+    setErrors(stepErrors);
+    if (!hasErrors(stepErrors)) setStep(step + 1);
+  };
+
+  const handleSubmit = guard(async () => {
+    if (!isDisputeFormComplete(draft)) {
+      setErrors(validateDisputeStep(lastStep, draft));
+      const firstBad = [0, 1, 2].find((i) => hasErrors(validateDisputeStep(i, draft)));
+      if (firstBad !== undefined) setStep(firstBad);
       return;
     }
-    setError(null);
-    setCurrentStepIndex((prev) => Math.min(prev + 1, STEPS.length - 1));
-  };
-
-  const handlePrev = () => {
-    setError(null);
-    setCurrentStepIndex((prev) => Math.max(prev - 1, 0));
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setEvidenceFiles(Array.from(e.target.files));
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (isReleasedOrRefunded) {
-      setError("Prevents dispute filing after escrow has already been released or refunded.");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
+    setProcessing(true);
+    setLocalError(null);
     try {
-      await onSubmit({
-        escrowId,
-        reason,
-        description,
-        requestedAction,
-        evidenceFiles,
-      });
+      const photoDataUrls: string[] = [];
+      for (const file of draft.photoFiles) {
+        photoDataUrls.push(await blobToDataUrl(await scrubExifMetadata(file)));
+      }
+      const result = await onSubmit(buildCreateDisputeInput(draft, photoDataUrls));
+      if (result) {
+        setDraft(createEmptyDisputeFormDraft());
+        setErrors({});
+        setStep(0);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit dispute");
+      setLocalError(err instanceof Error ? err.message : "Could not process your photos. Try again.");
     } finally {
-      setSubmitting(false);
+      setProcessing(false);
     }
-  };
+  });
 
-  if (isReleasedOrRefunded) {
-    return (
-      <Card style={{ padding: "1.5rem", maxWidth: "600px", margin: "0 auto" }}>
-        <h2>Dispute Unavailable</h2>
-        <p style={{ color: "#b91c1c", marginTop: "1rem" }}>
-          Prevents dispute filing after escrow has already been released or refunded.
-        </p>
-        {onCancel && (
-          <Button variant="secondary" onClick={onCancel} style={{ marginTop: "1rem" }}>
-            Close
-          </Button>
-        )}
-      </Card>
-    );
-  }
+  const shownError = localError ?? error ?? null;
 
   return (
-    <Card style={{ padding: "1.5rem", maxWidth: "700px", margin: "0 auto" }}>
-      <h2 style={{ marginBottom: "1rem" }}>File Formal Dispute</h2>
-      <Stepper
-        steps={STEPS}
-        currentIndex={currentStepIndex}
-        onStepSelect={(idx) => setCurrentStepIndex(idx)}
-      />
+    <div className="dispute-modal-overlay" onClick={onClose} data-testid="dispute-wizard-backdrop">
+      <div
+        className="dispute-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dispute-wizard-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="dispute-modal-header">
+          <h2 id="dispute-wizard-title">Open dispute</h2>
+        </div>
 
-      <div style={{ marginTop: "1.5rem", minHeight: "250px" }}>
-        {error && (
-          <div
-            style={{
-              padding: "0.75rem",
-              background: "#fee2e2",
-              color: "#b91c1c",
-              borderRadius: "0.375rem",
-              marginBottom: "1rem",
-            }}
-          >
-            {error}
-          </div>
-        )}
+        <Stepper steps={[...DISPUTE_WIZARD_STEPS]} currentIndex={step} onStepSelect={goTo} />
 
-        {currentStepIndex === 0 && (
-          <div>
-            <h3>Select Dispute Reason</h3>
-            <p style={{ color: "#6b7280", fontSize: "0.875rem", marginBottom: "1rem" }}>
-              Choose the primary reason for filing this dispute against escrow {escrowId}.
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {(
-                [
-                  { value: "item_not_received", label: "Item Not Received" },
-                  { value: "damaged", label: "Damaged Item" },
-                  { value: "wrong_item", label: "Wrong Item Received" },
-                  { value: "fraudulent", label: "Fraudulent Transaction" },
-                ] as const
-              ).map((opt) => (
-                <label
-                  key={opt.value}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    padding: "0.75rem",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "0.375rem",
-                    cursor: "pointer",
-                    background: reason === opt.value ? "#eff6ff" : "#fff",
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="disputeReason"
-                    value={opt.value}
-                    checked={reason === opt.value}
-                    onChange={() => setReason(opt.value)}
-                  />
-                  <span style={{ fontWeight: 500 }}>{opt.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {currentStepIndex === 1 && (
-          <div>
-            <h3>Describe the Issue & Requested Resolution</h3>
-            <div style={{ marginTop: "1rem" }}>
-              <label style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
-                Description
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Provide detailed information regarding your dispute..."
-                rows={4}
-                style={{ width: "100%", padding: "0.5rem", borderRadius: "0.375rem", border: "1px solid #d1d5db" }}
+        <div className="dispute-modal-field" style={{ marginTop: "1rem" }}>
+          {step === 0 && (
+            <>
+              <h3>What went wrong?</h3>
+              <OptionGroup
+                legend="Reason for dispute"
+                name="dispute-wizard-reason"
+                values={DISPUTE_WIZARD_REASONS}
+                labels={DISPUTE_WIZARD_REASON_LABELS}
+                selected={draft.reason}
+                onSelect={(reason) => update({ reason })}
+                error={errors.reason}
               />
-            </div>
+            </>
+          )}
 
-            <div style={{ marginTop: "1rem" }}>
-              <label style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
-                Requested Resolution Action
-              </label>
-              <select
-                value={requestedAction}
-                onChange={(e) =>
-                  setRequestedAction(
-                    e.target.value as "full_refund" | "partial_refund" | "replacement"
-                  )
-                }
-                style={{ width: "100%", padding: "0.5rem", borderRadius: "0.375rem", border: "1px solid #d1d5db" }}
-              >
-                <option value="full_refund">Full Refund</option>
-                <option value="partial_refund">Partial Refund</option>
-                <option value="replacement">Replacement</option>
-              </select>
-            </div>
+          {step === 1 && (
+            <>
+              <h3>Tell us what happened</h3>
+              <label htmlFor="dispute-wizard-description">Describe what happened</label>
+              <textarea
+                id="dispute-wizard-description"
+                rows={4}
+                maxLength={MAX_DESCRIPTION_LENGTH}
+                value={draft.description}
+                onChange={(e) => update({ description: e.target.value })}
+                placeholder="Include dates, what you expected and what you received"
+              />
+              {errors.description && (
+                <p className="settings-status error" role="alert">
+                  {errors.description}
+                </p>
+              )}
+              <span className="dispute-modal-label">Photo evidence (optional)</span>
+              <DisputeDropzone
+                files={draft.photoFiles}
+                onChange={(photoFiles) => update({ photoFiles })}
+                error={errors.photoFiles}
+                disabled={busy}
+              />
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <h3>What outcome do you want?</h3>
+              <OptionGroup
+                legend="Requested outcome"
+                name="dispute-wizard-outcome"
+                values={DISPUTE_WIZARD_OUTCOMES}
+                labels={DISPUTE_WIZARD_OUTCOME_LABELS}
+                selected={draft.requestedOutcome}
+                onSelect={(requestedOutcome) => update({ requestedOutcome })}
+                error={errors.requestedOutcome}
+              />
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <h3>Review your dispute</h3>
+              <dl style={{ margin: 0 }}>
+                <dt>Reason</dt>
+                <dd>{draft.reason ? DISPUTE_WIZARD_REASON_LABELS[draft.reason] : ""}</dd>
+                <dt>Description</dt>
+                <dd>{draft.description.trim()}</dd>
+                <dt>Photos</dt>
+                <dd>
+                  {draft.photoFiles.length === 0 ? (
+                    "None attached"
+                  ) : (
+                    <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
+                      {draft.photoFiles.map((file, index) => (
+                        <li key={`${file.name}-${index}`}>{file.name}</li>
+                      ))}
+                    </ul>
+                  )}
+                </dd>
+                <dt>Requested outcome</dt>
+                <dd>
+                  {draft.requestedOutcome ? DISPUTE_WIZARD_OUTCOME_LABELS[draft.requestedOutcome] : ""}
+                </dd>
+              </dl>
+            </>
+          )}
+        </div>
+
+        {shownError && (
+          <div className="settings-status error" role="alert">
+            {shownError}
           </div>
         )}
 
-        {currentStepIndex === 2 && (
-          <div>
-            <h3>Upload Evidence Images</h3>
-            <p style={{ color: "#6b7280", fontSize: "0.875rem", marginBottom: "1rem" }}>
-              Upload screenshots, photos, or documents to support your dispute. Images will be securely uploaded to the backend and escrow status will be locked.
-            </p>
-            <input
-              type="file"
-              multiple
-              onChange={handleFileChange}
-              style={{ marginTop: "0.5rem" }}
-            />
-            {evidenceFiles.length > 0 && (
-              <ul style={{ marginTop: "1rem", paddingLeft: "1.25rem" }}>
-                {evidenceFiles.map((file, idx) => (
-                  <li key={idx} style={{ fontSize: "0.875rem", color: "#374151" }}>
-                    {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-
-        {currentStepIndex === 3 && (
-          <div>
-            <h3>Review & Submit Dispute</h3>
-            <div style={{ background: "#f9fafb", padding: "1rem", borderRadius: "0.375rem", marginTop: "1rem" }}>
-              <p><strong>Escrow ID:</strong> {escrowId}</p>
-              <p style={{ marginTop: "0.5rem" }}><strong>Reason:</strong> {reason.replace("_", " ")}</p>
-              <p style={{ marginTop: "0.5rem" }}><strong>Description:</strong> {description || "(none provided)"}</p>
-              <p style={{ marginTop: "0.5rem" }}><strong>Requested Action:</strong> {requestedAction.replace("_", " ")}</p>
-              <p style={{ marginTop: "0.5rem" }}><strong>Evidence Files:</strong> {evidenceFiles.length} file(s) attached</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2rem" }}>
-        {onCancel && currentStepIndex === 0 ? (
-          <Button variant="secondary" onClick={onCancel}>
+        <div className="form-actions">
+          {step > 0 && (
+            <Button variant="ghost" onClick={() => goTo(step - 1)} disabled={busy}>
+              Back
+            </Button>
+          )}
+          {step < lastStep ? (
+            <Button variant="primary" onClick={handleNext} disabled={busy}>
+              Next
+            </Button>
+          ) : (
+            <Button variant="primary" onClick={handleSubmit} disabled={busy} {...disabledProps}>
+              {busy ? "Submitting…" : "Submit dispute"}
+            </Button>
+          )}
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-        ) : (
-          <Button
-            variant="secondary"
-            onClick={currentStepIndex === 0 ? onCancel : handlePrev}
-          >
-            {currentStepIndex === 0 ? "Cancel" : "Back"}
-          </Button>
-        )}
-
-        {currentStepIndex < STEPS.length - 1 ? (
-          <Button onClick={handleNext}>Next</Button>
-        ) : (
-          <Button onClick={handleSubmit} disabled={submitting}>
-            {submitting ? "Submitting..." : "Submit Dispute"}
-          </Button>
-        )}
+        </div>
       </div>
-    </Card>
+    </div>
   );
 }

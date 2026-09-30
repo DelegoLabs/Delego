@@ -10,7 +10,7 @@ import { useNetwork } from "../../../hooks/useNetwork";
 import dynamic from "next/dynamic";
 import { EscrowCard } from "../../../components/escrows/EscrowCard";
 import { ConfirmDeliveryButton } from "../../../components/escrows/ConfirmDeliveryButton";
-import { DisputeModal } from "../../../components/escrows/DisputeModal";
+import { DisputeWizard } from "../../../components/escrows/DisputeWizard";
 import { DisputeStatusPanel } from "../../../components/escrows/DisputeStatusPanel";
 import { ReleaseCTA } from "../../../components/escrows/ReleaseCTA";
 import { apiFetch } from "../../../lib/apiFetch";
@@ -261,9 +261,8 @@ export default function EscrowDetailPage() {
         fieldLabels={{ buyer: "Buyer", seller: "Seller", amount: "Amount" }}
       />
 
-      <DisputeModal
+      <DisputeWizard
         isOpen={showDisputeModal}
-        escrowId={escrow.escrowId}
         submitting={submitting}
         error={error}
         onSubmit={async (input) => {
