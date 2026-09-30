@@ -1,0 +1,6 @@
+# GitHub Packages authentication
+@delegolabs:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+
+# Or alternatively, you can use a personal access token directly:
+# //npm.pkg.github.com/:_authToken=ghp_your_token_here

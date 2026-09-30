@@ -10,6 +10,10 @@ export interface MerchantProduct {
   stockQuantity: number;
   isListed: boolean;
   updatedAt: string;
+  /** Product category, e.g. "Electronics", "Clothing" */
+  category?: string;
+  /** Average product rating 0–5 */
+  rating?: number;
 }
 
 const retryingFetch = createRetryingFetch();

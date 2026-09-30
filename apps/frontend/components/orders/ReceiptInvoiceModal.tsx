@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { Amount, Button } from "@delegolabs/ui";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useCurrency } from "../../hooks/useCurrency";
@@ -49,16 +49,7 @@ function Barcode({ value }: { value: string }) {
 export function ReceiptInvoiceModal({ isOpen, receipt, onClose }: ReceiptInvoiceModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const { currencyId, rate } = useCurrency();
-  useFocusTrap(panelRef, isOpen);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onClose]);
+  useFocusTrap({ containerRef: panelRef, isActive: isOpen, onEscape: onClose });
 
   if (!isOpen || !receipt) return null;
 

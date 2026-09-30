@@ -65,6 +65,9 @@ jobs:
       - name: Check microcopy consistency
         run: pnpm --filter @delegolabs/web check:microcopy
 
+      - name: Check Subresource Integrity (SRI)
+        run: pnpm --filter @delegolabs/web check:sri
+
   type-check:
     name: Type Check
     runs-on: ubuntu-latest
@@ -208,6 +211,68 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [build]
+
+    # Browser-side gateway calls are routed by Playwright
+    # (apps/frontend/e2e/support/mockApi.ts); pointing NEXT_PUBLIC_API_URL at
+    # the same origin lets server-rendered routes (the merchant storefront) and
+    # the app shell resolve while it builds. PLAYWRIGHT_API_URL tells those
+    # browser-side mocks which origin to intercept.
+    env:
+      NEXT_PUBLIC_API_URL: "http://127.0.0.1:3456"
+      NEXT_PUBLIC_ESCROW_CONTRACT_ID_TESTNET: "CABQUEIYD4TC2NB3IJEVAV26MVWHG6UBRCHZNHNEVOZLTQGHZ3K5ZIRI"
+      PLAYWRIGHT_API_URL: "http://127.0.0.1:3456"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: "https://npm.pkg.github.com"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Restore turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '**/src/**', '**/app/**', '**/components/**', '**/hooks/**', '**/lib/**', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
+      - name: Build shared packages
+        run: pnpm --filter "./packages/*" --filter "./apps/frontend" build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @delegolabs/web exec playwright install --with-deps chromium
+
+      # Checkout lifecycle coverage (#804) plus the existing golden-path and
+      # a11y specs; the `visual` projects are screenshot-baseline gated and run
+      # separately via `pnpm test:e2e:visual`.
+      - name: Run E2E suite
+        run: pnpm --filter @delegolabs/web exec playwright test --project=chromium
+
+      - name: Upload Playwright traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: apps/frontend/test-results
+          retention-days: 7
 
   security-scan:
     name: Security Scan

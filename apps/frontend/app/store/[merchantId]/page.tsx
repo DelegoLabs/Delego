@@ -8,39 +8,48 @@ type StoreParams = { merchantId: string };
 
 const loadStorefront = cache((merchantId: string) => fetchStorefront(merchantId));
 
-async function readParams(
-  params: StoreParams | Promise<StoreParams>
-): Promise<StoreParams> {
-  return params;
-}
-
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
 }: {
-  params: StoreParams | Promise<StoreParams>;
+  params: Promise<StoreParams>;
 }): Promise<Metadata> {
-  const { merchantId } = await readParams(params);
-  const store = isSafeMerchantId(merchantId)
-    ? await loadStorefront(merchantId)
-    : null;
-  const title = store?.storeName ?? "Store";
-  const description =
-    store?.description || "Products from a verified Delego merchant.";
-  return {
-    title,
-    description,
-    openGraph: { title, description, type: "website" },
-  };
+  try {
+    const { merchantId } = await params;
+    const store = isSafeMerchantId(merchantId)
+      ? await loadStorefront(merchantId)
+      : null;
+    const title = store?.storeName ?? "Merchant Store | Delego";
+    const description =
+      store?.description || "Products from a verified Delego merchant.";
+    return {
+      title,
+      description,
+      openGraph: { title, description, type: "website" },
+    };
+  } catch (error) {
+    // Fallback metadata on API errors or timeouts to prevent 500 errors
+    const fallbackTitle = "Merchant Store | Delego";
+    const fallbackDescription = "Products from a verified Delego merchant.";
+    return {
+      title: fallbackTitle,
+      description: fallbackDescription,
+      openGraph: { 
+        title: fallbackTitle, 
+        description: fallbackDescription, 
+        type: "website" 
+      },
+    };
+  }
 }
 
 export default async function StorePage({
   params,
 }: {
-  params: StoreParams | Promise<StoreParams>;
+  params: Promise<StoreParams>;
 }) {
-  const { merchantId } = await readParams(params);
+  const { merchantId } = await params;
   if (!isSafeMerchantId(merchantId)) notFound();
 
   const store = await loadStorefront(merchantId);

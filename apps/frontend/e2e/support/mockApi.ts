@@ -1,7 +1,8 @@
 import type { Page } from "@playwright/test";
 import { jsonDelegation, jsonEscrow, jsonOrder, okBody } from "./fixtures";
 
-const API_BASE = process.env.PLAYWRIGHT_API_URL || "https://api.example.com";
+export const API_BASE =
+  process.env.PLAYWRIGHT_API_URL || "https://api.example.com";
 const AUTH_COOKIE = "delego_auth_token";
 
 export interface MockApiOptions {
@@ -38,6 +39,18 @@ export async function mockApi(page: Page, options: MockApiOptions = {}) {
   );
 
   await page.route(`${API_BASE}/escrows`, (route) => route.fulfill({ json: okBody(escrows) }));
+
+  // Escrow release (#804): the CTA posts here before refresh()ing eligibility.
+  await page.route(`${API_BASE}/escrows/*/release`, (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+
+    const segments = new URL(route.request().url()).pathname.split("/");
+    const escrowId = decodeURIComponent(segments[segments.length - 2] ?? "");
+
+    return route.fulfill({
+      json: okBody({ escrowId, status: "Released" }),
+    });
+  });
 }
 
 /** Seeds the auth cookie so middleware.ts lets a protected route render. */

@@ -1,0 +1,250 @@
+name: Nightly
+
+# Nightly full-suite run (#630). Deliberately kept out of the PR gate so PR CI
+# stays fast: slow E2E coverage runs here once per desktop/mobile × light/dark
+# cell with retry-once flake detection feeding a 14-day quarantine registry.
+
+on:
+  schedule:
+    # 02:00 UTC daily — results are ready before the triage rotation looks at
+    # the weekly digest.
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: nightly-full-suite
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 20
+  NODE_ENV: test
+  NEXT_PUBLIC_API_URL: "https://api.example.com"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  unit:
+    name: Unit suite (full)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: "https://npm.pkg.github.com"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Build shared packages
+        run: pnpm --filter "./packages/*" build
+
+      - name: Run packages/ui tests with coverage
+        run: pnpm --filter @delegolabs/ui test:coverage
+
+      - name: Run remaining package tests
+        run: pnpm --filter "./packages/*" --filter '!@delegolabs/ui' test
+
+      - name: Run frontend tests with coverage
+        run: pnpm --filter @delegolabs/web test:coverage
+
+      # Nightly artifacts are retained for the same 14 days as a quarantine.
+      - name: Upload unit coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-unit-coverage
+          path: |
+            apps/frontend/coverage
+            packages/ui/coverage
+          retention-days: 14
+
+  e2e:
+    name: E2E ${{ matrix.project }} / ${{ matrix.theme }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, mobile-chrome]
+        theme: [light, dark]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: "https://npm.pkg.github.com"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Build shared packages and app
+        run: pnpm --filter "./packages/*" --filter @delegolabs/web build
+
+      - name: Prepare report directory
+        run: mkdir -p "$RUNNER_TEMP/nightly-reports"
+
+      # `--retries=1` is what makes flake detection possible: a test that only
+      # passes on the retry is reported as `flaky`, which the quarantine job
+      # below turns into a quarantine entry.
+      - name: Run E2E cell
+        working-directory: apps/frontend
+        env:
+          E2E_CHAOS: "1"
+          E2E_THEME: ${{ matrix.theme }}
+          PLAYWRIGHT_INCLUDE_QUARANTINE: "1"
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/nightly-reports/${{ matrix.project }}-${{ matrix.theme }}.json
+        run: >-
+          pnpm exec playwright test
+          --project=${{ matrix.project }}
+          --retries=1
+          --reporter=github
+          --reporter=json
+
+      - name: Upload traces, videos and JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-e2e-${{ matrix.project }}-${{ matrix.theme }}
+          path: |
+            ${{ runner.temp }}/nightly-reports
+            apps/frontend/test-results
+          retention-days: 14
+
+  quarantine:
+    name: Detect flakes and quarantine
+    runs-on: ubuntu-latest
+    needs: [e2e]
+    if: always()
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download E2E reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nightly-e2e-*
+          path: nightly-artifacts
+          merge-multiple: true
+
+      - name: Detect flakes and update the registry
+        run: |
+          node apps/frontend/scripts/quarantine.mjs detect \
+            --reports nightly-artifacts \
+            --registry apps/frontend/quarantine.json \
+            --out "$RUNNER_TEMP/quarantine-added.json" \
+            --issue-body "$RUNNER_TEMP/quarantine-issue.md" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Summarise detection
+        id: summary
+        env:
+          ADDED_FILE: ${{ runner.temp }}/quarantine-added.json
+        run: |
+          node -e "const fs=require('fs');const p=process.env.ADDED_FILE;const d=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,'utf8')):{added:[],expiresAt:null};fs.appendFileSync(process.env.GITHUB_OUTPUT,'count='+d.added.length+'\n');fs.appendFileSync(process.env.GITHUB_OUTPUT,'expires='+(d.expiresAt||'')+'\n');"
+
+      - name: Ensure triage labels exist
+        if: steps.summary.outputs.count != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [
+              { name: 'quarantine/', color: 'd4c5f9', description: 'Flaky test quarantined by the nightly run (#630)' },
+              { name: 'area/testing', color: '0e8a16', description: 'Test infrastructure' },
+            ];
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({ ...context.repo, name: label.name });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({ ...context.repo, ...label });
+              }
+            }
+
+      - name: Open or update the quarantine issue
+        if: steps.summary.outputs.count != '0'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_BODY_FILE: ${{ runner.temp }}/quarantine-issue.md
+          RUN_DATE: ${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync(process.env.ISSUE_BODY_FILE, 'utf8');
+            const title = `Nightly flake quarantine — run ${process.env.RUN_DATE}`;
+
+            const open = await github.rest.issues.listForRepo({
+              ...context.repo,
+              state: 'open',
+              labels: 'quarantine/',
+              per_page: 100,
+            });
+            const existing = open.data.find((issue) => issue.title === title);
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                ...context.repo,
+                title,
+                body,
+                labels: ['quarantine/', 'area/testing'],
+              });
+            }
+
+      # The registry lives in the repo so the PR gate can read it; changes are
+      # proposed as a PR rather than pushed to main so quarantine is reviewable.
+      - name: Propose the registry update
+        if: steps.summary.outputs.count != '0'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/nightly-quarantine
+          base: main
+          title: "chore(test): quarantine nightly flakes"
+          commit-message: "chore(test): quarantine flakes detected by the nightly run"
+          body: |
+            Adds the tests the nightly full-suite run observed as flaky (passed
+            only on retry) to `apps/frontend/quarantine.json`.
+
+            Quarantined tests are excluded from the PR gate and **must be fixed or
+            deleted within 14 days** — after that the expiry bot re-enables them
+            automatically.
+
+            See `docs/testing/flake-quarantine-runbook.md`.

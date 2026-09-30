@@ -39,10 +39,11 @@ const connectSrc = [
 
 const cspDirectives = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.stellar.org",
   "font-src 'self' data:",
+  "frame-src 'self' https://challenges.cloudflare.com",
   "worker-src 'self'",
   `connect-src ${connectSrc}`,
   "frame-ancestors 'none'",

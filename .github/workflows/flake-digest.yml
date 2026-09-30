@@ -1,0 +1,91 @@
+name: Weekly Flake Digest
+
+# Weekly triage-rotation input (#630): one rolling issue listing every
+# quarantined test with its remaining days, so the on-call reviewer has a
+# concrete "fix or delete one of these" list instead of a silent skip list.
+
+on:
+  schedule:
+    # Mondays 09:00 UTC, ahead of the week's triage rotation.
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: flake-digest
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 20
+
+jobs:
+  digest:
+    name: Publish weekly flake digest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Render the digest
+        run: |
+          node apps/frontend/scripts/quarantine.mjs digest \
+            --registry apps/frontend/quarantine.json \
+            --out "$RUNNER_TEMP/digest.md"
+
+      - name: Ensure triage labels exist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [
+              { name: 'quarantine/', color: 'd4c5f9', description: 'Flaky test quarantined by the nightly run (#630)' },
+              { name: 'area/testing', color: '0e8a16', description: 'Test infrastructure' },
+            ];
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({ ...context.repo, name: label.name });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({ ...context.repo, ...label });
+              }
+            }
+
+      - name: Open or update the rolling digest issue
+        uses: actions/github-script@v7
+        env:
+          DIGEST_FILE: ${{ runner.temp }}/digest.md
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync(process.env.DIGEST_FILE, 'utf8');
+            const title = 'Weekly flake triage digest';
+
+            const open = await github.rest.issues.listForRepo({
+              ...context.repo,
+              state: 'open',
+              labels: 'quarantine/',
+              per_page: 100,
+            });
+            const existing = open.data.find((issue) => issue.title === title);
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                ...context.repo,
+                title,
+                body,
+                labels: ['quarantine/', 'area/testing'],
+              });
+            }

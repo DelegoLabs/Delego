@@ -6,6 +6,7 @@ import { useWallet } from "../../hooks/useWallet";
 import { useBalanceHistory, type HorizonBalance } from "../../hooks/useBalanceHistory";
 import { CopyButton } from "../wallet/CopyButton";
 import { subscribeTxStatus } from "../../services/txMonitor";
+import { useFriendbot } from "../../hooks/useFriendbot";
 
 /** A balance row in the navbar switcher. */
 export interface AssetBalance {
@@ -85,6 +86,16 @@ export function BalanceSwitcher() {
   const containerRef = useRef<HTMLDivElement>(null);
   const refetchRef = useRef(refetch);
   refetchRef.current = refetch;
+
+  const { fund, status: friendbotStatus } = useFriendbot();
+
+  const handleFund = async () => {
+    if (!address) return;
+    const result = await fund(address);
+    if (result.success) {
+      await refetchRef.current();
+    }
+  };
 
   const rows = toAssetBalances(balances);
   const selected = rows.find((row, index) => rowKey(row, index) === selectedKey) ?? rows[0];
@@ -225,6 +236,33 @@ export function BalanceSwitcher() {
               </li>
             );
           })}
+          {network.id === "testnet" && (
+            <li role="none" style={{ marginTop: "0.25rem", paddingTop: "0.25rem", borderTop: "1px solid var(--color-border, #e5e7eb)" }}>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleFund}
+                disabled={friendbotStatus === "funding"}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.25rem",
+                  padding: "0.5rem 0.625rem",
+                  border: "none",
+                  borderRadius: "0.375rem",
+                  background: friendbotStatus === "funding" ? "var(--color-accent-bg, #eff6ff)" : "transparent",
+                  color: "var(--color-primary, #2563eb)",
+                  cursor: friendbotStatus === "funding" ? "wait" : "pointer",
+                  fontWeight: 600,
+                  fontSize: "0.8125rem",
+                }}
+              >
+                {friendbotStatus === "funding" ? "Funding..." : "Fund with Friendbot"}
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </div>

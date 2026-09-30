@@ -119,6 +119,18 @@
     "language": {
       "label": "Language",
       "hint": "Choose the language used throughout the app"
+    },
+    "chatAudio": {
+      "title": "Chat sound",
+      "ariaLabel": "Chat sound preferences",
+      "toggleLabel": "Play a chime for new agent messages",
+      "toggleHint": "A short, soft tone when your buyer agent finishes a reply or a proposal. Off by default.",
+      "volumeLabel": "Volume",
+      "volumeHint": "How loud the chime plays. Keep it low enough to stay unobtrusive.",
+      "testSound": "Play test chime",
+      "mutedHint": "Turn the chime on to hear it when messages arrive.",
+      "reducedMotionHint": "Chimes are off because your device is set to reduce motion.",
+      "unsupportedHint": "This browser can't play synthesised audio."
     }
   }
 }

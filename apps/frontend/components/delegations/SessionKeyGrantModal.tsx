@@ -15,6 +15,12 @@ import {
   saveSessionKeyGrant,
   type SessionKeyGrant,
 } from "../../lib/sessionKeys";
+import {
+  WALLET_CANCELLED_MESSAGE,
+  WalletActionError,
+  classifyWalletError,
+  isUserDeclined,
+} from "../../services/wallet";
 
 export interface SessionKeyGrantModalProps {
   open: boolean;
@@ -33,6 +39,7 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
   const [maxAllowanceStroops, setMaxAllowanceStroops] = useState<bigint>(0n);
   const [step, setStep] = useState<Step>("form");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [activeGrant, setActiveGrant] = useState<SessionKeyGrant | null>(loadSessionKeyGrant);
 
   if (!open) return null;
@@ -49,6 +56,7 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
 
     setStep("signing");
     setErrorMessage(null);
+    setNoticeMessage(null);
     try {
       const sessionKeypair = generateSessionKeypair();
       const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
@@ -70,7 +78,9 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
         address,
       });
       if (signed.error || !signed.signedTxXdr) {
-        throw new Error(signed.error?.message ?? "Signing was cancelled or failed.");
+        throw new WalletActionError(
+          classifyWalletError(signed.error ?? "Signing was cancelled or failed.")
+        );
       }
 
       const signedTx = TransactionBuilder.fromXDR(signed.signedTxXdr, network.networkPassphrase);
@@ -80,8 +90,14 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
       setActiveGrant(grant);
       setStep("active");
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Failed to grant session key.");
-      setStep("error");
+      if (isUserDeclined(err)) {
+        // Dismissing the wallet popup resets to the form with a neutral notice.
+        setStep("form");
+        setNoticeMessage(WALLET_CANCELLED_MESSAGE);
+      } else {
+        setErrorMessage(err instanceof Error ? err.message : "Failed to grant session key.");
+        setStep("error");
+      }
     }
   }
 
@@ -177,6 +193,12 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
               <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Spending budget</span>
               <StroopsInput value={maxAllowanceStroops} onChange={setMaxAllowanceStroops} />
             </label>
+
+            {noticeMessage && (
+              <p role="status" aria-live="polite" className="wallet-notice" style={{ fontSize: "0.75rem", margin: 0 }}>
+                {noticeMessage}
+              </p>
+            )}
 
             {errorMessage && (
               <p role="alert" style={{ fontSize: "0.75rem", color: "#dc2626", margin: 0 }}>
