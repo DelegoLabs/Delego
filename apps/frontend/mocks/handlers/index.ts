@@ -71,6 +71,7 @@ export {
   disputeHandlers,
   disputeHandlersUnauthorized,
   resetDisputes,
+  resetDisputeResponses,
   seedDisputes,
 } from "./disputes";
 export { contractHandlers } from "./contracts";

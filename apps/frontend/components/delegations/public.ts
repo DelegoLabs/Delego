@@ -18,3 +18,5 @@ export { MerchantFilterManager } from "./MerchantFilterManager";
 export type { MerchantFilterManagerProps } from "./MerchantFilterManager";
 export { CategoryBudgetSliders } from "./CategoryBudgetSliders";
 export type { CategoryBudgetSlidersProps } from "./CategoryBudgetSliders";
+export { CategoryBudgetAllocationChart } from "./CategoryBudgetAllocationChart";
+export type { CategoryBudgetAllocationChartProps } from "./CategoryBudgetAllocationChart";

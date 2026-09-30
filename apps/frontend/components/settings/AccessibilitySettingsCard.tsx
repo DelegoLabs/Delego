@@ -5,6 +5,7 @@ import {
   useAccessibility,
   type ReduceMotionMode,
 } from "../../hooks/useAccessibility";
+import { useTheme, type ThemeMode } from "../../hooks/useTheme";
 
 /**
  * Settings page section for managing accessibility preferences (#607):
@@ -12,6 +13,7 @@ import {
  * and link underline toggle.
  */
 export function AccessibilitySettingsCard() {
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const {
     preferences,
     setTextScale,
@@ -27,6 +29,74 @@ export function AccessibilitySettingsCard() {
       ariaLabel="Accessibility preferences"
     >
       <div className="settings-section">
+        {/* Theme Switcher */}
+        <div
+          className="settings-toggle-row"
+          style={{
+            flexDirection: "column",
+            alignItems: "stretch",
+            gap: "0.5rem",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span className="settings-toggle-label" id="theme-mode-label">
+              Theme
+            </span>
+            <div
+              role="radiogroup"
+              aria-labelledby="theme-mode-label"
+              style={{ display: "flex", gap: "0.375rem" }}
+            >
+              {(
+                [
+                  ["system", "System"],
+                  ["light", "Light"],
+                  ["dark", "Dark"],
+                  ["high-contrast", "High contrast"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={theme === value}
+                  onClick={() => setTheme(value as ThemeMode)}
+                  style={{
+                    fontSize: "0.75rem",
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "0.25rem",
+                    border: "1px solid var(--color-border)",
+                    background:
+                      theme === value
+                        ? "var(--color-accent-bg)"
+                        : "var(--color-bg-surface)",
+                    color:
+                      theme === value
+                        ? "var(--color-accent)"
+                        : "var(--color-text-primary)",
+                    cursor: "pointer",
+                    fontWeight: theme === value ? 600 : 400,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="settings-toggle-hint">
+            {theme === "system"
+              ? `Following system preference (currently ${resolvedTheme}).`
+              : `Active theme: ${resolvedTheme}.`}{" "}
+            High contrast meets WCAG AAA contrast requirements.
+          </p>
+        </div>
+
         {/* Text Scale Slider */}
         <div
           className="settings-toggle-row"

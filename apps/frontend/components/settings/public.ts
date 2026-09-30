@@ -22,3 +22,8 @@ export { KillSwitchCard } from "./KillSwitchCard";
 export { ChatAudioSettingsCard } from "./ChatAudioSettingsCard";
 export { WebhookDeliveryLogViewer } from "./WebhookDeliveryLogViewer";
 export type { WebhookDeliveryLogViewerProps } from "./WebhookDeliveryLogViewer";
+export { BudgetAllocationChart } from "./BudgetAllocationChart";
+export type { BudgetAllocationChartProps } from "./BudgetAllocationChart";
+export { BudgetAllocationSliders } from "./BudgetAllocationSliders";
+export type { BudgetAllocationSlidersProps } from "./BudgetAllocationSliders";
+export type { CategoryBudgetAllocation } from "./budgetAllocationTypes";

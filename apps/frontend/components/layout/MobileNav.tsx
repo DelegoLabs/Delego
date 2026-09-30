@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { activeNavHref, navItems } from "./navItems";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { FabButton } from "../ui/FabButton";
 
 export interface MobileNavProps {
   /** Whether the drawer is currently open */
@@ -21,6 +22,8 @@ export interface MobileNavProps {
 export function MobileNav({ open, onClose }: MobileNavProps) {
   const pathname = usePathname();
   const panelRef = useRef<HTMLDivElement>(null);
+  const [fabVisible, setFabVisible] = useState(false);
+  const [unreadProposalsCount, setUnreadProposalsCount] = useState(0);
   const t = useTranslations("nav");
   const tApp = useTranslations("app");
 
@@ -37,6 +40,37 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
+
+  // Reveal the FAB once the user scrolls past the fold.
+  useEffect(() => {
+    const onScroll = () => {
+      setFabVisible(window.scrollY > 120);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Poll for unread proposal count; replace with real data source when wired.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/proposals/unread-count");
+        if (!res.ok) return;
+        const data = (await res.json()) as { count?: number };
+        if (!cancelled) setUnreadProposalsCount(data.count ?? 0);
+      } catch {
+        // Non-fatal: badge simply stays at its previous value.
+      }
+    };
+    load();
+    const id = window.setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
   return (
     <>
@@ -68,6 +102,14 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
             ×
           </button>
         </div>
+        <a
+          href="#main-content"
+          className="focus-visible-ring skip-to-content"
+          onClick={onClose}
+          tabIndex={open ? 0 : -1}
+        >
+          {t("skipToContent")}
+        </a>
         <nav>
           <ul className="nav-list">
             {navItems.map((item) => {
@@ -78,7 +120,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                     href={item.href}
                     // Same policy as the desktop Sidebar — see #621.
                     prefetch={true}
-                    className={`nav-link${isActive ? " active" : ""}`}
+                    className={`nav-link focus-visible-ring${isActive ? " active" : ""}`}
                     aria-current={isActive ? "page" : undefined}
                     onClick={onClose}
                     tabIndex={open ? 0 : -1}
@@ -94,6 +136,14 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
           </ul>
         </nav>
       </div>
+      <FabButton
+        unreadProposalsCount={unreadProposalsCount}
+        onClick={() => {
+          onClose();
+          window.dispatchEvent(new CustomEvent("open-agent"));
+        }}
+        className={fabVisible ? "fab-visible" : "fab-hidden"}
+      />
     </>
   );
 }

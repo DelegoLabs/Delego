@@ -10,4 +10,7 @@ export { QuoteComparisonDrawer } from "./QuoteComparisonDrawer";
 export type { QuoteComparisonDrawerProps } from "./QuoteComparisonDrawer";
 export { AgentChatDrawer } from "./AgentChatDrawer";
 export type { AgentChatDrawerProps } from "./AgentChatDrawer";
-
+export { InChatProductCard } from "./InChatProductCard";
+export type { InChatProductCardProps } from "./InChatProductCard";
+export { AgentFabButton } from "./AgentFabButton";
+export type { FabButtonProps } from "./AgentFabButton";

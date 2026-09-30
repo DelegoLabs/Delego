@@ -16,6 +16,7 @@ import { themeBootstrapScript } from "../hooks/useTheme";
 import { Inter } from "next/font/google";
 import { a11yBootstrapScript } from "../hooks/useAccessibility";
 import { EXTERNAL_SCRIPTS } from "../lib/sri";
+import { AgentFab } from "../components/agent/AgentFab";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -41,15 +42,16 @@ export const metadata: Metadata = {
 };
 
 /**
- * Two theme-color entries so the browser chrome / status bar tints match
- * light vs dark mode (#310) immediately via `prefers-color-scheme`, ahead of
- * ThemeToggle's JS-driven `data-theme` override running. Values mirror
+ * Three theme-color entries so the browser chrome / status bar tints match
+ * light, dark, and high-contrast modes immediately via `prefers-color-scheme`,
+ * ahead of ThemeToggle's JS-driven `data-theme` override running. Values mirror
  * `--color-bg-primary` in styles/globals.css.
  */
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f9fafb" },
     { media: "(prefers-color-scheme: dark)", color: "#0b0f19" },
+    { media: "(prefers-contrast: more)", color: "#000000" },
   ],
 };
 
@@ -62,8 +64,8 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
-      {/* Inline theme and accessibility bootstrap: reads localStorage and sets data attributes
+    <html lang={locale} suppressHydrationWarning>
+      {/* Inline theme and accessibility bootstrap: reads localstorage and sets data attributes
           and root font-size before React hydrates, preventing flashes (#639, #607). */}
       {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}
       <head>
@@ -82,6 +84,12 @@ export default async function RootLayout({
         <StrictMode>
           <NextIntlClientProvider locale={locale} messages={messages}>
             <AppProviders>
+              <a
+                href="#app-content"
+                className="skip-to-content"
+              >
+                Skip to Main Content
+              </a>
               <ServiceWorkerRegistration />
               <AnnouncementBanner />
               <div className="app-shell">
@@ -91,9 +99,12 @@ export default async function RootLayout({
                   <AgentLiveStatusBanner />
                   <TestnetFaucetBanner />
                   <InstallPromptCard />
-                  <main className="app-content">{children}</main>
+                  <main id="app-content" className="app-content" tabIndex={-1}>
+                    {children}
+                  </main>
                 </div>
               </div>
+              <AgentFab />
               <Suspense fallback={null}>
                 <UpdatePromptToast />
               </Suspense>
