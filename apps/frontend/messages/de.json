@@ -49,5 +49,12 @@
       "reducedMotionHint": "Signaltöne sind deaktiviert, weil auf deinem Gerät Bewegung reduziert wird.",
       "unsupportedHint": "Dieser Browser kann keine synthetisierten Klänge abspielen."
     }
+  },
+  "invoice": {
+    "downloadPdf": "Rechnung herunterladen",
+    "downloadCsv": "CSV exportieren",
+    "generating": "Wird erstellt…",
+    "errorGeneric": "Rechnung konnte nicht erstellt werden.",
+    "ariaLabel": "PDF-Rechnung für Bestellung {orderId} herunterladen"
   }
 }

@@ -13,6 +13,7 @@ import {
 import { computeTaxBreakdown } from "../../lib/taxBreakdown";
 import { TaxBreakdownPanel } from "./TaxBreakdownPanel";
 import { orderStatusLabel } from "../../lib/orders";
+import { DownloadInvoiceButton } from "./DownloadInvoiceButton";
 
 export interface ReceiptPanelProps {
   order: Order;
@@ -69,6 +70,7 @@ export function ReceiptPanel({ order, jurisdictionCode, category }: ReceiptPanel
         <Button variant="ghost" onClick={handleDownload}>
           Download JSON
         </Button>
+        <DownloadInvoiceButton order={order} variant="primary" />
       </div>
 
       <dl className="receipt-meta">

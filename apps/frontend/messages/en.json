@@ -132,5 +132,12 @@
       "reducedMotionHint": "Chimes are off because your device is set to reduce motion.",
       "unsupportedHint": "This browser can't play synthesised audio."
     }
+  },
+  "invoice": {
+    "downloadPdf": "Download Invoice",
+    "downloadCsv": "Export CSV",
+    "generating": "Generating…",
+    "errorGeneric": "Failed to generate invoice.",
+    "ariaLabel": "Download PDF invoice for order {orderId}"
   }
 }
