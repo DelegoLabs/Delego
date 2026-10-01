@@ -1,0 +1,71 @@
+name: Lighthouse CI
+
+# Performance and accessibility budget gate (#814).
+#
+# Asserts that every production build stays above the quality bar:
+#   - Performance     >= 0.90
+#   - Accessibility   >= 0.95
+#   - Best Practices  >= 0.90
+#
+# Runs against the Next.js production build served on a local port. Fails the
+# PR when any category drops below its threshold.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: lighthouse-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 20
+  NEXT_PUBLIC_API_URL: "https://api.example.com"
+  PORT: "3100"
+
+jobs:
+  lighthouse:
+    name: Lighthouse budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: "https://npm.pkg.github.com"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Build frontend
+        run: pnpm --filter @delegolabs/web build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+
+      - name: Start production server
+        run: |
+          pnpm --filter @delegolabs/web start -- -p ${{ env.PORT }} &
+          npx wait-on http://localhost:${{ env.PORT }} --timeout 120000
+
+      - name: Run Lighthouse CI
+        run: npx @lhci/cli autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
