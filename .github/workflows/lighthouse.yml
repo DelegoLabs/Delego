@@ -54,6 +54,12 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
 
+      # apps/frontend imports @delegolabs/ui and @delegolabs/types, which
+      # resolve to the packages' dist/ output. Those must be built first or
+      # `next build` fails to resolve them.
+      - name: Build shared packages
+        run: pnpm --filter "./packages/*" build
+
       - name: Build frontend
         run: pnpm --filter @delegolabs/web build
         env:
