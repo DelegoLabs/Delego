@@ -28,6 +28,10 @@ env:
   NODE_VERSION: 20
   NEXT_PUBLIC_API_URL: "https://api.example.com"
   PORT: "3100"
+  # `next start` reads WEB_PORT (see the app's start script); passing a second
+  # `-p` on the command line left the server on the default port and wait-on
+  # timed out against 3100.
+  WEB_PORT: "3100"
 
 jobs:
   lighthouse:
@@ -68,7 +72,7 @@ jobs:
 
       - name: Start production server
         run: |
-          pnpm --filter @delegolabs/web start -- -p ${{ env.PORT }} &
+          pnpm --filter @delegolabs/web start &
           npx wait-on http://localhost:${{ env.PORT }} --timeout 120000
 
       - name: Run Lighthouse CI
