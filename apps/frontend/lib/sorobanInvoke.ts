@@ -1,15 +1,15 @@
 /**
  * Build → simulate → sign → submit → confirm for a single Soroban contract
  * call signed by the connected wallet.
+ *
+ * `invokeContractMethod` loads the Stellar SDK lazily. `signWithFreighter` in
+ * this same module needs no SDK at all, so keeping the import out of module
+ * scope stops every route that merely signs a transaction — the settings
+ * kill-switch card, for one — from pulling the whole Soroban surface into its
+ * initial bundle.
  */
 
-import {
-  BASE_FEE,
-  Contract,
-  TransactionBuilder,
-  rpc,
-  type xdr,
-} from "@stellar/stellar-sdk";
+import type { xdr } from "@stellar/stellar-sdk";
 import {
   WalletActionError,
   classifyWalletError,
@@ -39,6 +39,9 @@ export async function invokeContractMethod({
   maxPolls = 20,
   pollIntervalMs = 1_500,
 }: InvokeContractInput): Promise<{ txHash: string }> {
+  const { BASE_FEE, Contract, TransactionBuilder, rpc } = await import(
+    "@stellar/stellar-sdk"
+  );
   const server = new rpc.Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
   const account = await server.getAccount(sourceAddress);
 

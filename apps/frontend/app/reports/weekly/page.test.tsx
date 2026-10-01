@@ -11,7 +11,11 @@ vi.mock("../../../hooks/useOrders", () => ({
         status: "settled",
         lineItems: [],
         totalStroops: 10_000_000n,
-        createdAt: new Date(),
+        // The report window is `[now - 7d, now)` with an exclusive upper
+        // bound, so an order created at exactly `now` drops out whenever the
+        // page's clock and this factory land in the same millisecond. An hour
+        // old keeps the order firmly inside the window.
+        createdAt: new Date(Date.now() - 60 * 60 * 1000),
       },
     ],
     loading: false,

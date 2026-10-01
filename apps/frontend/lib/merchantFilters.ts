@@ -2,7 +2,10 @@
  * Merchant allowlist / blocklist rules (#717).
  */
 
-import { StrKey } from "@stellar/stellar-sdk";
+// Imported from the SDK's `base` subpath rather than its root barrel: this
+// module only needs address parsing, and the root export drags in the whole
+// Soroban contract/rpc surface into any route that imports it.
+import { StrKey } from "@stellar/stellar-sdk/base";
 
 export interface MerchantFilterRule {
   address: string;

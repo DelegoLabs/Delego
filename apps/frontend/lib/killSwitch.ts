@@ -4,11 +4,14 @@
  * Revokes every agent spending key in a single `revoke_all(owner)` call on
  * the Permissions contract, then optionally asks the gateway to cancel the
  * wallet's pending orders.
+ *
+ * The Stellar SDK is imported lazily inside `executeKillSwitch`. It is only
+ * needed once a buyer actually arms the switch, and importing it eagerly pulls
+ * the whole Soroban contract/rpc surface into the initial bundle of every
+ * route that renders the kill-switch card.
  */
 
-import { Address } from "@stellar/stellar-sdk";
 import { apiFetch } from "./apiFetch";
-import { invokeContractMethod } from "./sorobanInvoke";
 
 export interface KillSwitchPayload {
   walletAddress: string;
@@ -62,6 +65,10 @@ export async function executeKillSwitch({
         "No Permissions contract is configured for this network, so delegations can't be revoked on-chain."
       );
     }
+    const [{ Address }, { invokeContractMethod }] = await Promise.all([
+      import("@stellar/stellar-sdk/base"),
+      import("./sorobanInvoke"),
+    ]);
     const { txHash } = await invokeContractMethod({
       rpcUrl,
       networkPassphrase,

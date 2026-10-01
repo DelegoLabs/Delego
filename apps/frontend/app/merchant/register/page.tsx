@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StrKey } from "@stellar/stellar-sdk";
+// `base` subpath only: the root barrel would pull the entire Soroban
+// contract/rpc surface into this route's initial bundle.
+import { StrKey } from "@stellar/stellar-sdk/base";
 import { Stepper } from "@delegolabs/ui";
 import { useWallet } from "../../../hooks/useWallet";
 import { useNetwork } from "../../../hooks/useNetwork";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { StrKey } from "@stellar/stellar-sdk";
+import { StrKey } from "@stellar/stellar-sdk/base";
 import type { NetworkId } from "../../lib/networks";
 import {
   findNearMisses,

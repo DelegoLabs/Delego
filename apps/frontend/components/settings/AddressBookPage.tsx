@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card } from "@delegolabs/ui";
-import { StrKey } from "@stellar/stellar-sdk";
+import { StrKey } from "@stellar/stellar-sdk/base";
 import type { NetworkId } from "../../lib/networks";
 import {
   addAddressEntry,
