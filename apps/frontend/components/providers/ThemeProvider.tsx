@@ -47,7 +47,7 @@ function getSystemTheme(): Exclude<ResolvedTheme, "high-contrast"> {
   if (typeof window === "undefined") {
     return "light";
   }
-  return window.matchMedia("${prefers-color-scheme}").matches
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
 }
@@ -97,7 +97,7 @@ export function ThemeProvider({
     if (typeof window === "undefined") {
       return;
     }
-    const media = window.matchMedia("${prefers-color-scheme}");
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
       setSystemTheme(media.matches ? "dark" : "light");
     };

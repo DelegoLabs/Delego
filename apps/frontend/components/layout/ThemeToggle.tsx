@@ -57,7 +57,7 @@ function isValidTime(value: string): boolean {
 
 function getSystemTheme(): ResolvedTheme {
   if (typeof window === "undefined") return "light";
-  return window.matchMedia("$prefers-color-scheme: dark").matches
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
 }
@@ -170,7 +170,7 @@ export function ThemeToggle() {
   // React to OS color-scheme changes when in system mode.
   useEffect(() => {
     if (mode !== "system" || typeof window === "undefined") return;
-    const mq = window.matchMedia("$prefers-color-scheme: dark");
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
       const next = getSystemTheme();
       setResolvedTheme(next);
