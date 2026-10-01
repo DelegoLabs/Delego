@@ -344,9 +344,10 @@ describe("useAudioNotifications — playChime gating", () => {
     const scope = window as unknown as Record<string, unknown>;
     delete scope.AudioContext;
     scope.webkitAudioContext = function LegacyAudioContext() {
-      return new (
-        installFakeAudioContext().FakeCtor as unknown as new () => unknown
-      )();
+      const fake = installFakeAudioContext() as unknown as {
+        FakeCtor: new () => unknown;
+      };
+      return new fake.FakeCtor();
     };
     store(true, 0.5);
 

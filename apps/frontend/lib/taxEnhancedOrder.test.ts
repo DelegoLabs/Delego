@@ -229,9 +229,12 @@ describe("taxEnhancedOrder", () => {
       } as any;
 
       const enhanced = enhanceOrderWithTax(orderWithExtras, "90210");
-      
-      expect(enhanced.customField).toBe("custom-value");
-      expect(enhanced.internalNote).toBe("internal-note");
+      // Unrecognised order fields are passed through untouched, so they are
+      // not part of the TaxEnhancedOrder contract.
+      const passthrough = enhanced as unknown as Record<string, unknown>;
+
+      expect(passthrough.customField).toBe("custom-value");
+      expect(passthrough.internalNote).toBe("internal-note");
       expect(enhanced.deliveryPostalCode).toBe("90210");
     });
 

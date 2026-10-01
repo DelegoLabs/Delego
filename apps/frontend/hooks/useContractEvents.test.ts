@@ -66,10 +66,11 @@ beforeEach(() => {
   sockets = [];
   const MockWebSocket = vi.fn().mockImplementation((url: string) => createMockSocket(url));
   // Attach static constants so code under test (and assertions) can use them.
-  MockWebSocket.CONNECTING = WS_CONNECTING;
-  MockWebSocket.OPEN = 1;
-  MockWebSocket.CLOSING = 2;
-  MockWebSocket.CLOSED = WS_CLOSED;
+  const withConstants = MockWebSocket as unknown as Record<string, number>;
+  withConstants.CONNECTING = WS_CONNECTING;
+  withConstants.OPEN = 1;
+  withConstants.CLOSING = 2;
+  withConstants.CLOSED = WS_CLOSED;
   vi.stubGlobal("WebSocket", MockWebSocket);
 });
 

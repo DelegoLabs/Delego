@@ -83,6 +83,7 @@ function KillSwitchModal({
 export function HomeContent() {
   const {
     delegations,
+    revokeDelegation,
     loading: delegationsLoading,
     stale: delegationsStale,
     cachedAt: delegationsCachedAt,
@@ -106,7 +107,7 @@ export function HomeContent() {
     await Promise.all(
       delegations
         .filter((delegation) => delegation.status === "active")
-        .map((delegation) => delegation.revoke())
+        .map((delegation) => revokeDelegation(delegation.id))
     );
   }
 

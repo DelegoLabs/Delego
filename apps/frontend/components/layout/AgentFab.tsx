@@ -2,14 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useTranslations } from "next-intl/client";
+import { useTranslations } from "next-intl";
 
 /** Props for the mobile floating action button that launches the AI assistant. */
 export interface FabButtonProps {
   /** Number of unread proposals to badge on the button. */
-  unreadProposalsCount: number;
-  /** Called when the button is activated. */
-  onClick(): void;
+  unreadProposalsCount?: number;
+  /**
+   * Called when the button is activated. Defaults to raising the
+   * `open-agent` event the chat drawer listens for, which is what the
+   * app shell relies on when it renders the FAB without wiring a handler.
+   */
+  onClick?(): void;
 }
 
 /** Scroll distance (px) after which the FAB appears. */
@@ -20,7 +24,7 @@ const REVEAL_THRESHOLD = 80;
  * access to the AI assistant from any page. Hidden on desktop via CSS and
  * animates in once the user scrolls past the reveal threshold.
  */
-export function AgentFab({ unreadProposalsCount, onClick }: FabButtonProps) {
+export function AgentFab({ unreadProposalsCount = 0, onClick }: FabButtonProps) {
   const t = useTranslations("agent");
   const pathname = usePathname();
   const [visible, setVisible] = useState(false);
@@ -44,7 +48,11 @@ export function AgentFab({ unreadProposalsCount, onClick }: FabButtonProps) {
   const onAgentRoute = pathname?.startsWith("/agent") ?? false;
 
   const handleClick = useCallback(() => {
-    onClick();
+    if (onClick) {
+      onClick();
+      return;
+    }
+    window.dispatchEvent(new CustomEvent("open-agent"));
   }, [onClick]);
 
   const badge = unreadProposalsCount > 0 ? unreadProposalsCount : null;

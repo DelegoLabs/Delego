@@ -1,5 +1,3 @@
-type WorkerScope = DedicatedWorkerGlobalScope;
-
 export interface SessionKeyWorkerMessage {
   type: "SIGN_PAYLOAD" | "CLEAR_KEY" | "INIT_KEY";
   payload?: Uint8Array;
@@ -25,7 +23,7 @@ const EC_PARAMS: EcKeyGenParams = {
 
 const SIGN_ALGORITHM: EcdsaParams = {
   name: "ECDSA",
-  hash: "SH-256",
+  hash: "SHA-256",
 };
 
 function wipeKey(): void {
@@ -47,7 +45,13 @@ async function signPayload(payload: Uint8Array): Promise<Uint8Array> {
   if (!privateKey) {
     throw new Error("Session key not initialized");
   }
-  const signature = await crypto.subtle.sign(SIGN_ALGORITHM, privateKey, payload);
+  // `payload` arrives via structured clone, so its buffer is a real
+  // ArrayBuffer; the cast satisfies lib.dom's stricter BufferSource.
+  const signature = await crypto.subtle.sign(
+    SIGN_ALGORITHM,
+    privateKey,
+    payload as unknown as BufferSource,
+  );
   return new Uint8Array(signature);
 }
 

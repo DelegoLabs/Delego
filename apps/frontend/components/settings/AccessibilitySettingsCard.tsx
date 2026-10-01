@@ -13,7 +13,7 @@ import { useTheme, type ThemeMode } from "../../hooks/useTheme";
  * and link underline toggle.
  */
 export function AccessibilitySettingsCard() {
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { mode: theme, resolved: resolvedTheme, setMode: setTheme } = useTheme();
   const {
     preferences,
     setTextScale,

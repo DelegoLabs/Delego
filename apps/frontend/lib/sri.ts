@@ -52,7 +52,10 @@ export async function computeSha384(content: string | Uint8Array): Promise<strin
   const data = typeof content === "string" ? encoder.encode(content) : content;
 
   if (typeof globalThis !== "undefined" && globalThis.crypto?.subtle?.digest) {
-    const digestBuffer = await globalThis.crypto.subtle.digest("SHA-384", data);
+    const digestBuffer = await globalThis.crypto.subtle.digest(
+      "SHA-384",
+      data as unknown as BufferSource,
+    );
     const hashArray = Array.from(new Uint8Array(digestBuffer));
     const base64 = btoa(String.fromCharCode(...hashArray));
     return `sha384-${base64}`;

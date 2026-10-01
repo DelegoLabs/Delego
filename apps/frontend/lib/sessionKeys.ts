@@ -78,3 +78,12 @@ export function revokeSessionKeyGrant(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(STORAGE_KEY);
 }
+
+/**
+ * The ephemeral signing key lives inside a dedicated Web Worker so its bytes
+ * never reach the main thread. The worker itself is owned by
+ * `lib/session/sessionKeyClient` and shared process-wide.
+ */
+export { initSessionKeyWorker } from "./session/sessionKeyClient";
+export { clearSessionKey } from "./session/sessionKeyClient";
+export type { SessionKeyWorkerMessage } from "../workers/sessionKeyWorker";

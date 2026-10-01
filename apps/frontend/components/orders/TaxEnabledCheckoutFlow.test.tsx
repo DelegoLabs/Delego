@@ -200,7 +200,7 @@ describe("useTaxEnabledOrder hook", () => {
   
   test("calculates correct subtotal from line items", () => {
     // Subtotal should be: (30 * 2) + (40 * 1) = 100 XLM = 1000000000 stroops
-    const subtotal = mockOrder.lineItems.reduce((sum, item) => {
+    const subtotal = (mockOrder.lineItems ?? []).reduce((sum, item) => {
       return sum + (BigInt(item.unitPriceStroops) * BigInt(item.quantity));
     }, 0n);
     

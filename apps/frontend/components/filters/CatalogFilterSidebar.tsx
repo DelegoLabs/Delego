@@ -217,7 +217,7 @@ export function MobileCatalogFilterDrawer({
 }: MobileCatalogFilterDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useFocusTrap(panelRef, open);
+  useFocusTrap({ containerRef: panelRef, isActive: open });
 
   useEffect(() => {
     if (!open) return;

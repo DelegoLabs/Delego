@@ -55,7 +55,7 @@ export function ReleaseConfirmModal({
   const [failure, setFailure] = useState<string | null>(null);
   const [released, setReleased] = useState(false);
 
-  useFocusTrap(dialogRef, isOpen);
+  useFocusTrap({ containerRef: dialogRef, isActive: isOpen });
 
   const isSubmitting = submitting || busy;
   const message = failure ?? error ?? null;

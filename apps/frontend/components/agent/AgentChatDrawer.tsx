@@ -24,7 +24,7 @@ export function AgentChatDrawer({
 }: AgentChatDrawerProps) {
   const [prompt, setPrompt] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(panelRef, open);
+  useFocusTrap({ containerRef: panelRef, isActive: open });
 
   useEffect(() => {
     if (!open) return;

@@ -45,7 +45,7 @@ export function ExpenseReportExportModal({
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(null);
 
-  useFocusTrap(panelRef, isOpen);
+  useFocusTrap({ containerRef: panelRef, isActive: isOpen });
 
   useEffect(() => {
     if (!isOpen) return;

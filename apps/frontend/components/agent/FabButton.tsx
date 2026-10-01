@@ -11,9 +11,11 @@ import { useEffect, useState } from "react";
 export interface FabButtonProps {
   unreadProposalsCount: number;
   onClick(): void;
+  /** Extra classes appended to the button, used for reveal/hide states. */
+  className?: string;
 }
 
-export function FabButton({ unreadProposalsCount, onClick }: FabButtonProps) {
+export function FabButton({ unreadProposalsCount, onClick, className }: FabButtonProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
 
@@ -56,7 +58,7 @@ export function FabButton({ unreadProposalsCount, onClick }: FabButtonProps) {
   return (
     <button
       type="button"
-      className={`fab-button${hasScrolled ? " fab-button--visible" : ""}`}
+      className={`fab-button${hasScrolled ? " fab-button--visible" : ""}${className ? ` ${className}` : ""}`}
       onClick={onClick}
       aria-label={
         showBadge

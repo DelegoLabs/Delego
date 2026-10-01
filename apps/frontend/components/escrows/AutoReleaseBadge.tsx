@@ -51,7 +51,7 @@ export function AutoReleaseBadge({ meta, orderId }: AutoReleaseBadgeProps) {
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
-  useFocusTrap(dialogRef, open);
+  useFocusTrap({ containerRef: dialogRef, isActive: open });
 
   useEffect(() => {
     if (!open) return;

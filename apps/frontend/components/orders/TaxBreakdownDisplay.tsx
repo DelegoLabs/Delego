@@ -56,7 +56,7 @@ export function TaxBreakdownDisplay({
             <h4 className="tax-breakdown-title">Tax Calculation</h4>
             {taxBreakdown.jurisdiction && (
               <div className="tax-breakdown-jurisdiction">
-                <Badge tone="neutral" size="sm">
+                <Badge tone="neutral">
                   {taxBreakdown.jurisdiction.jurisdictionName}
                 </Badge>
                 <span className="tax-breakdown-rate">
@@ -117,7 +117,7 @@ export function TaxBreakdownDisplay({
           
           {taxBreakdown.jurisdiction?.isEstimate && (
             <div className="tax-breakdown-estimate-note">
-              <Badge tone="warning" size="sm">
+              <Badge tone="warning">
                 Estimate
               </Badge>
               <span className="tax-breakdown-estimate-text">

@@ -105,9 +105,8 @@ export function TaxEnabledCheckoutFlow({
   if (showReceipt || mode === "receipt") {
     return (
       <div className="checkout-receipt">
-        <ReceiptPanel 
-          order={order} 
-          deliveryPostalCode={postalCode || undefined}
+        <ReceiptPanel
+          order={order}
         />
         {mode === "full" && (
           <div style={{ marginTop: "1rem", textAlign: "center" }}>
@@ -255,7 +254,6 @@ export function TaxAwareReceiptPanel({
     <ReceiptPanel
       {...props}
       order={order}
-      deliveryPostalCode={postalCode}
     />
   );
 }

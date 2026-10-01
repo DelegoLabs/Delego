@@ -198,7 +198,7 @@ function KillSwitchModal({
             Cancel
           </Button>
           <Button
-            variant="danger"
+            variant="destructive"
             onClick={handleConfirm}
             disabled={!canConfirm}
           >
@@ -272,7 +272,7 @@ export default function SettingsPage() {
             Instantly revoke all active AI agent spending permissions.
           </p>
         </div>
-        <Button variant="danger" onClick={() => setIsKillSwitchOpen(true)}>
+        <Button variant="destructive" onClick={() => setIsKillSwitchOpen(true)}>
           Revoke all permissions
         </Button>
       </section>

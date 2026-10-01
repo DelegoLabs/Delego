@@ -58,7 +58,7 @@ export function CancelEscrowButton({
     await execute({
       type: "UPDATE_STATUS",
       previousState: { status: escrow.status, isCancelling: false },
-      optimisticState: { status: "Cancelling", isCancelling: true },
+      optimisticState: { status: "cancelling", isCancelling: true },
       txHashPromise: (async () => {
         const res = await requestCancellation(escrowId);
         if (res.error) {

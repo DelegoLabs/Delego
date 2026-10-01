@@ -36,11 +36,11 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const dayKey = (date: Date) => date.toISOString().slice(0, 10);
 
 function toNumber(value: unknown, weight = 1): number {
-  if (typeof value === "number" && Number.finite(value)) return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "bigint") return Number(value);
   if (typeof value === "string") {
     const parsed = Number(value);
-    if (Number.finite(parsed)) return parsed;
+    if (Number.isFinite(parsed)) return parsed;
   }
   return weight;
   }
@@ -66,7 +66,7 @@ function extractTimestamp(delegation: Delegation): number {
     (delegation as { createdAt?: unknown }).createdAt,
   ];
   for (const candidate of candidates) {
-    if (typeof candidate === "number" && Number.finite(candidate)) {
+    if (typeof candidate === "number" && Number.isFinite(candidate)) {
       return candidate > 1000000000000 ? candidate : candidate * 1000;
     }
     if (typeof candidate === "string") {

@@ -39,7 +39,7 @@ export function AgentMemoryTable({
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(dialogRef, confirmOpen);
+  useFocusTrap({ containerRef: dialogRef, isActive: confirmOpen });
 
   const visible = useMemo(
     () => memories.filter((m) => !removedIds.has(m.id)),

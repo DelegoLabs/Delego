@@ -258,7 +258,7 @@ describe("generateInvoicePdf", () => {
 
   it("includes QR code when stellarTxHash is provided", async () => {
     const { jsPDF } = await import("jspdf");
-    const mockDoc = (jsPDF as ReturnType<typeof vi.fn>).mock.results[0]?.value;
+    const mockDoc = (jsPDF as unknown as ReturnType<typeof vi.fn>).mock.results[0]?.value;
     await generateInvoicePdf(makeInvoice());
     // addImage is called with the QR data URL
     if (mockDoc) {
@@ -268,7 +268,7 @@ describe("generateInvoicePdf", () => {
 
   it("skips QR code when stellarTxHash is not provided", async () => {
     const { jsPDF } = await import("jspdf");
-    const instance = new (jsPDF as ReturnType<typeof vi.fn>)();
+    const instance = new (jsPDF as unknown as ReturnType<typeof vi.fn>)();
     instance.addImage.mockClear();
     await generateInvoicePdf(makeInvoice({ stellarTxHash: undefined }));
     expect(instance.addImage).not.toHaveBeenCalled();
