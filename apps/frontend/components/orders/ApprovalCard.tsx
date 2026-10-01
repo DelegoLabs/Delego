@@ -259,29 +259,34 @@ export function ApprovalCard({
               </thead>
               <tbody>
                 {(order.items || (order as any).lineItems || []).map(
-                  (item: any, idx: number) => (
-                    <tr key={item.productId || item.name || idx}>
-                      <td>{item.productId || item.name}</td>
-                      <td>{item.quantity}</td>
-                      <td>
-                        <Amount
-                          stroops={item.unitPriceStroops || item.price}
-                          currency={currencyId as any}
-                          xlmUsdRate={rate?.xlmUsdRate}
-                        />
-                      </td>
-                      <td>
-                        <Amount
-                          stroops={
-                            (item.unitPriceStroops || item.price) *
-                            BigInt(item.quantity)
-                          }
-                          currency={currencyId as any}
-                          xlmUsdRate={rate?.xlmUsdRate}
-                        />
-                      </td>
-                    </tr>
-                  )
+                  (item: any, idx: number) => {
+                    // Line items arrive with the unit price as a bigint, a
+                    // decimal string, or a number depending on the source, so
+                    // it has to be normalised before any arithmetic.
+                    const unitPrice = BigInt(
+                      item.unitPriceStroops || item.price || 0
+                    );
+                    return (
+                      <tr key={item.productId || item.name || idx}>
+                        <td>{item.productId || item.name}</td>
+                        <td>{item.quantity}</td>
+                        <td>
+                          <Amount
+                            stroops={unitPrice}
+                            currency={currencyId as any}
+                            xlmUsdRate={rate?.xlmUsdRate}
+                          />
+                        </td>
+                        <td>
+                          <Amount
+                            stroops={unitPrice * BigInt(item.quantity)}
+                            currency={currencyId as any}
+                            xlmUsdRate={rate?.xlmUsdRate}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  }
                 )}
               </tbody>
             </table>

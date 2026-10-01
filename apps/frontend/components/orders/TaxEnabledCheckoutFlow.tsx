@@ -8,6 +8,7 @@ import { ReceiptPanel } from "./ReceiptPanel";
 import { TaxBreakdownDisplay } from "./TaxBreakdownDisplay";
 import { enhanceOrderWithTax, getTaxPostalCode, type TaxEnhancedOrder } from "../../lib/taxEnhancedOrder";
 import { calculateTaxBreakdown } from "../../lib/taxCalculation";
+import { receiptSubtotalStroops } from "../../lib/receipts";
 
 export interface TaxEnabledCheckoutFlowProps {
   /** Base order information */
@@ -43,9 +44,7 @@ export function TaxEnabledCheckoutFlow({
   const [showReceipt, setShowReceipt] = useState(mode === "receipt");
 
   // Calculate subtotal from line items
-  const subtotal = (order.lineItems ?? []).reduce((sum, item) => {
-    return sum + (item.unitPriceStroops * BigInt(item.quantity));
-  }, 0n);
+  const subtotal = receiptSubtotalStroops(order);
 
   // Calculate tax breakdown if postal code is provided
   const taxBreakdown = postalCode ? calculateTaxBreakdown(subtotal, postalCode) : null;
@@ -200,9 +199,7 @@ export function useTaxEnabledOrder(baseOrder: Order, postalCode?: string) {
   const effectivePostalCode = getTaxPostalCode(enhancedOrder);
   
   // Calculate subtotal from line items
-  const subtotal = (baseOrder.lineItems ?? []).reduce((sum, item) => {
-    return sum + (item.unitPriceStroops * BigInt(item.quantity));
-  }, 0n);
+  const subtotal = receiptSubtotalStroops(baseOrder);
 
   // Calculate tax if postal code is available
   const taxBreakdown = effectivePostalCode 

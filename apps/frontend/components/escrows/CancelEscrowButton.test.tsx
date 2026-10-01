@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import type { Escrow } from "@delegolabs/types";
 import { CancelEscrowButton } from "./CancelEscrowButton";
 
@@ -25,7 +25,10 @@ function makeEscrow(overrides: Partial<Escrow> = {}): Escrow {
 
 describe("CancelEscrowButton", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    // `shouldAdvanceTime` keeps the fake clock moving with real time. Without
+    // it, Testing Library's `waitFor` polling never advances and every
+    // assertion that awaits a promise times out.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     mockRequestCancellation.mockReset();
   });
 
@@ -131,7 +134,7 @@ describe("CancelEscrowButton", () => {
     await waitFor(() => expect(onRefetch).toHaveBeenCalled());
   });
 
-  it("auto-hides warning after 5 seconds", async () => {
+  it("auto-hides the warning toast after 5 seconds", async () => {
     mockRequestCancellation.mockResolvedValue({
       data: null,
       error: { code: "chain_error", message: "Transaction reverted" },
@@ -141,11 +144,18 @@ describe("CancelEscrowButton", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /cancel escrow/i }));
 
-    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
-
-    await waitFor(
-      () => expect(screen.queryByRole("alert")).toBeNull(),
-      { timeout: 6000 }
+    await waitFor(() =>
+      expect(screen.getByText(/Cancellation failed/i)).toBeInTheDocument()
     );
-  });
+
+    // The component clears the warning from a 5s setTimeout, so the fake clock
+    // has to be driven past it rather than waited out. The inline error stays
+    // on screen afterwards — only the toast auto-hides.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(screen.queryByText(/Cancellation failed/i)).toBeNull();
+    expect(screen.getByText(/Transaction reverted/i)).toBeInTheDocument();
+  }, 10000);
 });

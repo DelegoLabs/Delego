@@ -30,24 +30,47 @@ function createControllableStream() {
   };
 }
 
-/** Records the AbortSignal handed to fetch so tests can inspect it. */
-let lastSignal: AbortSignal | undefined;
-let streamSource: ReturnType<typeof createControllableStream>;
+/**
+ * Hands out one fresh stream per `fetch` call.
+ *
+ * A `ReadableStream` can only be locked by one reader at a time, so a second
+ * stream has to be created per request. Reusing a single stream makes a
+ * superseded `send()` fail to read, which is a harness artefact rather than a
+ * real behaviour of the hook.
+ */
+let streamSources: Array<ReturnType<typeof createControllableStream>> = [];
+let streamSource: {
+  push(chunk: string): void;
+  close(): void;
+};
 
 beforeEach(() => {
   lastSignal = undefined;
-  streamSource = createControllableStream();
+  streamSources = [];
+  streamSource = {
+    push(chunk: string) {
+      streamSources[streamSources.length - 1]?.push(chunk);
+    },
+    close() {
+      streamSources[streamSources.length - 1]?.close();
+    },
+  };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, init?: RequestInit) => {
       lastSignal = init?.signal ?? undefined;
-      return new Response(streamSource.stream, {
+      const source = createControllableStream();
+      streamSources.push(source);
+      return new Response(source.stream, {
         status: 200,
         headers: { "Content-Type": "text/event-stream" },
       });
     })
   );
 });
+
+/** Records the AbortSignal handed to fetch so tests can inspect it. */
+let lastSignal: AbortSignal | undefined;
 
 afterEach(() => {
   vi.unstubAllGlobals();

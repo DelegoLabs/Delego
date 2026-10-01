@@ -21,7 +21,10 @@ vi.mock("@delegolabs/ui", () => ({
     <span data-testid="badge" data-tone={tone}>{children}</span>
   ),
   Card: ({ children, title }: { children: React.ReactNode; title: string }) => (
-    <div data-testid="card" data-title={title}>{children}</div>
+    <div data-testid="card" data-title={title}>
+      {title ? <h3>{title}</h3> : null}
+      {children}
+    </div>
   ),
   Button: ({ children, onClick, variant }: { 
     children: React.ReactNode; 
@@ -40,21 +43,28 @@ vi.mock("@delegolabs/ui", () => ({
 
 // Mock other components
 vi.mock("./ApprovalCard", () => ({
-  ApprovalCard: ({ deliveryPostalCode, onApprove, onReject }: any) => (
-    <div data-testid="approval-card" data-postal-code={deliveryPostalCode}>
-      <button onClick={() => onApprove("test-order")} data-testid="approve-btn">
+  ApprovalCard: ({ order, deliveryPostalCode, onApprove, onReject }: any) => (
+    <div data-testid="approval-card" data-postal-code={deliveryPostalCode ?? ""}>
+      <button onClick={() => onApprove(order.id)} data-testid="approve-btn">
         Approve
       </button>
-      <button onClick={() => onReject("test-order", "test reason")} data-testid="reject-btn">
+      <button onClick={() => onReject(order.id, "test reason")} data-testid="reject-btn">
         Reject
       </button>
     </div>
   ),
 }));
 
+// Mirrors the real `ReceiptPanel`, which takes an `Order` plus optional
+// jurisdiction/category — it has no `deliveryPostalCode` prop.
 vi.mock("./ReceiptPanel", () => ({
-  ReceiptPanel: ({ deliveryPostalCode }: any) => (
-    <div data-testid="receipt-panel" data-postal-code={deliveryPostalCode}>
+  ReceiptPanel: ({ order, jurisdictionCode, category }: any) => (
+    <div
+      data-testid="receipt-panel"
+      data-order-id={order?.id}
+      data-jurisdiction={jurisdictionCode ?? ""}
+      data-category={category ?? ""}
+    >
       Receipt with tax
     </div>
   ),
@@ -176,7 +186,7 @@ describe("TaxEnabledCheckoutFlow", () => {
     );
 
     const receiptPanel = screen.getByTestId("receipt-panel");
-    expect(receiptPanel).toHaveAttribute("data-postal-code", "90210");
+    expect(receiptPanel).toHaveAttribute("data-order-id", "test-order-123");
     expect(screen.getByText("Receipt with tax")).toBeInTheDocument();
   });
 
@@ -298,6 +308,6 @@ describe("Integration scenarios", () => {
     );
 
     const receiptPanel = screen.getByTestId("receipt-panel");
-    expect(receiptPanel).toHaveAttribute("data-postal-code", "10115");
+    expect(receiptPanel).toHaveAttribute("data-order-id", "test-order-123");
   });
 });
