@@ -7,6 +7,7 @@ import { Sidebar } from "../components/layout/Sidebar";
 import { Header } from "../components/layout/Header";
 import { AppProviders } from "../components/providers/AppProviders";
 import { AnnouncementBanner } from "../components/announcements/AnnouncementBanner";
+import { OfflineModeBanner } from "../components/offline/OfflineModeBanner";
 import { ServiceWorkerRegistration } from "../components/pwa/ServiceWorkerRegistration";
 import { InstallPromptCard } from "../components/pwa/InstallPromptCard";
 import { AgentLiveStatusBanner } from "../components/layout/AgentLiveStatusBanner";
@@ -91,6 +92,7 @@ export default async function RootLayout({
                 Skip to Main Content
               </a>
               <ServiceWorkerRegistration />
+              <OfflineModeBanner />
               <AnnouncementBanner />
               <div className="app-shell">
                 <Sidebar />

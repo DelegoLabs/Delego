@@ -3,6 +3,9 @@
     "brand": "Delego",
     "tagline": "Delegate shopping to AI agents with spending controls"
   },
+  "offline": {
+    "banner": "Offline Mode — Browse Only"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "delegations": "Delegations",

@@ -2080,6 +2080,28 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Offline mode banner (#773)
+   Amber "browse only" notice shown while `navigator.onLine` is false. Non-
+   dismissible: connectivity is out of the user's hands, and mutating CTAs
+   stay disabled until it returns, so the state is worth keeping visible.
+   --------------------------------------------------------------------------- */
+.offline-mode-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 1.25rem;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border-bottom: 1px solid var(--color-warning-border);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.offline-mode-banner-icon {
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
    Approve-with-note (#573)
    Optional note attached to an approve action: a compact popover for the
    row-level card, a full-width textarea in the drawer. Both share the same
