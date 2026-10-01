@@ -10,6 +10,7 @@ import { SorobanHealthIndicator } from "../network/SorobanHealthIndicator";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
 import { CommandPaletteTrigger } from "../command-palette/CommandPaletteTrigger";
+import { ChatDrawerTrigger } from "../chat/public";
 import { DataSaverChip } from "./DataSaverChip";
 import { BalanceSwitcher } from "./BalanceSwitcher";
 
@@ -44,6 +45,8 @@ export function Header() {
         <GlobalSearch />
 
         <CommandPaletteTrigger />
+
+        <ChatDrawerTrigger />
 
         <div className="app-header-spacer" />
 
