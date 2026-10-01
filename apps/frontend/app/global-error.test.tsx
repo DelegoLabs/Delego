@@ -125,7 +125,15 @@ describe("GlobalError recovery screen (#747)", () => {
     expect(sentry.setTag).toHaveBeenCalledWith("error.digest", "digest-xyz");
 
     const logged = consoleError.mock.calls
-      .map((call) => call.map(String).join(" "))
+      .map((call) =>
+        call
+          .map((arg) =>
+            typeof arg === "object" && arg !== null
+              ? JSON.stringify(arg)
+              : String(arg),
+          )
+          .join(" "),
+      )
       .join("\n");
     expect(logged).toContain("[global-error] uncaught error");
     expect(logged).toContain("digest-xyz");
