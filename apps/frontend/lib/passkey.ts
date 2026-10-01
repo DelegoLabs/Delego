@@ -28,15 +28,71 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
+export interface WebAuthnClientOptions {
+  rpId: string;
+  challenge: string;
+  timeout: number;
+  userVerification: "preferred" | "required";
+}
+
+export function buildWebAuthnOptions(
+  overrideRpId?: string,
+  userVerification: "preferred" | "required" = "required",
+  timeout: number = 60_000
+): WebAuthnClientOptions {
+  const currentHostname =
+    typeof window !== "undefined" && window.location ? window.location.hostname : "";
+  const rpId = overrideRpId ?? currentHostname;
+
+  const challengeBytes = crypto.getRandomValues(new Uint8Array(32));
+  const challenge = bytesToBase64Url(challengeBytes);
+
+  return {
+    rpId,
+    challenge,
+    timeout,
+    userVerification,
+  };
+}
+
+export function verifyWebAuthnOrigin(clientRpId: string, expectedOrigin: string): boolean {
+  if (!clientRpId || !expectedOrigin) return false;
+  let parsedHost = expectedOrigin;
+  try {
+    if (expectedOrigin.includes("://")) {
+      parsedHost = new URL(expectedOrigin).hostname;
+    }
+  } catch {
+    parsedHost = expectedOrigin;
+  }
+  return clientRpId === parsedHost;
+}
+
 export async function createPasskeyCredential(
   stellarAddress: string,
-  name: string
+  name: string,
+  customOptions?: Partial<WebAuthnClientOptions>
 ): Promise<PasskeyCredential> {
-  const challenge = crypto.getRandomValues(new Uint8Array(32));
+  const options = buildWebAuthnOptions(
+    customOptions?.rpId,
+    customOptions?.userVerification,
+    customOptions?.timeout
+  );
+
+  const currentHostname =
+    typeof window !== "undefined" && window.location ? window.location.hostname : "";
+  if (!verifyWebAuthnOrigin(options.rpId, currentHostname)) {
+    throw new Error("Mismatched RP ID origin: passkey request origin does not match current host.");
+  }
+
+  const challenge = customOptions?.challenge
+    ? new TextEncoder().encode(customOptions.challenge)
+    : crypto.getRandomValues(new Uint8Array(32));
+
   const credential = await navigator.credentials.create({
     publicKey: {
       challenge,
-      rp: { name: "Delego" },
+      rp: { name: "Delego", id: options.rpId },
       user: {
         id: new TextEncoder().encode(stellarAddress).slice(0, 64),
         name: stellarAddress,
@@ -49,9 +105,9 @@ export async function createPasskeyCredential(
       authenticatorSelection: {
         authenticatorAttachment: "platform",
         residentKey: "preferred",
-        userVerification: "required",
+        userVerification: options.userVerification,
       },
-      timeout: 60_000,
+      timeout: options.timeout,
       attestation: "none",
     },
   });

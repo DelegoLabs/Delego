@@ -3,6 +3,9 @@
     "brand": "Delego",
     "tagline": "Delegiere Einkäufe an KI-Agenten mit Ausgabenkontrolle"
   },
+  "offline": {
+    "banner": "Offline-Modus — Nur Browsen"
+  },
   "nav": {
     "dashboard": "Übersicht",
     "delegations": "Delegationen",
@@ -36,6 +39,25 @@
     "language": {
       "label": "Sprache",
       "hint": "Wähle die im gesamten App verwendete Sprache"
+    },
+    "chatAudio": {
+      "title": "Chat-Ton",
+      "ariaLabel": "Chat-Ton-Einstellungen",
+      "toggleLabel": "Signalton für neue Agentennachrichten abspielen",
+      "toggleHint": "Ein kurzer, leiser Ton, wenn dein Einkaufsagent eine Antwort oder einen Vorschlag fertiggestellt hat. Standardmäßig aus.",
+      "volumeLabel": "Lautstärke",
+      "volumeHint": "Wie laut der Signalton ertönt. Niedrig genug halten, um nicht aufdringlich zu sein.",
+      "testSound": "Testton abspielen",
+      "mutedHint": "Aktiviere den Signalton, um ihn bei eingehenden Nachrichten zu hören.",
+      "reducedMotionHint": "Signaltöne sind deaktiviert, weil auf deinem Gerät Bewegung reduziert wird.",
+      "unsupportedHint": "Dieser Browser kann keine synthetisierten Klänge abspielen."
     }
+  },
+  "invoice": {
+    "downloadPdf": "Rechnung herunterladen",
+    "downloadCsv": "CSV exportieren",
+    "generating": "Wird erstellt…",
+    "errorGeneric": "Rechnung konnte nicht erstellt werden.",
+    "ariaLabel": "PDF-Rechnung für Bestellung {orderId} herunterladen"
   }
 }

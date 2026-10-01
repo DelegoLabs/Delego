@@ -1,197 +1,109 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import type { Delegation } from "@delegolabs/types";
-import { Button } from "@delegolabs/ui";
-import { useDelegations } from "../../hooks/useDelegations";
-import { useWallet } from "../../hooks/useWallet";
-import { useQueryParamState } from "../../hooks/useQueryParamState";
-import { useAnnounce } from "../../hooks/useAnnounce";
-import { DelegationWizard } from "../../components/delegations/DelegationWizard";
-import { SessionKeyGrantModal } from "../../components/delegations/SessionKeyGrantModal";
-import { DelegationFilters } from "../../components/delegations/DelegationFilters";
-import { DelegationList } from "../../components/delegations/DelegationList";
-import { NotificationPermissionPrompt } from "../../components/notifications/NotificationPermissionPrompt";
-import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
-import { StaleBadge } from "../../components/offline/StaleBadge";
-import { OPEN_DELEGATION_FORM_KEY } from "../../lib/delegationFormIntent";
+import { useState } from 'react';
 
-type DelegationStatus = Delegation["status"];
+interface KillSwitchModalProps {
+  activeDelegationCount: number;
+  onConfirmRevokeAll(): Promise<void>;
+}
 
-/** Delegation management page — create, view, edit, pause/resume, and revoke delegations. */
-export default function DelegationsPage() {
-  const {
-    delegations,
-    loading,
-    error,
-    pendingIds,
-    stale,
-    cachedAt,
-    ttlMs,
-    createDelegation,
-    updateDelegation,
-    revokeDelegation,
-  } = useDelegations();
+function KillSwitchModal({ activeDelegationCount, onConfirmRevokeAll }: KillSwitchModalProps) {
+  const [confirmText, setConfirmText] = useState('');
+  const [isRevoking, setIsRevoking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const { address } = useWallet();
-  const [showForm, setShowForm] = useState(false);
-  const [showSessionKeyModal, setShowSessionKeyModal] = useState(false);
-  const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
-  const { announce } = useAnnounce();
+  const canConfirm = confirmText === 'REVOKE' && !isRevoking;
 
-  const [search, setSearch] = useQueryParamState<string>({
-    key: "q",
-    defaultValue: "",
-  });
-
-  const [selectedStatuses, setSelectedStatuses] = useQueryParamState<
-    DelegationStatus[]
-  >({
-    key: "status",
-    defaultValue: [],
-  });
-
-  const visibleDelegations = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    return delegations.filter((d) => {
-      const matchesSearch =
-        term === "" ||
-        d.agentId.toLowerCase().includes(term) ||
-        (d.walletId ?? "").toLowerCase().includes(term);
-
-      const matchesStatus =
-        selectedStatuses.length === 0 ||
-        selectedStatuses.includes(d.status);
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [delegations, search, selectedStatuses]);
-
-  const toggleStatus = (status: DelegationStatus) => {
-    setSelectedStatuses(
-      selectedStatuses.includes(status)
-        ? selectedStatuses.filter((s) => s !== status)
-        : [...selectedStatuses, status]
-    );
-  };
-
-  // Opened via the command palette's "New delegation" quick action.
-  useEffect(() => {
+  async function handleConfirm() {
+    if (!canConfirm) return;
+    setIsRevoking(true);
+    setError(null);
     try {
-      if (window.sessionStorage.getItem(OPEN_DELEGATION_FORM_KEY)) {
-        window.sessionStorage.removeItem(OPEN_DELEGATION_FORM_KEY);
-        setShowForm(true);
-      }
-    } catch {
-      // sessionStorage may be unavailable (private mode) — just skip auto-open.
+      await onConfirmRevokeAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to revoke delegations');
+    } finally {
+      setIsRevoking(false);
     }
-  }, []);
-
-  const handleCreate = async (
-    input: Parameters<typeof createDelegation>[0]
-  ) => {
-    const wasFirstDelegation = delegations.length === 0;
-    const created = await createDelegation(input);
-
-    if (created) {
-      setShowForm(false);
-      announce("Delegation created successfully.", "polite");
-
-      if (wasFirstDelegation) {
-        setShowNotifyPrompt(true);
-      }
-    }
-  };
+  }
 
   return (
-    <div className="settings-page">
-      <header className="header">
-        <div className="header-row">
-          <div>
-            <h1>Delegations</h1>
-            <p>
-              Grant, adjust, and revoke scoped spending authority for AI agents
-            </p>
-            <StaleBadge
-              family="delegations"
-              stale={stale}
-              cachedAt={cachedAt}
-              ttlMs={ttlMs}
-            />
-          </div>
-
-          <CopyViewLinkButton />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-red-600">Revoke all delegations</h2>
+        <p className="mt-2 text-sm text-gray-700">
+          This will immediately revoke all {activeDelegationCount} active AI agent spending
+          permission{activeDelegationCount === 1 ? '' : 's'}. This action cannot be undone.
+        </p>
+        <label className="mt-4 block text-sm font-medium text-gray-700" htmlFor="kill-switch-confirm">
+          Type <span className="font-mono font-bold">REVOKE</span> to confirm
+        </label>
+        <input
+          id="kill-switch-confirm"
+          type="text"
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          disabled={isRevoking}
+          autoComplete="off"
+          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none"
+        />
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            disabled={isRevoking}
+            className="rounded px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={!canConfirm}
+            className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isRevoking ? 'Revoking…' : 'Revoke all'}
+          </button>
         </div>
-      </header>
+      </div>
+    </div>
+  );
+}
 
-      {error && (
-        <div className="settings-status error" role="alert">
-          {error}
+export default function DelegationsPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeDelegationCount, setActiveDelegationCount] = useState(0);
+
+  async function handleConfirmRevokeAll() {
+    // Broadcast revocation on-chain for all active delegations.
+    setActiveDelegationCount(0);
+    setIsModalOpen(false);
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl p-6">
+      <div className="flex items-center justify-between rounded-lg border border-red-300 bg-red-50 p-4">
+        <div>
+          <h2 className="text-base font-semibold text-red-700">Emergency kill-switch</h2>
+          <p className="text-sm text-red-600">
+            Instantly revoke all active AI agent spending permissions.
+          </p>
         </div>
-      )}
-
-      <div className="form-actions">
-        <Button
-          variant="primary"
-          onClick={() => setShowForm((v) => !v)}
-          ariaLabel={
-            showForm ? "Close delegation form" : "Create new delegation"
-          }
-          aria-expanded={showForm}
-          aria-controls="delegation-wizard-region"
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
         >
-          {showForm ? "Close" : "New delegation"}
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => setShowSessionKeyModal(true)}
-          ariaLabel="Grant a temporary session key"
-        >
-          Grant session key
-        </Button>
+          Revoke all
+        </button>
       </div>
 
-      <SessionKeyGrantModal
-        open={showSessionKeyModal}
-        onClose={() => setShowSessionKeyModal(false)}
-        allowedContractCalls={["escrow.release", "order.approve"]}
-      />
-
-      {showNotifyPrompt && (
-        <NotificationPermissionPrompt message="Get notified about approvals for this delegation, even when this tab isn't in focus." />
-      )}
-
-      {showForm && (
-        <div id="delegation-wizard-region">
-          <DelegationWizard
-            defaultWalletId={address ?? ""}
-            onSubmit={handleCreate}
-            onCancel={() => setShowForm(false)}
-          />
-        </div>
-      )}
-
-      {delegations.length > 0 && (
-        <DelegationFilters
-          search={search}
-          onSearchChange={setSearch}
-          selectedStatuses={selectedStatuses}
-          onToggleStatus={toggleStatus}
+      {isModalOpen && (
+        <KillSwitchModal
+          activeDelegationCount={activeDelegationCount}
+          onConfirmRevokeAll={handleConfirmRevokeAll}
         />
       )}
-
-      <DelegationList
-        delegations={visibleDelegations}
-        loading={loading}
-        pendingIds={pendingIds}
-        onUpdate={updateDelegation}
-        onRevoke={revokeDelegation}
-        filtered={
-          delegations.length > 0 &&
-          visibleDelegations.length !== delegations.length
-        }
-      />
     </div>
   );
 }

@@ -231,3 +231,79 @@ self.addEventListener("message", (event) => {
     self.skipWaiting();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Web Push — order shipment & delivery status alerts (#web-push)
+// ---------------------------------------------------------------------------
+
+/**
+ * Handle an incoming push message from the server.
+ *
+ * Expected payload shape (JSON):
+ *   {
+ *     title:    string   // e.g. "Your order has shipped"
+ *     body?:    string   // e.g. "Tracking: 1Z999AA1…"
+ *     tag?:     string   // deduplication key, defaults to "delego-push"
+ *     url?:     string   // path to open on click, e.g. "/orders/ord_123"
+ *     orderId?: string   // order ID for in-app notification threading
+ *   }
+ *
+ * If the server sends no body (or sends a non-JSON body), a generic fallback
+ * notification is shown so the user is never silently dropped.
+ */
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch {
+    // Non-JSON push — treat as a generic alert.
+  }
+
+  const title = data.title || "Delego update";
+  const options = {
+    body: data.body || "You have a new order status update.",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    tag: data.tag || "delego-push",
+    // Pass arbitrary data through so notificationclick can use it.
+    data: {
+      url: data.url || "/orders",
+      orderId: data.orderId || null,
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+/**
+ * When the user taps/clicks a push notification:
+ *  1. Close the notification.
+ *  2. Focus an existing tab on the target URL, or open a new one.
+ */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const targetUrl =
+    event.notification.data && event.notification.data.url
+      ? event.notification.data.url
+      : "/orders";
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        // Try to find an already-open window on the same origin and navigate it.
+        for (const client of clientList) {
+          const clientUrl = new URL(client.url);
+          if (clientUrl.origin === self.location.origin) {
+            client.navigate(targetUrl);
+            return client.focus();
+          }
+        }
+        // No open window found — open a new one.
+        return self.clients.openWindow(targetUrl);
+      })
+  );
+});

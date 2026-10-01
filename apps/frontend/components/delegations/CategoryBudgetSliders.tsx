@@ -26,6 +26,9 @@ export interface CategoryBudgetSlidersProps {
 /** Slider granularity: whole XLM. */
 const STEP_STROOPS = 10_000_000n;
 
+/** Usage percentage at which the "approaching cap" alert is shown. */
+const WARNING_THRESHOLD = 90;
+
 const TONE_LABELS = {
   ok: "On track",
   warning: "Nearly used",
@@ -97,6 +100,8 @@ export function CategoryBudgetSliders({
           const spent = toStroops(b.spentStroops);
           const max = maxAllocationFor(budgets, i, parentLimit);
           const tone = usageTone(b);
+          const usagePct = allocation > 0n ? percentOf(spent, allocation) : 0;
+          const approachingCap = tone !== "over" && usagePct >= WARNING_THRESHOLD;
           const sliderId = `${idPrefix}-${i}`;
           return (
             <li key={b.category} className="category-budget-row">
@@ -130,6 +135,11 @@ export function CategoryBudgetSliders({
                 </span>
                 <span className="stat-label">Max {formatXlm(max, locale)} XLM</span>
               </div>
+              {approachingCap ? (
+                <div className="settings-status warning" role="alert">
+                  Approaching cap: {usagePct}% of the {b.category} budget used ({formatXbm(spent, locale)} of {formatXbm(allocation, locale)} XLM).
+                </div>
+              ) : null}
             </li>
           );
         })}

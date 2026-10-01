@@ -16,6 +16,10 @@ import {
   useDemoModeGuard,
   DEMO_MODE_BLOCKED_MESSAGE,
 } from "../../hooks/useDemoModeGuard";
+import {
+  useOnlineStatus,
+  OFFLINE_BLOCKED_MESSAGE,
+} from "../../hooks/useOnlineStatus";
 
 const STATUS_LABEL: Record<string, string> = {
   checking: "Checking for Freighter…",
@@ -27,13 +31,14 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function WalletPage() {
-  const { status, address, network, networkPassphrase, error } = useWallet();
+  const { status, address, network, networkPassphrase, error, toast } = useWallet();
   const { network: activeNetwork } = useNetwork();
   const notifications = useNotifications();
   const [funding, setFunding] = useState(false);
   const [passkeyOpen, setPasskeyOpen] = useState(false);
   const [fundError, setFundError] = useState<string | null>(null);
   const { isDemoMode } = useDemoModeGuard();
+  const { isOffline } = useOnlineStatus();
 
   const isConnected = status === "connected" && !!address;
   const balanceState = useBalanceHistory(
@@ -158,6 +163,12 @@ export default function WalletPage() {
             </dl>
           )}
 
+          {toast && (
+            <p className="wallet-notice" role="status" aria-live="polite">
+              {toast}
+            </p>
+          )}
+
           {status !== "connected" && error && (
             <p className="settings-status error" role="alert">
               {error}
@@ -270,8 +281,14 @@ export default function WalletPage() {
                       type="button"
                       className="friendbot-button"
                       onClick={fundAccount}
-                      disabled={funding || isDemoMode}
-                      title={isDemoMode ? DEMO_MODE_BLOCKED_MESSAGE : undefined}
+                      disabled={funding || isDemoMode || isOffline}
+                      title={
+                        isOffline
+                          ? OFFLINE_BLOCKED_MESSAGE
+                          : isDemoMode
+                            ? DEMO_MODE_BLOCKED_MESSAGE
+                            : undefined
+                      }
                     >
                       {funding ? "Funding…" : "Fund your account"}
                     </button>

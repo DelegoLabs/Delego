@@ -10,6 +10,7 @@ import { SorobanHealthIndicator } from "../network/SorobanHealthIndicator";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
 import { CommandPaletteTrigger } from "../command-palette/CommandPaletteTrigger";
+import { ChatDrawerTrigger } from "../chat/public";
 import { DataSaverChip } from "./DataSaverChip";
 import { BalanceSwitcher } from "./BalanceSwitcher";
 
@@ -24,40 +25,47 @@ export function Header() {
   const tApp = useTranslations("app");
 
   return (
-    <header className="app-header">
-      <button
-        type="button"
-        className="hamburger"
-        onClick={() => setMobileNavOpen(true)}
-        aria-label={t("openMenu")}
-        aria-expanded={mobileNavOpen}
-      >
-        ☰
-      </button>
+    <>
+      <a href="#main-content" className="skip-to-content focus-visible-ring">
+        {t("skipToContent")}
+      </a>
+      <header className="app-header">
+        <button
+          type="button"
+          className="hamburger focus-visible-ring"
+          onClick={() => setMobileNavOpen(true)}
+          aria-label={t("openMenu")}
+          aria-expanded={mobileNavOpen}
+        >
+          ☰
+        </button>
 
-      <p className="app-header-brand">{tApp("brand")}</p>
+        <p className="app-header-brand">{tApp("brand")}</p>
 
-      <GlobalSearch />
+        <GlobalSearch />
 
-      <CommandPaletteTrigger />
+        <CommandPaletteTrigger />
 
-      <div className="app-header-spacer" />
+        <ChatDrawerTrigger />
 
-      <DataSaverChip />
+        <div className="app-header-spacer" />
 
-      <ThemeToggle />
+        <DataSaverChip />
 
-      <NetworkToggle />
+        <ThemeToggle />
 
-      <SorobanHealthIndicator />
+        <NetworkToggle />
 
-      <NotificationBell />
+        <SorobanHealthIndicator />
 
-      <BalanceSwitcher />
+        <NotificationBell />
 
-      <WalletConnectButton />
+        <BalanceSwitcher />
 
-      <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
-    </header>
+        <WalletConnectButton />
+
+        <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+      </header>
+    </>
   );
 }

@@ -11,6 +11,14 @@ import {
   scValToNative,
 } from "@stellar/stellar-sdk";
 
+export interface SimulationDetails {
+  cpuInstructions: number;
+  ramBytes: number;
+  resourceFeeXlm: string;
+  storageChanges: Array<{ key: string; changeType: "created" | "updated" | "deleted" }>;
+  isSuccess: boolean;
+}
+
 export interface SimulationDryRunResult {
   success: boolean;
   cpuInstructions: number;
@@ -18,6 +26,7 @@ export interface SimulationDryRunResult {
   estimatedFeeStroops: string;
   simulatedReturnValue: string;
   errorReason?: string;
+  details?: SimulationDetails;
 }
 
 const SIMULATION_SOURCE =
@@ -78,6 +87,15 @@ export function mapSimulationResult(simulated: unknown): SimulationDryRunResult 
     simulationError = Boolean(errorText);
   }
 
+  const feeXlm = (Number(estimatedFeeStroops) / 10_000_000).toFixed(7);
+  const details: SimulationDetails = {
+    cpuInstructions,
+    ramBytes: memoryBytes,
+    resourceFeeXlm: feeXlm,
+    storageChanges: [],
+    isSuccess: !(errorText || simulationError),
+  };
+
   if (errorText || simulationError) {
     return {
       success: false,
@@ -86,6 +104,7 @@ export function mapSimulationResult(simulated: unknown): SimulationDryRunResult 
       estimatedFeeStroops,
       simulatedReturnValue: "",
       errorReason: errorText || "Simulation reverted.",
+      details,
     };
   }
 
@@ -106,6 +125,7 @@ export function mapSimulationResult(simulated: unknown): SimulationDryRunResult 
     memoryBytes,
     estimatedFeeStroops,
     simulatedReturnValue: retval == null ? "" : returnValueToString(retval),
+    details,
   };
 }
 
@@ -117,6 +137,13 @@ function failed(message: string): SimulationDryRunResult {
     estimatedFeeStroops: "0",
     simulatedReturnValue: "",
     errorReason: message,
+    details: {
+      cpuInstructions: 0,
+      ramBytes: 0,
+      resourceFeeXlm: "0.0000000",
+      storageChanges: [],
+      isSuccess: false,
+    },
   };
 }
 

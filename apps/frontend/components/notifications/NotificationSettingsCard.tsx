@@ -6,6 +6,7 @@ import {
   useNotifications,
   type NotificationRetention,
 } from "../../hooks/useNotifications";
+import { useWebPush } from "../../hooks/useWebPush";
 
 export function NotificationSettingsCard() {
   const { supported, permission, enabled, setEnabled, requestPermission } =
@@ -18,6 +19,14 @@ export function NotificationSettingsCard() {
     quietHours,
     setQuietHours,
   } = useNotifications();
+  const {
+    supported: pushSupported,
+    status: pushStatus,
+    subscribe: pushSubscribe,
+    unsubscribe: pushUnsubscribe,
+    sendTest: pushSendTest,
+    error: pushError,
+  } = useWebPush();
 
   const handleToggle = async (checked: boolean) => {
     if (!checked) {
@@ -30,6 +39,14 @@ export function NotificationSettingsCard() {
     }
     const result = await requestPermission();
     setEnabled(result === "granted");
+  };
+
+  const handlePushToggle = async (checked: boolean) => {
+    if (!checked) {
+      await pushUnsubscribe();
+    } else {
+      await pushSubscribe([]);
+    }
   };
 
   const handleDayToggle = (dayIndex: number) => {
@@ -256,6 +273,64 @@ export function NotificationSettingsCard() {
               }}
             />
           </label>
+        )}
+
+        {/* Web Push — order shipment & delivery alerts (#web-push) */}
+        {pushSupported && (
+          <div className="settings-toggle-row border-t pt-4 border-slate-200 dark:border-slate-800 space-y-2">
+            <label className="flex justify-between items-start">
+              <span>
+                <span
+                  className="settings-toggle-label font-semibold block"
+                  id="web-push-label"
+                >
+                  Package scan &amp; delivery alerts
+                </span>
+                <p className="settings-toggle-hint text-xs text-secondary">
+                  {pushStatus === "denied"
+                    ? "Blocked in your browser settings — enable notifications for this site to use this."
+                    : "Get a browser push notification whenever a package is scanned or delivered, even with this tab closed."}
+                </p>
+              </span>
+              <input
+                type="checkbox"
+                checked={pushStatus === "subscribed"}
+                disabled={
+                  pushStatus === "denied" ||
+                  pushStatus === "loading" ||
+                  pushStatus === "requesting"
+                }
+                onChange={(e) => handlePushToggle(e.target.checked)}
+                aria-labelledby="web-push-label"
+                style={{
+                  width: "1.125rem",
+                  height: "1.125rem",
+                  marginTop: "0.25rem",
+                }}
+              />
+            </label>
+
+            {/* Error feedback */}
+            {pushStatus === "error" && pushError && (
+              <p
+                role="alert"
+                className="text-xs text-red-600 dark:text-red-400"
+              >
+                {pushError}
+              </p>
+            )}
+
+            {/* Send-test button — only visible while subscribed */}
+            {pushStatus === "subscribed" && (
+              <button
+                type="button"
+                onClick={() => pushSendTest()}
+                className="text-xs text-indigo-600 dark:text-indigo-400 underline hover:no-underline"
+              >
+                Send a test notification
+              </button>
+            )}
+          </div>
         )}
       </div>
     </Card>

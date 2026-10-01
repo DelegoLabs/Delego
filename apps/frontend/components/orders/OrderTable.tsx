@@ -8,6 +8,7 @@ import { useTimeFormat } from "../../hooks/useTimeFormat";
 import { formatDateTimeWithPreferences } from "../../lib/intl";
 import { OrderStatusBadge } from "./OrderStatusBadge";
 import { HoverPrefetchLink } from "../layout/HoverPrefetchLink";
+import { DownloadInvoiceButton } from "./DownloadInvoiceButton";
 
 export interface OrderTableProps {
   orders: Order[];
@@ -34,6 +35,7 @@ export function OrderTable({ orders }: OrderTableProps) {
             <th scope="col">Items</th>
             <th scope="col">Total</th>
             <th scope="col">Created</th>
+            <th scope="col">Invoice</th>
           </tr>
         </thead>
         <tbody>
@@ -66,6 +68,13 @@ export function OrderTable({ orders }: OrderTableProps) {
                   timeFormatPreferences,
                   { year: "numeric", month: "short", day: "numeric" }
                 )}
+              </td>
+              <td>
+                <DownloadInvoiceButton
+                  order={order}
+                  variant="ghost"
+                  label="PDF"
+                />
               </td>
             </tr>
           ))}

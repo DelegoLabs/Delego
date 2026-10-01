@@ -1,35 +1,41 @@
 "use client";
 
-import { useEffect } from "react";
-import * as Sentry from "@sentry/nextjs";
+import type { CSSProperties } from "react";
+import {
+  ErrorRecoveryCard,
+  type RecoverableError,
+} from "../components/ErrorRecoveryCard";
+
+const bodyStyle: CSSProperties = {
+  margin: 0,
+  minHeight: "100vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "3rem 1rem",
+  boxSizing: "border-box",
+  background: "#f9fafb",
+  fontFamily:
+    "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+};
 
 /**
- * Root-layout error boundary — catches errors the layout itself throws.
- * Must render its own <html>/<body> since it replaces the whole tree (#511).
+ * Root-layout error boundary — catches errors the layout itself throws and
+ * therefore replaces the whole document, so it must render its own
+ * <html>/<body> (#511, #747). The recovery controls live in the shared
+ * `ErrorRecoveryCard` so route and root failures behave identically.
  */
 export default function GlobalError({
   error,
   reset,
 }: {
-  error: Error & { digest?: string };
+  error: RecoverableError;
   reset: () => void;
 }) {
-  useEffect(() => {
-    Sentry.captureException(error);
-  }, [error]);
-
   return (
     <html lang="en">
-      <body>
-        <div style={{ textAlign: "center", padding: "3rem 1rem" }}>
-          <p style={{ margin: "0 0 1rem", fontWeight: 500 }}>Something went wrong</p>
-          <p style={{ margin: "0 0 1.5rem", fontSize: "0.875rem", color: "#6b7280" }}>
-            The error has been reported. Please refresh the page.
-          </p>
-          <button type="button" onClick={reset}>
-            Try again
-          </button>
-        </div>
+      <body style={bodyStyle}>
+        <ErrorRecoveryCard error={error} reset={reset} boundary="global-error" />
       </body>
     </html>
   );

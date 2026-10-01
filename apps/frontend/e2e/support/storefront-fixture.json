@@ -1,0 +1,37 @@
+{
+  "merchantId": "merchant-e2e",
+  "storeName": "Aurora Supply Co.",
+  "description": "Field-tested gear for long expeditions.",
+  "stellarAddress": "GAURORA000000000000000000000000000000000000000000000000",
+  "reputationScore": 4.8,
+  "products": [
+    {
+      "id": "product-headphones",
+      "name": "Aurora Wireless Headphones",
+      "description": "Noise-cancelling, 40h battery",
+      "priceStroops": "15000000000",
+      "active": true
+    },
+    {
+      "id": "product-keyboard",
+      "name": "Nimbus Mechanical Keyboard",
+      "description": "Hot-swappable 65% board",
+      "priceStroops": "9800000000",
+      "active": true
+    },
+    {
+      "id": "product-hub",
+      "name": "Orbit USB-C Hub",
+      "description": "Seven-port travel dock",
+      "priceStroops": "4500000000",
+      "active": true
+    },
+    {
+      "id": "product-dock-retired",
+      "name": "Retired Dock",
+      "description": "Discontinued 2024 model",
+      "priceStroops": "1000000000",
+      "active": false
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+# pnpm configuration
+# See https://pnpm.io/settings for documentation
+
+# Package overrides (moved from package.json pnpm.overrides)
+overrides.@delegolabs/types=^0.1.1
+overrides.axios=>=1.16.0

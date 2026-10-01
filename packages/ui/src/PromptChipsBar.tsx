@@ -4,7 +4,7 @@ export interface PromptChip {
   id: string;
   label: string;
   promptText: string;
-  category: "reorder" | "query" | "approval";
+  category: "search" | "orders" | "disputes" | "settings";
 }
 
 export interface PromptChipsBarProps {

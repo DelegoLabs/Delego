@@ -1,0 +1,60 @@
+name: Quarantine Expiry
+
+# The other half of the quarantine bargain (#630): a test may only be skipped
+# for 14 days. Without this job "quarantine" quietly becomes "deleted from the
+# suite forever", which is exactly the incentive problem the issue calls out.
+
+on:
+  schedule:
+    # 06:00 UTC — after the 02:00 nightly has refreshed the registry.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: quarantine-expiry
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 20
+
+jobs:
+  expire:
+    name: Re-enable expired quarantines
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Expire quarantines past their window
+        run: |
+          node apps/frontend/scripts/quarantine.mjs expire \
+            --registry apps/frontend/quarantine.json \
+            --out "$RUNNER_TEMP/expired.json" \
+            --pr-body "$RUNNER_TEMP/expiry-pr-body.md"
+
+      - name: Count re-enabled tests
+        id: summary
+        env:
+          EXPIRED_FILE: ${{ runner.temp }}/expired.json
+        run: |
+          node -e "const fs=require('fs');const p=process.env.EXPIRED_FILE;const d=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,'utf8')):{expired:[]};fs.appendFileSync(process.env.GITHUB_OUTPUT,'count='+d.expired.length+'\n');"
+
+      - name: Open the re-enable PR
+        if: steps.summary.outputs.count != '0'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/quarantine-expiry
+          base: main
+          title: "chore(test): re-enable quarantine-expired tests"
+          commit-message: "chore(test): re-enable tests whose quarantine window closed"
+          body-path: ${{ runner.temp }}/expiry-pr-body.md

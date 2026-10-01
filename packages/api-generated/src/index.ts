@@ -10,7 +10,6 @@
  *
  * This file was generated from packages/api-generated/openapi.yaml.
  * Spec hash: 81e1277feba133f4
- * Generated at: 2026-08-25T21:13:20.489Z
  */
 
 // ---------------------------------------------------------------------------

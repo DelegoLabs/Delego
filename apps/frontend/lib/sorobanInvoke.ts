@@ -10,6 +10,10 @@ import {
   rpc,
   type xdr,
 } from "@stellar/stellar-sdk";
+import {
+  WalletActionError,
+  classifyWalletError,
+} from "../services/wallet";
 
 export interface InvokeContractInput {
   rpcUrl: string;
@@ -73,9 +77,18 @@ export async function signWithFreighter(
   address: string
 ): Promise<string> {
   const freighter = await import("@stellar/freighter-api");
-  const res = await freighter.signTransaction(txXdr, { networkPassphrase, address });
-  if (res.error || !res.signedTxXdr) {
-    throw new Error(res.error?.message ?? "Signing was rejected.");
+  try {
+    const res = await freighter.signTransaction(txXdr, { networkPassphrase, address });
+    if (res.error || !res.signedTxXdr) {
+      throw new WalletActionError(
+        classifyWalletError(res.error ?? "Signing was rejected.")
+      );
+    }
+    return res.signedTxXdr;
+  } catch (err) {
+    // Normalize thrown rejections too so callers can distinguish a user
+    // cancellation from a real signing failure.
+    if (err instanceof WalletActionError) throw err;
+    throw new WalletActionError(classifyWalletError(err));
   }
-  return res.signedTxXdr;
 }

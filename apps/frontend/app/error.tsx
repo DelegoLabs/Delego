@@ -1,30 +1,34 @@
 "use client";
 
-import { useEffect } from "react";
-import * as Sentry from "@sentry/nextjs";
-import { Button } from "@delegolabs/ui";
+import type { CSSProperties } from "react";
+import {
+  ErrorRecoveryCard,
+  type RecoverableError,
+} from "../components/ErrorRecoveryCard";
 
-/** Route-segment error boundary — reports the thrown error to Sentry and offers a retry (#511). */
+const wrapperStyle: CSSProperties = {
+  minHeight: "60vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "3rem 1rem",
+};
+
+/**
+ * Route-segment error boundary — renders inside the app shell and reuses the
+ * shared recovery card so a segment failure offers the same `Try Again` and
+ * `Return to Dashboard` actions as the root boundary (#511, #747).
+ */
 export default function Error({
   error,
   reset,
 }: {
-  error: Error & { digest?: string };
+  error: RecoverableError;
   reset: () => void;
 }) {
-  useEffect(() => {
-    Sentry.captureException(error);
-  }, [error]);
-
   return (
-    <div style={{ textAlign: "center", padding: "3rem 1rem" }}>
-      <p style={{ margin: "0 0 1rem", fontWeight: 500 }}>Something went wrong</p>
-      <p style={{ margin: "0 0 1.5rem", fontSize: "0.875rem", color: "#6b7280" }}>
-        The error has been reported. You can try again.
-      </p>
-      <Button variant="secondary" onClick={reset}>
-        Try again
-      </Button>
+    <div style={wrapperStyle}>
+      <ErrorRecoveryCard error={error} reset={reset} boundary="route-error" />
     </div>
   );
 }

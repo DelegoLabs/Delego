@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@delegolabs/ui";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
+  barcodeSvgToDataUrl,
   isEmbeddableLabelUrl,
   returnAddressLines,
   type ReturnLabelData,
@@ -16,28 +17,27 @@ export interface ReturnLabelModalProps {
 }
 
 /**
- * Printable return shipping label for a dispute that requires a return
- * (#712). Shows the carrier PDF as a preview, lets the buyer copy the return
- * tracking number, and prints through the print stylesheet so only the label
- * sheet reaches the printer.
+ * Printable return shipping label for an approved return dispute (#796).
+ * Renders the carrier barcode and RMA number, prints through the print
+ * stylesheet so only the label sheet reaches the printer, and optionally
+ * previews the carrier-hosted PDF label from the original #712 flow.
  */
-export function ReturnLabelModal({ isOpen, label, onClose }: ReturnLabelModalProps) {
+export function ReturnLabelModal({
+  isOpen,
+  label,
+  onClose,
+}: ReturnLabelModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
-  useFocusTrap(panelRef, isOpen);
+  useFocusTrap({ containerRef: panelRef, isActive: isOpen, onEscape: onClose });
 
   useEffect(() => {
     if (!isOpen) return;
     setCopied(false);
     setCopyError(false);
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!copied) return;
@@ -47,16 +47,18 @@ export function ReturnLabelModal({ isOpen, label, onClose }: ReturnLabelModalPro
 
   if (!isOpen || !label) return null;
 
-  const canEmbed = isEmbeddableLabelUrl(label.labelPdfUrl);
+  const barcodeSrc = barcodeSvgToDataUrl(label.carrierBarcodeSvg);
+  const canEmbedPdf = label.labelPdfUrl
+    ? isEmbeddableLabelUrl(label.labelPdfUrl)
+    : false;
 
   async function handleCopy() {
-    if (!label) return;
+    if (!label?.trackingNumber) return;
     try {
       await navigator.clipboard.writeText(label.trackingNumber);
-      setCopyError(false);
       setCopied(true);
     } catch {
-      setCopyError(true);
+      // Clipboard unavailable — the tracking number is still visible to copy manually.
     }
   }
 
@@ -82,7 +84,7 @@ export function ReturnLabelModal({ isOpen, label, onClose }: ReturnLabelModalPro
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={`Return label for order ${label.orderId}`}
+        aria-label={`Return label for ${label.rmaNumber}`}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className="print-sheet return-label"
@@ -104,27 +106,39 @@ export function ReturnLabelModal({ isOpen, label, onClose }: ReturnLabelModalPro
 
         <dl className="wallet-detail-list">
           <div className="wallet-detail-row">
-            <dt>Order</dt>
-            <dd>{label.orderId}</dd>
-          </div>
-          <div className="wallet-detail-row">
-            <dt>Carrier</dt>
-            <dd>{label.carrier}</dd>
-          </div>
-          <div className="wallet-detail-row">
-            <dt>Tracking number</dt>
-            <dd className="return-label-tracking">
-              <code>{label.trackingNumber}</code>
-              <button
-                type="button"
-                className="copy-button no-print"
-                onClick={() => void handleCopy()}
-                aria-label="Copy return tracking number"
-              >
-                {copied ? "Copied!" : "Copy"}
-              </button>
+            <dt>RMA number</dt>
+            <dd>
+              <code className="return-label-rma">{label.rmaNumber}</code>
             </dd>
           </div>
+          {label.orderId && (
+            <div className="wallet-detail-row">
+              <dt>Order</dt>
+              <dd>{label.orderId}</dd>
+            </div>
+          )}
+          {label.carrier && (
+            <div className="wallet-detail-row">
+              <dt>Carrier</dt>
+              <dd>{label.carrier}</dd>
+            </div>
+          )}
+          {label.trackingNumber && (
+            <div className="wallet-detail-row">
+              <dt>Tracking number</dt>
+              <dd className="return-label-tracking">
+                <code>{label.trackingNumber}</code>
+                <button
+                  type="button"
+                  className="copy-button no-print"
+                  onClick={() => void handleCopy()}
+                  aria-label="Copy return tracking number"
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              </dd>
+            </div>
+          )}
           <div className="wallet-detail-row">
             <dt>Ship to</dt>
             <dd>
@@ -140,27 +154,31 @@ export function ReturnLabelModal({ isOpen, label, onClose }: ReturnLabelModalPro
         <span role="status" aria-live="polite" className="sr-only">
           {copied ? "Tracking number copied to clipboard." : ""}
         </span>
-        {copyError && (
-          <p role="alert" className="settings-status error" style={{ margin: 0 }}>
-            Couldn&apos;t copy — select the tracking number and copy it manually.
-          </p>
-        )}
 
-        {canEmbed ? (
-          <iframe
-            ref={frameRef}
-            src={label.labelPdfUrl}
-            title={`Return label PDF for order ${label.orderId}`}
-            className="return-label-preview"
+        {barcodeSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element -- barcode is a data URL; next/image optimization is unnecessary
+          <img
+            className="return-label-barcode"
+            src={barcodeSrc}
+            alt={`Carrier barcode ${label.rmaNumber}`}
           />
         ) : (
           <p role="alert" className="settings-status error" style={{ margin: 0 }}>
-            The label preview is unavailable.
+            The carrier barcode is unavailable.
           </p>
         )}
 
+        {canEmbedPdf && label.labelPdfUrl && (
+          <iframe
+            ref={frameRef}
+            src={label.labelPdfUrl}
+            title={`Return label PDF for ${label.rmaNumber}`}
+            className="return-label-preview"
+          />
+        )}
+
         <div className="form-actions no-print">
-          {canEmbed && (
+          {canEmbedPdf && label.labelPdfUrl && (
             <a
               href={label.labelPdfUrl}
               target="_blank"
