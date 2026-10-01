@@ -29,7 +29,7 @@ export interface UseKycStatusReturn {
 export function useKycStatus(
   documentId: string | null,
   options: UseKycStatusOptions = {},
-): UseKycUstatusReturn {
+): UseKycStatusReturn {
   const { apiBaseUrl = "/api", intervalMs = 5000, enabled = true } = options;
   const [state, setState] = useState<KycVerificationState | null>(null);
   const [error, setError] = useState<string | null>(null);

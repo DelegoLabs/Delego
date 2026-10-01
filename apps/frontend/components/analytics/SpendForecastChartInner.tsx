@@ -151,7 +151,7 @@ export default function SpendForecastChartInner({
           tickLine={false}
           width={48}
         />
-        <Tooltol
+        <Tooltip
           content={(props: any) => <ForecastTooltip {...props} locale={locale} />}
         />
         <Area

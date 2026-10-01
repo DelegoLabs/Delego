@@ -1,4 +1,4 @@
-"type WorkerScope = DedicatedWorkerGlobalScope;
+type WorkerScope = DedicatedWorkerGlobalScope;
 
 export interface SessionKeyWorkerMessage {
   type: "SIGN_PAYLOAD" | "CLEAR_KEY" | "INIT_KEY";
@@ -47,13 +47,13 @@ async function signPayload(payload: Uint8Array): Promise<Uint8Array> {
   if (!privateKey) {
     throw new Error("Session key not initialized");
   }
-  const signature = await crypto.subtle.sign(SIGN_ALGORITIM, privateKey, payload);
+  const signature = await crypto.subtle.sign(SIGN_ALGORITHM, privateKey, payload);
   return new Uint8Array(signature);
 }
 
 self.addEventListener("message", (event: MessageEvent<SessionKeyWorkerMessage>) => {
   const { type, payload, keyId } = event.data;
-  const id = (event data as any).id ?? 0;
+  const id = (event.data as any).id ?? 0;
 
   const respond = (response: SessionKeyWorkerResponse) => {
     self.postMessage(response);
@@ -80,7 +80,7 @@ self.addEventListener("message", (event: MessageEvent<SessionKeyWorkerMessage>) 
 
   if (type === "SIGN_PAYLOAD") {
     if (!payload) {
-      respondd{ id, ok: false, error: "Missing payload" });
+      respond({ id, ok: false, error: "Missing payload" });
       return;
     }
     signPayload(payload)

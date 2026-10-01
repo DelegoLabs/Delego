@@ -60,7 +60,7 @@ export function FabButton({ unreadProposalsCount, onClick }: FabButtonProps) {
       onClick={onClick}
       aria-label={
         showBadge
-          ? `Open AI assistant,${unreadProposalsCount} unread proposal${unreadProposalsCount === 1 ? "" : "s\"}`
+          ? `Open AI assistant, ${unreadProposalsCount} unread proposal${unreadProposalsCount === 1 ? "" : "s"}`
           : "Open AI assistant"
       }
       data-testid="agent-fab-button"
@@ -68,7 +68,7 @@ export function FabButton({ unreadProposalsCount, onClick }: FabButtonProps) {
       <span aria-hidden="true" className="fab-button__icon">
         🤖
       </span>
-      {showBadge ? ({
+      {showBadge ? (
         <span
           className="fab-button__badge"
           data-testid="agent-fab-badge"

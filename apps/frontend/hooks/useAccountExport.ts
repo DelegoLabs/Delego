@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { User, UserPreferences } from "@delegolabs/types";
 import { buildAccountExport, type ExportProgress } from "../lib/export";
 import { downloadBlob } from "../lib/download";
-import type { SessionKeyWorkerMessage } from "../lib/sessionKeyWorker";
+import type { SessionKeyWorkerMessage } from "../workers/sessionKeyWorker";
 
 export type ExportStatus = "idle" | "running" | "done" | "cancelled" | "error";
 

@@ -170,7 +170,6 @@ export function GlobalSearch() {
         <input
           type="search"
           role="searchbox"
-          className="global-search-input"
           placeholder="Search delegations, orders, transactions..."
           aria-label="Search delegations, orders, and transactions"
           value={query}

@@ -11,14 +11,14 @@ import { TaxBreakdownDisplay, TaxSummaryRow, TaxAwareTotal } from "../components
 import { TaxEnabledCheckoutFlow } from "../components/orders/TaxEnabledCheckoutFlow";
 
 // Mock dependencies
-jest.mock("../hooks/useCurrency", () => ({
+vi.mock("../hooks/useCurrency", () => ({
   useCurrency: () => ({
     currencyId: "xlm",
     rate: { xlmUsdRate: 0.10 }, // 1 XLM = $0.10 for easier test calculations
   }),
 }));
 
-jest.mock("@delegolabs/ui", () => ({
+vi.mock("@delegolabs/ui", () => ({
   Amount: ({ stroops, currency }: { stroops: bigint; currency: string }) => {
     const xlm = Number(stroops) / 10_000_000; // Convert stroops to XLM
     return <span data-testid="amount" data-currency={currency}>{xlm.toFixed(2)} XLM</span>;
@@ -201,7 +201,7 @@ describe("Tax Integration E2E", () => {
       ]);
       // Total: 1050 XLM subtotal
 
-      const onApprove = jest.fn();
+      const onApprove = vi.fn();
 
       render(
         <TaxEnabledCheckoutFlow

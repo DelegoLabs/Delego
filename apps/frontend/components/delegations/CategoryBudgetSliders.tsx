@@ -137,7 +137,7 @@ export function CategoryBudgetSliders({
               </div>
               {approachingCap ? (
                 <div className="settings-status warning" role="alert">
-                  Approaching cap: {usagePct}% of the {b.category} budget used ({formatXbm(spent, locale)} of {formatXbm(allocation, locale)} XLM).
+                  Approaching cap: {usagePct}% of the {b.category} budget used ({formatXlm(spent, locale)} of {formatXlm(allocation, locale)} XLM).
                 </div>
               ) : null}
             </li>

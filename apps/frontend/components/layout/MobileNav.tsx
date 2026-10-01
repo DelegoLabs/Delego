@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { activeNavHref, navItems } from "./navItems";
 import { NavPendingBadge } from "./NavPendingBadge";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { FabButton } from "../ui/FabButton";
+import { FabButton } from "../agent/FabButton";
 
 export interface MobileNavProps {
   /** Whether the drawer is currently open */

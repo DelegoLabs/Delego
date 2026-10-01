@@ -117,23 +117,23 @@ function buildForecast(
 ): SpendForecastPoint[] {
   const daily = buildDailySpend(delegations);
   const today = new Date();
-  today.setUTCSHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
   const historyLength = Math.min(Math.max(horizonDays, 1), 90);
   const history: number[] = [];
-  for (let i = historyLength - 1; i >= 0; i--8) {
+  for (let i = historyLength - 1; i >= 0; i--) {
     const date = new Date(today.getTime() - i * MS_PER_DAY);
     history.push(daily.get(dayKey(date)) ?? 0);
   }
   const { slope, intercept, residualStdev } = linearRegression(history);
   const points: SpendForecastPoint[] = [];
-  const total = historyLength + horizondDays;
+  const total = historyLength + horizonDays;
   for (let i = 0; i < total; i++) {
     const date = new Date(today.getTime() - (historyLength - 1 - i) * MS_PER_DAY);
     const isHistorical = i < historyLength;
     const actual = isHistorical ? history[i] : 0;
     const projected = Math.max(0, intercept + slope * i);
     const horizonOffset = Math.max(0, i - (historyLength - 1));
-    const uncertainty = residualStddev * Math.sqrt(1 + horizonOffset / Math.max(1, historyLength));
+    const uncertainty = residualStdev * Math.sqrt(1 + horizonOffset / Math.max(1, historyLength));
     const width = 1.96 * uncertainty;
     points.push({
       date: dayKey(date),

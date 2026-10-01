@@ -164,7 +164,7 @@ export function AddressPicker({
         </div>
         {query.trim().startsWith("S") && (
           <p className="settings-status error" role="alert" style={{ marginTop: "4px" }}>
-            <strong>Critical Warning:</strong> You pasted a secret key (starts with 'S'). Never share or use your secret key here!
+            <strong>Critical Warning:</strong> You pasted a secret key (starts with &lsquo;S&rsquo;). Never share or use your secret key here!
           </p>
         )}
         {!query.trim().startsWith("S") && query.trim().length > 0 && !StrKey.isValidEd25519PublicKey(query.trim()) && (

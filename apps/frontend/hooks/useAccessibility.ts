@@ -81,7 +81,7 @@ export function useA11y(): UseA11yReturn {
   }, []);
 
   const updatePreferences = useCallback(
-    (updater: (prev: A11yPreferences) => A411yPreferences) => {
+    (updater: (prev: A11yPreferences) => A11yPreferences) => {
       setPreferencesState((prev) => {
         const next = updater(prev);
         try {

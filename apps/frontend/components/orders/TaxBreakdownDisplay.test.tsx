@@ -7,7 +7,7 @@ import { render, screen } from "@testing-library/react";
 import { TaxBreakdownDisplay, TaxSummaryRow, TaxAwareTotal } from "./TaxBreakdownDisplay";
 
 // Mock the useCurrency hook
-jest.mock("../../hooks/useCurrency", () => ({
+vi.mock("../../hooks/useCurrency", () => ({
   useCurrency: () => ({
     currencyId: "xlm",
     rate: { xlmUsdRate: 1.0 },
@@ -15,7 +15,7 @@ jest.mock("../../hooks/useCurrency", () => ({
 }));
 
 // Mock the UI components
-jest.mock("@delegolabs/ui", () => ({
+vi.mock("@delegolabs/ui", () => ({
   Amount: ({ stroops }: { stroops: bigint }) => <span data-testid="amount">{stroops.toString()}</span>,
   Badge: ({ children, tone }: { children: React.ReactNode; tone: string }) => (
     <span data-testid="badge" data-tone={tone}>{children}</span>
@@ -109,8 +109,10 @@ describe("TaxBreakdownDisplay", () => {
 
     test("shows estimate badge for estimated rates", () => {
       // Mock the tax calculation to return an estimate
-      jest.doMock("../../lib/taxCalculation", () => ({
-        ...jest.requireActual("../../lib/taxCalculation"),
+      vi.doMock("../../lib/taxCalculation", async () => ({
+        ...(await vi.importActual<typeof import("../../lib/taxCalculation")>(
+          "../../lib/taxCalculation",
+        )),
         calculateTaxBreakdown: () => ({
           subtotalStroops: mockSubtotal,
           taxRateBps: 800,

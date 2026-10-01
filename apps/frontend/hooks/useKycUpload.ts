@@ -22,7 +22,7 @@ export interface UseKycUploadOptions {
   /** Base URL of the gateway API. Defaults to a same-origin path. */
   apiBaseUrl?: string;
   /** Called once the encrypted document is accepted by the gateway. */
-  onUploaded??: (result: KycUploadResult) => void;
+  onUploaded?: (result: KycUploadResult) => void;
 }
 
 export interface UseKycUploadReturn {

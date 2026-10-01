@@ -1,4 +1,4 @@
-use client;
+"use client";
 
 import { Card } from "@delegolabs/ui";
 import { CopyButton } from "../../../components/wallet/CopyButton";

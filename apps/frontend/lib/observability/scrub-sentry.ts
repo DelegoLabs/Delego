@@ -107,8 +107,8 @@ function deleteStorageSnapshots(event: Event): void {
  * credential/payment keys; and removes cookies, auth headers, and browser
  * storage snapshots. Returns a new event instance.
  */
-export function scrubSentryEvent(event: Event): Event {
-  const scrubbed = scrubValue(event, new WeakMap()) as Event;
+export function scrubSentryEvent<T extends Event>(event: T): T {
+  const scrubbed = scrubValue(event, new WeakMap()) as T;
   deleteRequestSecrets(scrubbed);
   deleteStorageSnapshots(scrubbed);
   return scrubbed;

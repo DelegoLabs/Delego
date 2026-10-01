@@ -3,7 +3,7 @@ import { act, render, screen } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GlobalSearch } from "./GlobalSearch";
-import { ThemeProvider } from "../theme/ThemeProvider";
+import { ThemeProvider } from "../providers/ThemeProvider";
 
 const DEBOUNCE_WAIT = 300;
 
@@ -129,7 +129,7 @@ describe("GlobalSearch", () => {
     render(<GlobalSearch />);
 
     const skipLink = screen.getByText(/skip to main content/i);
-    expect(skipLink.tagName)..toBe("A");
+    expect(skipLink.tagName).toBe("A");
     expect(skipLink.getAttribute("href")).toBe("#main-content");
     expect(skipLink.classList.contains("focus-visible-ring")).toBeTrue();
   });

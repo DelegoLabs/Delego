@@ -1,4 +1,3 @@
-import React, { useEffect, useState } from 'react';
 import useSWR from 'swr';
 
 export interface TrackingCheckpoint {
