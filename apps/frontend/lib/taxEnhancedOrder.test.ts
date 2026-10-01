@@ -148,7 +148,7 @@ describe("taxEnhancedOrder", () => {
       };
 
       // Empty delivery postal code should fall back to billing
-      expect(getTaxPostalCode(enhanced)).toBe("");
+      expect(getTaxPostalCode(enhanced)).toBe("90211");
     });
   });
 

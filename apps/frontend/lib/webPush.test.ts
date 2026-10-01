@@ -193,12 +193,12 @@ describe("subscribeToPush", () => {
 
   it("returns null in demo mode without touching the push API", async () => {
     // Activate demo mode.
-    sessionStorage.setItem("delego_demo_mode", "true");
+    sessionStorage.setItem("delego:demo-mode", "true");
     try {
       const result = await subscribeToPush([]);
       expect(result).toBeNull();
     } finally {
-      sessionStorage.removeItem("delego_demo_mode");
+      sessionStorage.removeItem("delego:demo-mode");
     }
   });
 });

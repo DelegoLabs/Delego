@@ -58,13 +58,20 @@ function shouldRetryResponse(response: Response) {
 }
 
 export function createRetryingFetch(
-  baseFetch: typeof fetch = fetch,
+  baseFetch?: typeof fetch,
   retryOptions: RetryOptions = {}
 ): typeof fetch {
   const options = { ...DEFAULT_RETRY_OPTIONS, ...retryOptions };
 
   return async (input, init) => {
     const method = (init?.method ?? "GET").toUpperCase();
+
+    // Resolved per request rather than captured as a default parameter at
+    // factory time. Most callers build their wrapper at module scope, which
+    // runs before `server.listen()` installs MSW's fetch interceptor — binding
+    // the global there would send every request to the real network and make
+    // the mocked suites hit DNS instead of the handlers.
+    const doFetch = baseFetch ?? globalThis.fetch;
 
     // Defense in depth (#632): the UI disables mutating controls in demo
     // mode, but every write is also rejected here regardless of how the
@@ -75,12 +82,12 @@ export function createRetryingFetch(
       throw new DemoModeWriteBlockedError(method, url);
     }
 
-    if (method !== "GET") return baseFetch(input, init);
+    if (method !== "GET") return doFetch(input, init);
 
     let lastError: unknown = null;
     for (let attempt = 0; attempt < options.attempts; attempt += 1) {
       try {
-        const response = await baseFetch(input, init);
+        const response = await doFetch(input, init);
         const hasMoreAttempts = attempt < options.attempts - 1;
         if (!hasMoreAttempts || !shouldRetryResponse(response)) {
           return response;
