@@ -4,7 +4,7 @@ import { escrowHandlers } from "./escrows";
 import { disputeHandlers } from "./disputes";
 import { contractHandlers } from "./contracts";
 import { healthHandlers } from "./health";
-import { capabilitiesHandlers } from "./approvals";
+import { capabilitiesHandlers, pendingApprovalHandlers } from "./approvals";
 import { erasureHandlers } from "./erasure";
 import { pushHandlers } from "./push";
 
@@ -23,6 +23,7 @@ export const handlers = [
   ...contractHandlers,
   ...healthHandlers,
   ...capabilitiesHandlers,
+  ...pendingApprovalHandlers,
   ...erasureHandlers,
   ...pushHandlers,
 ];
@@ -52,6 +53,12 @@ export {
   capabilitiesHandlersUnavailable,
   capabilitiesHandlersApprovalNoteUnsupported,
   capabilitiesHandlersErasureUnsupported,
+  pendingApprovalHandlers,
+  pendingApprovalHandlersEmpty,
+  buildPendingApprovalFixtures,
+  resetPendingApprovals,
+  seedPendingApprovals,
+  type PendingApprovalFixture,
   buildDualControlOrder,
 } from "./approvals";
 export {

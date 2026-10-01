@@ -4236,3 +4236,124 @@ body {
     display: inline-flex;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Multi-sig approval queue (#780)
+   Nav badge counter + the dashboard list of transactions awaiting a
+   secondary signature.
+--------------------------------------------------------------------------- */
+
+.nav-badge {
+  margin-left: auto;
+  min-width: 1.25rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--color-error-text);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.pending-approvals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pending-approvals-empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  text-align: center;
+}
+
+.pending-approvals-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pending-approvals-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg-surface);
+}
+
+.pending-approvals-item-critical {
+  border-left-color: var(--color-error-text);
+}
+
+.pending-approvals-item-warning {
+  border-left-color: var(--color-stat-neutral);
+}
+
+.pending-approvals-item-normal {
+  border-left-color: var(--color-status-pending-text);
+}
+
+.pending-approvals-item-expired {
+  border-left-color: var(--color-border);
+  opacity: 0.75;
+}
+
+.pending-approvals-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.pending-approvals-item-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  word-break: break-word;
+}
+
+.pending-approvals-item-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.pending-approvals-item-amount {
+  margin: 0;
+  font-weight: 600;
+}
+
+.pending-approvals-item-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  max-width: 18rem;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .pending-approvals-item {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+
+  .pending-approvals-item-side,
+  .pending-approvals-item-action {
+    align-items: flex-start;
+    text-align: left;
+  }
+}

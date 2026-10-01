@@ -7,6 +7,7 @@ export interface NavItem {
     | "delegations"
     | "orders"
     | "approvals"
+    | "approvalsPending"
     | "approvalsHistory"
     | "tracking"
     | "analytics"
@@ -15,6 +16,12 @@ export interface NavItem {
   href: string;
   /** Emoji icon — TODO: replace with design-system icon set */
   icon: string;
+  /**
+   * Which live counter to render inside the link (#780). Only one item carries
+   * a badge today; the indirection keeps the shells from growing a per-item
+   * conditional when the next one needs one.
+   */
+  badge?: "pendingApprovals";
 }
 
 /** Canonical navigation items for the main application shell. */
@@ -23,6 +30,12 @@ export const navItems: NavItem[] = [
   { labelKey: "delegations", href: "/delegations", icon: "🤝" },
   { labelKey: "orders", href: "/orders", icon: "📦" },
   { labelKey: "approvals", href: "/approvals", icon: "🛡️" },
+  {
+    labelKey: "approvalsPending",
+    href: "/approvals/pending",
+    icon: "✍️",
+    badge: "pendingApprovals",
+  },
   { labelKey: "approvalsHistory", href: "/approvals/history", icon: "🗂️" },
   { labelKey: "tracking", href: "/tracking", icon: "🚚" },
   { labelKey: "analytics", href: "/analytics", icon: "📊" },

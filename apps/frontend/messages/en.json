@@ -11,6 +11,7 @@
     "delegations": "Delegations",
     "orders": "Orders",
     "approvals": "Approvals",
+    "approvalsPending": "Signatures",
     "approvalsHistory": "Approval history",
     "tracking": "Tracking",
     "analytics": "Analytics",
