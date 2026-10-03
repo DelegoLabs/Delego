@@ -116,18 +116,14 @@ export function WalletConnectButton({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-      {/* While disconnected there is nothing to "switch" from, and connecting
-          straight through silently picked whichever wallet was last persisted.
-          Opening the selector instead shows which wallets are usable and which
-          need installing, and matches what this component documents itself as
-          doing. */}
       <Button
         variant="primary"
-        onClick={openSelector}
+        onClick={() => void connect()}
         disabled={status === "connecting"}
       >
         {status === "connecting" ? "Connecting…" : "Connect Wallet"}
       </Button>
+      {switchWalletButton}
       <WalletSelectorModal
         open={selectorOpen}
         options={walletOptions}
