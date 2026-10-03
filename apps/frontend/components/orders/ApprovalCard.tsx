@@ -1,5 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
+
 import { useState } from "react";
 import { useLocale } from "next-intl";
 import { Amount, Button, Card } from "@delegolabs/ui";
@@ -33,7 +35,12 @@ import { submitApproval } from "../../services/approvals";
 import { ApprovalNoteField, APPROVAL_NOTE_MAX_LENGTH } from "./ApprovalNoteField";
 import { ApprovalNoteDisplay } from "./ApprovalNoteDisplay";
 import { setLocalApprovalNote } from "../../lib/localApprovalNotes";
-import { TaxBreakdownDisplay } from "./TaxBreakdownDisplay";
+// The tax breakdown is only rendered for orders that carry a delivery postal
+// code, so it is code-split: the tax tables and jurisdiction lookup only reach
+// the browser for the rows that actually show one.
+const TaxBreakdownDisplay = dynamic(() =>
+  import("./TaxBreakdownDisplay").then((m) => m.TaxBreakdownDisplay)
+);
 
 export interface ApprovalCardProps {
   order: Order;

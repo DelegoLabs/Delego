@@ -9,6 +9,13 @@ name: Lighthouse CI
 #
 # Runs against the Next.js production build served on a local port. Fails the
 # PR when any category drops below its threshold.
+#
+# The audited URLs live in lighthouserc.json, which @lhci/cli parses with a
+# strict JSON.parse — so it cannot carry comments, and the note on why
+# /orders is not among them lives here instead. Every audited URL must render
+# for an anonymous visitor: /orders is in middleware.ts's PROTECTED_ROUTES, so
+# an unauthenticated request to it redirects to /login, which has no page yet,
+# and Chrome gets a 404 that aborts the whole run.
 
 on:
   pull_request:

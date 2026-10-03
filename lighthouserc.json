@@ -2,12 +2,6 @@
   "ci": {
     "collect": {
       "staticDistDir": null,
-      // Every URL must render for an anonymous visitor. /orders is listed in
-      // middleware.ts's PROTECTED_ROUTES, so an unauthenticated request to it is
-      // redirected to /login — which has no page yet — and Lighthouse aborts the
-      // whole run with "unable to reliably load the page (Status code: 404)".
-      // /approvals is the heaviest authenticated-surface route that is public,
-      // so the budget still measures a first-load of realistic weight.
       "url": [
         "http://localhost:3100/",
         "http://localhost:3100/escrows",
