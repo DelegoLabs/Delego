@@ -19,7 +19,10 @@ import {
   OFFLINE_BLOCKED_MESSAGE,
 } from "../../hooks/useOnlineStatus";
 import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
-import { DelegationTagBadge } from "../delegations/public";
+// Direct import rather than the delegations barrel — the barrel pulls the whole
+// delegations feature (and the Stellar SDK behind MerchantFilterManager) into
+// every route that renders an approval, for this one badge.
+import { DelegationTagBadge } from "../delegations/DelegationTagBadge";
 import { useDelegationTags } from "../../hooks/useDelegationTags";
 import { useFeatureFlag } from "../../lib/featureFlags";
 import { useDualControlCapability } from "../../hooks/useDualControlCapability";
