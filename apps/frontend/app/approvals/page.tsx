@@ -175,11 +175,11 @@ export default function ApprovalsPage() {
       )}
 
       <div className="grid">
-        <Card title="Awaiting review">
+        <Card title="Awaiting review" titleLevel={2}>
           <p className="stat-value stat-neutral">{queue.length}</p>
           <p className="stat-label">High-value orders</p>
         </Card>
-        <Card title="Value pending approval">
+        <Card title="Value pending approval" titleLevel={2}>
           <p className="stat-value">
             <Amount
               stroops={pendingValue}

@@ -6,6 +6,11 @@
   --color-text-primary: #111827;
   --color-text-secondary: #374151;
   --color-text-muted: #6b7280;
+  /* Tertiary text still has to clear WCAG AA (4.5:1) against --color-bg-surface.
+     Without this token the product tour fell back to its inline #9ca3af, which
+     measured 2.5:1 on white — a Lighthouse colour-contrast failure on every
+     route that shows the tour. */
+  --color-text-tertiary: #4b5563;
   --color-border: #e5e7eb;
   --color-accent: #2563eb;
   --color-accent-bg: #eff6ff;
@@ -17,7 +22,7 @@
   --color-success-text: #047857;
   --color-success-border: #a7f3d0;
   --color-error-bg: #fee2e2;
-  --color-error-text: #dc2626;
+  --color-error-text: #b91c1c;
   --color-error-border: #fecaca;
   --color-info-bg: #eff6ff;
   --color-info-text: #1e40af;
@@ -144,6 +149,7 @@
   --color-text-primary: #f9fafb;
   --color-text-secondary: #d1d5db;
   --color-text-muted: #9ca3af;
+  --color-text-tertiary: #8a93a2;
   --color-border: #374151;
   --color-accent: #60a5fa;
   --color-accent-bg: #1e3a5f;
@@ -191,6 +197,7 @@
   --color-text-primary: #000000;
   --color-text-secondary: #000000;
   --color-text-muted: #1a1a1a;
+  --color-text-tertiary: #4a4a4a;
   --color-border: #000000;
   --color-accent: #0000ee;
   --color-accent-bg: #e6f0ff;
@@ -205,6 +212,7 @@
   --color-text-primary: #ffffff;
   --color-text-secondary: #ffffff;
   --color-text-muted: #e6e6e6;
+  --color-text-tertiary: #a8a8a8;
   --color-border: #ffffff;
   --color-accent: #ffff00;
   --color-accent-bg: #333300;
