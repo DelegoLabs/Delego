@@ -10,6 +10,10 @@ export function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
     <div
       className="step-indicator"
       role="progressbar"
+      // A progressbar has to name itself — axe's aria-progressbar-name rule
+      // failed /onboarding because the dots carried the only labels and they
+      // were on role-less divs, which cannot take one at all.
+      aria-label={`Step ${currentStep + 1} of ${totalSteps}`}
       aria-valuenow={currentStep + 1}
       aria-valuemin={1}
       aria-valuemax={totalSteps}
@@ -24,7 +28,7 @@ export function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
                 ? "step-indicator-dot--completed"
                 : ""
           }`}
-          aria-label={`Step ${i + 1}${i === currentStep ? " (current)" : i < currentStep ? " (completed)" : ""}`}
+          aria-hidden="true"
         />
       ))}
     </div>
