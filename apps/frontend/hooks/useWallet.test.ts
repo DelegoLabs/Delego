@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
-import { useWallet } from "./useWallet";
+import { useWallet, __resetWalletStoreForTests } from "./useWallet";
 import {
   enableDemoMode,
   DEMO_WALLET_ADDRESS,
@@ -43,6 +43,9 @@ vi.mock("@stellar/freighter-api", () => ({
 describe("useWallet", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // useWallet is backed by a store shared by every call site in the app, so
+    // each case starts from a clean connection and re-runs the Freighter probe.
+    __resetWalletStoreForTests();
     mockIsConnected.mockReset();
     mockIsAllowed.mockReset();
     mockGetAddress.mockReset();
@@ -259,7 +262,7 @@ describe("useWallet", () => {
   });
 
   describe("event listeners and account switching", () => {
-    it("registers onAccountChange and onNetworkChange on mount and cleans up on unmount", async () => {
+    it("registers onAccountChange and onNetworkChange once, and keeps them after one instance unmounts", async () => {
       const unsubAccount = vi.fn();
       const unsubNetwork = vi.fn();
       mockOnAccountChange.mockReturnValue(unsubAccount);
@@ -278,10 +281,21 @@ describe("useWallet", () => {
       await waitFor(() => expect(mockOnAccountChange).toHaveBeenCalled());
       expect(mockOnNetworkChange).toHaveBeenCalled();
 
+      // A second consumer must not re-probe or register duplicate watchers —
+      // the store is shared, so the probe is bootstrapped once for the app.
+      const second = renderHook(() => useWallet());
+      expect(mockOnAccountChange).toHaveBeenCalledTimes(1);
+      expect(mockOnNetworkChange).toHaveBeenCalledTimes(1);
+
       unmount();
 
-      expect(unsubAccount).toHaveBeenCalledTimes(1);
-      expect(unsubNetwork).toHaveBeenCalledTimes(1);
+      // The watchers deliberately outlive any single hook instance: tearing
+      // them down here would stop wallet-change updates for every consumer
+      // that is still mounted, which is the bug this store exists to fix.
+      expect(unsubAccount).not.toHaveBeenCalled();
+      expect(unsubNetwork).not.toHaveBeenCalled();
+
+      second.unmount();
     });
 
     it("updates wallet address and surfaces subtle toast when account changes mid-session", async () => {

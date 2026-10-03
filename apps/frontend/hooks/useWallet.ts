@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import {
   isDemoMode,
   DEMO_WALLET_ADDRESS,
@@ -61,17 +61,81 @@ function truncateAddress(address: string): string {
 }
 
 /**
+ * Shared wallet store.
+ *
+ * `useWallet` used to keep its state in per-component `useState`, which meant
+ * every one of its ~19 call sites owned a private copy: connecting a wallet
+ * updated the connect button but left the wallet page's status badge reading
+ * "Not connected", and the header never reflected the connected buyer. Every
+ * other app-wide hook here (network, currency, notifications, time format) is
+ * backed by a Provider for exactly this reason — this hook was the odd one out.
+ *
+ * A module-level external store fixes the propagation without adding a Provider
+ * boundary that would have to wrap every component test. `useSyncExternalStore`
+ * keeps the hook API identical, so all existing call sites and tests are
+ * unaffected.
+ */
+interface WalletStore {
+  state: WalletState;
+  toast: string | null;
+  walletId: SupportedWallet;
+  prevAddress: string | null;
+}
+
+let store: WalletStore = {
+  state: isDemoMode() ? demoState : initialState,
+  toast: null,
+  walletId: getPersistedWalletId() ?? "freighter",
+  prevAddress: null,
+};
+
+const listeners = new Set<() => void>();
+
+/** True once the Freighter probe and its change watchers have been installed. */
+let bootstrapped = false;
+
+function getSnapshot(): WalletStore {
+  return store;
+}
+
+function emit(): void {
+  for (const listener of listeners) listener();
+}
+
+function setStore(next: Partial<WalletStore>): void {
+  store = { ...store, ...next };
+  emit();
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/**
+ * Resets the shared store. Only for tests — each `useWallet.test.ts` case
+ * renders a fresh hook and would otherwise inherit the previous case's
+ * connection.
+ */
+export function __resetWalletStoreForTests(): void {
+  store = {
+    state: isDemoMode() ? demoState : initialState,
+    toast: null,
+    walletId: getPersistedWalletId() ?? "freighter",
+    prevAddress: null,
+  };
+  bootstrapped = false;
+  emit();
+}
+
+/**
  * Multi-wallet connection state (issue #774), defaulting to the Freighter
  * browser extension via `@stellar/freighter-api`.
  * Freighter only exists in the browser, so the SDK is dynamically imported
  * the same way the QR code library is lazy-loaded in DelegationQR.
  */
 export function useWallet() {
-  const [state, setState] = useState<WalletState>(
-    isDemoMode() ? demoState : initialState
-  );
-  const [toast, setToast] = useState<string | null>(null);
-  const prevAddressRef = useRef<string | null>(null);
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   let announceFn: ((msg: string) => void) | undefined;
   try {
@@ -104,13 +168,30 @@ export function useWallet() {
   // Issue #774: the active wallet choice. Initialized from the persisted
   // session (survives page navigation); defaults to Freighter, preserving
   // the pre-existing single-wallet behavior for existing callers.
-  const [walletId, setWalletId] = useState<SupportedWallet>(
-    () => getPersistedWalletId() ?? "freighter"
+  const walletId = store.walletId;
+  const setWalletId = useCallback((id: SupportedWallet) => {
+    setStore({ walletId: id });
+  }, []);
+
+  const setState = useCallback(
+    (next: WalletState | ((prev: WalletState) => WalletState)) => {
+      setStore({
+        state:
+          typeof next === "function"
+            ? (next as (prev: WalletState) => WalletState)(store.state)
+            : next,
+      });
+    },
+    []
   );
+
+  const setToast = useCallback((msg: string | null) => {
+    setStore({ toast: msg });
+  }, []);
 
   const updateWalletState = useCallback(
     (newState: WalletState) => {
-      const prevAddr = prevAddressRef.current;
+      const prevAddr = store.prevAddress;
       const newAddr = newState.address;
 
       if (
@@ -125,10 +206,9 @@ export function useWallet() {
         announceRef.current?.(msg);
       }
 
-      prevAddressRef.current = newAddr;
-      setState(newState);
+      setStore({ state: newState, prevAddress: newAddr });
     },
-    []
+    [setToast]
   );
 
   const refresh = useCallback(async () => {
@@ -184,7 +264,7 @@ export function useWallet() {
       });
       return null;
     }
-  }, [updateWalletState]);
+  }, [updateWalletState, setState]);
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -192,12 +272,21 @@ export function useWallet() {
       return;
     }
 
+    // One bootstrap for the whole app: with a shared store, N call sites
+    // mounting would otherwise each re-probe Freighter and register their own
+    // account/network watchers.
+    if (bootstrapped) return;
+    bootstrapped = true;
+
     let isMounted = true;
     let unsubAccount: (() => void) | undefined;
     let unsubNetwork: (() => void) | undefined;
 
     void refresh().then((freighter) => {
-      if (!isMounted || !freighter) return;
+      if (!freighter) return;
+      // Nothing owns the watchers past the last subscriber's unmount, so keep
+      // them for the life of the page rather than tying them to one instance.
+      isMounted = true;
 
       const fAny = freighter as Record<string, unknown>;
       const fDefault =
@@ -272,11 +361,11 @@ export function useWallet() {
     });
 
     return () => {
-      isMounted = false;
-      if (unsubAccount) unsubAccount();
-      if (unsubNetwork) unsubNetwork();
+      // Deliberately a no-op: the shared store outlives any single hook
+      // instance, so tearing down on unmount would stop wallet-change
+      // updates for every still-mounted consumer.
     };
-  }, [refresh]);
+  }, [refresh, setState]);
 
   const connect = useCallback(
     async (id?: SupportedWallet) => {
@@ -351,32 +440,45 @@ export function useWallet() {
         }));
       }
     },
-    [updateWalletState, walletId]
+    [updateWalletState, walletId, setState, setToast, setWalletId]
   );
 
-  const selectWallet = useCallback((id: SupportedWallet) => {
-    setWalletId(id);
-    setPersistedWalletId(id);
-    setState({ ...initialState, status: "disconnected" });
-  }, []);
+  const selectWallet = useCallback(
+    (id: SupportedWallet) => {
+      setWalletId(id);
+      setPersistedWalletId(id);
+      setState({ ...initialState, status: "disconnected" });
+    },
+    [setState, setWalletId]
+  );
 
   const disconnect = useCallback(() => {
-    prevAddressRef.current = null;
+    setStore({ prevAddress: null });
     clearPersistedWalletId();
     setState({ ...initialState, status: "disconnected" });
-  }, []);
+  }, [setState]);
 
   const walletOptions: WalletOption[] = detectInstalledWallets();
 
-  return {
-    ...state,
-    isConnected: state.status === "connected",
-    walletId,
-    walletOptions,
-    selectWallet,
-    connect,
-    disconnect,
-    refresh,
-    toast,
-  };
+  return useMemo(
+    () => ({
+      ...snapshot.state,
+      isConnected: snapshot.state.status === "connected",
+      walletId: snapshot.walletId,
+      walletOptions,
+      selectWallet,
+      connect,
+      disconnect,
+      refresh,
+      toast: snapshot.toast,
+    }),
+    [
+      snapshot,
+      walletOptions,
+      selectWallet,
+      connect,
+      disconnect,
+      refresh,
+    ]
+  );
 }
