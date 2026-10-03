@@ -9,6 +9,13 @@ name: Lighthouse CI
 #
 # Runs against the Next.js production build served on a local port. Fails the
 # PR when any category drops below its threshold.
+#
+# The audited URLs live in lighthouserc.json, which @lhci/cli parses with a
+# strict JSON.parse — so it cannot carry comments, and the note on why
+# /orders is not among them lives here instead. Every audited URL must render
+# for an anonymous visitor: /orders is in middleware.ts's PROTECTED_ROUTES, so
+# an unauthenticated request to it redirects to /login, which has no page yet,
+# and Chrome gets a 404 that aborts the whole run.
 
 on:
   pull_request:
@@ -28,6 +35,10 @@ env:
   NODE_VERSION: 20
   NEXT_PUBLIC_API_URL: "https://api.example.com"
   PORT: "3100"
+  # `next start` reads WEB_PORT (see the app's start script); passing a second
+  # `-p` on the command line left the server on the default port and wait-on
+  # timed out against 3100.
+  WEB_PORT: "3100"
 
 jobs:
   lighthouse:
@@ -54,6 +65,12 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
 
+      # apps/frontend imports @delegolabs/ui and @delegolabs/types, which
+      # resolve to the packages' dist/ output. Those must be built first or
+      # `next build` fails to resolve them.
+      - name: Build shared packages
+        run: pnpm --filter "./packages/*" build
+
       - name: Build frontend
         run: pnpm --filter @delegolabs/web build
         env:
@@ -62,7 +79,7 @@ jobs:
 
       - name: Start production server
         run: |
-          pnpm --filter @delegolabs/web start -- -p ${{ env.PORT }} &
+          pnpm --filter @delegolabs/web start &
           npx wait-on http://localhost:${{ env.PORT }} --timeout 120000
 
       - name: Run Lighthouse CI

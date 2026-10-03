@@ -23,6 +23,9 @@ export function Button({
   children,
   style,
   ariaLabel,
+  // Consumed by callers to reflect an in-flight request; it is not a valid
+  // DOM attribute, so it must not be spread onto the <button>.
+  loading: _loading,
   ...props
 }: ButtonProps) {
   return (

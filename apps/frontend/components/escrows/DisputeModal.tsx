@@ -29,6 +29,7 @@ interface EvidencePhoto {
   dataUrl: string;
 }
 
+/**
  * "Open dispute" modal — reason select, description, optional evidence URLs,
  * and optional photo evidence.
  *

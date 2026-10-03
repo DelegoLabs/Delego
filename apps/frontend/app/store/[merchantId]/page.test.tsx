@@ -17,7 +17,7 @@ describe("Store Page Metadata Generation", () => {
     vi.mocked(isSafeMerchantId).mockReturnValue(false);
 
     const metadata = await generateMetadata({
-      params: { merchantId: "invalid-id" },
+      params: Promise.resolve({ merchantId: "invalid-id" }),
     });
 
     expect(metadata.title).toBe("Merchant Store | Delego");
@@ -39,7 +39,7 @@ describe("Store Page Metadata Generation", () => {
     vi.mocked(fetchStorefront).mockRejectedValue(new Error("Timeout"));
 
     const metadata = await generateMetadata({
-      params: { merchantId: "valid-id" },
+      params: Promise.resolve({ merchantId: "valid-id" }),
     });
 
     expect(metadata.title).toBe("Merchant Store | Delego");
@@ -61,7 +61,7 @@ describe("Store Page Metadata Generation", () => {
     vi.mocked(fetchStorefront).mockResolvedValue(null);
 
     const metadata = await generateMetadata({
-      params: { merchantId: "unknown-merchant" },
+      params: Promise.resolve({ merchantId: "unknown-merchant" }),
     });
 
     expect(metadata.title).toBe("Merchant Store | Delego");
@@ -90,7 +90,7 @@ describe("Store Page Metadata Generation", () => {
     });
 
     const metadata = await generateMetadata({
-      params: { merchantId: "test-merchant" },
+      params: Promise.resolve({ merchantId: "test-merchant" }),
     });
 
     expect(metadata.title).toBe("Test Store");

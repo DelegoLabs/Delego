@@ -10,7 +10,7 @@ import {
   type EntityTypeFilters,
   type SearchEntityType,
 } from "./FilterPanel";
-import { useTheme } from "../../hooks/useTheme";
+import { useTheme, type ThemeMode } from "../../hooks/useTheme";
 
 const DEBOUNCE_MS = 300;
 
@@ -34,13 +34,22 @@ function matchesQuery(
   return fields.some((field) => field?.toLowerCase().includes(query));
 }
 
-const THEME_CYCLE = ["light", "dark", "high-contrast", "system"] as const;
-const THEME_LABELS: Record<(typeof THEME_CYCLE)[number], string> = {
+/**
+ * The modes `useTheme` can be set to. "scheduled" is time-driven so it is
+ * not something a click can select, and high-contrast is toggled separately
+ * from the accessibility preferences.
+ */
+const THEME_CYCLE = ["light", "dark", "system"] as const;
+type CycleMode = (typeof THEME_CYCLE)[number];
+const THEME_LABELS: Record<CycleMode, string> = {
   light: "Light",
   dark: "Dark",
-  "high-contrast": "High Contrast",
   system: "System",
 };
+
+/** "scheduled" has no entry in the cycle, so it presents as "system" here. */
+const asCycleMode = (mode: ThemeMode): CycleMode =>
+  mode === "scheduled" ? "system" : mode;
 
 /**
  * Global search accessible from the app header. Queries across
@@ -51,7 +60,7 @@ const THEME_LABELS: Record<(typeof THEME_CYCLE)[number], string> = {
 export function GlobalSearch() {
   const { delegations } = useDelegations();
   const { orders } = useOrders();
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { mode, resolved, setMode } = useTheme();
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -87,9 +96,9 @@ export function GlobalSearch() {
   };
 
   const cycleTheme = () => {
-    const currentIndex = THEME_CYCLE.indexOf(theme);
+    const currentIndex = THEME_CYCLE.indexOf(asCycleMode(mode));
     const nextTheme = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
-    setTheme(nextTheme);
+    setMode(nextTheme);
   };
 
   const groups = useMemo<SearchResultGroup[]>(() => {
@@ -170,7 +179,6 @@ export function GlobalSearch() {
         <input
           type="search"
           role="searchbox"
-          className="global-search-input"
           placeholder="Search delegations, orders, transactions..."
           aria-label="Search delegations, orders, and transactions"
           value={query}
@@ -190,11 +198,11 @@ export function GlobalSearch() {
           type="button"
           className="global-search-theme-toggle"
           onClick={cycleTheme}
-          aria-label={`Switch theme (current: ${THEME_LABELS[theme]}, resolved: ${resolvedTheme})`}
-          title={`Theme: ${THEME_LABELS[theme]}`}
-          data-theme={resolvedTheme}
+          aria-label={`Switch theme (current: ${THEME_LABELS[asCycleMode(mode)]}, resolved: ${resolved})`}
+          title={`Theme: ${THEME_LABELS[asCycleMode(mode)]}`}
+          data-theme={resolved}
         >
-          {THEME_LABELS[theme]}
+          {THEME_LABELS[asCycleMode(mode)]}
         </button>
       </div>
 

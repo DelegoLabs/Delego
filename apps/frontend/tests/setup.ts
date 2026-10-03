@@ -159,6 +159,30 @@ if (
 }
 
 /**
+ * jsdom does not implement `window.matchMedia`, so any component that reads
+ * a media query (theme resolution, reduced-motion, high-contrast) throws on
+ * mount. Provide a spec-shaped stub that reports `matches: false` and lets
+ * individual tests override it via `vi.stubGlobal`.
+ */
+if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: (query: string): MediaQueryList =>
+      ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }) as unknown as MediaQueryList,
+  });
+}
+
+/**
  * Global MSW server lifecycle for every vitest run (FE-045). Individual test
  * files layer scenario handlers on top with `server.use(...)` and MSW resets
  * to these defaults in `afterEach` via `resetHandlers`.

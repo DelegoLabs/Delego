@@ -47,7 +47,7 @@ export function QuoteComparisonDrawer({
 }: QuoteComparisonDrawerProps) {
   const [sortKey, setSortKey] = useState<QuoteSortKey>("totalCost");
   const panelRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(panelRef, isOpen);
+  useFocusTrap({ containerRef: panelRef, isActive: isOpen });
 
   useEffect(() => {
     if (!isOpen) return;

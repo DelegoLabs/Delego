@@ -8,20 +8,23 @@ import type { Order } from "@delegolabs/types";
 import { TaxEnabledCheckoutFlow, TaxAwareApprovalCard } from "./TaxEnabledCheckoutFlow";
 
 // Mock dependencies
-jest.mock("../../hooks/useCurrency", () => ({
+vi.mock("../../hooks/useCurrency", () => ({
   useCurrency: () => ({
     currencyId: "xlm",
     rate: { xlmUsdRate: 1.0 },
   }),
 }));
 
-jest.mock("@delegolabs/ui", () => ({
+vi.mock("@delegolabs/ui", () => ({
   Amount: ({ stroops }: { stroops: bigint }) => <span data-testid="amount">{stroops.toString()}</span>,
   Badge: ({ children, tone }: { children: React.ReactNode; tone: string }) => (
     <span data-testid="badge" data-tone={tone}>{children}</span>
   ),
   Card: ({ children, title }: { children: React.ReactNode; title: string }) => (
-    <div data-testid="card" data-title={title}>{children}</div>
+    <div data-testid="card" data-title={title}>
+      {title ? <h3>{title}</h3> : null}
+      {children}
+    </div>
   ),
   Button: ({ children, onClick, variant }: { 
     children: React.ReactNode; 
@@ -39,22 +42,29 @@ jest.mock("@delegolabs/ui", () => ({
 }));
 
 // Mock other components
-jest.mock("./ApprovalCard", () => ({
-  ApprovalCard: ({ deliveryPostalCode, onApprove, onReject }: any) => (
-    <div data-testid="approval-card" data-postal-code={deliveryPostalCode}>
-      <button onClick={() => onApprove("test-order")} data-testid="approve-btn">
+vi.mock("./ApprovalCard", () => ({
+  ApprovalCard: ({ order, deliveryPostalCode, onApprove, onReject }: any) => (
+    <div data-testid="approval-card" data-postal-code={deliveryPostalCode ?? ""}>
+      <button onClick={() => onApprove(order.id)} data-testid="approve-btn">
         Approve
       </button>
-      <button onClick={() => onReject("test-order", "test reason")} data-testid="reject-btn">
+      <button onClick={() => onReject(order.id, "test reason")} data-testid="reject-btn">
         Reject
       </button>
     </div>
   ),
 }));
 
-jest.mock("./ReceiptPanel", () => ({
-  ReceiptPanel: ({ deliveryPostalCode }: any) => (
-    <div data-testid="receipt-panel" data-postal-code={deliveryPostalCode}>
+// Mirrors the real `ReceiptPanel`, which takes an `Order` plus optional
+// jurisdiction/category — it has no `deliveryPostalCode` prop.
+vi.mock("./ReceiptPanel", () => ({
+  ReceiptPanel: ({ order, jurisdictionCode, category }: any) => (
+    <div
+      data-testid="receipt-panel"
+      data-order-id={order?.id}
+      data-jurisdiction={jurisdictionCode ?? ""}
+      data-category={category ?? ""}
+    >
       Receipt with tax
     </div>
   ),
@@ -127,7 +137,7 @@ describe("TaxEnabledCheckoutFlow", () => {
   });
 
   test("handles approval with tax calculation", async () => {
-    const onApprove = jest.fn();
+    const onApprove = vi.fn();
     
     render(
       <TaxEnabledCheckoutFlow
@@ -147,7 +157,7 @@ describe("TaxEnabledCheckoutFlow", () => {
   });
 
   test("handles rejection", async () => {
-    const onReject = jest.fn();
+    const onReject = vi.fn();
     
     render(
       <TaxEnabledCheckoutFlow
@@ -176,7 +186,7 @@ describe("TaxEnabledCheckoutFlow", () => {
     );
 
     const receiptPanel = screen.getByTestId("receipt-panel");
-    expect(receiptPanel).toHaveAttribute("data-postal-code", "90210");
+    expect(receiptPanel).toHaveAttribute("data-order-id", "test-order-123");
     expect(screen.getByText("Receipt with tax")).toBeInTheDocument();
   });
 
@@ -200,7 +210,7 @@ describe("useTaxEnabledOrder hook", () => {
   
   test("calculates correct subtotal from line items", () => {
     // Subtotal should be: (30 * 2) + (40 * 1) = 100 XLM = 1000000000 stroops
-    const subtotal = mockOrder.lineItems.reduce((sum, item) => {
+    const subtotal = (mockOrder.lineItems ?? []).reduce((sum, item) => {
       return sum + (BigInt(item.unitPriceStroops) * BigInt(item.quantity));
     }, 0n);
     
@@ -214,8 +224,8 @@ describe("TaxAwareApprovalCard", () => {
       order: mockOrder,
       postalCode: "90210",
       pending: false,
-      onApprove: jest.fn(),
-      onReject: jest.fn(),
+      onApprove: vi.fn(),
+      onReject: vi.fn(),
     };
 
     render(<TaxAwareApprovalCard {...mockProps} />);
@@ -228,8 +238,8 @@ describe("TaxAwareApprovalCard", () => {
     const mockProps = {
       order: mockOrder,
       pending: false,
-      onApprove: jest.fn(),
-      onReject: jest.fn(),
+      onApprove: vi.fn(),
+      onReject: vi.fn(),
     };
 
     render(<TaxAwareApprovalCard {...mockProps} />);
@@ -241,8 +251,8 @@ describe("TaxAwareApprovalCard", () => {
 
 describe("Integration scenarios", () => {
   test("complete checkout flow with California tax", async () => {
-    const onApprove = jest.fn();
-    const onReject = jest.fn();
+    const onApprove = vi.fn();
+    const onReject = vi.fn();
 
     render(
       <TaxEnabledCheckoutFlow
@@ -298,6 +308,6 @@ describe("Integration scenarios", () => {
     );
 
     const receiptPanel = screen.getByTestId("receipt-panel");
-    expect(receiptPanel).toHaveAttribute("data-postal-code", "10115");
+    expect(receiptPanel).toHaveAttribute("data-order-id", "test-order-123");
   });
 });

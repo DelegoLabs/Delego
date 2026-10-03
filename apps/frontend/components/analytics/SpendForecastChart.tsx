@@ -10,7 +10,7 @@ import {
   summarizeSpendForecast,
   type ForecastHorizonDays,
 } from "../../lib/spendForecast";
-import { formatFlm } from "../../lib/orders";
+import { formatXlm } from "../../lib/orders";
 import { useDataSaver } from "../../hooks/useDataSaver";
 
 export interface SpendForecastChartProps {
@@ -76,7 +76,7 @@ export function SpendForecastChart({
         </div>
         <div className="spend-chart-summary-stat">
           <span className="spend-chart-summary-label">Monthly limit</span>
-          <strong>{formatFlm(summary.budgetLimitStroops, locale)} XLM</strong>
+          <strong>{formatXlm(summary.budgetLimitStroops, locale)} XLM</strong>
         </div>
         {summary.projectedBreach && (
           <Badge tone="error" role="alert" data-testid="spend-forecast-breach">

@@ -11,6 +11,7 @@
     "delegations": "Delegationen",
     "orders": "Bestellungen",
     "approvals": "Genehmigungen",
+    "approvalsPending": "Unterschriften",
     "approvalsHistory": "Genehmigungsverlauf",
     "tracking": "Sendungsverfolgung",
     "analytics": "Analytik",
@@ -18,7 +19,18 @@
     "settings": "Einstellungen",
     "openMenu": "Navigationsmenü öffnen",
     "closeMenu": "Navigationsmenü schließen",
-    "primaryNavigation": "Hauptnavigation"
+    "primaryNavigation": "Hauptnavigation",
+    "skipToContent": "Zum Hauptinhalt springen"
+  },
+  "fab": {
+    "label": "KI-Assistent öffnen",
+    "badge": "{count, plural, one {# ungelesener Vorschlag} other {# ungelesene Vorschläge}}"
+  },
+  "agent": {
+    "roster": {
+      "fabAria": "Agentenliste öffnen",
+      "fabUnread": "{count, plural, one {# ungelesener Vorschlag} other {# ungelesene Vorschläge}}"
+    }
   },
   "common": {
     "cancel": "Abbrechen",

@@ -1,4 +1,4 @@
-import { useId, useState, type CSSProperties, type ChangeEvent } from "react";
+import { useId, useState, type ChangeEvent } from "react";
 
 /** Liquidity pool reserves for calculating depth and price impact */
 export interface LiquidityPoolReserves {

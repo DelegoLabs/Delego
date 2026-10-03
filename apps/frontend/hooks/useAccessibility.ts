@@ -69,6 +69,14 @@ export interface UseA11yReturn {
   resetToDefaults: () => void;
 }
 
+/**
+ * Readable alias for {@link useA11y}. The settings card imports it under this
+ * name; both refer to the same hook.
+ */
+export function useAccessibility(): UseA11yReturn {
+  return useA11y();
+}
+
 export function useA11y(): UseA11yReturn {
   const [preferences, setPreferencesState] = useState<A11yPreferences>(
     DEFAULT_A11Y_PREFERENCES
@@ -81,7 +89,7 @@ export function useA11y(): UseA11yReturn {
   }, []);
 
   const updatePreferences = useCallback(
-    (updater: (prev: A11yPreferences) => A411yPreferences) => {
+    (updater: (prev: A11yPreferences) => A11yPreferences) => {
       setPreferencesState((prev) => {
         const next = updater(prev);
         try {

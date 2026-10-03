@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { server } from "../server";
 import { seedOrder, resetOrders, DELEGATION_OWNERS } from "./orders";
-import { buildDualControlOrder, capabilitiesHandlersDisabled, capabilitiesHandlersUnavailable } from "./approvals";
-import { submitApproval } from "../../services/approvals";
+import { buildDualControlOrder, capabilitiesHandlersDisabled, capabilitiesHandlersUnavailable, pendingApprovalHandlersEmpty, resetPendingApprovals } from "./approvals";
+import { fetchPendingApprovals, submitApproval } from "../../services/approvals";
+import { adaptPendingApprovals, pendingApprovalCount } from "../../lib/pendingApprovals";
 import { detectDualControlCapability } from "../../services/payments";
 
 
@@ -63,5 +64,42 @@ describe("dual-control approvals — two-approver MSW journey (#574)", () => {
       server.use(...capabilitiesHandlersUnavailable);
       expect(await detectDualControlCapability()).toBe(false);
     });
+  });
+});
+
+describe("pending-signature queue (#780)", () => {
+  beforeEach(() => {
+    resetPendingApprovals();
+  });
+
+  it("lists the transactions awaiting a secondary signature, adapting the wire shape", async () => {
+    const res = await fetchPendingApprovals();
+    expect(res.error).toBeNull();
+
+    const items = adaptPendingApprovals(res.data);
+    expect(items.length).toBeGreaterThan(0);
+    expect(items[0]).toEqual(
+      expect.objectContaining({
+        orderId: expect.stringContaining("order-pending"),
+        amountStroops: expect.any(BigInt),
+        expiresAt: expect.any(Date),
+      })
+    );
+  });
+
+  it("counts live rows for the navigation badge, ignoring rows past their window", async () => {
+    const items = adaptPendingApprovals((await fetchPendingApprovals()).data);
+    const expired = items.filter((i) => i.expiresAt.getTime() <= Date.now());
+
+    expect(expired.length).toBeGreaterThan(0);
+    expect(pendingApprovalCount(items)).toBe(items.length - expired.length);
+  });
+
+  it("returns an empty queue under the empty scenario", async () => {
+    server.use(...pendingApprovalHandlersEmpty);
+
+    const res = await fetchPendingApprovals();
+    expect(res.error).toBeNull();
+    expect(res.data).toEqual([]);
   });
 });

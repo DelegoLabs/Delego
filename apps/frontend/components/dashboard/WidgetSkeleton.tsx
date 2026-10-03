@@ -15,6 +15,9 @@ export function WidgetSkeleton({
     <div
       className="widget-skeleton card skeleton"
       style={{ minHeight }}
+      // A plain div has no role, so it may carry neither aria-busy nor
+      // aria-label (axe's aria-prohibited-attr flagged every dashboard widget).
+      role="status"
       aria-busy="true"
       aria-label={`Loading ${name}`}
     >

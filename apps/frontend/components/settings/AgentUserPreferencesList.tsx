@@ -113,7 +113,7 @@ export function AgentUserPreferencesList() {
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem" }}>
                     <Button variant="secondary" onClick={() => startEdit(item)}>Edit</Button>
-                    <Button variant="danger" disabled={saving} onClick={() => handleDelete(item.key)}>Delete</Button>
+                    <Button variant="destructive" disabled={saving} onClick={() => handleDelete(item.key)}>Delete</Button>
                   </div>
                 </>
               )}

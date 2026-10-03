@@ -12,6 +12,30 @@ export interface SpendForecastPoint {
   historicalSpentStroops?: string;
   projectedSpentStroops?: string;
   budgetLimitStroops: string;
+  /** Upper end of the prediction interval for this point, when one was supplied. */
+  confidenceUpperStroops?: string;
+  /** Lower end of the prediction interval for this point, when one was supplied. */
+  confidenceLowerStroops?: string;
+}
+
+/** How far ahead the forecast projects, in days. */
+export type ForecastHorizonDays = 30 | 60 | 90;
+
+/** Selectable horizons, in the order the analytics UI offers them. */
+export const FORECAST_HORIZONS: readonly ForecastHorizonDays[] = [30, 60, 90];
+
+const DEFAULT_FORECAST_HORIZON: ForecastHorizonDays = 30;
+
+/**
+ * Reads a `?forecast=` query value, falling back to 30 days for anything that
+ * is absent, malformed or not one of the supported horizons.
+ */
+export function parseForecastHorizon(value: string | null | undefined): ForecastHorizonDays {
+  if (value == null) return DEFAULT_FORECAST_HORIZON;
+  const parsed = Number(value);
+  return (FORECAST_HORIZONS as readonly number[]).includes(parsed)
+    ? (parsed as ForecastHorizonDays)
+    : DEFAULT_FORECAST_HORIZON;
 }
 
 export interface SpendForecastSummary {

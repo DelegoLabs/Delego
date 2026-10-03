@@ -1,15 +1,16 @@
 /**
  * Soroban simulation dry-run shown before a contract call is confirmed (#703).
+ *
+ * The Stellar SDK is imported lazily inside each entry point. Every function
+ * here is a user-initiated simulation, so there is no reason to ship the whole
+ * Soroban contract/rpc surface in the initial bundle of a route that merely
+ * renders a dry-run panel.
  */
 
-import {
-  Account,
-  Contract,
-  TransactionBuilder,
-  nativeToScVal,
-  rpc,
-  scValToNative,
-} from "@stellar/stellar-sdk";
+import type { rpc as StellarRpc } from "@stellar/stellar-sdk";
+
+/** The subset of the SDK these helpers need, supplied by the lazy loader. */
+type StellarSdk = typeof import("@stellar/stellar-sdk");
 
 export interface SimulationDetails {
   cpuInstructions: number;
@@ -52,11 +53,11 @@ function toStroopsString(value: unknown): string {
   return "0";
 }
 
-function returnValueToString(retval: unknown): string {
+function returnValueToString(retval: unknown, sdk: StellarSdk): string {
   if (retval == null) return "";
   if (typeof retval === "string") return retval;
   try {
-    const native = scValToNative(retval as never);
+    const native = sdk.scValToNative(retval as never);
     if (typeof native === "string") return native;
     if (typeof native === "bigint") return native.toString();
     return JSON.stringify(native, (_key, value) =>
@@ -67,7 +68,10 @@ function returnValueToString(retval: unknown): string {
   }
 }
 
-export function mapSimulationResult(simulated: unknown): SimulationDryRunResult {
+export function mapSimulationResult(
+  simulated: unknown,
+  sdk: StellarSdk
+): SimulationDryRunResult {
   const record =
     simulated && typeof simulated === "object"
       ? (simulated as Record<string, unknown>)
@@ -82,7 +86,7 @@ export function mapSimulationResult(simulated: unknown): SimulationDryRunResult 
   const errorText = typeof record.error === "string" ? record.error.trim() : "";
   let simulationError = false;
   try {
-    simulationError = rpc.Api.isSimulationError(simulated as never);
+    simulationError = sdk.rpc.Api.isSimulationError(simulated as never);
   } catch {
     simulationError = Boolean(errorText);
   }
@@ -124,7 +128,7 @@ export function mapSimulationResult(simulated: unknown): SimulationDryRunResult 
     cpuInstructions,
     memoryBytes,
     estimatedFeeStroops,
-    simulatedReturnValue: retval == null ? "" : returnValueToString(retval),
+    simulatedReturnValue: retval == null ? "" : returnValueToString(retval, sdk),
     details,
   };
 }
@@ -152,13 +156,14 @@ async function runSimulation(
   rpcUrl: string
 ): Promise<SimulationDryRunResult> {
   try {
-    const server = new rpc.Server(rpcUrl, {
+    const sdk: StellarSdk = await import("@stellar/stellar-sdk");
+    const server = new sdk.rpc.Server(rpcUrl, {
       allowHttp: rpcUrl.startsWith("http://"),
     });
     const simulated = await server.simulateTransaction(
-      tx as Parameters<rpc.Server["simulateTransaction"]>[0]
+      tx as Parameters<StellarRpc.Server["simulateTransaction"]>[0]
     );
-    return mapSimulationResult(simulated);
+    return mapSimulationResult(simulated, sdk);
   } catch (err) {
     return failed(
       err instanceof Error
@@ -174,6 +179,7 @@ export async function simulateTransactionEnvelope(
   networkPassphrase: string
 ): Promise<SimulationDryRunResult> {
   try {
+    const { TransactionBuilder } = await import("@stellar/stellar-sdk");
     const tx = TransactionBuilder.fromXDR(xdr, networkPassphrase);
     if (!("operations" in tx)) {
       return failed("Fee-bump envelopes cannot be simulated here.");
@@ -194,6 +200,8 @@ export async function simulateContractCall(input: {
   args?: string[];
 }): Promise<SimulationDryRunResult> {
   try {
+    const { Account, Contract, TransactionBuilder, nativeToScVal } =
+      await import("@stellar/stellar-sdk");
     const account = new Account(SIMULATION_SOURCE, "0");
     const contract = new Contract(input.contractId);
     const scArgs = (input.args ?? []).map((arg) =>

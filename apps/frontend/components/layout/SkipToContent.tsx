@@ -1,1 +1,17 @@
-InVzZSBjbGllbnQiOwoKaW1wb3J0IHsgdXNlVHJhbnNsYXRpb25zIH0gZnJvbSAibmV4dC1pbnRsIjsKCi eightaGV5IGV4cG9ydCBmdW5jdGlvbiBTa2lwVG9Db250ZW50KCkgewogIGNvbnN0IHQgPSB1c2VUcmFuc2xhdGlvbnMoImExMXkiKTsKCiAgcmV0dXJuICgKICAgIDxhCiAgICAgIGhyZWY9IiNhcHAtY29udGVudCIKICAgICAgY2xhc3NOYW1lPSJza2lwLXRvLWNvbnRlbnQiCiAgICAgIGRhdGEtdGVzdGlkPSJza2lwLXRvLWNvbnRlbnQiCiAgICA+CiAgICAgIHQoInNraXBUb0NvbnRlbnQiKQogICAgPC9hPgogICk7Cn0K
+"use client";
+
+/**
+ * Keyboard-accessible "skip to main content" link.
+ *
+ * Mirrors the `SkipToContent` export in `components/search/GlobalSearch.tsx`
+ * so both call sites render the same anchor, classes and label.
+ */
+export function SkipToContent() {
+  return (
+    <a href="#main-content" className="skip-to-content focus-visible-ring">
+      Skip to main content
+    </a>
+  );
+}
+
+export default SkipToContent;

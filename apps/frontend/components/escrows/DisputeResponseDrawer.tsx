@@ -60,6 +60,7 @@ export function DisputeResponseDrawer({
   const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [pendingOverflow, setPendingOverflow] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,6 +77,7 @@ export function DisputeResponseDrawer({
 
   const addFiles = useCallback((incoming: File[]) => {
     setFileError(null);
+    setPendingOverflow(false);
     const tooBig = incoming.filter((f) => f.size > MAX_FILE_BYTES);
     const wrongType = incoming.filter((f) => !isAcceptedFile(f));
 
@@ -93,17 +95,16 @@ export function DisputeResponseDrawer({
     }
 
     setReceiptFiles((prev) => {
-      const combined = [
-        ...prev,
-        ...incoming.filter(
-          (f) => !prev.some((p) => p.name === f.name && p.size === f.size)
-        ),
-      ];
-      if (combined.length > MAX_FILES) {
-        setFileError(`You may attach up to ${MAX_FILES} files.`);
+      const fresh = incoming.filter(
+        (f) => !prev.some((p) => p.name === f.name && p.size === f.size),
+      );
+      if (prev.length + fresh.length > MAX_FILES) {
+        // Signal the overflow as an error rather than adding a side effect
+        // from inside this updater — React may run it more than once.
+        setPendingOverflow(true);
         return prev;
       }
-      return combined;
+      return [...prev, ...fresh];
     });
   }, []);
 
@@ -113,6 +114,10 @@ export function DisputeResponseDrawer({
   };
 
   // ── Drag-and-drop handlers ──────────────────────────────────────────────────
+
+  const displayFileError = fileError ??
+    (pendingOverflow ? `You may attach up to ${MAX_FILES} files.` : null);
+
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -397,13 +402,13 @@ export function DisputeResponseDrawer({
             </ul>
           )}
 
-          {fileError && (
+          {displayFileError && (
             <p
               role="alert"
               style={{ fontSize: "0.75rem", color: "#dc2626", margin: 0 }}
               data-testid="file-error"
             >
-              {fileError}
+              {displayFileError}
             </p>
           )}
         </div>

@@ -110,7 +110,7 @@ export async function subscribeToPush(
 
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: vapidPublicKeyToUint8Array(vapidKey),
+    applicationServerKey: vapidPublicKeyToUint8Array(vapidKey) as BufferSource,
   });
 
   const payload = serializeSubscription(subscription, orderIds);

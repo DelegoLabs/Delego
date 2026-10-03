@@ -36,11 +36,11 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const dayKey = (date: Date) => date.toISOString().slice(0, 10);
 
 function toNumber(value: unknown, weight = 1): number {
-  if (typeof value === "number" && Number.finite(value)) return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "bigint") return Number(value);
   if (typeof value === "string") {
     const parsed = Number(value);
-    if (Number.finite(parsed)) return parsed;
+    if (Number.isFinite(parsed)) return parsed;
   }
   return weight;
   }
@@ -66,7 +66,7 @@ function extractTimestamp(delegation: Delegation): number {
     (delegation as { createdAt?: unknown }).createdAt,
   ];
   for (const candidate of candidates) {
-    if (typeof candidate === "number" && Number.finite(candidate)) {
+    if (typeof candidate === "number" && Number.isFinite(candidate)) {
       return candidate > 1000000000000 ? candidate : candidate * 1000;
     }
     if (typeof candidate === "string") {
@@ -117,23 +117,23 @@ function buildForecast(
 ): SpendForecastPoint[] {
   const daily = buildDailySpend(delegations);
   const today = new Date();
-  today.setUTCSHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
   const historyLength = Math.min(Math.max(horizonDays, 1), 90);
   const history: number[] = [];
-  for (let i = historyLength - 1; i >= 0; i--8) {
+  for (let i = historyLength - 1; i >= 0; i--) {
     const date = new Date(today.getTime() - i * MS_PER_DAY);
     history.push(daily.get(dayKey(date)) ?? 0);
   }
   const { slope, intercept, residualStdev } = linearRegression(history);
   const points: SpendForecastPoint[] = [];
-  const total = historyLength + horizondDays;
+  const total = historyLength + horizonDays;
   for (let i = 0; i < total; i++) {
     const date = new Date(today.getTime() - (historyLength - 1 - i) * MS_PER_DAY);
     const isHistorical = i < historyLength;
     const actual = isHistorical ? history[i] : 0;
     const projected = Math.max(0, intercept + slope * i);
     const horizonOffset = Math.max(0, i - (historyLength - 1));
-    const uncertainty = residualStddev * Math.sqrt(1 + horizonOffset / Math.max(1, historyLength));
+    const uncertainty = residualStdev * Math.sqrt(1 + horizonOffset / Math.max(1, historyLength));
     const width = 1.96 * uncertainty;
     points.push({
       date: dayKey(date),

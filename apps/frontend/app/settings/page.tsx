@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import type { User, UserPreferences } from "@delegolabs/types";
 import { Button } from "@delegolabs/ui";
@@ -18,19 +19,10 @@ import { DataSaverSettingsCard } from "../../components/settings/DataSaverSettin
 import { LanguageSwitcher } from "../../components/settings/LanguageSwitcher";
 import { CurrencySwitcher } from "../../components/settings/CurrencySwitcher";
 import { TimeFormatSwitcher } from "../../components/settings/TimeFormatSwitcher";
-import { ChatAudioSettingsCard } from "../../components/settings/ChatAudioSettingsCard";
-import { NetworkContractsCard } from "../../components/settings/NetworkContractsCard";
 import { OfflineDataCard } from "../../components/settings/OfflineDataCard";
-import { PrivacyExportCard } from "../../components/settings/PrivacyExportCard";
-import { DataErasureCard } from "../../components/settings/DataErasureCard";
-import { KillSwitchCard } from "../../components/settings/KillSwitchCard";
-import { ConsentSettingsCard } from "../../components/settings/ConsentSettingsCard";
 import { AgentSettingsCard } from "../../components/settings/AgentSettingsCard";
-import { AgentUserPreferencesList } from "../../components/settings/AgentUserPreferencesList";
-import type { AgentPersonaConfig } from "../../lib/agentConfig";
-import { MerchantWebhookCard } from "../../components/settings/MerchantWebhookCard";
-import { CategoryBudgetAllocationCard } from "../../components/settings/CategoryBudgetAllocationCard";
 import type { CategoryBudgetAllocation } from "../../components/settings/CategoryBudgetAllocationCard";
+import type { AgentPersonaConfig } from "../../lib/agentConfig";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -59,6 +51,47 @@ const PLACEHOLDER_AGENT_CONFIG: AgentPersonaConfig = {
   negotiationAllowed: true,
   preferredAsset: "USDC",
 };
+
+/**
+ * Secondary settings cards are code-split so their JavaScript only loads once
+ * the buyer scrolls to them. The page renders a long list of cards, and
+ * shipping all of them in the initial payload pushed /settings over the
+ * First Load JS budget. `ProfileForm` / `PreferencesForm` stay eager because
+ * they are the first thing on the page.
+ */
+const ChatAudioSettingsCard = dynamic(
+  () => import("../../components/settings/ChatAudioSettingsCard").then((m) => m.ChatAudioSettingsCard)
+);
+const NetworkContractsCard = dynamic(
+  () => import("../../components/settings/NetworkContractsCard").then((m) => m.NetworkContractsCard)
+);
+const CategoryBudgetAllocationCard = dynamic(
+  () =>
+    import("../../components/settings/CategoryBudgetAllocationCard").then(
+      (m) => m.CategoryBudgetAllocationCard
+    )
+);
+const AgentUserPreferencesList = dynamic(
+  () =>
+    import("../../components/settings/AgentUserPreferencesList").then(
+      (m) => m.AgentUserPreferencesList
+    )
+);
+const MerchantWebhookCard = dynamic(
+  () => import("../../components/settings/MerchantWebhookCard").then((m) => m.MerchantWebhookCard)
+);
+const ConsentSettingsCard = dynamic(
+  () => import("../../components/settings/ConsentSettingsCard").then((m) => m.ConsentSettingsCard)
+);
+const PrivacyExportCard = dynamic(
+  () => import("../../components/settings/PrivacyExportCard").then((m) => m.PrivacyExportCard)
+);
+const DataErasureCard = dynamic(
+  () => import("../../components/settings/DataErasureCard").then((m) => m.DataErasureCard)
+);
+const KillSwitchCard = dynamic(
+  () => import("../../components/settings/KillSwitchCard").then((m) => m.KillSwitchCard)
+);
 
 const PLACEHOLDER_PREFERENCES: UserPreferences = {
   userId: "user-placeholder",
@@ -198,7 +231,7 @@ function KillSwitchModal({
             Cancel
           </Button>
           <Button
-            variant="danger"
+            variant="destructive"
             onClick={handleConfirm}
             disabled={!canConfirm}
           >
@@ -272,7 +305,7 @@ export default function SettingsPage() {
             Instantly revoke all active AI agent spending permissions.
           </p>
         </div>
-        <Button variant="danger" onClick={() => setIsKillSwitchOpen(true)}>
+        <Button variant="destructive" onClick={() => setIsKillSwitchOpen(true)}>
           Revoke all permissions
         </Button>
       </section>

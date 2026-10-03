@@ -38,7 +38,7 @@ describe("ThemeToggle", () => {
   });
 
   it("uses a saved preference instead of the system preference", () => {
-    localStorage.setItem("delego-theme-mode", "light");
+    localStorage.setItem("theme-mode", "light");
     mockSystemTheme(true);
 
     render(<ThemeToggle />);
@@ -50,7 +50,7 @@ describe("ThemeToggle", () => {
   });
 
   it("toggles the theme and persists the selection", async () => {
-    localStorage.setItem("delego-theme-mode", "light");
+    localStorage.setItem("theme-mode", "light");
     const user = userEvent.setup();
     render(<ThemeToggle />);
 
@@ -59,7 +59,7 @@ describe("ThemeToggle", () => {
     );
 
     expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(localStorage.getItem("delego-theme-mode")).toBe("dark");
+    expect(localStorage.getItem("theme-mode")).toBe("dark");
     expect(
       screen.getByRole("button", { name: /Theme: Dark/i })
     ).toHaveAttribute("aria-pressed", "true");

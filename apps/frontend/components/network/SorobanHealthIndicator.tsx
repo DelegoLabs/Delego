@@ -22,7 +22,10 @@ export function SorobanHealthIndicator() {
 
   if (!health) {
     return (
+      // role="img" so the span is allowed to carry an accessible name; a plain
+      // span may not, which axe reports as aria-prohibited-attr.
       <span
+        role="img"
         aria-label="Soroban RPC status: checking"
         title="Checking Soroban RPC status…"
         style={{

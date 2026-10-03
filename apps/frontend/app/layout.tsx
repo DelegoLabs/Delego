@@ -17,7 +17,7 @@ import { themeBootstrapScript } from "../hooks/useTheme";
 import { Inter } from "next/font/google";
 import { a11yBootstrapScript } from "../hooks/useAccessibility";
 import { EXTERNAL_SCRIPTS } from "../lib/sri";
-import { AgentFab } from "../components/agent/AgentFab";
+import { AgentFab } from "../components/layout/AgentFab";
 
 const inter = Inter({
   subsets: ["latin"],

@@ -55,7 +55,10 @@ export function formatGraceCountdown(remainingMs: number): string {
  * time so the sentence doesn't drift while it counts down.
  */
 export function formatGraceWindow(remainingMs: number): string {
-  const totalMinutes = Math.round(Math.max(0, remainingMs) / 60_000);
+  // Floor, not round: a 30-second window is 0.5 minutes, and rounding it up
+  // would report "1 minute" and tell the user they have twice the time
+  // they actually have.
+  const totalMinutes = Math.floor(Math.max(0, remainingMs) / 60_000);
   if (totalMinutes >= 60) {
     const hours = Math.round(totalMinutes / 60);
     return `${hours} ${hours === 1 ? "hour" : "hours"}`;

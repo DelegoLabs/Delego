@@ -10,14 +10,6 @@
  * approach, same dummy source account for builder compatibility.
  */
 
-import {
-  Account,
-  Contract,
-  TransactionBuilder,
-  scValToNative,
-  nativeToScVal,
-  rpc,
-} from "@stellar/stellar-sdk";
 import type { NetworkConfig } from "../lib/networks";
 
 // ─── Return type from the contract ──────────────────────────────────────────
@@ -111,6 +103,12 @@ async function callEligibilityGetter(
   contractAddress: string,
   escrowId: string
 ): Promise<ReleaseEligibilityResult> {
+  // Imported lazily: this is the only place the Soroban surface is needed, and
+  // an eager import would drag the whole contract/rpc bundle into the initial
+  // payload of every route that renders a release CTA.
+  const { Account, Contract, TransactionBuilder, nativeToScVal, scValToNative, rpc } =
+    await import("@stellar/stellar-sdk");
+
   const server = new rpc.Server(network.sorobanRpcUrl, { allowHttp: false });
   const account = new Account(SIMULATION_SOURCE, "0");
   const contract = new Contract(contractAddress);

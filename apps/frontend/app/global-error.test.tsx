@@ -56,6 +56,18 @@ describe("GlobalError recovery screen (#747)", () => {
     expect(html).toContain("digest-abc123");
   });
 
+  it("renders a titled document so the axe document-title rule still passes", () => {
+    const html = renderToStaticMarkup(
+      <GlobalError error={makeError("digest-abc123")} reset={() => {}} />
+    );
+
+    // The boundary replaces the root layout, so it inherits neither the app's
+    // metadata nor its <head>; without a title of its own this document fails
+    // the `document-title` axe rule that e2e/a11y.spec.ts gates on.
+    expect(html).toContain("<head>");
+    expect(html).toContain("<title>Something went wrong | Delego</title>");
+  });
+
   it("never renders the raw error message or stack trace", () => {
     const html = renderToStaticMarkup(
       <GlobalError error={makeError("digest-abc123")} reset={() => {}} />
@@ -125,7 +137,15 @@ describe("GlobalError recovery screen (#747)", () => {
     expect(sentry.setTag).toHaveBeenCalledWith("error.digest", "digest-xyz");
 
     const logged = consoleError.mock.calls
-      .map((call) => call.map(String).join(" "))
+      .map((call) =>
+        call
+          .map((arg) =>
+            typeof arg === "object" && arg !== null
+              ? JSON.stringify(arg)
+              : String(arg),
+          )
+          .join(" "),
+      )
       .join("\n");
     expect(logged).toContain("[global-error] uncaught error");
     expect(logged).toContain("digest-xyz");
