@@ -5,7 +5,17 @@
   --color-bg-subtle: #f3f4f6;
   --color-text-primary: #111827;
   --color-text-secondary: #374151;
-  --color-text-muted: #6b7280;
+  /* Muted and subtle text both sit on --color-bg-subtle as well as on surfaces,
+     so both are checked against the subtler of the two backgrounds rather than
+     against white alone (#6b7280 measured 4.39:1 on #f3f4f6, just under the
+     4.5:1 WCAG AA asks for). */
+  --color-text-muted: #656b76;
+  --color-text-subtle: #6b7280;
+  /* Tertiary text still has to clear WCAG AA (4.5:1) against --color-bg-surface.
+     Without this token the product tour fell back to its inline #9ca3af, which
+     measured 2.5:1 on white — a Lighthouse colour-contrast failure on every
+     route that shows the tour. */
+  --color-text-tertiary: #4b5563;
   --color-border: #e5e7eb;
   --color-accent: #2563eb;
   --color-accent-bg: #eff6ff;
@@ -17,7 +27,7 @@
   --color-success-text: #047857;
   --color-success-border: #a7f3d0;
   --color-error-bg: #fee2e2;
-  --color-error-text: #dc2626;
+  --color-error-text: #b91c1c;
   --color-error-border: #fecaca;
   --color-info-bg: #eff6ff;
   --color-info-text: #1e40af;
@@ -144,6 +154,8 @@
   --color-text-primary: #f9fafb;
   --color-text-secondary: #d1d5db;
   --color-text-muted: #9ca3af;
+  --color-text-subtle: #9ca3af;
+  --color-text-tertiary: #8a93a2;
   --color-border: #374151;
   --color-accent: #60a5fa;
   --color-accent-bg: #1e3a5f;
@@ -191,6 +203,7 @@
   --color-text-primary: #000000;
   --color-text-secondary: #000000;
   --color-text-muted: #1a1a1a;
+  --color-text-tertiary: #4a4a4a;
   --color-border: #000000;
   --color-accent: #0000ee;
   --color-accent-bg: #e6f0ff;
@@ -205,6 +218,7 @@
   --color-text-primary: #ffffff;
   --color-text-secondary: #ffffff;
   --color-text-muted: #e6e6e6;
+  --color-text-tertiary: #a8a8a8;
   --color-border: #ffffff;
   --color-accent: #ffff00;
   --color-accent-bg: #333300;
@@ -4234,5 +4248,126 @@ body {
 
   .catalog-filter-mobile-trigger {
     display: inline-flex;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Multi-sig approval queue (#780)
+   Nav badge counter + the dashboard list of transactions awaiting a
+   secondary signature.
+--------------------------------------------------------------------------- */
+
+.nav-badge {
+  margin-left: auto;
+  min-width: 1.25rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--color-error-text);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.pending-approvals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pending-approvals-empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  text-align: center;
+}
+
+.pending-approvals-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pending-approvals-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg-surface);
+}
+
+.pending-approvals-item-critical {
+  border-left-color: var(--color-error-text);
+}
+
+.pending-approvals-item-warning {
+  border-left-color: var(--color-stat-neutral);
+}
+
+.pending-approvals-item-normal {
+  border-left-color: var(--color-status-pending-text);
+}
+
+.pending-approvals-item-expired {
+  border-left-color: var(--color-border);
+  opacity: 0.75;
+}
+
+.pending-approvals-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.pending-approvals-item-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  word-break: break-word;
+}
+
+.pending-approvals-item-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.pending-approvals-item-amount {
+  margin: 0;
+  font-weight: 600;
+}
+
+.pending-approvals-item-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  max-width: 18rem;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .pending-approvals-item {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+
+  .pending-approvals-item-side,
+  .pending-approvals-item-action {
+    align-items: flex-start;
+    text-align: left;
   }
 }

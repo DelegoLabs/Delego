@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { MockInstance } from "vitest";
+
+let createElementSpy: MockInstance | null = null;
 import { stripImageMetadata, stripMultipleImagesMetadata, revokePreviewUrls } from "./imageMetadata";
 
 // Mock canvas and Image for testing
@@ -6,12 +9,18 @@ beforeEach(() => {
   global.Image = class MockImage {
     onload: (() => void) | null = null;
     onerror: (() => void) | null = null;
-    src = "";
     width = 800;
     height = 600;
 
-    constructor() {
-      // Simulate async image load
+    // Simulate the browser: the load event fires after `src` is assigned,
+    // not when the element is constructed. Firing from the constructor
+    // races the FileReader callback that installs `onload`.
+    private _src = "";
+    get src() {
+      return this._src;
+    }
+    set src(value: string) {
+      this._src = value;
       setTimeout(() => {
         if (this.onload) this.onload();
       }, 0);
@@ -33,6 +42,8 @@ beforeEach(() => {
     }
   } as any;
 
+  const originalCreateElement = global.document.createElement.bind(global.document);
+
   // Mock canvas
   const mockCanvas = {
     width: 0,
@@ -46,10 +57,15 @@ beforeEach(() => {
     }),
   };
 
-  global.document.createElement = vi.fn((tagName: string) => {
-    if (tagName === "canvas") return mockCanvas as any;
-    return {} as any;
-  });
+  createElementSpy = vi
+    .spyOn(global.document, "createElement")
+    .mockImplementation(((
+      tagName: string,
+      options?: ElementCreationOptions,
+    ) => {
+      if (tagName === "canvas") return mockCanvas as any;
+      return originalCreateElement.call(global.document, tagName, options);
+    }) as typeof global.document.createElement);
 
   // Mock URL.createObjectURL and revokeObjectURL
   global.URL.createObjectURL = vi.fn(() => "blob:mock-url");
@@ -57,6 +73,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  createElementSpy?.mockRestore();
+  createElementSpy = null;
   vi.clearAllMocks();
 });
 

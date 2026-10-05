@@ -83,17 +83,13 @@ describe("EscrowYieldCounter", () => {
     const counter = screen.getByTestId("escrow-yield-counter");
     const initial = counter.textContent;
 
+    // 10% APR on 10,000 XLM accrues ~0.0002 XLM per second, so a few seconds
+    // of fake time still rounds to "0.00" at two decimals. A day is enough
+    // for the rendered value to actually move.
     act(() => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(24 * 60 * 60 * 1000);
     });
 
-    // The counter should have advanced (or be animating toward advancement)
-    expect(counter.textContent).toBeDefined();
-    // After enough time, the value should be different
-    act(() => {
-      vi.advanceTimersByTime(5000);
-    });
-    // The display value should have changed from initial
     expect(counter.textContent).not.toBe(initial);
   });
 

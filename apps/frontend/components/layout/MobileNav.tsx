@@ -5,8 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { activeNavHref, navItems } from "./navItems";
+import { NavPendingBadge } from "./NavPendingBadge";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { FabButton } from "../ui/FabButton";
+import { FabButton } from "../agent/FabButton";
 
 export interface MobileNavProps {
   /** Whether the drawer is currently open */
@@ -125,11 +126,12 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                     onClick={onClose}
                     tabIndex={open ? 0 : -1}
                   >
-                    <span className="nav-icon" aria-hidden="true">
-                      {item.icon}
-                    </span>
-                    {t(item.labelKey)}
-                  </Link>
+                  <span className="nav-icon" aria-hidden="true">
+                    {item.icon}
+                  </span>
+                  {t(item.labelKey)}
+                  {item.badge === "pendingApprovals" && <NavPendingBadge />}
+                </Link>
                 </li>
               );
             })}

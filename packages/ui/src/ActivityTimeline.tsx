@@ -119,7 +119,9 @@ export function ActivityTimeline({
               <time
                 dateTime={event.timestamp.toISOString()}
                 title={formatAbsoluteTime(event.timestamp)}
-                style={{ fontSize: "0.75rem", color: "#9ca3af" }}
+                // #9ca3af measured 2.5:1 on white; #4b5563 is 7.6:1 and keeps
+                // the timestamp as a quiet-but-legible line.
+                style={{ fontSize: "0.75rem", color: "#4b5563" }}
               >
                 {formatRelativeTime(event.timestamp)}
               </time>

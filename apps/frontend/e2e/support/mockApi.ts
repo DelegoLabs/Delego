@@ -63,3 +63,26 @@ export async function seedAuthCookie(page: Page, baseURL: string) {
     },
   ]);
 }
+
+/**
+ * Marks the first-run product tour as already dismissed.
+ *
+ * TourProvider auto-starts the tour for any profile whose localStorage has
+ * neither flag set, and the tour renders a modal dialog whose backdrop
+ * intercepts pointer events across the page. Every Playwright context starts
+ * with an empty profile, so the tour opened on top of whatever the spec was
+ * trying to click — most visibly the wallet picker, whose dialog then appeared
+ * empty. Seeding the flag keeps these specs testing the flow they are named
+ * after; the tour has its own coverage in components/tour.
+ *
+ * See TOUR_DISMISSED_KEY in components/tour/TourProvider.tsx.
+ */
+export async function seedTourSeen(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem("delego_tour_dismissed", "true");
+    } catch {
+      // Private-mode storage denial is not worth failing a test over.
+    }
+  });
+}

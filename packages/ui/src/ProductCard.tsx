@@ -18,7 +18,8 @@ export interface RecommendedProduct {
 }
 
 /** Props accepted by the ProductCard component */
-export interface ProductCardProps extends HTMLAttributes<HTMLDivElement> {
+export interface ProductCardProps
+  extends Omit<HTMLAttributes<HTMLDivElement>, "onSelect"> {
   product: RecommendedProduct;
   onSelect: (productId: string) => void;
   onReject: (productId: string) => void;

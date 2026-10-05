@@ -6,6 +6,7 @@ import { Card } from "@delegolabs/ui";
 import { api } from "../../lib/api";
 import { getResource } from "../../lib/suspenseResource";
 import { spendByRange, type AnalyticsRange } from "../../lib/analytics";
+import type { ForecastHorizonDays } from "../../lib/spendForecast";
 import { adaptOrders, type ListOrdersResponse } from "@delegolabs/api-generated";
 import { SpendingOverview } from "./SpendingOverview";
 import { SpendChart } from "./SpendChart";
@@ -176,6 +177,10 @@ export interface AnalyticsDashboardProps {
   range: AnalyticsRange;
   locale: string;
   onRangeChange: (range: AnalyticsRange) => void;
+  /** Currently selected forecast horizon, when the forecast widget is shown. */
+  forecastHorizon?: ForecastHorizonDays;
+  /** Called when the user picks a different forecast horizon. */
+  onForecastHorizonChange?: (horizon: ForecastHorizonDays) => void;
   stale?: boolean;
   cachedAt?: number | null;
   ttlMs?: number;

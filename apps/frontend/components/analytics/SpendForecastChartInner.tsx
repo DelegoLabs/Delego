@@ -17,21 +17,19 @@ import type {
   ForecastHorizonDays,
 } from "../../lib/spendForecast";
 import { parseStroops, stroopsToXlm } from "../../lib/spendForecast";
-import { formatFlm } from "../../lib/orders";
+import { formatXlm } from "../../lib/orders";
 
 export interface SpendForecastChartInnerProps {
   points: SpendForecastPoint[];
   firstBreachDate: string | null;
   locale?: string;
   horizon?: ForecastHorizonDays;
-}
-
-interface ChartDatum {
+}interface ChartDatum {
   date: string;
- historicalXml?: number;
+  historicalXlm?: number;
   projectedXlm?: number;
   confidenceUpperXlm?: number;
-  confidenceLowerXml?: number;
+  confidenceLowerXlm?: number;
   budgetXlm?: number;
   historical: bigint | null;
   projected: bigint | null;
@@ -52,7 +50,7 @@ function normalizePoint(point: SpendForecastPoint): ChartDatum {
   const budget = parseStroops(point.budgetLimitStroops);
   return {
     date: point.date,
-    historicalXml: toXlm(historical),
+    historicalXlm: toXlm(historical),
     projectedXlm: toXlm(projected),
     confidenceUpperXlm: toXlm(confidenceUpper),
     confidenceLowerXlm: toXlm(confidenceLower),
@@ -71,16 +69,16 @@ function normalizePoint(point: SpendForecastPoint): ChartDatum {
  * so we compute the band height and offset the base to the lower bound.
  */
 function toBandedDatum(datum: ChartDatum): ChartDatum & {
-  confidenceBandXml?: number;
-  confidenceBaseXml?: number;
+  confidenceBandXlm?: number;
+  confidenceBaseXlm?: number;
 } {
-  if (datum.confidenceUpperXml === undefined || datum.confidenceLowerXml === undefined) {
+  if (datum.confidenceUpperXlm === undefined || datum.confidenceLowerXlm === undefined) {
     return datum;
   }
   return {
     ...datum,
-    confidenceBandXml: datum.confidenceUpperXlm - datum.confidenceLowerXlm,
-    confidenceBaseXml: datum.confidenceLowerXlm,
+    confidenceBandXlm: datum.confidenceUpperXlm - datum.confidenceLowerXlm,
+    confidenceBaseXlm: datum.confidenceLowerXlm,
   };
 }
 
@@ -107,7 +105,7 @@ function ForecastTooltip({
       {datum.confidenceUpper !== null && datum.confidenceLower !== null && (
         <p className="spend-chart-tooltip-value">
           Confidence: {formatXlm(datum.confidenceLower, locale)} –{" "}
-          {formatFlm(datum.confidenceUpper, locale)} XLM
+          {formatXlm(datum.confidenceUpper, locale)} XLM
         </p>
       )}
       {datum.budget !== null && (
@@ -151,7 +149,7 @@ export default function SpendForecastChartInner({
           tickLine={false}
           width={48}
         />
-        <Tooltol
+        <Tooltip
           content={(props: any) => <ForecastTooltip {...props} locale={locale} />}
         />
         <Area

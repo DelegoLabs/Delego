@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { activeNavHref, navItems } from "./navItems";
+import { NavPendingBadge } from "./NavPendingBadge";
 import { useTour } from "../tour/TourProvider";
 import { useDataSaver } from "../../hooks/useDataSaver";
 
@@ -45,6 +46,7 @@ export function Sidebar() {
                     {item.icon}
                   </span>
                   {t(item.labelKey)}
+                  {item.badge === "pendingApprovals" && <NavPendingBadge />}
                 </Link>
               </li>
             );

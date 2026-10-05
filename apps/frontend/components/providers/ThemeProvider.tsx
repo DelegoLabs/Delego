@@ -1,1 +1,139 @@
-InVzZSBjbGllbnQiOwoKaW1wb3J0IHsKICBjcmVhdGVDb250ZXh0LAogIHVzZUNhbGxiYWNrLAogIHVzZUVmZmVjdCwKICB1c2VNZW1vLAogIHVzZVN0YXRlLAogIHR5cGUgUmVhY3ROb2RlLAp9IGZyb20gInJlYWN0IjsKCmV4cG9ydCB0eXBlIFRoZW1lTW9kZSA9ICJsaWdodCIgfCAiZGFyayIgfCAiaGlnaC1jb250cmFzdCIgfCAic3lzdGVtIjsKCmV4cG9ydCB0eXBlIFJlc29sdmVkVGhlbWUgPSAi bGlnaHQiIHwgImRhcmsiIHwgImhpZ2gtY29udHJhc3QiOwoKZXhwb3J0IGludGVyZmFjZSBUaGVtZUNvbnRleHRWYWx1ZSB7CiAgdGhlbWU6IFRoZW1lTW9kZTsKICByZXNvbHZlZFRoZW1lOiBSZXNvbHZlZFRoZW1lOwogIHNldFRoZW1lKHRoZW1lOiBUaGVtZU1vZGUpOiB2b2lkOwp9CgpleHBvcnQgY29uc3QgVEhFTUVfU1RPUkFHRV9LRVkgPSAiZGVsZWdvOnRoZW1lIjsKCmV4cG9ydCBjb25zdCBUaGVtZUNvbnRleHQgPSBjcmVhdGVDb250ZXh0PFRoZW1lQ29udGV4dFZhbHVlIHwgbnVsbD4obnVsbCk7CgpmdW5jdGlvbiBpc1RoZW1lTW9kZSh2YWx1ZTogdW5rbm93bik6IHZhbHVlIGlzIFRoZW1lTW9kZSB7CiAgcmV0dXJuICgKICAgIHZhbHVlID09PSAibGlnaHQiIHx8CiAgICB2YWx1ZSA9PT0gImRhcmsiIHx8CiAgICB2YWx1ZSA9PT0gImhpZ2gtY29udHJhc3QiIHx8CiAgICB2YWx1ZSA9PT0gInN5c3RlbSIKICApOwp9CgpmdW5jdGlvbiByZWFkU3RvcmVkVGhlbWUoKTogVGhlbWVNb2RlIHsKICBpZiAodHlwZW9mIHdpbmRvdyA9PT0gInVuZGVmaW5lZCIpIHsKICAgIHJldHVybiAic3lzdGVtIjsKICB9CiAgdHJ5IHsKICAgIGNvbnN0IHN0b3JlZCA9IHdpbmRvdy5sb2NhbFN0b3JhZ2UuZ2V0SXRlbShUSEVNRV9TVE9SQUdFX0tFWSk7CiAgICByZXR1cm4gaXNUaGVtZU1vZGUoc3RvcmVkKSA/IHN0b3JlZCA6ICJzeXN0ZW0iOwogIH0gY2F0Y2ggewogICAgcmV0dXJuICJzeXN0ZW0iOwogIH0KfQoKZnVuY3Rpb24gZ2V0U3lzdGVtVGhlbWUoKTogRXhjbHVkZTxSZXNvbHZlZFRoZW1lLCAiaGlnaC1jb250cmFzdCI+IHsKICBpZiAodHlwZW9mIHdpbmRvdyA9PT0gInVuZGVmaW5lZCIpIHsKICAgIHJldHVybiAibGlnaHQiOwogIH0KICByZXR1cm4gd2luZG93Lm1hdGNoTWVkaWEoIiR7cHJlZmVycy1jb2xvci1zY2hlbWV9IikubWF0Y2hlcwogICAgPyAiZGFyayIKICAgIDogImxpZ2h0IjsKfQoKZnVuY3Rpb24gcmVzb2x2ZVRoZW1lKG1vZGU6IFRoZW1lTW9kZSk6IFJlc29sdmVkVGhlbWUgewogIGlmIChtb2RlID09PSAic3lzdGVtIikgewogICAgcmV0dXJuIGdldFN5c3RlbVRoZW1lKCk7CiAgfQogIHJldHVybiBtb2RlOwp9CgpmdW5jdGlvbiBhcHBseVRoZW1lKHRoZW1lOiBSZXNvbHZlZFRoZW1lKSB7CiAgaWYgKHR5cGVvZiBkb2N1bWVudCA9PT0gInVuZGVmaW5lZCIpIHsKICAgIHJldHVybjsKICB9CiAgY29uc3Qgcm9vdCA9IGRvY3VtZW50LmRvY3VtZW50RWxlbWVudDsKICByb290LnNldEF0dHJpYnV0ZSgiZGF0YS10aGVtZSIsIHRoZW1lKTsKICByb290LnN0eWxlLmNvbG9yU2NoZW1lID0gdGhlbWUgPT09ICJsaWdodCIgPyAibGlnaHQiIDogImRhcmsiOwp9CgpleHBvcnQgaW50ZXJmYWNlIFRoZW1lUHJvdmlkZXJQcm9wcyB7CiAgY2hpbGRyZW46IFJlYWN0Tm9kZTsKICAvKiogT3B0aW9uYWwgaW5pdGlhbCB0aGVtZSBmb3IgU1NSL3Rlc3RzLiAqLwogIGRlZmF1bHRUaGVtZT86IFRoZW1lTW9kZTsKfQoKZXhwb3J0IGZ1bmN0aW9uIFRoZW1lUHJvdmlkZXIoewogIGNoaWxkcmVuLAogIGRlZmF1bHRUaGVtZSA9ICJzeXN0ZW0iLAp9OiBUaGVtZVByb3ZpZGVyUHJvcHMpIHsKICBjb25zdCBbc3lzdGVtVGhlbWUsIHNldFN5c3RlbVRoZW1lXSA9IHVzZVN0YXRlPFJlc29sdmVkVGhlbWU+KCgpID0+IHsKICAgIGlmICh0eXBlb2Ygd2luZG93ID09PSAidW5kZWZpbmVkIikgewogICAgICByZXR1cm4gImxpZ2h0IjsKICAgIH0KICAgIHJldHVybiBnZXRTeXN0ZW1UaGVtZSgpOwogIH0pOwoKICBjb25zdCBbdGhlbWUsIHNldFRoZW1lU3RhdGVdID0gdXNlU3RhdGU8VGhlbWVNb2RlPigoKSA9PiB7CiAgICBpZiAodHlwZW9mIHdpbmRvdyA9PT0gInVuZGVmaW5lZCIpIHsKICAgICAgcmV0dXJuIGRlZmF1bHRUaGVtZTsKICAgIH0KICAgIHJldHVybiByZWFkU3RvcmVkVGhlbWUoKTsKICB9KTsKCiAgLy8gTGlzdGVuIGZvciBzeXN0ZW0gcHJlZmVyZW5jZSBjaGFuZ2VzIHNvICJzeXN0ZW0iIG1vZGUgc3RheXMgaW4gc3luYy4KICB1c2VFZmZlY3QoKCkgPT4gewogICAgaWYgKHR5cGVvZiB3aW5kb3cgPT09ICJ1bmRlZmluZWQiKSB7CiAgICAgIHJldHVybjsKICAgIH0KICAgIGNvbnN0IG1lZGlhID0gd2luZG93Lm1hdGNoTWVkaWEoIiR7cHJlZmVycy1jb2xvci1zY2hlbWV9Iik7CiAgICBjb25zdCBoYW5kbGVyID0gKCkgPT4gewogICAgICBzZXRTeXN0ZW1UaGVtZShtZWRpYS5tYXRjaGVzID8gImRhcmsiIDogImxpZ2h0Iik7CiAgICB9OwogICAgaGFuZGxlcigpOwogICAgbWVkaWEuYWRkRXZlbnRMaXN0ZW5lcigiY2hhbmdlIiwgaGFuZGxlcik7CiAgICByZXR1cm4gKCkgPT4gbWVkaWEucmVtb3ZlRXZlbnRMaXN0ZW5lcigiY2hhbmdlIiwgaGFuZGxlcik7CiAgfSwgW10pOwoKICBjb25zdCByZXNvbHZlZFRoZW1lID0gdXNlTWVtbyhSZXNvbHZlZFRoZW1lPChSZXNvbHZlZFRoZW1lPigKICAgIHRoZW1lID09PSAic3lzdGVtIiA/IHN5c3RlbVRoZW1lIDogdGhlbWUKICApKSwgW3RoZW1lLCBzeXN0ZW1UaGVtZV0pOwoKICAvLyBBcHBseSB0aGUgcmVzb2x2ZWQgdGhlbWUgdG8gPGh0bWw+IGFzIGEgZGF0YSBhdHRyaWJ1dGUuIFRoaXMgaXMgdGhlCiAgLy8gY2xhc3MtYmFzZWQgc3dpdGNoIHRoYXQgVGFpbHdpbmQgcmVhZHMgdmlhIGRhcmtNb2RlOiBbImNsYXNzIiwgJ1tkYXRhLXRoZW1lPSJkYXJrIl0nXS4KICB1c2VFZmZlY3QoKCkgPT4gewogICAgYXBwbHlUaGVtZShyZXNvbHZlZFRoZW1lKTsKICB9LCBbcmVzb2x2ZWRUaGVtZV0pOwoKICBjb25zdCBzZXRUaGVtZSA9IHVzZUNhbGxiYWNrKChuZXh0VGhlbWU6IFRoZW1lTW9kZSkgPT4gewogICAgc2V0VGhlbWVTdGF0ZShuZXh0VGhlbWUpOwogICAgaWYgKHR5cGVvZiB3aW5kb3cgIT09ICJ1bmRlZmluZWQiKSB7CiAgICAgIHRyeSB7CiAgICAgICAgd2luZG93LmxvY2FsU3RvcmFnZS5zZXRJdGVtKFRIRU1FX1NUT1JBR0VfS0VZLCBuZXh0VGhlbWUpOwogICAgICB9IGNhdGNoIHsKICAgICAgICAvKiBsb2NhbFN0b3JhZ2UgbWF5IGJlIHVuYXZhaWxhYmxlIChwcml2YXRlIG1vZGUsIGVtYmVkZGVkIHdlYnZpZXcpLiAqLwogICAgICB9CiAgICB9CiAgfSwgW10pOwoKICBjb25zdCB2YWx1ZSA9IHVzZU1lbW88VGhlbWVDb250ZXh0VmFsdWU+KAogICAgKCkgPT4gKHsgdGhlbWUsIHJlc29sdmVkVGhlbWUsIHNldFRoZW1lIH0pLAogICAgW3RoZW1lLCByZXNvbHZlZFRoZW1lLCBzZXRUaGVtZV0sCiAgKTsKCiAgcmV0dXJuIDxUaGVtZUNvbnRleHQuUHJvdmlkZXIgdmFsdWU9e3ZhbHVlfT57Y2hpbGRyZW59PC9UaGVtZUNvbnRleHQuUHJvdmlkZXI+Owp9CgpleHBvcnQgZGVmYXVsdCBUaGVtZVByb3ZpZGVyOwo=
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
+export type ThemeMode = "light" | "dark" | "high-contrast" | "system";
+export type ResolvedTheme = "light" | "dark" | "high-contrast";
+
+export interface ThemeContextValue {
+  theme: ThemeMode;
+  resolvedTheme: ResolvedTheme;
+  setTheme(theme: ThemeMode): void;
+}
+
+export const THEME_STORAGE_KEY = "delego:theme";
+
+export const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+function isThemeMode(value: unknown): value is ThemeMode {
+  return (
+    value === "light" ||
+    value === "dark" ||
+    value === "high-contrast" ||
+    value === "system"
+  );
+}
+
+function readStoredTheme(): ThemeMode {
+  if (typeof window === "undefined") {
+    return "system";
+  }
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return isThemeMode(stored) ? stored : "system";
+  } catch {
+    return "system";
+  }
+}
+
+function getSystemTheme(): Exclude<ResolvedTheme, "high-contrast"> {
+  if (typeof window === "undefined") {
+    return "light";
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function resolveTheme(mode: ThemeMode): ResolvedTheme {
+  if (mode === "system") {
+    return getSystemTheme();
+  }
+  return mode;
+}
+
+function applyTheme(theme: ResolvedTheme) {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const root = document.documentElement;
+  root.setAttribute("data-theme", theme);
+  root.style.colorScheme = theme === "light" ? "light" : "dark";
+}
+
+export interface ThemeProviderProps {
+  children: ReactNode;
+  /** Optional initial theme for SSR/tests. */
+  defaultTheme?: ThemeMode;
+}
+
+export function ThemeProvider({
+  children,
+  defaultTheme = "system",
+}: ThemeProviderProps) {
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => {
+    if (typeof window === "undefined") {
+      return "light";
+    }
+    return getSystemTheme();
+  });
+
+  const [theme, setThemeState] = useState<ThemeMode>(() => {
+    if (typeof window === "undefined") {
+      return defaultTheme;
+    }
+    return readStoredTheme();
+  });
+
+  // Listen for system preference changes so "system" mode stays in sync.
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => {
+      setSystemTheme(media.matches ? "dark" : "light");
+    };
+    handler();
+    media.addEventListener("change", handler);
+    return () => media.removeEventListener("change", handler);
+  }, []);
+
+  const resolvedTheme = useMemo<ResolvedTheme>(
+    () => (theme === "system" ? systemTheme : theme),
+    [theme, systemTheme],
+  );
+
+  // Apply the resolved theme to <html> as a data attribute. This is the
+  // class-based switch that Tailwind reads via darkMode: ["class", '[data-theme="dark"]'].
+  useEffect(() => {
+    applyTheme(resolvedTheme);
+  }, [resolvedTheme]);
+
+  const setTheme = useCallback((nextTheme: ThemeMode) => {
+    setThemeState(nextTheme);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+      } catch {
+        /* localStorage may be unavailable (private mode, embedded webview). */
+      }
+    }
+  }, []);
+
+  const value = useMemo<ThemeContextValue>(
+    () => ({ theme, resolvedTheme, setTheme }),
+    [theme, resolvedTheme, setTheme],
+  );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+export default ThemeProvider;

@@ -10,7 +10,7 @@ import { DisputeResponseDrawer } from "./DisputeResponseDrawer";
 
 // ── Shared mocks ──────────────────────────────────────────────────────────────
 
-const mockSubmitDisputeResponse = vi.fn(async () => {});
+const mockSubmitDisputeResponse = vi.fn(async (..._args: unknown[]) => {});
 vi.mock("../../lib/disputeResponses", () => ({
   submitDisputeResponse: (...args: unknown[]) =>
     mockSubmitDisputeResponse(...args),
@@ -126,14 +126,16 @@ describe("DisputeResponseDrawer", () => {
     const submit = screen.getByRole("button", { name: "Submit response" });
     expect(submit).toBeEnabled();
 
-    // Forward past the last control in the panel and back to the top.
-    submit.focus();
+    // Forward past the last control in the panel (Cancel follows Submit) and
+    // back around to the top.
+    const cancel = screen.getByTestId("cancel-button");
+    cancel.focus();
     await user.tab();
     expect(close).toHaveFocus();
 
-    // …and backward off the front of the panel.
+    // …and backward off the front of the panel back to the last control.
     await user.tab({ shift: true });
-    expect(submit).toHaveFocus();
+    expect(cancel).toHaveFocus();
   });
 
   it("exposes the panel, not the backdrop, as the dialog", async () => {
@@ -288,12 +290,14 @@ describe("DisputeResponseDrawer", () => {
     );
   });
 
-  it("shows an error for unsupported file types", async () => {
+  it("shows an error for unsupported file types", () => {
     renderDrawer();
-    await userEvent.upload(
-      screen.getByTestId("receipt-file-input"),
-      makeFile("virus.exe", "application/octet-stream")
-    );
+    // Dropped rather than uploaded: the file input carries an `accept`
+    // attribute, so the picker filters unsupported types out before the
+    // component ever sees them. The dropzone is where runtime validation bites.
+    fireEvent.drop(screen.getByTestId("file-dropzone"), {
+      dataTransfer: { files: [makeFile("virus.exe", "application/octet-stream")] },
+    });
     expect(screen.getByTestId("file-error")).toHaveTextContent(
       "only JPEG, PNG, WebP, and PDF files are accepted"
     );
@@ -303,10 +307,11 @@ describe("DisputeResponseDrawer", () => {
     renderDrawer();
     const files = Array.from({ length: 5 }, (_, i) => makeFile(`f${i}.jpg`));
     await userEvent.upload(screen.getByTestId("receipt-file-input"), files);
-    await userEvent.upload(
-      screen.getByTestId("receipt-file-input"),
-      makeFile("extra.jpg")
-    );
+    // The input is disabled at the cap, so the overflow guard is reached by
+    // dropping a sixth file onto the dropzone.
+    fireEvent.drop(screen.getByTestId("file-dropzone"), {
+      dataTransfer: { files: [makeFile("extra.jpg")] },
+    });
     expect(screen.getByTestId("file-error")).toHaveTextContent(
       "You may attach up to 5 files"
     );
@@ -383,7 +388,9 @@ describe("DisputeResponseDrawer", () => {
     await userEvent.click(screen.getByTestId("submit-button"));
 
     await waitFor(() => {
-      const call = mockSubmitDisputeResponse.mock.calls[0][0];
+      const call = mockSubmitDisputeResponse.mock.calls[0][0] as {
+        receiptFiles: { name: string }[];
+      };
       expect(call.receiptFiles).toHaveLength(2);
       expect(call.receiptFiles[0].name).toBe("r1.jpg");
       expect(call.receiptFiles[1].name).toBe("r2.pdf");

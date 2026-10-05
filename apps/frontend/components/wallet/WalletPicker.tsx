@@ -153,7 +153,7 @@ export function WalletPickerModal({
 }: WalletPickerModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useFocusTrap(panelRef, isOpen);
+  useFocusTrap({ containerRef: panelRef, isActive: isOpen });
 
   useEffect(() => {
     if (!isOpen) return;

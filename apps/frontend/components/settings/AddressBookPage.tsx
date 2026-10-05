@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card } from "@delegolabs/ui";
-import { StrKey } from "@stellar/stellar-sdk";
+import { StrKey } from "@stellar/stellar-sdk/base";
 import type { NetworkId } from "../../lib/networks";
 import {
   addAddressEntry,
@@ -232,7 +232,7 @@ export function AddressBookPage({ networkId }: AddressBookPageProps) {
                 </div>
                 {form.address.trim().startsWith("S") && (
                   <p className="settings-status error" role="alert" style={{ marginTop: "4px" }}>
-                    <strong>Critical Warning:</strong> You pasted a secret key (starts with 'S'). Never share or save your secret key!
+                    <strong>Critical Warning:</strong> You pasted a secret key (starts with &lsquo;S&rsquo;). Never share or save your secret key!
                   </p>
                 )}
                 {!form.address.trim().startsWith("S") && form.address.trim().length > 0 && !StrKey.isValidEd25519PublicKey(form.address.trim()) && (

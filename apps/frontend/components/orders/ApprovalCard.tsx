@@ -1,5 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
+
 import { useState } from "react";
 import { useLocale } from "next-intl";
 import { Amount, Button, Card } from "@delegolabs/ui";
@@ -19,7 +21,10 @@ import {
   OFFLINE_BLOCKED_MESSAGE,
 } from "../../hooks/useOnlineStatus";
 import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
-import { DelegationTagBadge } from "../delegations/public";
+// Direct import rather than the delegations barrel — the barrel pulls the whole
+// delegations feature (and the Stellar SDK behind MerchantFilterManager) into
+// every route that renders an approval, for this one badge.
+import { DelegationTagBadge } from "../delegations/DelegationTagBadge";
 import { useDelegationTags } from "../../hooks/useDelegationTags";
 import { useFeatureFlag } from "../../lib/featureFlags";
 import { useDualControlCapability } from "../../hooks/useDualControlCapability";
@@ -30,7 +35,12 @@ import { submitApproval } from "../../services/approvals";
 import { ApprovalNoteField, APPROVAL_NOTE_MAX_LENGTH } from "./ApprovalNoteField";
 import { ApprovalNoteDisplay } from "./ApprovalNoteDisplay";
 import { setLocalApprovalNote } from "../../lib/localApprovalNotes";
-import { TaxBreakdownDisplay } from "./TaxBreakdownDisplay";
+// The tax breakdown is only rendered for orders that carry a delivery postal
+// code, so it is code-split: the tax tables and jurisdiction lookup only reach
+// the browser for the rows that actually show one.
+const TaxBreakdownDisplay = dynamic(() =>
+  import("./TaxBreakdownDisplay").then((m) => m.TaxBreakdownDisplay)
+);
 
 export interface ApprovalCardProps {
   order: Order;
@@ -259,29 +269,34 @@ export function ApprovalCard({
               </thead>
               <tbody>
                 {(order.items || (order as any).lineItems || []).map(
-                  (item: any, idx: number) => (
-                    <tr key={item.productId || item.name || idx}>
-                      <td>{item.productId || item.name}</td>
-                      <td>{item.quantity}</td>
-                      <td>
-                        <Amount
-                          stroops={item.unitPriceStroops || item.price}
-                          currency={currencyId as any}
-                          xlmUsdRate={rate?.xlmUsdRate}
-                        />
-                      </td>
-                      <td>
-                        <Amount
-                          stroops={
-                            (item.unitPriceStroops || item.price) *
-                            BigInt(item.quantity)
-                          }
-                          currency={currencyId as any}
-                          xlmUsdRate={rate?.xlmUsdRate}
-                        />
-                      </td>
-                    </tr>
-                  )
+                  (item: any, idx: number) => {
+                    // Line items arrive with the unit price as a bigint, a
+                    // decimal string, or a number depending on the source, so
+                    // it has to be normalised before any arithmetic.
+                    const unitPrice = BigInt(
+                      item.unitPriceStroops || item.price || 0
+                    );
+                    return (
+                      <tr key={item.productId || item.name || idx}>
+                        <td>{item.productId || item.name}</td>
+                        <td>{item.quantity}</td>
+                        <td>
+                          <Amount
+                            stroops={unitPrice}
+                            currency={currencyId as any}
+                            xlmUsdRate={rate?.xlmUsdRate}
+                          />
+                        </td>
+                        <td>
+                          <Amount
+                            stroops={unitPrice * BigInt(item.quantity)}
+                            currency={currencyId as any}
+                            xlmUsdRate={rate?.xlmUsdRate}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  }
                 )}
               </tbody>
             </table>

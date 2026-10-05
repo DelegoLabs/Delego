@@ -77,7 +77,7 @@ export function useOnlineStatus(): UseOnlineStatusResult {
       lastSyncedAt,
       disabledProps: isOffline
         ? { disabled: true as const, title: OFFLINE_BLOCKED_MESSAGE }
-        : {},
+        : ({} as Record<string, never>),
     }),
     [isOffline, cachedOrdersCount, lastSyncedAt]
   );

@@ -16,7 +16,11 @@ import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
 import { PriceAdvisoryStrip } from "./PriceAdvisoryStrip";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useAnnounce } from "../../hooks/useAnnounce";
-import { DelegationTagBadge } from "../delegations/public";
+// Imported directly rather than via the delegations barrel: the barrel drags
+// in the whole delegations feature — including MerchantFilterManager and the
+// Stellar SDK it needs for address validation — to supply this one badge,
+// which pushed /approvals over the First Load JS budget.
+import { DelegationTagBadge } from "../delegations/DelegationTagBadge";
 import { useDelegationTags } from "../../hooks/useDelegationTags";
 import { useDataSaver } from "../../hooks/useDataSaver";
 import { useWallet } from "../../hooks/useWallet";

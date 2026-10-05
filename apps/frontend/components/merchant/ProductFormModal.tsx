@@ -85,7 +85,7 @@ export function ProductFormModal({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  useFocusTrap(dialogRef, open);
+  useFocusTrap({ containerRef: dialogRef, isActive: open });
 
   const isEdit = initialData !== undefined;
 

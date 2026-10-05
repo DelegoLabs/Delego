@@ -48,7 +48,7 @@ function statusColor(status: KycVerificationStatus): string {
 }
 
 export function KycDocumentUploader({ merchantId, apiBaseUrl, onUploaded }: KycUploaderProps) {
-  const [documentType, setDocumentType] = useState<KycPocumentType>("passport");
+  const [documentType, setDocumentType] = useState<KycDocumentType>("passport");
   const [file, setFile] = useState<File | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
@@ -88,7 +88,7 @@ export function KycDocumentUploader({ merchantId, apiBaseUrl, onUploaded }: KycU
   }
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const candidate = event.target.filesEvent?.[0] ?? event.target.files?.[0] ?? null;
+    const candidate = event.target.files?.[0] ?? null;
     if (!candidate) {
       setFile(null);
       return;
@@ -179,7 +179,7 @@ export function KycDocumentUploader({ merchantId, apiBaseUrl, onUploaded }: KycU
           >
             <div
               style={{
-                width: `${phase === "encrypting" ? 10 : progress}%`",
+                width: `${phase === "encrypting" ? 10 : progress}%`,
                 height: "100%",
                 background: "#2563eb",
                 transition: "width 150ms ease-out",

@@ -1,4 +1,4 @@
-import type { LabelHTMLAttributes, InputHTMLAttributes } from "react";
+import type { LabelHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
 
 /** Props accepted by the shared form-field wrapper. */
 export interface FormFieldProps extends Omit<
@@ -7,6 +7,12 @@ export interface FormFieldProps extends Omit<
 > {
   label: string;
   inputProps?: InputHTMLAttributes<HTMLInputElement>;
+  /**
+   * Custom control to render instead of the default `<input>`. Use this for
+   * selects, textareas or composite controls; plain inputs should keep using
+   * `inputProps` so the generated id and aria wiring stay in one place.
+   */
+  children?: ReactNode;
   /** Error message to display and announce to screen readers */
   error?: string;
   /** Hint text below the label */
@@ -19,6 +25,7 @@ export interface FormFieldProps extends Omit<
 export function FormField({
   label,
   inputProps = {},
+  children,
   error,
   hint,
   required,
@@ -67,12 +74,14 @@ export function FormField({
           {hint}
         </div>
       )}
-      <input
-        id={inputId}
-        aria-describedby={describedByIds || undefined}
-        aria-invalid={!!error}
-        {...inputProps}
-      />
+      {children ?? (
+        <input
+          id={inputId}
+          aria-describedby={describedByIds || undefined}
+          aria-invalid={!!error}
+          {...inputProps}
+        />
+      )}
       {error && (
         <div
           id={errorId}

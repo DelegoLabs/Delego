@@ -27,7 +27,8 @@ function shortenAddress(addr: string): string {
 const TONE_COLORS: Record<string, { color: string; bg: string }> = {
   pending: { color: "#92400e", bg: "#fef3c7" },
   success: { color: "#166534", bg: "#dcfce7" },
-  failed: { color: "#dc2626", bg: "#fee2e2" },
+  // #dc2626 on #fee2e2 measured 3.95:1; #b91c1c is 5.30:1 and still reads red.
+  failed: { color: "#b91c1c", bg: "#fee2e2" },
   refunded: { color: "#4b5563", bg: "#f3f4f6" },
 };
 
@@ -142,7 +143,7 @@ export function EscrowCard({ escrow, href: _href, disputedOverride }: EscrowCard
           }}
         >
           <div>
-            <span style={{ fontWeight: 500, color: "#9ca3af" }}>Amount</span>
+            <span style={{ fontWeight: 500, color: "#4b5563" }}>Amount</span>
             <br />
             <span data-testid="escrow-amount">
               <Amount
@@ -153,17 +154,17 @@ export function EscrowCard({ escrow, href: _href, disputedOverride }: EscrowCard
             </span>
           </div>
           <div>
-            <span style={{ fontWeight: 500, color: "#9ca3af" }}>Buyer</span>
+            <span style={{ fontWeight: 500, color: "#4b5563" }}>Buyer</span>
             <br />
             <span title={escrow.buyer}>{shortenAddress(escrow.buyer)}</span>
           </div>
           <div>
-            <span style={{ fontWeight: 500, color: "#9ca3af" }}>Seller</span>
+            <span style={{ fontWeight: 500, color: "#4b5563" }}>Seller</span>
             <br />
             <span title={escrow.seller}>{shortenAddress(escrow.seller)}</span>
           </div>
           <div>
-            <span style={{ fontWeight: 500, color: "#9ca3af" }}>Order</span>
+            <span style={{ fontWeight: 500, color: "#4b5563" }}>Order</span>
             <br />
             <span>{escrow.orderId.slice(0, 8)}…</span>
           </div>
@@ -210,7 +211,7 @@ export function EscrowCard({ escrow, href: _href, disputedOverride }: EscrowCard
         <div
           style={{
             fontSize: "0.75rem",
-            color: "#9ca3af",
+            color: "#4b5563",
           }}
         >
           Created{" "}

@@ -55,26 +55,37 @@ export function CancelEscrowButton({
   const handleCancel = useCallback(async () => {
     const escrowId = escrowKey(escrow);
 
+    // `execute` swallows the rejection so the hook can roll back, which means
+    // the outcome has to be captured here. Reading the hook's `error` state
+    // after the await would only ever see the value from this render, which is
+    // always `null`.
+    let failureMessage: string | null = null;
+
     await execute({
       type: "UPDATE_STATUS",
       previousState: { status: escrow.status, isCancelling: false },
-      optimisticState: { status: "Cancelling", isCancelling: true },
+      optimisticState: { status: "cancelling", isCancelling: true },
       txHashPromise: (async () => {
-        const res = await requestCancellation(escrowId);
-        if (res.error) {
-          throw new Error(res.error.message);
+        try {
+          const res = await requestCancellation(escrowId);
+          if (res.error) {
+            throw new Error(res.error.message);
+          }
+          return res.data?.cancellation?.requestedAt ?? "pending";
+        } catch (err) {
+          failureMessage =
+            err instanceof Error ? err.message : "Cancellation failed";
+          throw err;
         }
-        return res.data?.cancellation?.requestedAt ?? "pending";
       })(),
     });
 
-    // Check if the action succeeded (no error)
-    if (!error) {
+    if (failureMessage === null) {
       onCancelled?.(escrowId);
     } else {
-      onCancelFailed?.(escrowId, error);
+      onCancelFailed?.(escrowId, failureMessage);
     }
-  }, [escrow, execute, error, onCancelled, onCancelFailed]);
+  }, [escrow, execute, onCancelled, onCancelFailed]);
 
   const isCancelling = state.isCancelling || pending;
 

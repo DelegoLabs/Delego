@@ -1,5 +1,6 @@
 import type { ApiResponse, Order } from "@delegolabs/types";
 import { env } from "../lib/env";
+import type { PendingApprovalDto } from "../lib/pendingApprovals";
 
 /**
  * Thin client for the dual-control-aware approval submission (#574). The
@@ -11,6 +12,28 @@ import { env } from "../lib/env";
  */
 
 const BASE_URL = env.NEXT_PUBLIC_API_URL;
+
+async function get<T>(path: string): Promise<ApiResponse<T>> {
+  try {
+    const res = await fetch(`${BASE_URL}${path}`);
+    const json = (await res.json()) as ApiResponse<T>;
+    if (!res.ok && !json.error) {
+      return {
+        data: null,
+        error: { code: String(res.status), message: res.statusText || "Request failed" },
+      };
+    }
+    return json;
+  } catch (err) {
+    return {
+      data: null,
+      error: {
+        code: "network_error",
+        message: err instanceof Error ? err.message : "Network request failed",
+      },
+    };
+  }
+}
 
 async function post<T>(path: string, body: unknown): Promise<ApiResponse<T>> {
   try {
@@ -63,4 +86,14 @@ export function submitRejection(
   reason?: string
 ): Promise<ApiResponse<Order>> {
   return post(`/orders/${orderId}/reject`, { approverAddress, reason });
+}
+
+/**
+ * Lists the transactions still waiting on a secondary signature (#780) — the
+ * multi-sig approval dashboard's queue. Returns the wire shape; adapting it to
+ * `PendingApprovalItem` (bigint stroops, Date expiry) is `lib/pendingApprovals`'
+ * job, so this module stays a pure transport.
+ */
+export function fetchPendingApprovals(): Promise<ApiResponse<PendingApprovalDto[]>> {
+  return get<PendingApprovalDto[]>("/orders/approvals/pending");
 }

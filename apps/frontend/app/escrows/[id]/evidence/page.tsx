@@ -7,10 +7,16 @@ import type { DisputeEvidenceBundle } from "../../../../types/dispute-evidence";
  * 
  * This is a demo implementation showing 2% of the feature.
  */
-export default function DisputeEvidencePage({ params }: { params: { id: string } }) {
+export default async function DisputeEvidencePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
   // Mock data for demonstration - in production, this would be fetched from the API
   const mockEvidence: DisputeEvidenceBundle = {
-    disputeId: params.id,
+    disputeId: id,
     buyerStatement: "I ordered a brand new laptop but received a damaged one with a cracked screen. The package appeared to have been dropped during shipping. The device powers on but the screen is completely unusable.",
     buyerImages: [
       "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800&q=80",

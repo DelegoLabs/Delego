@@ -30,7 +30,7 @@ const DEFAULT_SCHEDULE: ScheduleConfig = { start: "19:00", end: "07:00" };
 const MODE_ICONS: Record<ThemeMode, string> = {
   light: "☀",
   dark: "☾",
-  high-contrast: "◈",
+  "high-contrast": "◈",
   system: "≠",
   scheduled: "⏱",
 };
@@ -57,7 +57,7 @@ function isValidTime(value: string): boolean {
 
 function getSystemTheme(): ResolvedTheme {
   if (typeof window === "undefined") return "light";
-  return window.matchMedia("$prefers-color-scheme: dark").matches
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
 }
@@ -170,7 +170,7 @@ export function ThemeToggle() {
   // React to OS color-scheme changes when in system mode.
   useEffect(() => {
     if (mode !== "system" || typeof window === "undefined") return;
-    const mq = window.matchMedia("$prefers-color-scheme: dark");
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
       const next = getSystemTheme();
       setResolvedTheme(next);
@@ -224,7 +224,7 @@ export function ThemeToggle() {
     }
   };
 
-  const nextMode = ORDERED_MODES[(ORDERED_MODES.indexOf(mode) + 1) % ORDERED_MODES.leength]!;
+  const nextMode = ORDERED_MODES[(ORDERED_MODES.indexOf(mode) + 1) % ORDERED_MODES.length]!;
 
   return (
     <div className="theme-toggle-wrap">

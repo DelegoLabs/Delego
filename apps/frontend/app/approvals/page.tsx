@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { Amount, Button, Card } from "@delegolabs/ui";
 import type { RejectionReasonCode } from "@delegolabs/types";
 import { useOrders } from "../../hooks/useOrders";
@@ -17,13 +18,33 @@ import {
   sumOrderTotals,
 } from "../../lib/orders";
 import { STALE_DIGEST_THRESHOLD_HOURS, countStaleApprovals } from "../../lib/approvals";
-import { ApprovalDrawer } from "../../components/orders/ApprovalDrawer";
 import { VirtualApprovalList } from "../../components/orders/VirtualApprovalList";
 import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
 import { HelpLink } from "../../components/help/HelpLink";
-import { ConflictResolutionCard } from "../../components/offline/ConflictResolutionCard";
 
 const POLL_INTERVAL_MS = 15_000;
+
+/**
+ * The drawer and the offline-conflict cards are code-split so they only reach
+ * the browser when they are actually needed (#784).
+ *
+ * ApprovalDrawer is the single largest module in this route's graph — it drags
+ * in the biometric prompt, the yield toggle, and the approval-note UI, none of
+ * which matter until an order is focused. It renders `null` while closed, so
+ * gating it on `drawerOrder` costs nothing at rest; the same is true of the
+ * conflict cards, which only exist while an offline replay is in conflict.
+ * Together they were the difference between /approvals and its First Load JS
+ * budget.
+ */
+const ApprovalDrawer = dynamic(() =>
+  import("../../components/orders/ApprovalDrawer").then((m) => m.ApprovalDrawer)
+);
+
+const ConflictResolutionCard = dynamic(() =>
+  import("../../components/offline/ConflictResolutionCard").then(
+    (m) => m.ConflictResolutionCard
+  )
+);
 
 /**
  * Approval workflow — review and approve/reject high-value orders.
@@ -139,7 +160,7 @@ export default function ApprovalsPage() {
       </header>
 
       {/* Conflict Resolution Cards for HTTP 409 offline replay conflicts (#618) */}
-      {conflictMutations.map((mutation) => (
+      {conflictMutations.length > 0 && conflictMutations.map((mutation) => (
         <ConflictResolutionCard
           key={mutation.id}
           mutation={mutation}
@@ -154,11 +175,11 @@ export default function ApprovalsPage() {
       )}
 
       <div className="grid">
-        <Card title="Awaiting review">
+        <Card title="Awaiting review" titleLevel={2}>
           <p className="stat-value stat-neutral">{queue.length}</p>
           <p className="stat-label">High-value orders</p>
         </Card>
-        <Card title="Value pending approval">
+        <Card title="Value pending approval" titleLevel={2}>
           <p className="stat-value">
             <Amount
               stroops={pendingValue}
@@ -208,13 +229,15 @@ export default function ApprovalsPage() {
         />
       )}
 
-      <ApprovalDrawer
-        order={drawerOrder}
-        pending={drawerOrderId ? pendingIds.has(drawerOrderId) : false}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onClose={() => setDrawerOrderId(null)}
-      />
+      {drawerOrder && (
+        <ApprovalDrawer
+          order={drawerOrder}
+          pending={pendingIds.has(drawerOrderId ?? "")}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onClose={() => setDrawerOrderId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -83,6 +83,7 @@ function KillSwitchModal({
 export function HomeContent() {
   const {
     delegations,
+    revokeDelegation,
     loading: delegationsLoading,
     stale: delegationsStale,
     cachedAt: delegationsCachedAt,
@@ -106,7 +107,7 @@ export function HomeContent() {
     await Promise.all(
       delegations
         .filter((delegation) => delegation.status === "active")
-        .map((delegation) => delegation.revoke())
+        .map((delegation) => revokeDelegation(delegation.id))
     );
   }
 
@@ -142,7 +143,7 @@ export function HomeContent() {
       ) : null}
 
       <section className="grid">
-        <Card title="Delegations">
+        <Card title="Delegations" titleLevel={2}>
           <p>Grant AI agents scoped shopping authority.</p>
           <StaleBadge
             family="delegations"
@@ -167,7 +168,7 @@ export function HomeContent() {
           <Button variant="primary">Create Delegation</Button>
         </Card>
 
-        <Card title="Orders">
+        <Card title="Orders" titleLevel={2}>
           <p>Track purchases initiated by your agents.</p>
           <StaleBadge
             family="orders"
@@ -190,7 +191,7 @@ export function HomeContent() {
           )}
         </Card>
 
-        <Card title="Wallet">
+        <Card title="Wallet" titleLevel={2}>
           <p>Connect your Stellar wallet.</p>
           <WalletConnectButton showDetails={false} />
         </Card>

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StrKey } from "@stellar/stellar-sdk";
+// `base` subpath only: the root barrel would pull the entire Soroban
+// contract/rpc surface into this route's initial bundle.
+import { StrKey } from "@stellar/stellar-sdk/base";
 import { Stepper } from "@delegolabs/ui";
 import { useWallet } from "../../../hooks/useWallet";
 import { useNetwork } from "../../../hooks/useNetwork";
@@ -321,7 +323,7 @@ export default function MerchantRegisterPage() {
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", maxWidth: 520 }}>
       <h1>Register your store</h1>
 
-      <Stepper steps={STEPP} currentIndex={stepIndex} />
+      <Stepper steps={STEPS} currentIndex={stepIndex} />
 
       {step === "store_info" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>

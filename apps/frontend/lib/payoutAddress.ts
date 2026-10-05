@@ -10,7 +10,10 @@
  * destination of ordinary payments.
  */
 
-import { rpc, StrKey } from "@stellar/stellar-sdk";
+// StrKey comes from the SDK's `base` subpath so the synchronous format check
+// does not drag the Soroban contract/rpc surface into every route's bundle;
+// the network check below loads `rpc` lazily because it is async anyway.
+import { StrKey } from "@stellar/stellar-sdk/base";
 import type { NetworkConfig } from "./networks";
 
 export interface AddressValidation {
@@ -54,6 +57,7 @@ export async function validatePayoutAddressOnNetwork(
   if (!format.valid) return format;
 
   const address = raw.trim();
+  const { rpc } = await import("@stellar/stellar-sdk");
   const server = new rpc.Server(network.sorobanRpcUrl, {
     allowHttp: network.sorobanRpcUrl.startsWith("http://"),
   });

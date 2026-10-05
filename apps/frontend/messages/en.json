@@ -11,6 +11,7 @@
     "delegations": "Delegations",
     "orders": "Orders",
     "approvals": "Approvals",
+    "approvalsPending": "Signatures",
     "approvalsHistory": "Approval history",
     "tracking": "Tracking",
     "analytics": "Analytics",
@@ -18,7 +19,18 @@
     "settings": "Settings",
     "openMenu": "Open navigation menu",
     "closeMenu": "Close navigation menu",
-    "primaryNavigation": "Primary navigation"
+    "primaryNavigation": "Primary navigation",
+    "skipToContent": "Skip to main content"
+  },
+  "fab": {
+    "label": "Open AI assistant",
+    "badge": "{count, plural, one {# unread proposal} other {# unread proposals}}"
+  },
+  "agent": {
+    "roster": {
+      "fabAria": "Open agent roster",
+      "fabUnread": "{count, plural, one {# unread proposal} other {# unread proposals}}"
+    }
   },
   "common": {
     "cancel": "Cancel",

@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 
-import typ { PluginCreator } from "tailwindcss";
+import type { PluginCreator } from "tailwindcss/types/config";
 
 /**
  * Tailwind configuration for the DeLEGO web app.
