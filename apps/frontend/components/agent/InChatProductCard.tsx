@@ -2,6 +2,7 @@
 
 import { useState, type SyntheticEvent } from "react";
 import { Amount, Badge, Button, Card } from "@delegolabs/ui";
+import { RestockNotifyPopover } from "../storefront/RestockNotifyPopover";
 
 /**
  * Props for the in-chat product recommendation card (#790).
@@ -165,22 +166,34 @@ export function InChatProductCard({
             </p>
           )}
 
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.25rem" }}>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleBuyNow}
-              disabled={isDisabled}
-              aria-busy={isBuying}
-              aria-label={
-                isOrdered
-                  ? `Order placed for ${title}`
-                  : `Buy ${title} now`
-              }
-              data-testid="in-chat-product-buy-button"
-            >
-              {isBuying ? "Buying…" : isOrdered ? "Purchased" : "Buy now"}
-            </Button>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "0.25rem",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+            }}
+          >
+            {isOutOfStock ? (
+              <RestockNotifyPopover productId={productId} productTitle={title} />
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleBuyNow}
+                disabled={isDisabled}
+                aria-busy={isBuying}
+                aria-label={
+                  isOrdered
+                    ? `Order placed for ${title}`
+                    : `Buy ${title} now`
+                }
+                data-testid="in-chat-product-buy-button"
+              >
+                {isBuying ? "Buying…" : isOrdered ? "Purchased" : "Buy now"}
+              </Button>
+            )}
           </div>
         </div>
       </div>

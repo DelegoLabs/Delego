@@ -21,6 +21,7 @@ import {
   type SupportedWallet,
   type WalletOption,
 } from "../lib/wallets";
+import { broadcastTabSync } from "./useBroadcastChannel";
 
 export type WalletConnectionStatus =
   | "checking"
@@ -126,6 +127,14 @@ export function __resetWalletStoreForTests(): void {
   };
   bootstrapped = false;
   emit();
+}
+
+export function syncWalletDisconnected(): void {
+  clearPersistedWalletId();
+  setStore({
+    state: { ...initialState, status: "disconnected" },
+    prevAddress: null,
+  });
 }
 
 /**
@@ -456,6 +465,7 @@ export function useWallet() {
     setStore({ prevAddress: null });
     clearPersistedWalletId();
     setState({ ...initialState, status: "disconnected" });
+    broadcastTabSync("WALLET_DISCONNECTED", {});
   }, [setState]);
 
   const walletOptions: WalletOption[] = detectInstalledWallets();

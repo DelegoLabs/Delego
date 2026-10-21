@@ -12,15 +12,15 @@
  *   4. Allows single-merchant packages to be checked out individually.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   allConfirmed,
-  nextPendingIndex,
   partitionCartByMerchant,
   type EscrowStatus,
   type MerchantCartPartition,
 } from "../../lib/cartPartition";
 import { useCart } from "../../hooks/useCart";
+import type { AppliedPromoCode } from "../../lib/promoCode";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -165,6 +165,7 @@ interface PartitionCardProps {
   isActive: boolean;
   onAuthorize: (index: number) => void;
   onRetry: (index: number) => void;
+  disabled: boolean;
 }
 
 function PartitionCard({
@@ -173,6 +174,7 @@ function PartitionCard({
   isActive,
   onAuthorize,
   onRetry,
+  disabled,
 }: PartitionCardProps) {
   const { escrowStatus } = partition;
   const isAuthorizing = escrowStatus === "authorizing";
@@ -265,7 +267,7 @@ function PartitionCard({
         <button
           type="button"
           onClick={() => onAuthorize(index)}
-          disabled={isAuthorizing}
+          disabled={disabled || isAuthorizing}
           style={{
             padding: "0.5rem 1rem",
             borderRadius: "0.5rem",
@@ -314,6 +316,7 @@ function PartitionCard({
         <button
           type="button"
           onClick={() => onRetry(index)}
+          disabled={disabled}
           style={{
             padding: "0.375rem 0.875rem",
             borderRadius: "0.5rem",
@@ -326,7 +329,7 @@ function PartitionCard({
             alignSelf: "flex-end",
           }}
         >
-          Retry
+          Retry Signing
         </button>
       )}
     </div>
@@ -337,97 +340,140 @@ function PartitionCard({
 // Main component
 // ---------------------------------------------------------------------------
 
-export interface MultiMerchantCheckoutProps {
-  /** Called when every partition has been confirmed, with the ordered list. */
-  onComplete?: (partitions: MerchantCartPartition[]) => void;
-  /** Called when the buyer cancels the checkout. */
-  onCancel?: () => void;
-  /**
-   * Injected escrow-signing function so the component stays framework-agnostic.
-   * Should resolve when the wallet signs successfully and reject on failure.
-   * Receives the partition to sign.
-   */
-  signEscrow?: (partition: MerchantCartPartition) => Promise<void>;
+export interface EscrowReceipt {
+  escrowId: string;
+  txHash: string;
 }
 
-/**
- * Default mock signer used in development / when no real signer is wired up.
- * Simulates a 1.5 s signing delay with a 10 % random failure rate.
- */
-async function defaultSignEscrow(_partition: MerchantCartPartition): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    setTimeout(() => {
-      if (Math.random() < 0.1) {
-        reject(new Error("User rejected the transaction"));
-      } else {
-        resolve();
-      }
-    }, 1500);
-  });
+export interface MultiMerchantBatchState {
+  currentMerchantIndex: number;
+  completedEscrows: Array<EscrowReceipt & { merchantId: string }>;
+  failedMerchantId?: string;
+  status: "idle" | "in_progress" | "partially_completed" | "failed" | "completed";
+}
+
+export interface MultiMerchantCheckoutProps {
+  /** A server-validated coupon bound to the cart being checked out. */
+  promoCode?: AppliedPromoCode;
+  onComplete?: (partitions: MerchantCartPartition[]) => void;
+  onCancel?: () => void;
+  /** Resolve only after confirmation, with the actual on-chain receipt.
+   * Reject only once it is known no escrow was created; reconcile ambiguous
+   * submissions before returning so retry cannot create duplicate escrows. */
+  signEscrow?: (partition: MerchantCartPartition) => Promise<EscrowReceipt>;
+  /** Resolve only once funds have been refunded, not when cancellation is requested.
+   * Must reconcile ambiguous outcomes and be idempotent for the escrow ID. */
+  refundEscrow?: (escrow: MultiMerchantBatchState["completedEscrows"][number]) => Promise<void>;
+  onRecoveryRequiredChange?: (required: boolean) => void;
 }
 
 export function MultiMerchantCheckout({
+  promoCode,
   onComplete,
   onCancel,
-  signEscrow = defaultSignEscrow,
+  signEscrow,
+  refundEscrow,
+  onRecoveryRequiredChange,
 }: MultiMerchantCheckoutProps) {
   const { summary, clearCart } = useCart();
-
-  const initialPartitions = useMemo(
-    () => partitionCartByMerchant(summary.items),
-    // Snapshot on mount — we don't want the list to re-partition mid-checkout
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
-  const [partitions, setPartitions] =
-    useState<MerchantCartPartition[]>(initialPartitions);
+  const [initialPartitions] = useState(() => partitionCartByMerchant(summary.items, promoCode));
+  const [partitions, setPartitions] = useState(initialPartitions);
+  const [completedEscrows, setCompletedEscrows] = useState<MultiMerchantBatchState["completedEscrows"]>([]);
+  const [refundedIds, setRefundedIds] = useState<string[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
+  // State alone does not prevent two clicks before React commits the next render.
+  const operation = useRef(false);
+  const done = allConfirmed(partitions) && !cancelling;
+  const activeIndex = partitions.findIndex(p => p.escrowStatus !== "confirmed");
+  const failed = partitions.find(p => p.escrowStatus === "failed");
+  const outstanding = completedEscrows.filter(e => !refundedIds.includes(e.escrowId));
+  const batch: MultiMerchantBatchState = {
+    currentMerchantIndex: activeIndex,
+    completedEscrows,
+    failedMerchantId: failed?.merchantId,
+    status: done ? "completed" : failed
+      ? completedEscrows.length ? "partially_completed" : "failed"
+      : busy || completedEscrows.length ? "in_progress" : "idle",
+  };
+  const recoveryRequired = busy || (!done && outstanding.length > 0);
+  useEffect(() => {
+    onRecoveryRequiredChange?.(recoveryRequired);
+  }, [recoveryRequired, onRecoveryRequiredChange]);
+  useEffect(() => {
+    if (!recoveryRequired) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [recoveryRequired]);
 
-  const activeIndex = nextPendingIndex(partitions);
-  const done = allConfirmed(partitions);
+  const updateStatus = useCallback((index: number, status: EscrowStatus) => {
+    setPartitions(prev => prev.map((p, i) => i === index ? { ...p, escrowStatus: status } : p));
+  }, []);
 
-  const updateStatus = useCallback(
-    (index: number, status: EscrowStatus) => {
-      setPartitions((prev) =>
-        prev.map((p, i) => (i === index ? { ...p, escrowStatus: status } : p))
-      );
-    },
-    []
-  );
+  const handleAuthorize = async (index: number) => {
+    if (operation.current || cancelling || cancelled || index !== activeIndex) return;
+    operation.current = true;
+    setBusy(true);
+    setGlobalError(null);
+    updateStatus(index, "authorizing");
+    let updated: MerchantCartPartition[] | undefined;
+    try {
+      if (!signEscrow) throw new Error("Escrow signing is not connected. No funds have been moved.");
+      const receipt = await signEscrow(partitions[index]);
+      setCompletedEscrows(prev => [...prev, { ...receipt, merchantId: partitions[index].merchantId }]);
+      updated = partitions.map((p, i) => i === index ? { ...p, escrowStatus: "confirmed" } : p);
+      setPartitions(updated);
+    } catch (err) {
+      updateStatus(index, "failed");
+      setGlobalError(err instanceof Error ? err.message : "Escrow signing failed.");
+    } finally {
+      operation.current = false;
+      setBusy(false);
+    }
+    // Consumer callbacks must not turn a confirmed escrow into a retryable failure.
+    if (updated && allConfirmed(updated)) {
+      clearCart();
+      onComplete?.(updated);
+    }
+  };
 
-  const handleAuthorize = useCallback(
-    async (index: number) => {
-      setGlobalError(null);
-      updateStatus(index, "authorizing");
-      try {
-        await signEscrow(partitions[index]);
-        updateStatus(index, "confirmed");
-        // Check if we just completed the last partition
-        const updated = partitions.map((p, i) =>
-          i === index ? { ...p, escrowStatus: "confirmed" as EscrowStatus } : p
-        );
-        if (updated.every((p) => p.escrowStatus === "confirmed")) {
-          clearCart();
-          onComplete?.(updated);
-        }
-      } catch (err) {
-        updateStatus(index, "failed");
-        setGlobalError(
-          err instanceof Error ? err.message : "Escrow signing failed."
-        );
+  const handleCancel = async () => {
+    if (operation.current || cancelled) return;
+    if (outstanding.length === 0) {
+      setCancelled(true);
+      onCancel?.();
+      return;
+    }
+    if (!refundEscrow) {
+      setGlobalError("Refunds are not connected. Your confirmed escrows remain active; keep their IDs below for recovery.");
+      return;
+    }
+    operation.current = true;
+    setBusy(true);
+    setCancelling(true);
+    setGlobalError(null);
+    let success = false;
+    try {
+      for (const escrow of outstanding) {
+        await refundEscrow(escrow);
+        setRefundedIds(prev => [...prev, escrow.escrowId]);
       }
-    },
-    [partitions, signEscrow, updateStatus, clearCart, onComplete]
-  );
-
-  const handleRetry = useCallback(
-    (index: number) => {
-      updateStatus(index, "pending");
-      setGlobalError(null);
-    },
-    [updateStatus]
-  );
+      success = true;
+      setCancelled(true);
+    } catch (err) {
+      setGlobalError(err instanceof Error ? err.message : "Refund failed. Retry to refund the remaining escrows.");
+    } finally {
+      operation.current = false;
+      setBusy(false);
+    }
+    if (success) onCancel?.();
+  };
 
   if (initialPartitions.length === 0) {
     return (
@@ -478,6 +524,26 @@ export function MultiMerchantCheckout({
         </div>
       )}
 
+      {(batch.status === "partially_completed" || cancelling) && !cancelled && (
+        <div role="alert" style={{ padding: "0.75rem", border: "1px solid #f59e0b", borderRadius: "0.5rem", background: "#fffbeb", color: "#92400e", lineHeight: 1.5 }}>
+          Checkout is incomplete. {outstanding.length} confirmed escrow(s) still hold funds.
+          {cancelling ? " Refund recovery is in progress; retry refunds to finish cancelling."
+            : " Retry Signing continues with the failed merchant without charging successful merchants again, or cancel and refund completed escrows."}
+        </div>
+      )}
+      {completedEscrows.length > 0 && (
+        <ul aria-label="Escrow receipts" style={{ fontSize: "0.8125rem", overflowWrap: "anywhere", paddingLeft: "1.25rem" }}>
+          {completedEscrows.map(escrow => (
+            <li key={escrow.escrowId}>
+              {partitions.find(p => p.merchantId === escrow.merchantId)?.merchantName}: {escrow.escrowId}
+              {" - Transaction: "}{escrow.txHash}
+              {refundedIds.includes(escrow.escrowId) ? " - Refunded" : " - Confirmed"}
+            </li>
+          ))}
+        </ul>
+      )}
+      {cancelled && <p role="status">Checkout cancelled. All completed escrows have been refunded. Your cart has been kept.</p>}
+
       {/* Partition cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         {partitions.map((partition, idx) => (
@@ -487,7 +553,8 @@ export function MultiMerchantCheckout({
             index={idx}
             isActive={idx === activeIndex}
             onAuthorize={handleAuthorize}
-            onRetry={handleRetry}
+            onRetry={handleAuthorize}
+            disabled={busy || cancelling || cancelled}
           />
         ))}
       </div>
@@ -511,10 +578,11 @@ export function MultiMerchantCheckout({
       )}
 
       {/* Cancel */}
-      {!done && (
+      {!done && !cancelled && (
         <button
           type="button"
-          onClick={onCancel}
+          onClick={handleCancel}
+          disabled={busy}
           style={{
             background: "transparent",
             border: "none",
@@ -526,7 +594,7 @@ export function MultiMerchantCheckout({
             padding: 0,
           }}
         >
-          Cancel checkout
+          {busy && cancelling ? "Refunding..." : outstanding.length ? "Cancel & Refund Completed Escrows" : "Cancel checkout"}
         </button>
       )}
     </section>

@@ -4,6 +4,7 @@ export type {
   ChatMessage,
   MessageRole,
   AgentToolCall,
+  InChatTrackingSnippet,
 } from "./ChatDrawer";
 export { ChatDrawerProvider, useChatDrawer } from "./ChatDrawerProvider";
 export { ChatDrawerTrigger } from "./ChatDrawerTrigger";

@@ -24,6 +24,10 @@ vi.mock("../../hooks/useDemoModeGuard", () => ({
   }),
   DEMO_MODE_BLOCKED_MESSAGE: "Demo mode is read-only.",
 }));
+vi.mock("../../hooks/useOnlineStatus", () => ({
+  useOnlineStatus: () => ({ connectionStatus: "online" }),
+  OFFLINE_BLOCKED_MESSAGE: "You're offline — reconnect to continue.",
+}));
 vi.mock("../../hooks/useDelegationTags", () => ({
   useDelegationTags: () => ({ getTag: () => undefined }),
 }));
@@ -174,6 +178,20 @@ describe("ApprovalCard — structured rejection reasons (#567)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm Reject" }));
 
     expect(onReject).toHaveBeenCalledWith("order-1", undefined, undefined);
+  });
+
+  it("opens an accessible confirmation dialog and submits the captured reason", async () => {
+    const onReject = vi.fn();
+    render(<ApprovalCard order={makeOrder()} onApprove={vi.fn()} onReject={onReject} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    expect(screen.getByRole("dialog", { name: "Reject order order-1" })).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Additional detail (optional)"), {
+      target: { value: "Duplicate order" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Reject" }));
+
+    await waitFor(() => expect(onReject).toHaveBeenCalledWith("order-1", "Duplicate order", undefined));
   });
 
   it("collects a structured reason code and free-text detail before rejecting", () => {

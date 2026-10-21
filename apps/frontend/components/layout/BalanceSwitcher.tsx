@@ -89,6 +89,8 @@ export function BalanceSwitcher() {
 
   const { fund, status: friendbotStatus } = useFriendbot();
 
+  const funding = friendbotStatus === "requesting" || friendbotStatus === "polling";
+
   const handleFund = async () => {
     if (!address) return;
     const result = await fund(address);
@@ -242,7 +244,7 @@ export function BalanceSwitcher() {
                 type="button"
                 role="menuitem"
                 onClick={handleFund}
-                disabled={friendbotStatus === "funding"}
+                disabled={funding}
                 style={{
                   width: "100%",
                   display: "flex",
@@ -252,14 +254,14 @@ export function BalanceSwitcher() {
                   padding: "0.5rem 0.625rem",
                   border: "none",
                   borderRadius: "0.375rem",
-                  background: friendbotStatus === "funding" ? "var(--color-accent-bg, #eff6ff)" : "transparent",
+                  background: funding ? "var(--color-accent-bg, #eff6ff)" : "transparent",
                   color: "var(--color-primary, #2563eb)",
-                  cursor: friendbotStatus === "funding" ? "wait" : "pointer",
+                  cursor: funding ? "wait" : "pointer",
                   fontWeight: 600,
                   fontSize: "0.8125rem",
                 }}
               >
-                {friendbotStatus === "funding" ? "Funding..." : "Fund with Friendbot"}
+                {funding ? "Funding..." : "Fund with Friendbot"}
               </button>
             </li>
           )}

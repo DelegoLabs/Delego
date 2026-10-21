@@ -3,16 +3,28 @@
  */
 
 import { parseStockDepletion, type StockDepletionInfo } from "./stockDepletion";
+import type { CartItem } from "./cart";
 
 export interface MerchantProduct {
   id: string;
   name: string;
   description: string;
   priceStroops: string;
+  assetCode?: CartItem["assetCode"];
   active: boolean;
   /** Product gallery URLs supplied by the storefront API, in display order. */
   images?: string[];
   stock?: StockDepletionInfo;
+}
+
+export type StoreAnnouncementType = "info" | "warning" | "promotion";
+
+export interface StoreAnnouncement {
+  text: string;
+  linkUrl?: string;
+  bannerType: StoreAnnouncementType;
+  /** Merchant-controlled version marker; a change re-shows a dismissed banner. */
+  updatedAt: string;
 }
 
 export interface StorefrontData {
@@ -22,6 +34,7 @@ export interface StorefrontData {
   stellarAddress: string;
   reputationScore: number;
   products: MerchantProduct[];
+  announcement: StoreAnnouncement | null;
 }
 
 export function isSafeMerchantId(id: string): boolean {
@@ -88,10 +101,56 @@ function parseProduct(value: unknown): MerchantProduct | null {
       typeof record.description === "string" ? record.description : "",
     priceStroops:
       typeof price === "bigint" ? price.toString() : String(price ?? "0"),
+    ...(assetCode === "USDC" || assetCode === "XLM" || assetCode === "EURC"
+      ? { assetCode }
+      : {}),
     active: record.active !== false,
     ...(images.length > 0 ? { images } : {}),
     ...(stock ? { stock } : {}),
   };
+}
+
+function parseAnnouncement(value: unknown): StoreAnnouncement | null {
+  const record = asRecord(value);
+  if (!record || typeof record.text !== "string" || !record.text.trim()) {
+    return null;
+  }
+
+  const bannerType = record.bannerType ?? record.banner_type;
+  if (
+    bannerType !== "info" &&
+    bannerType !== "warning" &&
+    bannerType !== "promotion"
+  ) {
+    return null;
+  }
+
+  const rawLink = record.linkUrl ?? record.link_url;
+  const linkUrl =
+    typeof rawLink === "string" && isSafeAnnouncementLink(rawLink)
+      ? rawLink
+      : undefined;
+  const updatedAt =
+    typeof record.updatedAt === "string"
+      ? record.updatedAt
+      : typeof record.updated_at === "string"
+        ? record.updated_at
+        : "";
+
+  return {
+    text: record.text.trim(),
+    bannerType,
+    updatedAt,
+    ...(linkUrl ? { linkUrl } : {}),
+  };
+}
+
+/** Only same-site paths and http(s) links are rendered as announcement CTAs. */
+function isSafeAnnouncementLink(value: string): boolean {
+  const link = value.trim();
+  if (!link) return false;
+  if (link.startsWith("/") && !link.startsWith("//")) return true;
+  return /^https?:\/\//i.test(link);
 }
 
 export function parseStorefront(
@@ -110,6 +169,10 @@ export function parseStorefront(
         .filter((product) => product.active)
     : [];
 
+  const announcement = parseAnnouncement(
+    body.announcement ?? body.storeAnnouncement ?? body.store_announcement
+  );
+
   return {
     merchantId:
       typeof body.merchantId === "string" ? body.merchantId : merchantId,
@@ -119,6 +182,7 @@ export function parseStorefront(
       typeof body.stellarAddress === "string" ? body.stellarAddress : "",
     reputationScore: asNumber(body.reputationScore),
     products,
+    announcement,
   };
 }
 

@@ -50,6 +50,7 @@ const PLACEHOLDER_AGENT_CONFIG: AgentPersonaConfig = {
   maxAutonomousBudgetStroops: "500000000",
   negotiationAllowed: true,
   preferredAsset: "USDC",
+  persona: "balanced",
 };
 
 /**

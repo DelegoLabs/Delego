@@ -46,68 +46,91 @@ interface UseHydrationStableBalanceResult {
  *   </span>
  * );
  */
+/** Stable server/client-first paint — never locale-format on the server. */
+export const HYDRATION_BALANCE_PLACEHOLDER = "---";
+
+const STROOPS_PER_UNIT = 10_000_000n;
+
+/** Deterministic format (en-US digits) so snapshots do not depend on host locale. */
+function formatStroops(
+  stroopAmount: bigint | string,
+  decimals: number,
+  currencyCode: string,
+  options: BalanceFormatOptions = {},
+): string {
+  const amount =
+    typeof stroopAmount === "string" ? BigInt(stroopAmount) : stroopAmount;
+  const min = options.minimumFractionDigits ?? decimals;
+  const max = options.maximumFractionDigits ?? decimals;
+
+  // Fixed-point divide in number space after scaling to avoid SSR locale drift
+  const whole = amount / STROOPS_PER_UNIT;
+  const frac = amount % STROOPS_PER_UNIT;
+  const asNumber = Number(whole) + Number(frac) / Number(STROOPS_PER_UNIT);
+
+  const formatted = asNumber.toLocaleString("en-US", {
+    minimumFractionDigits: min,
+    maximumFractionDigits: max,
+  });
+
+  return `${formatted} ${currencyCode}`;
+}
+
 export function useHydrationStableBalance(
   stroopAmount: bigint | string | null | undefined,
   decimals: number = 2,
   currencyCode: string = "XLM",
-  options: BalanceFormatOptions = {}
+  options: BalanceFormatOptions = {},
 ): UseHydrationStableBalanceResult {
   const [isHydrated, setIsHydrated] = useState(false);
   const [formattedValue, setFormattedValue] = useState<string | null>(null);
 
-  // Format after client mounts to avoid hydration mismatch
+  // Client-only: never run locale formatting during SSR / first paint
   useEffect(() => {
     if (stroopAmount == null) {
       setFormattedValue(null);
+      setIsHydrated(true);
       return;
     }
 
-    const amount = typeof stroopAmount === "string" ? BigInt(stroopAmount) : stroopAmount;
-    const STROOPS_PER_XLM = 10_000_000n;
-    const xlm = Number(amount) / Number(STROOPS_PER_XLM);
-
-    const formatted = xlm.toLocaleString(undefined, {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-      ...options,
-    });
-
-    setFormattedValue(`${formatted} ${currencyCode}`);
+    try {
+      setFormattedValue(
+        formatStroops(stroopAmount, decimals, currencyCode, options),
+      );
+    } catch {
+      setFormattedValue(null);
+    }
     setIsHydrated(true);
   }, [stroopAmount, decimals, currencyCode, options]);
 
-  // Stable placeholder that maintains layout without hydration risk
   const serverPlaceholder = (
-    <span aria-busy="true" aria-live="polite">
-      {/* Using a non-breaking space to maintain layout during initial render */}
-      {"\u00A0"}
+    <span aria-busy={!isHydrated} aria-live="polite">
+      {HYDRATION_BALANCE_PLACEHOLDER}
     </span>
   );
 
   const refetch = () => {
-    // Force reformatting when called (e.g., locale change)
-    if (stroopAmount != null) {
-      const amount = typeof stroopAmount === "string" ? BigInt(stroopAmount) : stroopAmount;
-      const STROOPS_PER_XLM = 10_000_000n;
-      const xlm = Number(amount) / Number(STROOPS_PER_XLM);
-
-      const formatted = xlm.toLocaleString(undefined, {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-        ...options,
-      });
-
-      setFormattedValue(`${formatted} ${currencyCode}`);
+    if (stroopAmount == null) {
+      setFormattedValue(null);
+      return;
+    }
+    try {
+      setFormattedValue(
+        formatStroops(stroopAmount, decimals, currencyCode, options),
+      );
+    } catch {
+      setFormattedValue(null);
     }
   };
 
   return {
     serverPlaceholder,
-    formattedValue,
+    // Until hydrated, callers must use serverPlaceholder — not a locale string
+    formattedValue: isHydrated ? formattedValue : null,
     isHydrated,
     refetch,
   };
-}
+  }
 
 /**
  * Composable hook for timestamp formatting without hydration mismatch.

@@ -15,6 +15,12 @@ import { env } from "./env";
 export interface DirectoryMerchant {
   id: string;
   name: string;
+  /**
+   * Public key the merchant publishes for encrypted delivery instructions
+   * (#1005): base64 SPKI (or PEM) RSA-OAEP key, SHA-256, at least 2048 bits.
+   * Optional; checkout disables the delivery instructions field without it.
+   */
+  deliveryPublicKey?: string;
 }
 
 export interface MerchantDirectoryResult {
@@ -59,6 +65,20 @@ function isDirectoryMerchantArray(data: unknown): data is DirectoryMerchant[] {
       typeof (item as DirectoryMerchant).id === "string" &&
       typeof (item as DirectoryMerchant).name === "string"
   );
+}
+
+/**
+ * Delivery key for `merchantId`, or `undefined` when the merchant is unknown
+ * or has not published a usable key. Malformed values are ignored rather
+ * than rejecting the whole directory response.
+ */
+export function merchantDeliveryKey(
+  merchants: DirectoryMerchant[],
+  merchantId: string | undefined
+): string | undefined {
+  if (!merchantId) return undefined;
+  const key = merchants.find((m) => m.id === merchantId)?.deliveryPublicKey;
+  return typeof key === "string" && key.trim() ? key : undefined;
 }
 
 /** Case-insensitive substring filter over the directory, for the picker's search box. */

@@ -110,6 +110,10 @@ export function StorefrontCatalog({
         )
       );
       if (cancelled) return;
+      setChecked((prev) => ({
+        ...prev,
+        ...Object.fromEntries(ids.map((id) => [`${merchantId}/${id}`, true])),
+      }));
       setLiveStock((prev) => {
         const next = { ...prev };
         for (const [id, stock] of updates) {
@@ -247,6 +251,7 @@ export function StorefrontCatalog({
       payoutAddress,
       title: product.name,
       priceStroops: product.priceStroops,
+      assetCode: product.assetCode,
       quantity: 1,
       maxStock,
     };

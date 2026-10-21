@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   CommandRegistryProvider,
@@ -45,6 +45,27 @@ const testCommands: Command[] = [
 function Fixture({ onClose }: { onClose: () => void }) {
   useRegisterCommands(testCommands);
   return <CommandPalette onClose={onClose} />;
+}
+
+/**
+ * Registered via a module-scoped array on purpose: `useRegisterCommands` keys
+ * its effect on the array identity, so an inline literal would re-register on
+ * every render and loop forever.
+ */
+const categoryCommands: Command[] = [
+  {
+    id: "orders:latest",
+    label: "Open latest order",
+    subtitle: "order-123",
+    group: "navigate",
+    category: "orders",
+    perform: vi.fn(),
+  },
+];
+
+function CategoryFixture() {
+  useRegisterCommands(categoryCommands);
+  return <CommandPalette onClose={vi.fn()} />;
 }
 
 function renderPalette(onClose = vi.fn()) {
@@ -136,5 +157,34 @@ describe("CommandPalette", () => {
 
     renderPalette();
     expect(screen.getByText("Recent")).toBeInTheDocument();
+  });
+
+  it("persists the search term and surfaces it under Recent searches", () => {
+    const { unmount } = renderPalette();
+
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: "csv" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(
+      JSON.parse(window.localStorage.getItem("delego_recent_searches") ?? "[]")
+    ).toEqual(["csv"]);
+
+    unmount();
+    renderPalette();
+
+    expect(screen.getByText("Recent searches")).toBeInTheDocument();
+    expect(screen.getByText("csv")).toBeInTheDocument();
+  });
+
+  it("groups commands by the palette category when one is provided", () => {
+    render(
+      <CommandRegistryProvider>
+        <CategoryFixture />
+      </CommandRegistryProvider>
+    );
+
+    expect(screen.getByText("Orders")).toBeInTheDocument();
+    expect(screen.getByText("Open latest order")).toBeInTheDocument();
   });
 });

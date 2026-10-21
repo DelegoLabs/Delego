@@ -310,4 +310,16 @@ export interface UserPreferenceItem {
  */
 export type OfflineStatus = "online" | "offline" | "reconnecting";
 
+/**
+ * Active Soroban token allowance granted to an escrow or router contract.
+ */
+export interface TokenAllowanceEntry {
+  tokenAddress: string;
+  tokenSymbol: string;
+  spenderAddress: string;
+  spenderLabel: string;
+  allowedAmountStroops: string;
+  expirationLedger: number;
+}
+
 export * from "./schemas.js";

@@ -9,7 +9,9 @@ const HEADER = "sku,title,priceStroops,stock";
 describe("CatalogCsvImporter (#909)", () => {
   it("highlights invalid rows, accepts an inline fix, and submits valid rows in batches", async () => {
     const user = userEvent.setup();
-    const onImport = vi.fn(async () => undefined);
+    const onImport = vi.fn(async (rows: Array<{ sku: string; isValid: boolean }>) => {
+      void rows;
+    });
     render(<CatalogCsvImporter onImport={onImport} parseCsv={async (text) => parseCsvCatalogImport(text)} />);
 
     const csv = [HEADER, "SKU-1,Mug,1500000,4", ",Cup,1500000,1"].join("\n");
@@ -26,7 +28,9 @@ describe("CatalogCsvImporter (#909)", () => {
 
     await user.click(screen.getByTestId("catalog-csv-submit"));
     await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
-    expect(onImport.mock.calls[0][0]).toEqual(
+    expect(onImport.mock.calls.length).toBeGreaterThan(0);
+    const firstArg = onImport.mock.calls[0]?.[0] as Array<{ sku: string; isValid: boolean }> | undefined;
+    expect(firstArg).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ sku: "SKU-1", isValid: true }),
         expect.objectContaining({ sku: "SKU-2", isValid: true }),

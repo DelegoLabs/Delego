@@ -13,13 +13,18 @@ import { useTheme, type ThemeMode } from "../../hooks/useTheme";
  * and link underline toggle.
  */
 export function AccessibilitySettingsCard() {
-  const { mode: theme, resolved: resolvedTheme, setMode: setTheme } = useTheme();
+  const {
+    mode: theme,
+    resolved: resolvedTheme,
+    setMode: setTheme,
+  } = useTheme();
   const {
     preferences,
     setTextScale,
     setHighContrast,
     setReduceMotion,
     setUnderlineLinks,
+    setUseSystemFonts,
     resetToDefaults,
   } = useAccessibility();
 
@@ -217,6 +222,26 @@ export function AccessibilitySettingsCard() {
             <option value="off">Allow motion</option>
           </select>
         </div>
+
+        <label className="settings-toggle-row">
+          <span>
+            <span className="settings-toggle-label">Data Saver Fonts</span>
+            <p className="settings-toggle-hint">
+              Use system fonts instead of downloading the Inter web font.
+            </p>
+          </span>
+          <input
+            type="checkbox"
+            checked={preferences.useSystemFonts}
+            onChange={(event) => setUseSystemFonts(event.target.checked)}
+            aria-label="Data Saver Fonts"
+            style={{
+              width: "1.125rem",
+              height: "1.125rem",
+              marginTop: "0.25rem",
+            }}
+          />
+        </label>
 
         {/* Underline Links Toggle */}
         <label className="settings-toggle-row">

@@ -8,12 +8,21 @@ import {
   PromptSuggestionChips,
   type PromptSuggestionChip,
 } from "./PromptSuggestionChips";
+import { DisputeQuickPrompts, type DisputeQuickPrompt } from "./DisputeQuickPrompts";
+import { FilterPills } from "./FilterPills";
+import {
+  CatalogFilterState,
+  hasActiveFilters,
+  encodeFiltersToParams,
+} from "../../lib/catalogFilters";
 
 export interface AgentChatDrawerProps {
   open: boolean;
   onClose: () => void;
   /** Called with the trimmed prompt when the buyer submits a message. */
-  onSubmit?: (prompt: string) => void;
+  onSubmit?: (prompt: string, orderId?: string, filterParams?: Record<string, string>) => void;
+  /** Optional order ID to prepend to the prompt. */
+  orderId?: string;
 }
 
 /**
@@ -25,10 +34,17 @@ export function AgentChatDrawer({
   open,
   onClose,
   onSubmit,
-}: AgentChatDrawerProps) {
+  orderId: initialOrderId,
+  categories: initialCategories,
+  filters: initialFilters,
+}: AgentChatDrawerProps & { categories?: string[]; filters?: CatalogFilterState; orderId?: string }) {
   const [prompt, setPrompt] = useState("");
   const [hasSent, setHasSent] = useState(false);
   const [focusSend, setFocusSend] = useState(false);
+  const [filters, setFilters] = useState<CatalogFilterState>(
+    initialFilters ?? { categories: [], inStockOnly: false }
+  );
+  const [categories, setCategories] = useState<string[]>(initialCategories ?? []);
   const panelRef = useRef<HTMLDivElement>(null);
   useFocusTrap({ containerRef: panelRef, isActive: open });
 
@@ -49,9 +65,12 @@ export function AgentChatDrawer({
     setFocusSend(false);
   }, [focusSend]);
 
-  if (!open) return null;
-
   function handleChipSelect(chip: PromptSuggestionChip) {
+    setPrompt(chip.promptText);
+    setFocusSend(true);
+  }
+
+  function handleDisputePromptSelect(chip: DisputeQuickPrompt) {
     setPrompt(chip.promptText);
     setFocusSend(true);
   }
@@ -59,12 +78,12 @@ export function AgentChatDrawer({
   function handleSubmit() {
     const trimmed = prompt.trim();
     if (!trimmed) return;
-    onSubmit?.(trimmed);
+    onSubmit?.(trimmed, initialOrderId, encodeFiltersToParams(filters));
     setPrompt("");
     setHasSent(true);
   }
 
-  return (
+  return open ? (
     <div className="agent-chat-overlay" onClick={onClose}>
       <div
         ref={panelRef}
@@ -75,6 +94,66 @@ export function AgentChatDrawer({
         className="agent-chat-drawer"
         onClick={(event) => event.stopPropagation()}
       >
+        <FilterPills
+          filters={filters}
+          categories={categories}
+          onToggleCategory={(cat) =>
+            setCategories((prev) => {
+              const next = prev.includes(cat)
+                ? prev.filter((c) => c !== cat)
+                : [...prev, cat];
+              setFilters({ ...filters, categories: next });
+              return next;
+            })
+          }
+          onToggleMaxPrice={(raw) => {
+            setFilters((prev) => {
+              const n = raw === "" ? undefined : Number(raw);
+              return {
+                ...prev,
+                maxPrice:
+                  n !== undefined && Number.isFinite(n) && n >= 0 ? n : undefined,
+              };
+            });
+          }}
+          onToggleMinPrice={(raw) => {
+            setFilters((prev) => {
+              const n = raw === "" ? undefined : Number(raw);
+              return {
+                ...prev,
+                minPrice:
+                  n !== undefined && Number.isFinite(n) && n >= 0 ? n : undefined,
+              };
+            });
+          }}
+          onToggleMinRating={(raw) => {
+            setFilters((prev) => {
+              const n = raw === "" ? undefined : Number(raw);
+              return {
+                ...prev,
+                minRating:
+                  n !== undefined &&
+                  Number.isFinite(n) &&
+                  n >= 0 &&
+                  n <= 5
+                    ? n
+                    : undefined,
+              };
+            });
+          }}
+          onClearFilters={() => {
+            setFilters({ categories: [], minPrice: undefined, maxPrice: undefined, minRating: undefined });
+            setCategories([]);
+          }}
+        />
+
+        {open && (
+          <DisputeQuickPrompts
+            onSelect={handleDisputePromptSelect}
+            hidden={hasSent}
+          />
+        )}
+
         <h2 style={{ margin: 0 }}>Ask the agent</h2>
         <p className="agent-chat-hint">
           Describe what you want to buy and the agent will handle it.
@@ -85,10 +164,17 @@ export function AgentChatDrawer({
         <label htmlFor="agent-prompt-input">Message</label>
         <textarea
           id="agent-prompt-input"
+          data-testid="agent-prompt-input"
           className="agent-chat-input"
           rows={3}
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              handleSubmit();
+            }
+          }}
           placeholder="Find me a laptop under $1,000…"
         />
 
@@ -112,5 +198,5 @@ export function AgentChatDrawer({
         </div>
       </div>
     </div>
-  );
+  ) : null;
 }
