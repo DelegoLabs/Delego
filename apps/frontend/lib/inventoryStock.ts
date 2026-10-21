@@ -20,6 +20,25 @@ export interface StockedCatalogProduct {
   sku: string;
   title: string;
   stockQuantity: number;
+  isListed?: boolean;
+}
+
+export interface LowStockBannerAlert {
+  depletedProductsCount: number;
+  criticalItemTitles: string[];
+  onQuickRestockClick: () => void;
+  hasOutOfStock?: boolean;
+  severity?: "amber" | "red";
+  onDismiss?: () => void;
+  dismissible?: boolean;
+}
+
+export interface DepletedProductsComputation<T> {
+  depletedProducts: T[];
+  depletedProductsCount: number;
+  criticalItemTitles: string[];
+  hasOutOfStock: boolean;
+  severity: "amber" | "red";
 }
 
 export const DEFAULT_LOW_STOCK_THRESHOLD = 5;
@@ -86,6 +105,44 @@ export function listDepletedInventory(
       })
     )
     .filter((status) => status.isLowStock || status.isOutOfStock);
+}
+
+/**
+ * Computes depleted catalog items (0 or < 5 units remaining) from active catalog items.
+ * An item is active when `isListed !== false`.
+ */
+export function computeDepletedProducts<
+  T extends { id?: string; title: string; stockQuantity: number; isListed?: boolean }
+>(products: T[], threshold = DEFAULT_LOW_STOCK_THRESHOLD): DepletedProductsComputation<T> {
+  const activeItems = products.filter((p) => p.isListed !== false);
+  const depletedProducts = activeItems.filter((p) => {
+    const stock = normalizeStockCount(p.stockQuantity);
+    return stock < threshold;
+  });
+  const criticalItemTitles = depletedProducts.map((p) => p.title);
+  const hasOutOfStock = depletedProducts.some(
+    (p) => normalizeStockCount(p.stockQuantity) === 0
+  );
+  const severity: "amber" | "red" = hasOutOfStock ? "red" : "amber";
+
+  return {
+    depletedProducts,
+    depletedProductsCount: depletedProducts.length,
+    criticalItemTitles,
+    hasOutOfStock,
+    severity,
+  };
+}
+
+/**
+ * Computes count of depleted product rows from active catalog items.
+ */
+export function computeDepletedProductCount<
+  T extends { stockQuantity: number; isListed?: boolean }
+>(products: T[], threshold = DEFAULT_LOW_STOCK_THRESHOLD): number {
+  return products.filter(
+    (p) => p.isListed !== false && normalizeStockCount(p.stockQuantity) < threshold
+  ).length;
 }
 
 export function readLowStockThreshold(): number {

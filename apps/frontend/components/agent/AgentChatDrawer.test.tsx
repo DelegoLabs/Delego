@@ -22,7 +22,7 @@ describe("AgentChatDrawer", () => {
     await user.type(input, "reorder my usual groceries");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(onSubmit).toHaveBeenCalledWith("reorder my usual groceries");
+    expect(onSubmit).toHaveBeenCalledWith("reorder my usual groceries", undefined, expect.any(Object));
     expect(input).toHaveValue("");
   });
 

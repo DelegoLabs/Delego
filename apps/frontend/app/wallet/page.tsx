@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Card } from "@delegolabs/ui";
 import { PasskeyRegisterModal } from "../../components/wallet/PasskeyRegisterModal";
 import { FriendbotModal } from "../../components/wallet/FriendbotModal";
@@ -8,12 +8,15 @@ import { useWallet } from "../../hooks/useWallet";
 import { useNetwork } from "../../hooks/useNetwork";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useBalanceHistory } from "../../hooks/useBalanceHistory";
+import { usePaymentStream } from "../../hooks/usePaymentStream";
+import { useAudioNotifications } from "../../hooks/useAudioNotifications";
 import { useFriendbot } from "../../hooks/useFriendbot";
 import { WalletConnectButton } from "../../components/wallet/WalletConnectButton";
 import { FeeTierField } from "../../components/wallet/FeeTierField";
 import { BalanceSparkline } from "../../components/wallet/BalanceSparkline";
 import { AssetBreakdownTable } from "../../components/wallet/AssetBreakdownTable";
 import { CopyButton } from "../../components/wallet/CopyButton";
+import { TokenAllowancesCard } from "../../components/wallet/TokenAllowancesCard";
 import { HydrationStableBalance } from "../../components/HydrationStableBalance";
 import {
   useDemoModeGuard,
@@ -41,6 +44,7 @@ export default function WalletPage() {
   const [friendbotOpen, setFriendbotOpen] = useState(false);
   const { isDemoMode } = useDemoModeGuard();
   const { connectionStatus } = useOnlineStatus();
+  const { playChime } = useAudioNotifications();
 
   const isConnected = status === "connected" && !!address;
   const balanceState = useBalanceHistory(
@@ -48,6 +52,34 @@ export default function WalletPage() {
     activeNetwork.horizonUrl,
     isConnected
   );
+  const refetchBalance = balanceState.refetch;
+  const addNotification = notifications.add;
+  const paymentStream = usePaymentStream(
+    address,
+    activeNetwork.horizonUrl,
+    isConnected
+  );
+  const lastNotifiedPaymentId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const payment = paymentStream.latestPayment;
+    if (!payment || lastNotifiedPaymentId.current === payment.id) return;
+
+    lastNotifiedPaymentId.current = payment.id;
+    void refetchBalance();
+    addNotification({
+      type: "success",
+      title: `Payment received: ${payment.amount} ${payment.assetCode}`,
+      message: `Sent from ${payment.from}.`,
+      href: "/wallet",
+    });
+    playChime();
+  }, [
+    addNotification,
+    paymentStream.latestPayment,
+    playChime,
+    refetchBalance,
+  ]);
 
   const nativeBalance = balanceState.balances.find(
     (b) => b?.asset_type === "native"
@@ -107,6 +139,30 @@ export default function WalletPage() {
         <h1>Wallet</h1>
         <p>Connect your Stellar wallet via the Freighter browser extension</p>
       </header>
+
+      {paymentStream.latestPayment && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            marginBottom: "1rem",
+            padding: "0.875rem 1rem",
+            border: "1px solid var(--color-success-border)",
+            borderRadius: "0.5rem",
+            background: "var(--color-success-bg)",
+            color: "var(--color-success-text)",
+          }}
+        >
+          Received {paymentStream.latestPayment.amount}{" "}
+          {paymentStream.latestPayment.assetCode} from{" "}
+          {paymentStream.latestPayment.from}.
+        </div>
+      )}
+      {paymentStream.status === "reconnecting" && (
+        <p role="status" className="settings-toggle-hint">
+          {paymentStream.error}
+        </p>
+      )}
 
       <Card title="Connection" ariaLabel="Wallet connection status">
         <div className="settings-section">
@@ -306,6 +362,12 @@ export default function WalletPage() {
           </div>
         </Card>
       )}
+
+      <TokenAllowancesCard
+        address={address}
+        isConnected={isConnected}
+        disabled={isDemoMode || connectionStatus !== "online"}
+      />
 
       <Card title="About Soroban Permissions">
         <p>

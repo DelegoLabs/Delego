@@ -4,7 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 
 export type ReduceMotionMode = "on" | "off" | "system";
 
-export interface A11yPreferences {
+export interface FontPreferenceConfig {
+  useSystemFonts: boolean;
+  fontDisplaySwap: boolean;
+}
+
+export interface A11yPreferences extends FontPreferenceConfig {
   /** Root font size percentage: 90% to 150%. Default: 100 */
   textScale: number;
   /** Forced high-contrast theme override. Default: false */
@@ -20,6 +25,8 @@ export const DEFAULT_A11Y_PREFERENCES: A11yPreferences = {
   highContrast: false,
   reduceMotion: "system",
   underlineLinks: false,
+  useSystemFonts: false,
+  fontDisplaySwap: true,
 };
 
 const STORAGE_KEY = "delego-a11y-prefs";
@@ -45,6 +52,8 @@ function readStoredPreferences(): A11yPreferences {
           ? parsed.reduceMotion
           : DEFAULT_A11Y_PREFERENCES.reduceMotion,
       underlineLinks: Boolean(parsed.underlineLinks),
+      useSystemFonts: Boolean(parsed.useSystemFonts),
+      fontDisplaySwap: true,
     };
   } catch {
     return DEFAULT_A11Y_PREFERENCES;
@@ -58,6 +67,7 @@ function applyPreferences(prefs: A11yPreferences): void {
   html.dataset.highContrast = prefs.highContrast ? "true" : "false";
   html.dataset.reduceMotion = prefs.reduceMotion;
   html.dataset.underlineLinks = prefs.underlineLinks ? "true" : "false";
+  html.classList.toggle("font-sans-system", prefs.useSystemFonts);
 }
 
 export interface UseA11yReturn {
@@ -66,6 +76,7 @@ export interface UseA11yReturn {
   setHighContrast: (enabled: boolean) => void;
   setReduceMotion: (mode: ReduceMotionMode) => void;
   setUnderlineLinks: (enabled: boolean) => void;
+  setUseSystemFonts: (enabled: boolean) => void;
   resetToDefaults: () => void;
 }
 
@@ -133,6 +144,13 @@ export function useA11y(): UseA11yReturn {
     [updatePreferences]
   );
 
+  const setUseSystemFonts = useCallback(
+    (enabled: boolean) => {
+      updatePreferences((prev) => ({ ...prev, useSystemFonts: enabled }));
+    },
+    [updatePreferences]
+  );
+
   const resetToDefaults = useCallback(() => {
     updatePreferences(() => DEFAULT_A11Y_PREFERENCES);
   }, [updatePreferences]);
@@ -143,6 +161,7 @@ export function useA11y(): UseA11yReturn {
     setHighContrast,
     setReduceMotion,
     setUnderlineLinks,
+    setUseSystemFonts,
     resetToDefaults,
   };
 }
@@ -164,6 +183,7 @@ export const a11yBootstrapScript = /* js */ `
     document.documentElement.dataset.highContrast = contrast;
     document.documentElement.dataset.reduceMotion = motion;
     document.documentElement.dataset.underlineLinks = underline;
+    document.documentElement.classList.toggle('font-sans-system', !!p.useSystemFonts);
   } catch(e) {}
 })();
 `.trim();

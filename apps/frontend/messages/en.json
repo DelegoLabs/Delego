@@ -32,6 +32,12 @@
       "fabUnread": "{count, plural, one {# unread proposal} other {# unread proposals}}"
     }
   },
+  "copilot": {
+    "highValueTitle": "Review this high-value item",
+    "highValueInquiry": "Can you verify the merchant reputation and escrow terms for {productName}? It is priced over 100 USDC.",
+    "action": "Ask the agent",
+    "dismiss": "Dismiss copilot alert"
+  },
   "common": {
     "cancel": "Cancel",
     "save": "Save",

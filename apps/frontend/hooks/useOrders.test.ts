@@ -6,6 +6,29 @@ const mockGetOrders = vi.fn();
 const mockApproveOrder = vi.fn();
 const mockRejectOrder = vi.fn();
 
+class MockBroadcastChannel {
+  static instances: MockBroadcastChannel[] = [];
+  listeners = new Set<(event: MessageEvent<unknown>) => void>();
+  postMessage = vi.fn();
+
+  constructor(readonly name: string) {
+    MockBroadcastChannel.instances.push(this);
+  }
+
+  addEventListener(
+    _type: "message",
+    listener: (event: MessageEvent<unknown>) => void
+  ) {
+    this.listeners.add(listener);
+  }
+
+  emit(data: unknown) {
+    for (const listener of this.listeners) {
+      listener({ data } as MessageEvent<unknown>);
+    }
+  }
+}
+
 vi.mock("../lib/api", () => ({
   api: {
     getOrders: (...args: unknown[]) => mockGetOrders(...args),
@@ -36,6 +59,10 @@ describe("useOrders", () => {
     mockGetOrders.mockReset();
     mockApproveOrder.mockReset();
     mockRejectOrder.mockReset();
+    Object.defineProperty(window, "BroadcastChannel", {
+      configurable: true,
+      value: MockBroadcastChannel,
+    });
   });
 
   it("loads orders on mount", async () => {
@@ -87,6 +114,24 @@ describe("useOrders", () => {
     expect(mockApproveOrder).toHaveBeenCalledWith("order-1");
     expect(result.current.orders[0].status).toBe("approved");
     expect(result.current.pendingIds.has("order-1")).toBe(false);
+
+    const channel = MockBroadcastChannel.instances.at(-1)!;
+    expect(channel.name).toBe("delego_tab_sync");
+    expect(channel.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "ORDER_STATUS_CHANGED",
+        payload: { orderId: "order-1", status: "approved" },
+      })
+    );
+
+    act(() => {
+      channel.emit({
+        type: "ORDER_STATUS_CHANGED",
+        payload: { orderId: "order-1", status: "approved" },
+        senderTabId: "another-tab",
+      });
+    });
+    await waitFor(() => expect(mockGetOrders).toHaveBeenCalledTimes(2));
   });
 
   it("rejectOrder forwards the reason and reports API errors", async () => {
@@ -103,7 +148,10 @@ describe("useOrders", () => {
       await result.current.rejectOrder("order-1", "too expensive");
     });
 
-    expect(mockRejectOrder).toHaveBeenCalledWith("order-1", { reason: "too expensive", reasonCode: undefined });
+    expect(mockRejectOrder).toHaveBeenCalledWith("order-1", {
+      reason: "too expensive",
+      reasonCode: undefined,
+    });
     expect(result.current.error).toBe("cannot reject");
   });
 
@@ -118,9 +166,16 @@ describe("useOrders", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
-      await result.current.rejectOrder("order-1", "budget note", "too_expensive");
+      await result.current.rejectOrder(
+        "order-1",
+        "budget note",
+        "too_expensive"
+      );
     });
 
-    expect(mockRejectOrder).toHaveBeenCalledWith("order-1", { reason: "budget note", reasonCode: "too_expensive" });
+    expect(mockRejectOrder).toHaveBeenCalledWith("order-1", {
+      reason: "budget note",
+      reasonCode: "too_expensive",
+    });
   });
 });

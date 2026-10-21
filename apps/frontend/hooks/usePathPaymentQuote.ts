@@ -19,6 +19,12 @@ export interface PathQuoteResponse {
   expiresAt: number;
 }
 
+export interface SlippageCalculationResult {
+  priceImpactPercentage: number;
+  isZeroImpact: boolean;
+  formattedSlippage: string;
+}
+
 /** Quotes stay usable for 30s before the hook asks Horizon again. */
 export const PATH_QUOTE_TTL_MS = 30_000;
 
@@ -73,6 +79,42 @@ export function liquidityPoolFeeStroops(destinationAmount: string, hopCount: num
   const destination = Number(destinationAmount);
   if (!Number.isFinite(destination) || destination <= 0 || hopCount <= 0) return "0";
   return Math.round(destination * POOL_FEE_RATE * hopCount * STROOPS_PER_UNIT).toString();
+}
+
+/**
+ * Slippage/price-impact calculation that is safe against zero-fee routes and
+ * 1:1 stablecoin pegs, where a naive division by zero would yield `NaN%`.
+ */
+export function calculateSlippage(
+  sourceAmount: string | number,
+  destinationAmount: string | number,
+  hopCount = 0
+): SlippageCalculationResult {
+  const source = Number(sourceAmount);
+  const destination = Number(destinationAmount);
+
+  if (
+    !Number.isFinite(source) ||
+    !Number.isFinite(destination) ||
+    source <= 0 ||
+    destination <= 0
+  ) {
+    return { priceImpactPercentage: 0, isZeroImpact: true, formattedSlippage: "0.00%" };
+  }
+
+  const poolImpact = hopCount > 0 ? hopCount * POOL_FEE_IMPACT_PERCENT : 0;
+  const deviation = ((source - destination) / destination) * 100;
+  const rawImpact = Number.isFinite(deviation) ? Math.max(0, deviation) : 0;
+  const priceImpactPercentage = Number(Math.max(rawImpact, poolImpact).toFixed(2));
+
+  if (priceImpactPercentage === 0) {
+    return { priceImpactPercentage: 0, isZeroImpact: true, formattedSlippage: "0.00%" };
+  }
+
+  const formattedSlippage =
+    priceImpactPercentage < 0.01 ? "< 0.01%" : `${priceImpactPercentage.toFixed(2)}%`;
+
+  return { priceImpactPercentage, isZeroImpact: false, formattedSlippage };
 }
 
 export function rawSourceAmount(route: PathPaymentRoute): number {

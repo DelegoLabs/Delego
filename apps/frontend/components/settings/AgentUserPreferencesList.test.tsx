@@ -32,27 +32,26 @@ describe("AgentUserPreferencesList", () => {
 
   it("renders preferences list", async () => {
     vi.mocked(userPreferencesApi.getUserPreferences).mockResolvedValue([
-      { key: "Prefers organic", value: "Yes" },
-      { key: "Size", value: "M", learnedFromOrder: "ORDER-123" },
+      { key: "Prefers organic", value: "Yes", category: "privacy", updatedAt: "2026-01-02T00:00:00.000Z" },
+      { key: "Size", value: "M", category: "ui", updatedAt: "2026-01-02T00:00:00.000Z" },
     ]);
     render(<AgentUserPreferencesList />);
-    
+
     await waitFor(() => {
       expect(screen.getByText("Prefers organic")).toBeInTheDocument();
       expect(screen.getByText("Size")).toBeInTheDocument();
-      expect(screen.getByText("ORDER-123", { exact: false })).toBeInTheDocument();
     });
   });
 
   it("allows deleting a preference", async () => {
     const user = userEvent.setup();
     vi.mocked(userPreferencesApi.getUserPreferences).mockResolvedValue([
-      { key: "Prefers organic", value: "Yes" },
+      { key: "Prefers organic", value: "Yes", category: "privacy", updatedAt: "2026-01-02T00:00:00.000Z" },
     ]);
     vi.mocked(userPreferencesApi.deleteUserPreference).mockResolvedValue();
 
     render(<AgentUserPreferencesList />);
-    
+
     await waitFor(() => {
       expect(screen.getByText("Prefers organic")).toBeInTheDocument();
     });
@@ -68,25 +67,25 @@ describe("AgentUserPreferencesList", () => {
   it("allows inline editing of a preference", async () => {
     const user = userEvent.setup();
     vi.mocked(userPreferencesApi.getUserPreferences).mockResolvedValue([
-      { key: "Color", value: "Blue" },
+      { key: "Color", value: "Blue", category: "ui", updatedAt: "2026-01-02T00:00:00.000Z" },
     ]);
     vi.mocked(userPreferencesApi.updateUserPreference).mockResolvedValue();
 
     render(<AgentUserPreferencesList />);
-    
+
     await waitFor(() => {
       expect(screen.getByText("Color")).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole("button", { name: "Edit" }));
-    
+
     const input = screen.getByDisplayValue("Blue");
     await user.clear(input);
     await user.type(input, "Red");
-    
+
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(userPreferencesApi.updateUserPreference).toHaveBeenCalledWith({ key: "Color", value: "Red" });
+    expect(userPreferencesApi.updateUserPreference).toHaveBeenCalledWith({ key: "Color", value: "Red", category: "ui", updatedAt: expect.any(String) });
     await waitFor(() => {
       expect(screen.getByText("Red")).toBeInTheDocument();
     });

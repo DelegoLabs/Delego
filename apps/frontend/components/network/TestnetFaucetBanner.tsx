@@ -32,7 +32,7 @@ export function TestnetFaucetBanner() {
     }
   };
 
-  const isFunding = status === "funding";
+  const isFunding = status === "requesting" || status === "polling";
 
   return (
     <div

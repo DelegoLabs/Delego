@@ -12,6 +12,35 @@ import type { ReactNode } from "react";
 
 export type CommandGroup = "navigate" | "actions";
 
+/** High-level grouping surfaced in the palette (Issue #2). */
+export type CommandPaletteCategory =
+  | "navigation"
+  | "orders"
+  | "merchants"
+  | "settings";
+
+/** Display labels for each palette category. */
+export const COMMAND_CATEGORY_LABELS: Record<CommandPaletteCategory, string> = {
+  navigation: "Navigation",
+  orders: "Orders",
+  merchants: "Merchants",
+  settings: "Settings",
+};
+
+/**
+ * Palette item contract (Issue #2). `Command` is the ergonomic registration
+ * shape; `toCommandPaletteItem` adapts one to the other when a consumer wants
+ * the canonical item model (e.g. an external palette surface or tests).
+ */
+export interface CommandPaletteItem {
+  id: string;
+  title: string;
+  subtitle?: string;
+  category: CommandPaletteCategory;
+  action: () => void;
+  shortcut?: string;
+}
+
 export interface Command {
   id: string;
   label: string;
@@ -20,7 +49,26 @@ export interface Command {
   /** Extra terms matched against the search query alongside the label */
   keywords?: string[];
   group: CommandGroup;
+  /** Optional palette category; takes precedence over `group` for display. */
+  category?: CommandPaletteCategory;
+  /** Optional accelerator hint shown next to the command (e.g. "g o"). */
+  shortcut?: string;
   perform: () => void | Promise<void>;
+}
+
+/** Adapts a registered `Command` to the canonical `CommandPaletteItem`. */
+export function toCommandPaletteItem(command: Command): CommandPaletteItem {
+  const category: CommandPaletteCategory =
+    command.category ??
+    (command.group === "navigate" ? "navigation" : "settings");
+  return {
+    id: command.id,
+    title: command.label,
+    subtitle: command.subtitle,
+    category,
+    action: () => void command.perform(),
+    shortcut: command.shortcut,
+  };
 }
 
 interface CommandRegistryContextValue {

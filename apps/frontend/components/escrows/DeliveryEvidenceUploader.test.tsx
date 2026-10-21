@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DeliveryEvidenceUploader } from "./DeliveryEvidenceUploader";
 
-const confirmMock = vi.fn(async () => ({ txHash: "tx-1" }));
+const confirmMock = vi.fn(async (_arg?: unknown) => ({ txHash: "tx-1" }));
 
 vi.mock("../../hooks/useNetwork", () => ({
   useNetwork: () => ({
@@ -35,7 +35,7 @@ vi.mock("../../lib/deliveryEvidence", async () => {
   );
   return {
     ...actual,
-    confirmDeliveryWithEvidence: (...args: unknown[]) => confirmMock(...args),
+    confirmDeliveryWithEvidence: (arg: unknown) => confirmMock(arg),
   };
 });
 

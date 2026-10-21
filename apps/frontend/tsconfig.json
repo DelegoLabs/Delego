@@ -14,7 +14,7 @@
     "jsx": "preserve",
     "incremental": true,
     "plugins": [{ "name": "next" }],
-    "types": ["vitest/globals", "node", "tailwindcss"],
+    "types": ["vitest/globals", "node"],
     "paths": {
       "@/*": ["./*"]
     }

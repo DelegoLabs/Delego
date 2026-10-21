@@ -58,153 +58,125 @@ describe("DEFAULT_CATALOG_FILTERS", () => {
 // ---------------------------------------------------------------------------
 
 describe("productMatchesFilters", () => {
+  const p = makeProduct({
+    category: "Electronics",
+    priceStroops: "10000000", // 1 USDC
+    rating: 4,
+    stockQuantity: 5,
+  });
+
   const noFilter: CatalogFilterState = { ...DEFAULT_CATALOG_FILTERS };
 
-  it("passes all products when no filters are active", () => {
-    for (const p of PRODUCTS) {
-      expect(productMatchesFilters(p, noFilter)).toBe(true);
-    }
+  it("passes when no filters are set", () => {
+    expect(productMatchesFilters(p, noFilter)).toBe(true);
   });
 
   describe("category filter", () => {
-    it("includes products whose category is selected", () => {
-      const f: CatalogFilterState = { ...noFilter, categories: ["Electronics"] };
-      expect(productMatchesFilters(PRODUCTS[0], f)).toBe(true); // Electronics
-      expect(productMatchesFilters(PRODUCTS[2], f)).toBe(true); // Electronics
+    it("matches when product has one of the selected categories", () => {
+      expect(
+        productMatchesFilters(p, {
+          ...noFilter,
+          categories: ["Electronics", "Clothing"],
+        })
+      ).toBe(true);
     });
 
-    it("excludes products in a different category", () => {
-      const f: CatalogFilterState = { ...noFilter, categories: ["Electronics"] };
-      expect(productMatchesFilters(PRODUCTS[1], f)).toBe(false); // Clothing
-      expect(productMatchesFilters(PRODUCTS[3], f)).toBe(false); // Clothing
+    it("rejects when product category is not in the list", () => {
+      expect(
+        productMatchesFilters(p, {
+          ...noFilter,
+          categories: ["Clothing", "Books"],
+        })
+      ).toBe(false);
     });
 
-    it("excludes products with no category when category filter is active", () => {
-      const f: CatalogFilterState = { ...noFilter, categories: ["Electronics"] };
-      expect(productMatchesFilters(PRODUCTS[4], f)).toBe(false); // no category
+    it("rejects a product with no category when category filter is active", () => {
+      const noCat = makeProduct({ category: undefined });
+      expect(
+        productMatchesFilters(noCat, {
+          ...noFilter,
+          categories: ["Electronics"],
+        })
+      ).toBe(false);
     });
 
-    it("supports multiple categories simultaneously", () => {
-      const f: CatalogFilterState = { ...noFilter, categories: ["Electronics", "Clothing"] };
-      expect(productMatchesFilters(PRODUCTS[0], f)).toBe(true);
-      expect(productMatchesFilters(PRODUCTS[1], f)).toBe(true);
-      expect(productMatchesFilters(PRODUCTS[2], f)).toBe(true);
-      expect(productMatchesFilters(PRODUCTS[3], f)).toBe(true);
+    it("passes a product with no category when category filter is empty", () => {
+      const noCat = makeProduct({ category: undefined });
+      expect(productMatchesFilters(noCat, noFilter)).toBe(true);
     });
   });
 
-  describe("price filter", () => {
-    it("filters by minimum price (inclusive)", () => {
-      const f: CatalogFilterState = { ...noFilter, minPrice: 20000000 };
-      expect(productMatchesFilters(PRODUCTS[1], f)).toBe(true);  // 20M
-      expect(productMatchesFilters(PRODUCTS[2], f)).toBe(true);  // 50M
-      expect(productMatchesFilters(PRODUCTS[0], f)).toBe(false); // 10M
+  describe("price filters", () => {
+    it("respects minPrice (inclusive)", () => {
+      expect(productMatchesFilters(p, { ...noFilter, minPrice: 10000000 })).toBe(true);
+      expect(productMatchesFilters(p, { ...noFilter, minPrice: 10000001 })).toBe(false);
     });
 
-    it("filters by maximum price (inclusive)", () => {
-      const f: CatalogFilterState = { ...noFilter, maxPrice: 10000000 };
-      expect(productMatchesFilters(PRODUCTS[0], f)).toBe(true);  // 10M
-      expect(productMatchesFilters(PRODUCTS[4], f)).toBe(true);  // 1M
-      expect(productMatchesFilters(PRODUCTS[1], f)).toBe(false); // 20M
+    it("respects maxPrice (inclusive)", () => {
+      expect(productMatchesFilters(p, { ...noFilter, maxPrice: 10000000 })).toBe(true);
+      expect(productMatchesFilters(p, { ...noFilter, maxPrice: 9999999 })).toBe(false);
     });
 
-    it("minPrice and maxPrice work independently", () => {
-      const min: CatalogFilterState = { ...noFilter, minPrice: 10000000 };
-      const max: CatalogFilterState = { ...noFilter, maxPrice: 20000000 };
-      // min only
-      expect(productMatchesFilters(PRODUCTS[0], min)).toBe(true);
-      expect(productMatchesFilters(PRODUCTS[4], min)).toBe(false);
-      // max only
-      expect(productMatchesFilters(PRODUCTS[2], max)).toBe(false);
-      expect(productMatchesFilters(PRODUCTS[1], max)).toBe(true);
+    it("handles both min and max together", () => {
+      const range = { ...noFilter, minPrice: 5000000, maxPrice: 15000000 };
+      expect(productMatchesFilters(p, range)).toBe(true);
+
+      const tooHigh = { ...noFilter, minPrice: 15000000, maxPrice: 20000000 };
+      expect(productMatchesFilters(p, tooHigh)).toBe(false);
+    });
+  });
+
+  describe("stock filter", () => {
+    it("shows all products when inStockOnly is false", () => {
+      const outOfStock = makeProduct({ stockQuantity: 0 });
+      expect(productMatchesFilters(outOfStock, { ...noFilter, inStockOnly: false })).toBe(true);
     });
 
-    it("filters by both min and max price simultaneously", () => {
-      const f: CatalogFilterState = { ...noFilter, minPrice: 5000000, maxPrice: 20000000 };
-      expect(productMatchesFilters(PRODUCTS[4], f)).toBe(false); // 1M — below min
-      expect(productMatchesFilters(PRODUCTS[3], f)).toBe(true);  // 5M — at min
-      expect(productMatchesFilters(PRODUCTS[1], f)).toBe(true);  // 20M — at max
-      expect(productMatchesFilters(PRODUCTS[2], f)).toBe(false); // 50M — above max
+    it("excludes out-of-stock products when inStockOnly is true", () => {
+      const inStock = makeProduct({ stockQuantity: 1 });
+      const outOfStock = makeProduct({ stockQuantity: 0 });
+      const negative = makeProduct({ stockQuantity: -1 });
+
+      expect(productMatchesFilters(inStock, { ...noFilter, inStockOnly: true })).toBe(true);
+      expect(productMatchesFilters(outOfStock, { ...noFilter, inStockOnly: true })).toBe(false);
+      expect(productMatchesFilters(negative, { ...noFilter, inStockOnly: true })).toBe(false);
+    });
+
+    it("filters low-stock only when lowStockOnly is true (< 5 items)", () => {
+      const healthy = makeProduct({ stockQuantity: 5 });
+      const low = makeProduct({ stockQuantity: 4 });
+      const empty = makeProduct({ stockQuantity: 0 });
+
+      expect(productMatchesFilters(healthy, { ...noFilter, lowStockOnly: true })).toBe(false);
+      expect(productMatchesFilters(low, { ...noFilter, lowStockOnly: true })).toBe(true);
+      expect(productMatchesFilters(empty, { ...noFilter, lowStockOnly: true })).toBe(true);
     });
   });
 
   describe("rating filter", () => {
-    it("filters by minimum rating", () => {
-      const f: CatalogFilterState = { ...noFilter, minRating: 4 };
-      expect(productMatchesFilters(PRODUCTS[0], f)).toBe(true);  // rating 4
-      expect(productMatchesFilters(PRODUCTS[2], f)).toBe(true);  // rating 5
-      expect(productMatchesFilters(PRODUCTS[1], f)).toBe(false); // rating 3
-      expect(productMatchesFilters(PRODUCTS[3], f)).toBe(false); // rating 2
+    it("matches when rating meets or exceeds minRating", () => {
+      expect(productMatchesFilters(p, { ...noFilter, minRating: 4 })).toBe(true);
+      expect(productMatchesFilters(p, { ...noFilter, minRating: 3 })).toBe(true);
     });
 
-    it("excludes products with no rating when minRating is set", () => {
-      const p = makeProduct({ rating: undefined });
-      const f: CatalogFilterState = { ...noFilter, minRating: 1 };
-      expect(productMatchesFilters(p, f)).toBe(false);
+    it("rejects when rating is below minRating", () => {
+      expect(productMatchesFilters(p, { ...noFilter, minRating: 5 })).toBe(false);
     });
 
-    it("does not filter by rating when minRating is undefined", () => {
-      const p = makeProduct({ rating: undefined });
-      expect(productMatchesFilters(p, noFilter)).toBe(true);
+    it("rejects a product with no rating when minRating is set", () => {
+      const unrated = makeProduct({ rating: undefined });
+      expect(productMatchesFilters(unrated, { ...noFilter, minRating: 1 })).toBe(false);
     });
   });
 
-  describe("inStockOnly filter", () => {
-    it("excludes out-of-stock products when enabled", () => {
-      const f: CatalogFilterState = { ...noFilter, inStockOnly: true };
-      expect(productMatchesFilters(PRODUCTS[1], f)).toBe(false); // stock 0
-      expect(productMatchesFilters(PRODUCTS[0], f)).toBe(true);  // stock 5
-    });
-
-    it("includes out-of-stock products when disabled", () => {
-      expect(productMatchesFilters(PRODUCTS[1], noFilter)).toBe(true);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Combined filters
-  // ---------------------------------------------------------------------------
-
-  describe("combined filters", () => {
-    it("category + price", () => {
-      const f: CatalogFilterState = {
-        ...noFilter,
-        categories: ["Electronics"],
-        maxPrice: 15000000,
-      };
-      expect(productMatchesFilters(PRODUCTS[0], f)).toBe(true);  // Electronics 10M
-      expect(productMatchesFilters(PRODUCTS[2], f)).toBe(false); // Electronics 50M — price too high
-      expect(productMatchesFilters(PRODUCTS[1], f)).toBe(false); // Clothing — wrong category
-    });
-
-    it("category + rating", () => {
-      const f: CatalogFilterState = {
-        ...noFilter,
-        categories: ["Electronics"],
-        minRating: 5,
-      };
-      expect(productMatchesFilters(PRODUCTS[0], f)).toBe(false); // Electronics rating 4
-      expect(productMatchesFilters(PRODUCTS[2], f)).toBe(true);  // Electronics rating 5
-    });
-
-    it("price + stock", () => {
-      const f: CatalogFilterState = {
-        ...noFilter,
-        maxPrice: 20000000,
-        inStockOnly: true,
-      };
-      expect(productMatchesFilters(PRODUCTS[1], f)).toBe(false); // 20M stock=0
-      expect(productMatchesFilters(PRODUCTS[0], f)).toBe(true);  // 10M stock=5
-      expect(productMatchesFilters(PRODUCTS[2], f)).toBe(false); // 50M — price too high
-    });
-
-    it("category + price + rating + stock", () => {
+  describe("combined filters (AND logic)", () => {
+    it("requires ALL active predicates to pass", () => {
       const f: CatalogFilterState = {
         categories: ["Electronics"],
         minPrice: 5000000,
-        maxPrice: 30000000,
-        minRating: 4,
+        maxPrice: 20000000,
         inStockOnly: true,
+        minRating: 4,
       };
       // p1: Electronics, 10M, rating 4, stock 5 → PASS
       expect(productMatchesFilters(PRODUCTS[0], f)).toBe(true);
@@ -242,6 +214,12 @@ describe("applyFilters", () => {
     expect(result.every((p) => p.stockQuantity > 0)).toBe(true);
     expect(result.find((p) => p.id === "p2")).toBeUndefined(); // stock 0
   });
+
+  it("filters low-stock only (< 5 remaining items)", () => {
+    const f: CatalogFilterState = { ...DEFAULT_CATALOG_FILTERS, lowStockOnly: true };
+    const result = applyFilters(PRODUCTS, f);
+    expect(result.map((p) => p.id)).toEqual(["p2", "p3", "p5"]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -256,6 +234,7 @@ describe("hasActiveFilters", () => {
   it("returns true when any filter is non-default", () => {
     expect(hasActiveFilters({ ...DEFAULT_CATALOG_FILTERS, categories: ["X"] })).toBe(true);
     expect(hasActiveFilters({ ...DEFAULT_CATALOG_FILTERS, inStockOnly: true })).toBe(true);
+    expect(hasActiveFilters({ ...DEFAULT_CATALOG_FILTERS, lowStockOnly: true })).toBe(true);
     expect(hasActiveFilters({ ...DEFAULT_CATALOG_FILTERS, minPrice: 0 })).toBe(true);
     expect(hasActiveFilters({ ...DEFAULT_CATALOG_FILTERS, maxPrice: 999 })).toBe(true);
     expect(hasActiveFilters({ ...DEFAULT_CATALOG_FILTERS, minRating: 3 })).toBe(true);
@@ -301,6 +280,10 @@ describe("encodeFiltersToParams", () => {
     expect(encodeFiltersToParams({ ...DEFAULT_CATALOG_FILTERS, inStockOnly: false })).not.toHaveProperty("inStock");
   });
 
+  it("encodes lowStockOnly as '1'", () => {
+    expect(encodeFiltersToParams({ ...DEFAULT_CATALOG_FILTERS, lowStockOnly: true })).toMatchObject({ lowStock: "1" });
+  });
+
   it("encodes minRating as a string", () => {
     const f: CatalogFilterState = { ...DEFAULT_CATALOG_FILTERS, minRating: 4 };
     expect(encodeFiltersToParams(f)).toMatchObject({ minRating: "4" });
@@ -311,6 +294,7 @@ describe("encodeFiltersToParams", () => {
     expect(encoded).not.toHaveProperty("minPrice");
     expect(encoded).not.toHaveProperty("maxPrice");
     expect(encoded).not.toHaveProperty("minRating");
+    expect(encoded).not.toHaveProperty("lowStock");
   });
 });
 
@@ -342,6 +326,11 @@ describe("decodeParamsToFilters", () => {
   it("decodes inStockOnly from inStock=1", () => {
     const result = decodeParamsToFilters(params({ inStock: "1" }));
     expect(result.inStockOnly).toBe(true);
+  });
+
+  it("decodes lowStockOnly from lowStock=1", () => {
+    const result = decodeParamsToFilters(params({ lowStock: "1" }));
+    expect(result.lowStockOnly).toBe(true);
   });
 
   it("does not set inStockOnly for inStock=0", () => {

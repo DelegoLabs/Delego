@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { Button } from "@delegolabs/ui";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
-  DEFAULT_CATALOG_FILTERS,
   hasActiveFilters,
   type CatalogFilterState,
 } from "../../lib/catalogFilters";
@@ -127,7 +126,7 @@ function FilterControls({
         </div>
       </div>
 
-      {/* In stock */}
+      {/* Stock Availability */}
       <div className="catalog-filter-section">
         <p className="catalog-filter-section-title">Availability</p>
         <label className="catalog-filter-checkbox">
@@ -138,6 +137,15 @@ function FilterControls({
             aria-label="Show in-stock products only"
           />
           In stock only
+        </label>
+        <label className="catalog-filter-checkbox">
+          <input
+            type="checkbox"
+            checked={Boolean(filters.lowStockOnly)}
+            onChange={(e) => onChange({ lowStockOnly: e.target.checked })}
+            aria-label="Show low-stock products only"
+          />
+          Low stock only (&lt; 5)
         </label>
       </div>
 
