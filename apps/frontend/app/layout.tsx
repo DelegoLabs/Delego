@@ -19,6 +19,7 @@ import { Inter } from "next/font/google";
 import { a11yBootstrapScript } from "../hooks/useAccessibility";
 import { EXTERNAL_SCRIPTS } from "../lib/sri";
 import { AgentFab } from "../components/layout/AgentFab";
+import { SkipToContent } from "../components/layout/SkipToContent";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -86,13 +87,11 @@ export default async function RootLayout({
       <body className={inter.className}>
         <StrictMode>
           <NextIntlClientProvider locale={locale} messages={messages}>
+            {/* Must stay the first focusable element in the body (#1015), so it
+                sits outside AppProviders, which renders banners (e.g. the
+                first-run ConsentBanner) ahead of its children. */}
+            <SkipToContent />
             <AppProviders>
-              <a
-                href="#app-content"
-                className="skip-to-content"
-              >
-                Skip to Main Content
-              </a>
               <ServiceWorkerRegistration />
               <OfflineModeBanner />
               <AnnouncementBanner />
