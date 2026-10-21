@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Horizon, TransactionBuilder } from "@stellar/stellar-sdk";
+import { Horizon, TransactionBuilder, StrKey } from "@stellar/stellar-sdk";
 import { StroopsInput } from "@delegolabs/ui";
 import { useWallet } from "../../hooks/useWallet";
 import { useNetwork } from "../../hooks/useNetwork";
@@ -15,6 +15,7 @@ import {
   revokeSessionKeyGrant,
   saveSessionKeyGrant,
   type SessionKeyGrant,
+  type GranularSessionScope,
 } from "../../lib/sessionKeys";
 import {
   WALLET_CANCELLED_MESSAGE,
@@ -27,18 +28,20 @@ import type { SessionKeyWorkerMessage } from "../../lib/sessionKeys";
 export interface SessionKeyGrantModalProps {
   open: boolean;
   onClose: () => void;
-  /** Contract calls this session key is scoped to (e.g. ["escrow.release", "order.approve"]). */
   allowedContractCalls: string[];
 }
 
 type Step = "form" | "signing" | "active" | "error";
 
-/** Modal for granting an agent a time-bounded, spending-capped session key. */
 export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: SessionKeyGrantModalProps) {
   const { address } = useWallet();
   const { network } = useNetwork();
   const [durationHours, setDurationHours] = useState(24);
   const [maxAllowanceStroops, setMaxAllowanceStroops] = useState<bigint>(0n);
+  const [maxPerOrderStroops, setMaxPerOrderStroops] = useState<bigint>(0n);
+  const [merchantAddressesInput, setMerchantAddressesInput] = useState("");
+  const [categoriesInput, setCategoriesInput] = useState("");
+
   const [step, setStep] = useState<Step>("form");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
@@ -72,6 +75,40 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
       return;
     }
 
+    // Granular validation
+    if (maxPerOrderStroops < 0n) {
+      setErrorMessage("Max amount per order must be positive.");
+      return;
+    }
+    if (maxPerOrderStroops > 0n && maxPerOrderStroops > maxAllowanceStroops) {
+      setErrorMessage("Max per-order amount cannot exceed total spending budget.");
+      return;
+    }
+
+    const merchants = merchantAddressesInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    for (const m of merchants) {
+      if (!StrKey.isValidEd25519PublicKey(m)) {
+        setErrorMessage(`Invalid Stellar merchant address: ${m}`);
+        return;
+      }
+    }
+
+    const categories = categoriesInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const granularScope: GranularSessionScope = {
+      maxAmountPerOrderStroops: maxPerOrderStroops.toString(),
+      allowedMerchantAddresses: merchants,
+      allowedCategories: categories,
+      maxTotalSpendStroops: maxAllowanceStroops.toString(),
+    };
+
     setStep("signing");
     setErrorMessage(null);
     setNoticeMessage(null);
@@ -91,6 +128,7 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
         durationHours,
         allowedContractCalls,
         expiresAt,
+        granularScope,
       };
 
       const horizon = new Horizon.Server(network.horizonUrl);
@@ -123,7 +161,6 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
       setStep("active");
     } catch (err) {
       if (isUserDeclined(err)) {
-        // Dismissing the wallet popup resets to the form with a neutral notice.
         setStep("form");
         setNoticeMessage(WALLET_CANCELLED_MESSAGE);
       } else {
@@ -168,10 +205,12 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
           borderRadius: "0.75rem",
           padding: "1.25rem",
           width: "100%",
-          maxWidth: 420,
+          maxWidth: 460,
           display: "flex",
           flexDirection: "column",
           gap: "1rem",
+          maxHeight: "90vh",
+          overflowY: "auto",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -187,6 +226,23 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
               Session key <code>{activeGrant.sessionPublicKey.slice(0, 8)}…</code> is active with a{" "}
               {activeGrant.maxAllowanceStroops} stroop cap.
             </p>
+            {activeGrant.granularScope && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }} data-testid="permission-chips">
+                <span className="bg-blue-100 text-blue-800 text-[11px] px-2 py-0.5 rounded-full font-medium">
+                  Max/Order: {activeGrant.granularScope.maxAmountPerOrderStroops} stroops
+                </span>
+                {activeGrant.granularScope.allowedMerchantAddresses.length > 0 && (
+                  <span className="bg-green-100 text-green-800 text-[11px] px-2 py-0.5 rounded-full font-medium">
+                    Merchants: {activeGrant.granularScope.allowedMerchantAddresses.length} whitelisted
+                  </span>
+                )}
+                {activeGrant.granularScope.allowedCategories.length > 0 && (
+                  <span className="bg-purple-100 text-purple-800 text-[11px] px-2 py-0.5 rounded-full font-medium">
+                    Categories: {activeGrant.granularScope.allowedCategories.join(", ")}
+                  </span>
+                )}
+              </div>
+            )}
             <ExpiryCountdown expiresAt={activeGrant.expiresAt} />
             <button
               type="button"
@@ -230,8 +286,37 @@ export function SessionKeyGrantModal({ open, onClose, allowedContractCalls }: Se
             </div>
 
             <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-              <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Spending budget</span>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Total spending budget (stroops)</span>
               <StroopsInput value={maxAllowanceStroops} onChange={setMaxAllowanceStroops} />
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Max per-order amount (stroops)</span>
+              <StroopsInput value={maxPerOrderStroops} onChange={setMaxPerOrderStroops} />
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Allowed merchant addresses (comma-separated)</span>
+              <input
+                type="text"
+                placeholder="G..., G..."
+                value={merchantAddressesInput}
+                onChange={(e) => setMerchantAddressesInput(e.target.value)}
+                style={{ padding: "0.375rem 0.5rem", border: "1px solid #d1d5db", borderRadius: "0.375rem", fontSize: "0.8125rem" }}
+                data-testid="input-merchant-addresses"
+              />
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Allowed categories (comma-separated)</span>
+              <input
+                type="text"
+                placeholder="electronics, groceries"
+                value={categoriesInput}
+                onChange={(e) => setCategoriesInput(e.target.value)}
+                style={{ padding: "0.375rem 0.5rem", border: "1px solid #d1d5db", borderRadius: "0.375rem", fontSize: "0.8125rem" }}
+                data-testid="input-categories"
+              />
             </label>
 
             {noticeMessage && (

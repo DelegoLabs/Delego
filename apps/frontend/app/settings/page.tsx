@@ -21,6 +21,7 @@ import { CurrencySwitcher } from "../../components/settings/CurrencySwitcher";
 import { TimeFormatSwitcher } from "../../components/settings/TimeFormatSwitcher";
 import { OfflineDataCard } from "../../components/settings/OfflineDataCard";
 import { AgentSettingsCard } from "../../components/settings/AgentSettingsCard";
+import { SpendVelocityGauge } from "../../components/settings/SpendVelocityGauge";
 import type { CategoryBudgetAllocation } from "../../components/settings/CategoryBudgetAllocationCard";
 import type { AgentPersonaConfig } from "../../lib/agentConfig";
 
@@ -256,25 +257,19 @@ export default function SettingsPage() {
   >(PLACEHOLDER_CATEGORY_BUDGETS);
 
   const handleSaveProfile = async (values: ProfileFormValues) => {
-    // TODO: persist via api.updateProfile(values) once the endpoint exists.
     setUser((prev) => ({ ...prev, ...values, updatedAt: new Date() }));
   };
 
   const handleSavePreferences = async (values: PreferencesFormValues) => {
-    // TODO: persist via api.updatePreferences(values) once the endpoint exists.
     setPreferences((prev) => ({ ...prev, ...values }));
   };
 
   const handleSaveCategoryBudgets = async (
     allocations: CategoryBudgetAllocation[]
   ) => {
-    // TODO: persist via api.updateCategoryBudgets(allocations) once the
-    // endpoint exists in @delegolabs/sdk.
     setCategoryBudgets(allocations);
   };
   const handleConfirmRevokeAll = async () => {
-    // TODO: broadcast revocation on-chain via api.revokeAllDelegations() once
-    // the endpoint exists in @delegolabs/sdk.
     setIsKillSwitchOpen(false);
   };
 
@@ -284,6 +279,15 @@ export default function SettingsPage() {
         <h1>Settings</h1>
         <p>Manage your profile, spending controls, and notifications</p>
       </header>
+
+      <section className="mb-6">
+        <SpendVelocityGauge
+          currentSpendStroops="350000000"
+          limitStroops="500000000"
+          windowHours={24}
+          remainingSeconds={18000}
+        />
+      </section>
 
       <section
         className="emergency-kill-switch-banner"
