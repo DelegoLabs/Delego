@@ -11,6 +11,12 @@ export interface MerchantEscrowOrder {
   shippingAddress: string;
   fundedAt: string;
   deadline: string;
+  items?: { name: string; quantity: number; priceStroops?: string }[];
+  giftOptions?: import("@delegolabs/types").GiftOptions;
+  metadata?: {
+    giftOptions?: import("@delegolabs/types").GiftOptions;
+    [key: string]: any;
+  };
 }
 
 const retryingFetch = createRetryingFetch();

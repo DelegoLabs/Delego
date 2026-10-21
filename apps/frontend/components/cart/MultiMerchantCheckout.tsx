@@ -21,6 +21,8 @@ import {
   type MerchantCartPartition,
 } from "../../lib/cartPartition";
 import { useCart } from "../../hooks/useCart";
+import type { GiftOptions } from "@delegolabs/types";
+import { GiftOptionsSection } from "../orders/GiftOptionsSection";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -339,7 +341,7 @@ function PartitionCard({
 
 export interface MultiMerchantCheckoutProps {
   /** Called when every partition has been confirmed, with the ordered list. */
-  onComplete?: (partitions: MerchantCartPartition[]) => void;
+  onComplete?: (partitions: MerchantCartPartition[], metadata?: Record<string, any>) => void;
   /** Called when the buyer cancels the checkout. */
   onCancel?: () => void;
   /**
@@ -347,7 +349,11 @@ export interface MultiMerchantCheckoutProps {
    * Should resolve when the wallet signs successfully and reject on failure.
    * Receives the partition to sign.
    */
-  signEscrow?: (partition: MerchantCartPartition) => Promise<void>;
+  signEscrow?: (partition: MerchantCartPartition, metadata?: Record<string, any>) => Promise<void>;
+  /** Initial gift options */
+  initialGiftOptions?: GiftOptions;
+  /** Callback when gift options change */
+  onGiftOptionsChange?: (options: GiftOptions) => void;
 }
 
 /**
@@ -370,6 +376,8 @@ export function MultiMerchantCheckout({
   onComplete,
   onCancel,
   signEscrow = defaultSignEscrow,
+  initialGiftOptions,
+  onGiftOptionsChange,
 }: MultiMerchantCheckoutProps) {
   const { summary, clearCart } = useCart();
 
@@ -383,6 +391,19 @@ export function MultiMerchantCheckout({
   const [partitions, setPartitions] =
     useState<MerchantCartPartition[]>(initialPartitions);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [giftOptions, setGiftOptions] = useState<GiftOptions>(
+    initialGiftOptions ?? {
+      isGift: false,
+      recipientName: "",
+      giftMessage: "",
+      hidePackingSlipPrice: true,
+    }
+  );
+
+  const handleGiftOptionsChange = (options: GiftOptions) => {
+    setGiftOptions(options);
+    onGiftOptionsChange?.(options);
+  };
 
   const activeIndex = nextPendingIndex(partitions);
   const done = allConfirmed(partitions);
@@ -401,7 +422,8 @@ export function MultiMerchantCheckout({
       setGlobalError(null);
       updateStatus(index, "authorizing");
       try {
-        await signEscrow(partitions[index]);
+        const metadata: Record<string, any> = { giftOptions };
+        await signEscrow(partitions[index], metadata);
         updateStatus(index, "confirmed");
         // Check if we just completed the last partition
         const updated = partitions.map((p, i) =>
@@ -409,7 +431,7 @@ export function MultiMerchantCheckout({
         );
         if (updated.every((p) => p.escrowStatus === "confirmed")) {
           clearCart();
-          onComplete?.(updated);
+          onComplete?.(updated, metadata);
         }
       } catch (err) {
         updateStatus(index, "failed");
@@ -418,7 +440,7 @@ export function MultiMerchantCheckout({
         );
       }
     },
-    [partitions, signEscrow, updateStatus, clearCart, onComplete]
+    [partitions, signEscrow, updateStatus, clearCart, onComplete, giftOptions]
   );
 
   const handleRetry = useCallback(
@@ -477,6 +499,14 @@ export function MultiMerchantCheckout({
           {globalError}
         </div>
       )}
+
+      {/* Gift options in checkout review */}
+      <div data-testid="checkout-review-step">
+        <GiftOptionsSection
+          value={giftOptions}
+          onChange={handleGiftOptionsChange}
+        />
+      </div>
 
       {/* Partition cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>

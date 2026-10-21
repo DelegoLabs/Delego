@@ -84,6 +84,15 @@ export const OrderSchema = z.object({
   items: z.array(OrderItemSchema).optional(),
   lineItems: z.array(OrderItemSchema).optional(),
   escrowContractId: z.string().nullable().optional(),
+  giftOptions: z.lazy(() => GiftOptionsSchema).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+export const GiftOptionsSchema = z.object({
+  isGift: z.boolean(),
+  recipientName: z.string().optional(),
+  giftMessage: z.string().max(250).optional(),
+  hidePackingSlipPrice: z.boolean(),
 });
 
 export const EscrowStatusSchema = z.enum([

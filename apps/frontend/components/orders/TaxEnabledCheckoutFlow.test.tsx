@@ -311,3 +311,115 @@ describe("Integration scenarios", () => {
     expect(receiptPanel).toHaveAttribute("data-order-id", "test-order-123");
   });
 });
+describe("Checkout Review Step - Gift Options Integration", () => {
+  test("renders 'This is a gift' checkbox in checkout review step", () => {
+    render(<TaxEnabledCheckoutFlow order={mockOrder} mode="full" />);
+
+    const reviewStep = screen.getByTestId("checkout-review-step");
+    expect(reviewStep).toBeInTheDocument();
+
+    const giftCheckbox = screen.getByTestId("gift-options-checkbox");
+    expect(giftCheckbox).toBeInTheDocument();
+    expect(giftCheckbox).not.toBeChecked();
+  });
+
+  test("reveals gift message textarea with 250-character counter upon checking gift checkbox", () => {
+    render(<TaxEnabledCheckoutFlow order={mockOrder} mode="full" />);
+
+    const giftCheckbox = screen.getByTestId("gift-options-checkbox");
+    fireEvent.click(giftCheckbox);
+
+    expect(giftCheckbox).toBeChecked();
+    expect(screen.getByTestId("gift-message-textarea")).toBeInTheDocument();
+    expect(screen.getByTestId("gift-message-counter")).toHaveTextContent("0/250 characters (250 remaining)");
+    expect(screen.getByTestId("gift-recipient-name-input")).toBeInTheDocument();
+    expect(screen.getByTestId("gift-hide-price-checkbox")).toBeInTheDocument();
+  });
+
+  test("passes gift options in order metadata payload to backend on approval", async () => {
+    const onApprove = vi.fn();
+    const onGiftOptionsChange = vi.fn();
+
+    render(
+      <TaxEnabledCheckoutFlow
+        order={mockOrder}
+        onApprove={onApprove}
+        onGiftOptionsChange={onGiftOptionsChange}
+        mode="full"
+      />
+    );
+
+    // Toggle gift checkbox
+    fireEvent.click(screen.getByTestId("gift-options-checkbox"));
+    expect(onGiftOptionsChange).toHaveBeenCalledWith(
+      expect.objectContaining({ isGift: true })
+    );
+
+    // Enter recipient name
+    fireEvent.change(screen.getByTestId("gift-recipient-name-input"), {
+      target: { value: "Samantha Jones" },
+    });
+
+    // Enter gift message
+    fireEvent.change(screen.getByTestId("gift-message-textarea"), {
+      target: { value: "Wishing you a wonderful celebration!" },
+    });
+
+    expect(screen.getByTestId("gift-message-counter")).toHaveTextContent("36/250 characters (214 remaining)");
+
+    // Approve order
+    const approveBtn = screen.getByTestId("approve-btn");
+    fireEvent.click(approveBtn);
+
+    await waitFor(() => {
+      expect(onApprove).toHaveBeenCalledWith(
+        "test-order-123",
+        expect.any(BigInt),
+        {
+          giftOptions: {
+            isGift: true,
+            recipientName: "Samantha Jones",
+            giftMessage: "Wishing you a wonderful celebration!",
+            hidePackingSlipPrice: true,
+          },
+        }
+      );
+    });
+  });
+
+  test("propagates hidePackingSlipPrice toggle into metadata payload", async () => {
+    const onApprove = vi.fn();
+
+    render(
+      <TaxEnabledCheckoutFlow
+        order={mockOrder}
+        onApprove={onApprove}
+        mode="full"
+      />
+    );
+
+    // Turn on gift options
+    fireEvent.click(screen.getByTestId("gift-options-checkbox"));
+
+    // Turn off hide packing slip price
+    const hidePriceCheckbox = screen.getByTestId("gift-hide-price-checkbox");
+    fireEvent.click(hidePriceCheckbox);
+    expect(hidePriceCheckbox).not.toBeChecked();
+
+    // Approve order
+    fireEvent.click(screen.getByTestId("approve-btn"));
+
+    await waitFor(() => {
+      expect(onApprove).toHaveBeenCalledWith(
+        "test-order-123",
+        expect.any(BigInt),
+        expect.objectContaining({
+          giftOptions: expect.objectContaining({
+            isGift: true,
+            hidePackingSlipPrice: false,
+          }),
+        })
+      );
+    });
+  });
+});

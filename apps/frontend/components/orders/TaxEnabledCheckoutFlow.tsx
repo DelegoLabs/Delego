@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Card, Button, FormField } from "@delegolabs/ui";
-import type { Order } from "@delegolabs/types";
+import type { Order, GiftOptions } from "@delegolabs/types";
+import { GiftOptionsSection } from "./GiftOptionsSection";
 import { ApprovalCard } from "./ApprovalCard";
 import { ReceiptPanel } from "./ReceiptPanel";
 import { TaxBreakdownDisplay } from "./TaxBreakdownDisplay";
@@ -15,8 +16,12 @@ export interface TaxEnabledCheckoutFlowProps {
   order: Order;
   /** Initial postal code (can come from user settings, delegation config, etc.) */
   initialPostalCode?: string;
+  /** Initial gift options */
+  initialGiftOptions?: GiftOptions;
+  /** Callback when gift options change */
+  onGiftOptionsChange?: (options: GiftOptions) => void;
   /** Callback when order is approved with tax-inclusive amount */
-  onApprove?: (orderId: string, taxInclusiveAmount: bigint) => void | Promise<void>;
+  onApprove?: (orderId: string, taxInclusiveAmount: bigint, metadata?: Record<string, any>) => void | Promise<void>;
   /** Callback when order is rejected */
   onReject?: (orderId: string, reason?: string) => void | Promise<void>;
   /** Whether to show the full checkout flow or just the tax calculation */
@@ -35,6 +40,8 @@ export interface TaxEnabledCheckoutFlowProps {
 export function TaxEnabledCheckoutFlow({
   order,
   initialPostalCode = "",
+  initialGiftOptions,
+  onGiftOptionsChange,
   onApprove,
   onReject,
   mode = "full",
@@ -42,6 +49,19 @@ export function TaxEnabledCheckoutFlow({
   const [postalCode, setPostalCode] = useState(initialPostalCode);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showReceipt, setShowReceipt] = useState(mode === "receipt");
+  const [giftOptions, setGiftOptions] = useState<GiftOptions>(
+    initialGiftOptions ?? order.giftOptions ?? order.metadata?.giftOptions ?? {
+      isGift: false,
+      recipientName: "",
+      giftMessage: "",
+      hidePackingSlipPrice: true,
+    }
+  );
+
+  const handleGiftOptionsChange = (options: GiftOptions) => {
+    setGiftOptions(options);
+    onGiftOptionsChange?.(options);
+  };
 
   // Calculate subtotal from line items
   const subtotal = receiptSubtotalStroops(order);
@@ -55,7 +75,16 @@ export function TaxEnabledCheckoutFlow({
       // Calculate final amount including tax
       const finalAmount = taxBreakdown?.totalStroops ?? subtotal;
       
-      await onApprove?.(orderId, finalAmount);
+      const hasMetadata = Boolean(order.metadata) || giftOptions.isGift;
+      if (hasMetadata) {
+        const metadata: Record<string, any> = {
+          ...(order.metadata || {}),
+          giftOptions,
+        };
+        await onApprove?.(orderId, finalAmount, metadata);
+      } else {
+        await onApprove?.(orderId, finalAmount);
+      }
       
       // Show receipt after successful approval
       if (mode === "full") {
@@ -154,8 +183,15 @@ export function TaxEnabledCheckoutFlow({
           </Card>
         )}
 
-        {/* Step 3: Order Approval with Tax */}
-        <div className="checkout-step">
+        {/* Step 3: Order Approval with Tax & Gift Options in Review Step */}
+        <div className="checkout-step checkout-review-step" data-testid="checkout-review-step">
+          <Card title="Gift Options">
+            <GiftOptionsSection
+              value={giftOptions}
+              onChange={handleGiftOptionsChange}
+              disabled={isProcessing}
+            />
+          </Card>
           <ApprovalCard
             order={order}
             deliveryPostalCode={postalCode || undefined}
