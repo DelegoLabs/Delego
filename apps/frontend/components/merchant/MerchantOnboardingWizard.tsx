@@ -11,7 +11,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Stepper, Card, Button, Input, Textarea, Select } from "@delegolabs/ui";
+import { Stepper, Card, Button } from "@delegolabs/ui";
 import { useWallet } from "../../hooks/useWallet";
 import { useNetwork } from "../../hooks/useNetwork";
 import {
@@ -24,6 +24,7 @@ import {
   saveOnboardingState,
   clearOnboardingState,
   type MerchantOnboardingData,
+  type MerchantRegistrationForm,
   type OnboardingStep,
 } from "../../lib/merchantRegistration";
 import { verifyDomainOwnership, type DomainVerificationResult } from "../../lib/merchantDomainVerification";
@@ -51,7 +52,7 @@ interface MerchantOnboardingWizardProps {
 }
 
 export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboardingWizardProps) {
-  const { address, isConnected, connect, getNetwork } = useWallet();
+  const { address, isConnected, connect } = useWallet();
   const { network } = useNetwork();
   const [stepIndex, setStepIndex] = useState(0);
   const [formData, setFormData] = useState<MerchantOnboardingData>({
@@ -132,15 +133,14 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  const handleStoreSlugChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setFormData((prev) => ({ ...prev, storeSlug: value }));
-  }, []);
-
   const handleGenerateSlug = useCallback(() => {
     const slug = generateStoreSlug(formData.storeName);
     setFormData((prev) => ({ ...prev, storeSlug: slug }));
   }, [formData.storeName]);
+
+  const handleStoreSlugChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, storeSlug: e.target.value }));
+  }, []);
 
   const handleNext = async () => {
     if (currentStep === "store_details") {
@@ -253,7 +253,16 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
     setRegistering(true);
     setRegisterError(null);
     try {
-      const result = await registerMerchant(formData, walletProof);
+      const registrationPayload: MerchantRegistrationForm = {
+        storeName: formData.storeName,
+        storeSlug: formData.storeSlug,
+        description: formData.description,
+        contactEmail: formData.contactEmail,
+        stellarPayoutAddress: formData.payoutAddress,
+        category: "other",
+        websiteUrl: "",
+      };
+      const result = await registerMerchant(registrationPayload, walletProof);
       setTransactionHash(result.transactionHash);
       clearOnboardingState();
       setStepIndex((prev) => prev + 1);
@@ -286,30 +295,30 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
         <p>Complete the steps below to set up your storefront profile.</p>
       </header>
 
-      <Stepper steps={STEPS.map((s) => s.label)} currentIndex={stepIndex} />
+      <Stepper steps={STEPS.map((s) => ({ id: s.label, label: s.label }))} currentIndex={stepIndex} />
 
       <Card title={STEPS[stepIndex].label} ariaLabel={`Step ${stepIndex + 1}: ${STEPS[stepIndex].label}`}>
-        {/* Store Details Step */}
         {currentStep === "store_details" && (
           <div className="merchant-onboarding-step">
             <div className="form-group">
               <label htmlFor="storeName">Store name</label>
-              <Input
+              <input
                 id="storeName"
                 value={formData.storeName}
                 onChange={(e) => handleInputChange("storeName", e.target.value)}
-                error={errors.storeName}
+                aria-invalid={Boolean(errors.storeName)}
               />
+              {errors.storeName ? <div className="error-message">{errors.storeName}</div> : null}
             </div>
 
             <div className="form-group">
               <label htmlFor="storeSlug">Store slug (URL-friendly identifier)</label>
               <div className="input-group">
-                <Input
+                <input
                   id="storeSlug"
                   value={formData.storeSlug}
                   onChange={handleStoreSlugChange}
-                  error={errors.storeSlug}
+                  aria-invalid={Boolean(errors.storeSlug)}
                 />
                 <Button
                   variant="secondary"
@@ -319,92 +328,85 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
                   Generate
                 </Button>
               </div>
+              {errors.storeSlug ? <div className="error-message">{errors.storeSlug}</div> : null}
             </div>
 
             <div className="form-group">
               <label htmlFor="description">Description</label>
-              <Textarea
+              <textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => handleInputChange("description", e.target.value)}
                 rows={4}
-                error={errors.description}
+                aria-invalid={Boolean(errors.description)}
               />
+              {errors.description ? <div className="error-message">{errors.description}</div> : null}
             </div>
 
             <div className="form-group">
               <label htmlFor="contactEmail">Contact email</label>
-              <Input
+              <input
                 id="contactEmail"
                 type="email"
                 value={formData.contactEmail}
                 onChange={(e) => handleInputChange("contactEmail", e.target.value)}
-                error={errors.contactEmail}
+                aria-invalid={Boolean(errors.contactEmail)}
               />
+              {errors.contactEmail ? <div className="error-message">{errors.contactEmail}</div> : null}
             </div>
 
             <div className="form-group">
               <label htmlFor="acceptedCurrencies">Accepted currencies</label>
-              <Select
+              <select
                 id="acceptedCurrencies"
                 multiple
                 value={formData.acceptedCurrencies}
-                onChange={(e) => handleInputChange("acceptedCurrencies", Array.from(e.target.selectedOptions, option => option.value))}
-                options={[
+                onChange={(e) => handleInputChange("acceptedCurrencies", Array.from(e.target.selectedOptions, (option) => option.value))}
+              >
+                {[
                   { value: "XLM", label: "XLM (Stellar)" },
                   { value: "USD", label: "USD" },
                   { value: "EUR", label: "EUR" },
                   { value: "GBP", label: "GBP" },
                   { value: "JPY", label: "JPY" },
-                ]}
-              />
+                ].map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="form-actions">
-              <Button variant="ghost" onClick={handleCancel}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleNext}
-                disabled={!formData.storeName.trim() || !formData.description.trim()}
-              >
+              <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
+              <Button variant="primary" onClick={handleNext} disabled={!formData.storeName.trim() || !formData.description.trim()}>
                 Next
               </Button>
             </div>
           </div>
         )}
 
-        {/* Payout Address Step */}
         {currentStep === "payout_address" && (
           <div className="merchant-onboarding-step">
-            <p className="step-intro">
-              Configure where payments will be sent when orders are fulfilled.
-            </p>
-
+            <p className="step-intro">Configure where payments will be sent when orders are fulfilled.</p>
             <div className="form-group">
               <label htmlFor="payoutAddress">Stellar payout address (G...)</label>
-              <Input
+              <input
                 id="payoutAddress"
                 value={formData.payoutAddress}
                 onChange={(e) => handleInputChange("payoutAddress", e.target.value)}
-                error={errors.payoutAddress}
+                aria-invalid={Boolean(errors.payoutAddress)}
                 placeholder="G..."
               />
+              {errors.payoutAddress ? <div className="error-message">{errors.payoutAddress}</div> : null}
               <p className="hint">
                 Your address must be funded on {network.label} before it can receive payments.
               </p>
             </div>
 
             <div className="form-actions">
-              <Button variant="ghost" onClick={handleBack}>
-                Back
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleNext}
-                disabled={!formData.payoutAddress.trim()}
-              >
+              <Button variant="ghost" onClick={handleBack}>Back</Button>
+              <Button variant="primary" onClick={handleNext} disabled={!formData.payoutAddress.trim()}>
                 Next
               </Button>
             </div>
@@ -427,7 +429,7 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
               ) : (
                 <div className="wallet-not-connected">
                   <p>Wallet not connected</p>
-                  <Button variant="primary" onClick={connect} type="button">
+                  <Button variant="primary" onClick={async () => { await connect(); }} type="button">
                     Connect Wallet
                   </Button>
                 </div>
@@ -477,13 +479,14 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
 
             <div className="form-group">
               <label htmlFor="domainName">Domain name</label>
-              <Input
+              <input
                 id="domainName"
                 value={formData.domainName}
                 onChange={(e) => handleInputChange("domainName", e.target.value)}
-                error={errors.domainName}
+                aria-invalid={Boolean(errors.domainName)}
                 placeholder="example.com"
               />
+              {errors.domainName ? <div className="error-message">{errors.domainName}</div> : null}
               <p className="hint">
                 Your domain must have a <code>/.well-known/stellar.toml</code> file with a matching SIGNING_KEY.
               </p>

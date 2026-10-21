@@ -3,6 +3,8 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { Escrow } from "@delegolabs/types";
 import { ReleaseConfirmModal } from "./ReleaseConfirmModal";
 
+const originalElementFromPoint = document.elementFromPoint;
+
 const escrow: Escrow = {
   escrowId: "42",
   orderId: "0a1b2c3d4e5f6789abcdef0123456789abcdef0123456789abcdef0123456789",
@@ -14,7 +16,9 @@ const escrow: Escrow = {
   createdAt: "2026-07-20T10:00:00.000Z",
 };
 
-function renderModal(overrides: Partial<React.ComponentProps<typeof ReleaseConfirmModal>> = {}) {
+function renderModal(
+  overrides: Partial<React.ComponentProps<typeof ReleaseConfirmModal>> = {}
+) {
   const props = {
     isOpen: true,
     escrow,
@@ -44,9 +48,13 @@ describe("ReleaseConfirmModal", () => {
     renderModal();
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByRole("radiogroup", { name: /merchant rating/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("radiogroup", { name: /merchant rating/i })
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/satisfaction note/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /confirm & release/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /confirm & release/i })
+    ).toBeInTheDocument();
   });
 
   it("builds the payload from the selected rating and trimmed note", async () => {
@@ -87,7 +95,9 @@ describe("ReleaseConfirmModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /confirm & release/i }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("release-status-badge")).toHaveTextContent("Released");
+      expect(screen.getByTestId("release-status-badge")).toHaveTextContent(
+        "Released"
+      );
     });
     expect(screen.getByText("Funds released")).toBeInTheDocument();
     expect(screen.getByTestId("confetti-burst")).toBeInTheDocument();
@@ -95,17 +105,64 @@ describe("ReleaseConfirmModal", () => {
 
   it("keeps the form usable and surfaces the error when the release rejects", async () => {
     const props = renderModal({
-      onConfirm: vi.fn().mockRejectedValue(new Error("Wallet rejected the signature")),
+      onConfirm: vi
+        .fn()
+        .mockRejectedValue(new Error("Wallet rejected the signature")),
     });
 
     fireEvent.click(screen.getByRole("button", { name: /confirm & release/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent("Wallet rejected the signature");
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Wallet rejected the signature"
+      );
     });
     expect(screen.queryByTestId("release-status-badge")).toBeNull();
-    expect(screen.getByRole("button", { name: /confirm & release/i })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: /confirm & release/i })
+    ).toBeEnabled();
     expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it("blocks a release when a touch is covered by an unexpected overlay", async () => {
+    const props = renderModal();
+    const button = screen.getByRole("button", { name: /confirm & release/i });
+    const overlay = document.createElement("div");
+    overlay.style.opacity = "0.01";
+    document.body.append(overlay);
+    vi.spyOn(button, "getBoundingClientRect").mockReturnValue({
+      left: 10,
+      right: 100,
+      top: 20,
+      bottom: 60,
+      width: 90,
+      height: 40,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    });
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => overlay),
+    });
+
+    const touchEnd = new Event("touchend", { bubbles: true });
+    Object.defineProperty(touchEnd, "changedTouches", {
+      value: [{ clientX: 30, clientY: 40 }],
+    });
+    fireEvent(document, touchEnd);
+    fireEvent.click(button);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /release blocked.*close suspicious overlay apps/i
+    );
+    expect(props.onConfirm).not.toHaveBeenCalled();
+
+    overlay.remove();
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: originalElementFromPoint,
+    });
   });
 
   it("closes via Cancel without confirming", () => {

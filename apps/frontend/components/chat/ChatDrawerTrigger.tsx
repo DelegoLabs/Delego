@@ -13,7 +13,7 @@ export function ChatDrawerTrigger() {
     <button
       type="button"
       className="chat-drawer-trigger focus-visible-ring"
-      onClick={openChat}
+      onClick={() => openChat()}
       aria-label="Open agent chat"
       title="Chat with your agent (⌘J)"
       data-testid="chat-drawer-trigger"

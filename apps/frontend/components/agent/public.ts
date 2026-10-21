@@ -16,3 +16,5 @@ export { AgentFabButton } from "./AgentFabButton";
 export type { FabButtonProps } from "./AgentFabButton";
 export { PromptSuggestionChips } from "./PromptSuggestionChips";
 export type { PromptSuggestionChip } from "./PromptSuggestionChips";
+export { ContextMemoryPanel } from "./ContextMemoryPanel";
+export type { ContextMemoryPanelProps } from "./ContextMemoryPanel";

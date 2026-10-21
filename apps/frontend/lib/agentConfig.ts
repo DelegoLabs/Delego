@@ -10,6 +10,7 @@ export interface AgentPersonaConfig {
   maxAutonomousBudgetStroops: string;
   negotiationAllowed: boolean;
   preferredAsset: "USDC" | "XLM" | "EURC";
+  persona: "bargain-hunter" | "speed-shopper" | "eco-friendly" | "balanced";
 }
 
 export const STRATEGY_OPTIONS: { value: OptimizationStrategy; label: string; description: string }[] = [

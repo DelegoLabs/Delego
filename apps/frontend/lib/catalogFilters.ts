@@ -17,7 +17,7 @@ export interface CatalogFilterState {
   /** Maximum price in stroops (inclusive). Undefined = no upper bound. */
   maxPrice?: number;
   /** When true, only products with stockQuantity > 0 are shown. */
-  inStockOnly: boolean;
+  inStockOnly?: boolean;
   /** Minimum average rating 0–5 (inclusive). Undefined = no restriction. */
   minRating?: number;
 }
@@ -60,8 +60,13 @@ export function productMatchesFilters(
     return false;
   }
 
-  // Stock filter
+  // Stock filters
   if (filters.inStockOnly && product.stockQuantity <= 0) {
+    return false;
+  }
+
+  // Low stock filter (items with 0 or < 5 remaining)
+  if (filters.lowStockOnly && product.stockQuantity >= 5) {
     return false;
   }
 
@@ -98,6 +103,7 @@ export function hasActiveFilters(filters: CatalogFilterState): boolean {
   return (
     filters.categories.length > 0 ||
     filters.inStockOnly ||
+    Boolean(filters.lowStockOnly) ||
     filters.minPrice !== undefined ||
     filters.maxPrice !== undefined ||
     filters.minRating !== undefined
@@ -138,6 +144,9 @@ export function encodeFiltersToParams(
   if (filters.inStockOnly) {
     params["inStock"] = "1";
   }
+  if (filters.lowStockOnly) {
+    params["lowStock"] = "1";
+  }
   if (filters.minRating !== undefined) {
     params["minRating"] = String(filters.minRating);
   }
@@ -171,6 +180,14 @@ export function decodeParamsToFilters(
 
   if (searchParams.get("inStock") === "1") {
     filters.inStockOnly = true;
+  }
+
+  if (
+    searchParams.get("lowStock") === "1" ||
+    searchParams.get("lowStockOnly") === "1" ||
+    searchParams.get("filter") === "low-stock"
+  ) {
+    filters.lowStockOnly = true;
   }
 
   const minRating = parseOptionalRating(searchParams.get("minRating"));
