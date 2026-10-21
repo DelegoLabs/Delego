@@ -32,6 +32,8 @@
     "@delegolabs/sdk": "workspace:*",
     "@delegolabs/types": "workspace:*",
     "@delegolabs/ui": "workspace:*",
+    "@ledgerhq/hw-app-str": "^7.8.0",
+    "@ledgerhq/hw-transport-webhid": "^6.36.0",
     "@sentry/nextjs": "^8.47.0",
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^16.0.0",
