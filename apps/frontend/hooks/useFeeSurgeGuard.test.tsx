@@ -122,11 +122,11 @@ describe("useFeeSurgeGuard", () => {
 
     let estimate = null;
     await act(async () => {
-      estimate = await result.current.whenReady();
+      estimate = (await result.current.whenReady()) as any;
     });
 
-    expect(estimate?.recommendedFeeStroops).toBe("500000");
-    expect(estimate?.userConfiguredMaxFeeStroops).toBe(
+    expect((estimate as any)?.recommendedFeeStroops).toBe("500000");
+    expect((estimate as any)?.userConfiguredMaxFeeStroops).toBe(
       DEFAULT_MAX_FEE_CAP_STROOPS
     );
   });
