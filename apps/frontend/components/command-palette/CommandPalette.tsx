@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import {
+  COMMAND_CATEGORY_LABELS,
   useCommandRegistry,
   type Command,
   type CommandGroup,
@@ -10,23 +11,25 @@ import {
 import { bestFuzzyScore } from "../../lib/fuzzyMatch";
 
 const RECENT_STORAGE_KEY = "delego_recent_commands";
+const RECENT_TERMS_STORAGE_KEY = "delego_recent_searches";
 const MAX_RECENT = 5;
+const MAX_RECENT_TERMS = 5;
 
-function loadRecentIds(): string[] {
+function loadStringArray(key: string): string[] {
   try {
-    const raw = window.localStorage.getItem(RECENT_STORAGE_KEY);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((id): id is string => typeof id === "string");
+    return parsed.filter((value): value is string => typeof value === "string");
   } catch {
     return [];
   }
 }
 
-function saveRecentIds(ids: string[]): void {
+function saveStringArray(key: string, values: string[]): void {
   try {
-    window.localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(ids));
+    window.localStorage.setItem(key, JSON.stringify(values));
   } catch {
     // Ignore quota / availability errors.
   }
@@ -36,9 +39,14 @@ export interface CommandPaletteProps {
   onClose: () => void;
 }
 
+/** A rendered row: either a runnable command or a recent-search suggestion. */
+type PaletteRow =
+  | { kind: "command"; command: Command }
+  | { kind: "term"; term: string };
+
 interface ResultGroup {
   label: string;
-  items: Command[];
+  rows: PaletteRow[];
 }
 
 const GROUP_LABEL: Record<CommandGroup, string> = {
@@ -46,21 +54,30 @@ const GROUP_LABEL: Record<CommandGroup, string> = {
   actions: "Quick actions",
 };
 
+/** Category wins over group when set, so features can opt into the new taxonomy. */
+function groupLabelFor(command: Command): string {
+  return command.category
+    ? COMMAND_CATEGORY_LABELS[command.category]
+    : GROUP_LABEL[command.group];
+}
+
 /**
  * ⌘K / Ctrl+K command palette: fuzzy search over registered commands (routes
- * + quick actions), with a "Recent" group backed by localStorage when the
- * query is empty. Code-split via next/dynamic in CommandPaletteProvider so it
- * never ships in the initial bundle.
+ * + quick actions), with "Recent" and "Recent searches" groups backed by
+ * localStorage when the query is empty. Code-split via next/dynamic in
+ * CommandPaletteProvider so it never ships in the initial bundle.
  */
 export function CommandPalette({ onClose }: CommandPaletteProps) {
   const commands = useCommandRegistry();
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [recentTerms, setRecentTerms] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setRecentIds(loadRecentIds());
+    setRecentIds(loadStringArray(RECENT_STORAGE_KEY));
+    setRecentTerms(loadStringArray(RECENT_TERMS_STORAGE_KEY));
     inputRef.current?.focus();
   }, []);
 
@@ -73,20 +90,37 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         .filter((c): c is Command => Boolean(c));
       const recentIdSet = new Set(recentCommands.map((c) => c.id));
 
-      // Avoid listing the same command twice (once under Recent, once under
-      // its own group) — duplicate ids would also break aria-activedescendant.
-      const byGroup: ResultGroup[] = (["navigate", "actions"] as CommandGroup[])
-        .map((group) => ({
-          label: GROUP_LABEL[group],
-          items: commands.filter(
-            (c) => c.group === group && !recentIdSet.has(c.id)
-          ),
-        }))
-        .filter((g) => g.items.length > 0);
+      // Group the remaining commands by their display label, preserving first
+      // -seen order so "Navigate" precedes "Quick actions".
+      const byLabel = new Map<string, Command[]>();
+      for (const command of commands) {
+        if (recentIdSet.has(command.id)) continue;
+        const label = groupLabelFor(command);
+        const bucket = byLabel.get(label);
+        if (bucket) bucket.push(command);
+        else byLabel.set(label, [command]);
+      }
 
-      return recentCommands.length > 0
-        ? [{ label: "Recent", items: recentCommands }, ...byGroup]
-        : byGroup;
+      const result: ResultGroup[] = [];
+      if (recentCommands.length > 0) {
+        result.push({
+          label: "Recent",
+          rows: recentCommands.map((command) => ({ kind: "command", command })),
+        });
+      }
+      if (recentTerms.length > 0) {
+        result.push({
+          label: "Recent searches",
+          rows: recentTerms.map((term) => ({ kind: "term", term })),
+        });
+      }
+      for (const [label, bucket] of byLabel) {
+        result.push({
+          label,
+          rows: bucket.map((command) => ({ kind: "command", command })),
+        });
+      }
+      return result;
     }
 
     const scored = commands
@@ -103,25 +137,48 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
           entry.score !== null
       )
       .sort((a, b) => b.score - a.score)
-      .map((entry) => entry.command);
+      .map((entry) => ({ kind: "command" as const, command: entry.command }));
 
-    return scored.length > 0 ? [{ label: "Results", items: scored }] : [];
-  }, [query, commands, recentIds]);
+    return scored.length > 0 ? [{ label: "Results", rows: scored }] : [];
+  }, [query, commands, recentIds, recentTerms]);
 
-  const flatItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const flatRows = useMemo(() => groups.flatMap((g) => g.rows), [groups]);
 
   useEffect(() => {
     setActiveIndex(0);
   }, [query]);
+
+  function recordSearch(term: string) {
+    const trimmed = term.trim();
+    if (!trimmed) return;
+    const next = [trimmed, ...recentTerms.filter((t) => t !== trimmed)].slice(
+      0,
+      MAX_RECENT_TERMS
+    );
+    setRecentTerms(next);
+    saveStringArray(RECENT_TERMS_STORAGE_KEY, next);
+  }
 
   function runCommand(command: Command) {
     const nextRecent = [
       command.id,
       ...recentIds.filter((id) => id !== command.id),
     ].slice(0, MAX_RECENT);
-    saveRecentIds(nextRecent);
+    setRecentIds(nextRecent);
+    saveStringArray(RECENT_STORAGE_KEY, nextRecent);
+    recordSearch(query);
     onClose();
     void command.perform();
+  }
+
+  function activateRow(row: PaletteRow | undefined) {
+    if (!row) return;
+    if (row.kind === "term") {
+      setQuery(row.term);
+      inputRef.current?.focus();
+      return;
+    }
+    runCommand(row.command);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -132,18 +189,16 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         break;
       case "ArrowDown":
         event.preventDefault();
-        setActiveIndex((i) => Math.min(i + 1, flatItems.length - 1));
+        setActiveIndex((i) => Math.min(i + 1, flatRows.length - 1));
         break;
       case "ArrowUp":
         event.preventDefault();
         setActiveIndex((i) => Math.max(i - 1, 0));
         break;
-      case "Enter": {
+      case "Enter":
         event.preventDefault();
-        const command = flatItems[activeIndex];
-        if (command) runCommand(command);
+        activateRow(flatRows[activeIndex]);
         break;
-      }
       case "Tab":
         // The search input is the only focusable element in the dialog —
         // keep focus trapped there instead of tabbing to the page behind it.
@@ -154,7 +209,13 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     }
   }
 
-  const activeCommand = flatItems[activeIndex];
+  const activeRow = flatRows[activeIndex];
+
+  function rowId(row: PaletteRow, index: number): string {
+    return row.kind === "command"
+      ? `command-item-${row.command.id}`
+      : `command-term-${index}`;
+  }
 
   return (
     <div className="command-palette-overlay" onClick={onClose}>
@@ -173,7 +234,9 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
           aria-controls="command-palette-listbox"
           aria-autocomplete="list"
           aria-activedescendant={
-            activeCommand ? `command-item-${activeCommand.id}` : undefined
+            activeRow
+              ? rowId(activeRow, flatRows.indexOf(activeRow))
+              : undefined
           }
           className="command-palette-input"
           placeholder="Search routes and actions..."
@@ -194,38 +257,52 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
           {groups.map((group) => (
             <div className="command-palette-group" key={group.label}>
               <p className="command-palette-group-label">{group.label}</p>
-              {group.items.map((command) => {
-                const isActive = command.id === activeCommand?.id;
+              {group.rows.map((row) => {
+                const index = flatRows.indexOf(row);
+                const isActive = index === activeIndex;
                 return (
                   <div
-                    key={command.id}
-                    id={`command-item-${command.id}`}
+                    key={rowId(row, index)}
+                    id={rowId(row, index)}
                     role="option"
                     aria-selected={isActive}
                     className={`command-palette-item${isActive ? " active" : ""}`}
-                    onMouseEnter={() =>
-                      setActiveIndex(flatItems.indexOf(command))
-                    }
-                    onClick={() => runCommand(command)}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onClick={() => activateRow(row)}
                   >
-                    {command.icon && (
-                      <span
-                        className="command-palette-item-icon"
-                        aria-hidden="true"
-                      >
-                        {command.icon}
+                    {row.kind === "command" ? (
+                      <>
+                        {row.command.icon && (
+                          <span
+                            className="command-palette-item-icon"
+                            aria-hidden="true"
+                          >
+                            {row.command.icon}
+                          </span>
+                        )}
+                        <span className="command-palette-item-text">
+                          <span className="command-palette-item-label">
+                            {row.command.label}
+                          </span>
+                          {row.command.subtitle && (
+                            <span className="command-palette-item-subtitle">
+                              {row.command.subtitle}
+                            </span>
+                          )}
+                        </span>
+                        {row.command.shortcut && (
+                          <kbd className="command-palette-item-shortcut">
+                            {row.command.shortcut}
+                          </kbd>
+                        )}
+                      </>
+                    ) : (
+                      <span className="command-palette-item-text">
+                        <span className="command-palette-item-label">
+                          {row.term}
+                        </span>
                       </span>
                     )}
-                    <span className="command-palette-item-text">
-                      <span className="command-palette-item-label">
-                        {command.label}
-                      </span>
-                      {command.subtitle && (
-                        <span className="command-palette-item-subtitle">
-                          {command.subtitle}
-                        </span>
-                      )}
-                    </span>
                   </div>
                 );
               })}

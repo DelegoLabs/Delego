@@ -22,14 +22,23 @@ import {
   shouldFallBackToPin,
 } from "../../lib/biometricApproval";
 
+export interface FocusRestoreOptions {
+  triggerRef: React.RefObject<HTMLElement>;
+  onClose: () => void;
+}
+
 export interface BiometricCheckoutPromptProps {
   orderAmount: string;
   merchantName: string;
   onSuccess(): void;
   /** Optional callback when the user abandons biometric checkout. */
   onCancel?: () => void;
+  /** Optional close callback (alias for onCancel) */
+  onClose?: () => void;
   /** Order id echoed in the WebAuthn assertion payload. */
   orderId?: string;
+  /** Optional reference to trigger element for focus restoration. */
+  triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
 type Phase = "preparing" | "scanning" | "submitting" | "success" | "error";
@@ -76,10 +85,16 @@ export function BiometricCheckoutPrompt({
   merchantName,
   onSuccess,
   onCancel,
+  onClose,
   orderId,
+  triggerRef,
 }: BiometricCheckoutPromptProps) {
+  const handleClose = onClose ?? onCancel;
   const panelRef = useRef<HTMLDivElement>(null);
   const passkeyRef = useRef<HTMLButtonElement>(null);
+  const triggerElementRef = useRef<HTMLElement | null>(null);
+  const handleCloseRef = useRef(handleClose);
+  handleCloseRef.current = handleClose;
   const [phase, setPhase] = useState<Phase>("preparing");
   const [error, setError] = useState<string | null>(null);
   const [attempts, setAttempts] = useState(0);
@@ -96,11 +111,34 @@ export function BiometricCheckoutPrompt({
   useFocusTrap({
     containerRef: panelRef,
     isActive: panelReady && animationDone,
-    onEscape: onCancel,
+    onEscape: handleClose,
     initialFocusRef: passkeyRef as React.RefObject<HTMLElement | null>,
-    returnFocusOnDeactivate: true,
+    returnFocusOnDeactivate: false,
     escapeDeactivates: true,
   });
+
+  useEffect(() => {
+    if (triggerRef?.current) {
+      triggerElementRef.current = triggerRef.current;
+    } else if (document.activeElement instanceof HTMLElement) {
+      triggerElementRef.current = document.activeElement;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleCloseRef.current?.();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      const trigger = triggerElementRef.current;
+      if (trigger && typeof trigger.focus === "function") {
+        trigger.focus();
+      }
+    };
+  }, [triggerRef]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -185,7 +223,7 @@ export function BiometricCheckoutPrompt({
   }, [runCheckout]);
 
   return (
-    <div className="approval-drawer-overlay" onClick={onCancel} data-testid="biometric-checkout-overlay">
+    <div className="approval-drawer-overlay" onClick={handleClose} data-testid="biometric-checkout-overlay">
       <motion.div
         ref={panelRef}
         role="dialog"
@@ -307,7 +345,6 @@ export function BiometricCheckoutPrompt({
                 <Button
                   type="button"
                   variant="ghost"
-                  ref={passkeyRef}
                   onClick={() => void runCheckout()}
                   data-testid="biometric-checkout-passkey"
                 >
@@ -316,7 +353,7 @@ export function BiometricCheckoutPrompt({
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={onCancel}
+                  onClick={handleClose}
                   data-testid="biometric-checkout-cancel"
                 >
                   Cancel

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
+import type { SlippageCalculationResult } from "../../hooks/usePathPaymentQuote";
 import { useNetwork } from "../../hooks/useNetwork";
 import { useWallet } from "../../hooks/useWallet";
 import { useBalanceHistory, type HorizonBalance } from "../../hooks/useBalanceHistory";
@@ -61,6 +62,46 @@ function routeNodes(route: PathPaymentRoute): string[] {
 }
 
 /**
+ * Formats a slippage percentage for display, guarding against NaN/undefined
+ * values produced by zero-fee or 1:1 parity routes.
+ */
+export function formatSlippagePercent(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return "0.00%";
+  }
+  if (value <= 0) return "0.00%";
+  if (value < 0.01) return "< 0.01%";
+  return `${value.toFixed(2)}%`;
+}
+
+/**
+ * Computes slippage for a route, returning a safe result even when the
+ * destination amount is zero (zero-fee AMM pools, 1:1 stablecoin pegs).
+ */
+export function calculateSlippage(
+  sourceAmount: number,
+  destinationAmount: number,
+): SlippageCalculationResult {
+  if (
+    !Number.isFinite(sourceAmount) ||
+    !Number.isFinite(destinationAmount) ||
+    destinationAmount <= 0 ||
+    sourceAmount <= 0
+  ) {
+    return { priceImpactPercentage: 0, isZeroImpact: true, formattedSlippage: "0.00%" };
+  }
+  const raw = ((sourceAmount - destinationAmount) / destinationAmount) * 100;
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return { priceImpactPercentage: 0, isZeroImpact: true, formattedSlippage: "0.00%" };
+  }
+  return {
+    priceImpactPercentage: raw,
+    isZeroImpact: false,
+    formattedSlippage: formatSlippagePercent(raw),
+  };
+}
+
+/**
  * Buyer-facing strict-receive quote: wallet asset picker, hop graph, and
  * slippage control (#901).
  */
@@ -90,6 +131,10 @@ export function PathPaymentQuoteVisualizer({
   const route = quote?.routes[routeIndex] ?? quote?.routes[quote.bestRouteIndex] ?? null;
   const impact = quote && route ? priceImpactForRoute(quote.routes, routeIndex) : 0;
   const nodes = useMemo(() => (route ? routeNodes(route) : []), [route]);
+  const slippageDisplay = useMemo(() => {
+    if (!route) return "0.00%";
+    return formatSlippagePercent(route.estimatedSlippagePercent);
+  }, [route]);
   const presetSelected = (SLIPPAGE_PRESETS as readonly number[]).includes(slippageTolerancePercent);
 
   return (
@@ -187,7 +232,7 @@ export function PathPaymentQuoteVisualizer({
             Maximum source amount {route.sourceAmountMax} {route.sourceAsset}
           </p>
           <p style={{ margin: 0, fontSize: "0.75rem", color: "#6b7280" }}>
-            Pool fee {route.liquidityPoolFeeStroops} stroops · slippage {route.estimatedSlippagePercent}%
+            Pool fee {route.liquidityPoolFeeStroops} stroops · slippage {slippageDisplay}
           </p>
         </>
       ) : null}
@@ -252,7 +297,7 @@ export function PathPaymentQuoteVisualizer({
 
       {impact > PRICE_IMPACT_WARNING_PERCENT ? (
         <p role="alert" data-testid="path-payment-impact-warning" style={{ margin: 0, color: "#92400e", background: "#fef3c7", padding: "0.5rem", borderRadius: "0.5rem", fontSize: "0.75rem" }}>
-          Estimated price impact is {impact}%, which exceeds {PRICE_IMPACT_WARNING_PERCENT}%. You may pay more than the best route.
+          Estimated price impact is {formatSlippagePercent(impact)}, which exceeds {PRICE_IMPACT_WARNING_PERCENT}%. You may pay more than the best route.
         </p>
       ) : null}
     </section>

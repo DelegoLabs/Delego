@@ -5,6 +5,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import "../styles/globals.css";
 import { Sidebar } from "../components/layout/Sidebar";
 import { Header } from "../components/layout/Header";
+import { Footer } from "../components/layout/Footer";
 import { AppProviders } from "../components/providers/AppProviders";
 import { AnnouncementBanner } from "../components/announcements/AnnouncementBanner";
 import { OfflineModeBanner } from "../components/offline/OfflineModeBanner";
@@ -22,6 +23,7 @@ import { AgentFab } from "../components/layout/AgentFab";
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
+  preload: false,
   fallback: ["system-ui", "-apple-system", "sans-serif"],
 });
 
@@ -104,6 +106,7 @@ export default async function RootLayout({
                   <main id="app-content" className="app-content" tabIndex={-1}>
                     {children}
                   </main>
+                  <Footer />
                 </div>
               </div>
               <AgentFab />

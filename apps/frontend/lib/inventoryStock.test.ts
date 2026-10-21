@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_LOW_STOCK_THRESHOLD,
+  computeDepletedProductCount,
+  computeDepletedProducts,
   evaluateInventoryStock,
   listDepletedInventory,
   normalizeThreshold,
@@ -89,5 +91,68 @@ describe("listDepletedInventory", () => {
     expect(depleted.map((row) => row.productId)).toEqual(["b", "c"]);
     expect(depleted[0].isLowStock).toBe(true);
     expect(depleted[1].isOutOfStock).toBe(true);
+  });
+});
+
+describe("computeDepletedProducts", () => {
+  it("computes depleted products for items with 0 or < 5 units remaining", () => {
+    const catalog = [
+      { id: "1", title: "Wireless Mouse", stockQuantity: 3, isListed: true },
+      { id: "2", title: "Mechanical Keyboard", stockQuantity: 0, isListed: true },
+      { id: "3", title: "Monitor Stand", stockQuantity: 10, isListed: true },
+    ];
+
+    const result = computeDepletedProducts(catalog);
+    expect(result.depletedProductsCount).toBe(2);
+    expect(result.criticalItemTitles).toEqual(["Wireless Mouse", "Mechanical Keyboard"]);
+    expect(result.hasOutOfStock).toBe(true);
+    expect(result.severity).toBe("red");
+  });
+
+  it("sets severity to amber when items have low stock (< 5) but none at 0", () => {
+    const catalog = [
+      { id: "1", title: "USB-C Cable", stockQuantity: 2, isListed: true },
+      { id: "2", title: "Desk Mat", stockQuantity: 4, isListed: true },
+      { id: "3", title: "Webcam", stockQuantity: 8, isListed: true },
+    ];
+
+    const result = computeDepletedProducts(catalog);
+    expect(result.depletedProductsCount).toBe(2);
+    expect(result.criticalItemTitles).toEqual(["USB-C Cable", "Desk Mat"]);
+    expect(result.hasOutOfStock).toBe(false);
+    expect(result.severity).toBe("amber");
+  });
+
+  it("filters out unlisted/inactive items from depleted count", () => {
+    const catalog = [
+      { id: "1", title: "Archived Product", stockQuantity: 0, isListed: false },
+      { id: "2", title: "Active Product", stockQuantity: 12, isListed: true },
+    ];
+
+    const result = computeDepletedProducts(catalog);
+    expect(result.depletedProductsCount).toBe(0);
+    expect(result.criticalItemTitles).toEqual([]);
+    expect(result.hasOutOfStock).toBe(false);
+  });
+
+  it("returns 0 count when all active catalog items have >= 5 items remaining", () => {
+    const catalog = [
+      { id: "1", title: "Laptop Stand", stockQuantity: 5, isListed: true },
+      { id: "2", title: "Headphones", stockQuantity: 25, isListed: true },
+    ];
+
+    const result = computeDepletedProducts(catalog);
+    expect(result.depletedProductsCount).toBe(0);
+    expect(result.criticalItemTitles).toEqual([]);
+  });
+
+  it("computes count via computeDepletedProductCount", () => {
+    const catalog = [
+      { title: "Item A", stockQuantity: 1, isListed: true },
+      { title: "Item B", stockQuantity: 0, isListed: true },
+      { title: "Item C", stockQuantity: 6, isListed: true },
+    ];
+
+    expect(computeDepletedProductCount(catalog)).toBe(2);
   });
 });

@@ -32,6 +32,12 @@
       "fabUnread": "{count, plural, one {# ungelesener Vorschlag} other {# ungelesene Vorschläge}}"
     }
   },
+  "copilot": {
+    "highValueTitle": "Diesen hochwertigen Artikel prüfen",
+    "highValueInquiry": "Kannst du den Ruf des Händlers und die Escrow-Bedingungen für {productName} prüfen? Der Preis liegt über 100 USDC.",
+    "action": "Agenten fragen",
+    "dismiss": "Copilot-Hinweis schließen"
+  },
   "common": {
     "cancel": "Abbrechen",
     "save": "Speichern",

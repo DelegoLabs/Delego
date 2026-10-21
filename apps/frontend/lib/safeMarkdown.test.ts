@@ -7,7 +7,13 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { renderSafeMarkdown } from "./safeMarkdown";
+import {
+  DEFAULT_SANITIZER_CONFIG,
+  isAllowedLinkHref,
+  renderSafeMarkdown,
+  sanitizeSvg,
+  sanitizeWithConfig,
+} from "./safeMarkdown";
 
 describe("renderSafeMarkdown (#755)", () => {
   it("renders benign Markdown unchanged in structure", () => {
@@ -128,5 +134,66 @@ describe("renderSafeMarkdown (#755)", () => {
     expect(html).not.toContain("javascript:");
     expect(html).not.toContain("<iframe");
     expect(html).not.toContain("document.cookie");
+  });
+});
+
+describe("sanitizer hardening (Issue #4)", () => {
+  it("permits only https: and web+stellar: link protocols", () => {
+    expect(isAllowedLinkHref("https://example.com")).toBe(true);
+    expect(isAllowedLinkHref("web+stellar:pay?destination=abc")).toBe(true);
+    expect(isAllowedLinkHref("/orders")).toBe(true);
+    expect(isAllowedLinkHref("#section")).toBe(true);
+
+    expect(isAllowedLinkHref("http://example.com")).toBe(false);
+    expect(isAllowedLinkHref("javascript:alert(1)")).toBe(false);
+    expect(isAllowedLinkHref("data:text/html,x")).toBe(false);
+    expect(isAllowedLinkHref("mailto:hi@example.com")).toBe(false);
+    expect(isAllowedLinkHref("tel:+15551234")).toBe(false);
+  });
+
+  it("strips http: link targets (protocol not on the allow-list)", () => {
+    const html = renderSafeMarkdown("[insecure](http://example.com)");
+    expect(html.toLowerCase()).not.toContain("http://example.com");
+  });
+
+  it("keeps web+stellar: links and hardens them", () => {
+    const html = renderSafeMarkdown("[pay](web+stellar:pay?destination=abc)");
+    expect(html).toContain('href="web+stellar:pay?destination=abc"');
+    expect(html).toContain('rel="noopener noreferrer"');
+  });
+
+  it("sanitizeWithConfig honors a stricter allow-list", () => {
+    const config = {
+      ...DEFAULT_SANITIZER_CONFIG,
+      allowedTags: ["p", "strong"],
+    };
+    const html = sanitizeWithConfig("<p>hi <strong>there</strong></p><a href='#'>x</a>", config);
+    expect(html).toContain("<strong>there</strong>");
+    expect(html).not.toContain("<a");
+  });
+
+  it("sanitizes SVG: removes scripts, foreignObject and event handlers", () => {
+    const svg = [
+      '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)">',
+      "<script>alert('xss')</script>",
+      '<foreignObject><body xmlns="http://www.w3.org/1999/xhtml"><img src=x onerror="alert(2)"></body></foreignObject>',
+      '<rect width="10" height="10" fill="red" onclick="alert(3)" />',
+      "</svg>",
+    ].join("");
+
+    const clean = sanitizeSvg(svg);
+
+    expect(clean).not.toContain("<script");
+    expect(clean).not.toContain("foreignObject");
+    expect(clean).not.toContain("onload");
+    expect(clean).not.toContain("onclick");
+    expect(clean).not.toContain("onerror");
+    expect(clean).not.toContain("alert");
+    expect(clean).toContain("<rect");
+  });
+
+  it("returns an empty string for empty SVG input", () => {
+    expect(sanitizeSvg("")).toBe("");
+    expect(sanitizeSvg("   ")).toBe("");
   });
 });

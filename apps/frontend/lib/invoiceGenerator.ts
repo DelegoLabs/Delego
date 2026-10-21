@@ -207,7 +207,7 @@ export async function generateInvoicePdf(
   });
 
   // Retrieve the Y cursor after autotable finishes
-  const afterTable = doc.lastAutoTable.finalY;
+  const afterTable = doc.lastAutoTable?.finalY ?? y + 24;
 
   // ---- Totals block ----
   let ty = afterTable + 6;
