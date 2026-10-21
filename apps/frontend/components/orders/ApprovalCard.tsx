@@ -50,6 +50,10 @@ export interface ApprovalCardProps {
   pendingOffline?: boolean;
   /** Delivery postal code for tax calculation. If provided, shows tax breakdown before approval. */
   deliveryPostalCode?: string;
+  /** Prevent the approve action when the checkout address is invalid. */
+  approveDisabled?: boolean;
+  /** Human-readable explanation when payment is blocked by address validation. */
+  approveDisabledReason?: string;
   /** Called when the order is approved. */
   onApprove?: (id: string) => void | Promise<unknown>;
   /** Called when the order is rejected. */
@@ -72,10 +76,13 @@ export function ApprovalCard({
   pending = false,
   pendingOffline = false,
   deliveryPostalCode,
+  approveDisabled = false,
+  approveDisabledReason,
   onApprove,
   onReject,
   onDualControlUpdate,
 }: ApprovalCardProps) {
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [reasonCode, setReasonCode] = useState<RejectionReasonCode | "">("");
@@ -109,7 +116,7 @@ export function ApprovalCard({
     dualControlFlagEnabled && dualControlCapable && order.dualControl?.required === true;
   const [dcSubmitting, setDcSubmitting] = useState(false);
 
-  const disabled = pending || dcSubmitting || isMismatched || isDemoMode || connectionStatus !== "online" || approving || rejecting;
+  const disabled = pending || dcSubmitting || isMismatched || isDemoMode || connectionStatus !== "online" || approving || rejecting || approveDisabled;
 
   const actionTitle = connectionStatus !== "online"
     ? OFFLINE_BLOCKED_MESSAGE
@@ -117,9 +124,14 @@ export function ApprovalCard({
       ? DEMO_MODE_BLOCKED_MESSAGE
       : isMismatched
         ? "Cannot execute action while wallet and app network are mismatched"
-        : undefined;
+        : approveDisabled
+          ? approveDisabledReason ?? "Address validation failed. Please fix the delivery details before paying."
+          : undefined;
 
   const handleApprove = guard(async () => {
+    if (approveDisabled) {
+      return;
+    }
     setApproving(true);
     const trimmedNote = note.trim();
     try {
@@ -144,6 +156,9 @@ export function ApprovalCard({
   });
 
   const handleDualControlApprove = guard(async () => {
+    if (approveDisabled) {
+      return;
+    }
     setApproving(true);
     setDcSubmitting(true);
     const trimmedNote = note.trim();
@@ -178,6 +193,7 @@ export function ApprovalCard({
     try {
       await onReject?.(order.id, reason.trim() || undefined, reasonCode || undefined);
       announce(`Order ${order.id} rejected.`, "polite");
+      setRejectDialogOpen(false);
     } catch {
       announce(`Failed to reject order ${order.id}.`, "assertive");
     } finally {
@@ -336,8 +352,13 @@ export function ApprovalCard({
             </strong>
           </div>
 
-          {rejecting ? (
-            <div className="approval-reject-form">
+          {rejectDialogOpen ? (
+            <div
+              className="approval-reject-form"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Reject order ${order.id}`}
+            >
               {showReasonPicker ? (
                 <div className="approval-reject-reason-picker">
                   <label
@@ -389,7 +410,7 @@ export function ApprovalCard({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setRejecting(false)}
+                  onClick={() => setRejectDialogOpen(false)}
                   disabled={pending || rejecting}
                 >
                   Cancel
@@ -437,7 +458,7 @@ export function ApprovalCard({
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => setRejecting(true)}
+                onClick={() => setRejectDialogOpen(true)}
                 disabled={disabled}
                 title={actionTitle}
               >

@@ -1,75 +1,63 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { vi } from "vitest";
 import { StorefrontCatalog } from "./StorefrontCatalog";
-import type { MerchantProduct } from "../../../lib/storefront";
 
 vi.mock("../../../hooks/useCart", () => ({
-  useCart: () => ({
-    addItem: vi.fn(),
-    openDrawer: vi.fn(),
-    summary: { totalQuantity: 0 },
-  }),
+  useCart: () => ({ addItem: vi.fn(), openDrawer: vi.fn(), summary: { totalQuantity: 0 } }),
+}));
+vi.mock("../../../components/storefront/StockDepletionPanel", () => ({
+  StockDepletionPanel: () => null,
 }));
 
-vi.mock("../../../lib/stockDepletion", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    fetchStockDepletion: vi.fn().mockResolvedValue(null),
-    canAddToCart: vi.fn().mockReturnValue(true),
-    availableToSell: vi.fn().mockReturnValue(10),
-  };
-});
+class IntersectionObserverMock {
+  static instances: IntersectionObserverMock[] = [];
+  readonly observe = vi.fn();
+  readonly disconnect = vi.fn();
+  constructor(private readonly callback: IntersectionObserverCallback) { IntersectionObserverMock.instances.push(this); }
+  trigger() { this.callback([{ isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver); }
+}
 
-const sampleProducts: MerchantProduct[] = [
-  {
-    id: "prod-1",
-    name: "Stellar Hardware Wallet",
-    description: "Cold storage security for Soroban assets.",
-    priceStroops: "100000000",
-    active: true,
-    policy: {
-      returnWindowDays: 14,
-      restockingFeePercent: 5,
-      freeShippingThresholdStroops: "250000000",
-      escrowProtectionNotice: "Full escrow guarantee on hardware authentications.",
-    },
-  },
-];
+const products = Array.from({ length: 13 }, (_, index) => ({
+  id: `product-${index + 1}`,
+  name: `Product ${index + 1}`,
+  description: "Description",
+  priceStroops: "10000000",
+  active: true,
+}));
 
-describe("StorefrontCatalog with PolicyAccordion", () => {
-  it("renders product and toggles PolicyAccordion when viewing details", () => {
-    render(
-      <StorefrontCatalog
-        products={sampleProducts}
-        merchantId="merchant-stellar"
-        merchantName="Stellar Vaults"
-        payoutAddress="GABC123"
-      />
-    );
+describe("StorefrontCatalog infinite scrolling", () => {
+  beforeEach(() => {
+    IntersectionObserverMock.instances = [];
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    vi.stubGlobal("scrollTo", vi.fn());
+    sessionStorage.clear();
+  });
+  afterEach(() => vi.unstubAllGlobals());
 
-    expect(screen.getByText("Stellar Hardware Wallet")).toBeInTheDocument();
+  it("renders an initial page, appends the next products, and ends the catalog", async () => {
+    render(<StorefrontCatalog products={products} merchantId="merchant" merchantName="Merchant" payoutAddress="GABC" />);
+    expect(screen.getByText("Product 12")).toBeInTheDocument();
+    expect(screen.queryByText("Product 13")).not.toBeInTheDocument();
 
-    // Details are initially collapsed
-    expect(screen.queryByTestId("policy-accordion")).not.toBeInTheDocument();
+    await act(async () => IntersectionObserverMock.instances[0].trigger());
+    expect(screen.getByLabelText("Loading more products")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Product 13")).toBeInTheDocument());
+    expect(screen.getByText("Product 1")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("end of this catalog");
+  });
 
-    // Click "View details"
-    const viewDetailsBtn = screen.getByRole("button", { name: "View details" });
-    act(() => {
-      fireEvent.click(viewDetailsBtn);
-    });
+  it("resets the visible page when the search changes", () => {
+    render(<StorefrontCatalog products={products} merchantId="merchant" merchantName="Merchant" payoutAddress="GABC" />);
+    const input = screen.getByLabelText("Search products");
+    fireEvent.change(input, { target: { value: "Product 13" } });
+    expect(screen.getByText("Product 13")).toBeInTheDocument();
+    expect(screen.queryByText("Product 12")).not.toBeInTheDocument();
+  });
 
-    // PolicyAccordion is now visible
-    expect(screen.getByTestId("policy-accordion")).toBeInTheDocument();
-    expect(screen.getByText("Delego Escrow Buyer Protection")).toBeInTheDocument();
-    expect(screen.getByText("Full escrow guarantee on hardware authentications.")).toBeInTheDocument();
-    expect(screen.getByText(/14-day window/i)).toBeInTheDocument();
-
-    // Click "Hide details"
-    const hideDetailsBtn = screen.getByRole("button", { name: "Hide details" });
-    act(() => {
-      fireEvent.click(hideDetailsBtn);
-    });
-    expect(screen.queryByTestId("policy-accordion")).not.toBeInTheDocument();
+  it("restores a saved catalog position after enough cards are rendered", async () => {
+    sessionStorage.setItem("delego:storefront-catalog:merchant", JSON.stringify({ displayedCount: 13, scrollY: 480 }));
+    render(<StorefrontCatalog products={products} merchantId="merchant" merchantName="Merchant" payoutAddress="GABC" />);
+    await act(async () => {});
+    expect(screen.getByText("Product 13")).toBeInTheDocument();
   });
 });

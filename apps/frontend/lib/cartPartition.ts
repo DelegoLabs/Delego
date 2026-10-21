@@ -8,6 +8,7 @@
  */
 
 import type { CartItem } from "./cart";
+import type { AppliedPromoCode, PromoCodeDiscount } from "./promoCode";
 
 export type EscrowStatus =
   | "pending"
@@ -21,8 +22,10 @@ export interface MerchantCartPartition {
   /** Stellar address that will receive the escrowed funds on release */
   payoutAddress: string;
   items: CartItem[];
-  /** Sum of (priceStroops × quantity) for this partition, as a string */
+  /** Merchant subtotal after its validated coupon, in integer Stroops. */
   subtotalStroops: string;
+  /** Validated merchant coupon carried to the escrow-signing integration. */
+  promoCodeDiscount?: PromoCodeDiscount;
   escrowStatus: EscrowStatus;
 }
 
@@ -31,7 +34,8 @@ export interface MerchantCartPartition {
  * Partition order is stable (first-seen merchantId comes first).
  */
 export function partitionCartByMerchant(
-  items: CartItem[]
+  items: CartItem[],
+  promoCode?: AppliedPromoCode
 ): MerchantCartPartition[] {
   const order: string[] = [];
   const map = new Map<string, CartItem[]>();
@@ -55,12 +59,22 @@ export function partitionCartByMerchant(
         // Malformed priceStroops — skip
       }
     }
+    const discount =
+      promoCode?.merchantId === merchantId ? promoCode.discount : undefined;
+    if (discount) {
+      const deduction = BigInt(discount.appliedDiscountStroops);
+      if (deduction < 0n || deduction > subtotal) {
+        throw new Error("The coupon no longer matches this merchant's order.");
+      }
+      subtotal -= deduction;
+    }
     return {
       merchantId,
       merchantName: first.merchantName,
       payoutAddress: first.payoutAddress,
       items: partitionItems,
       subtotalStroops: subtotal.toString(),
+      ...(discount ? { promoCodeDiscount: discount } : {}),
       escrowStatus: "pending",
     };
   });

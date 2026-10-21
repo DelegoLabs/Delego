@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { fetchStorefront, isSafeMerchantId } from "../../../lib/storefront";
+import { StorefrontAnnouncementBar } from "../../../components/storefront/StorefrontAnnouncementBar";
 import { StorefrontCatalog } from "./StorefrontCatalog";
-
-type StoreParams = { merchantId: string };
 
 const loadStorefront = cache((merchantId: string) => fetchStorefront(merchantId));
 
@@ -13,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<StoreParams>;
+  params: Promise<{ merchantId: string }>;
 }): Promise<Metadata> {
   try {
     const { merchantId } = await params;
@@ -47,7 +46,7 @@ export async function generateMetadata({
 export default async function StorePage({
   params,
 }: {
-  params: Promise<StoreParams>;
+  params: Promise<{ merchantId: string }>;
 }) {
   const { merchantId } = await params;
   if (!isSafeMerchantId(merchantId)) notFound();
@@ -57,6 +56,12 @@ export default async function StorePage({
 
   return (
     <div className="settings-page">
+      {store.announcement && (
+        <StorefrontAnnouncementBar
+          merchantId={store.merchantId}
+          announcement={store.announcement}
+        />
+      )}
       <header className="header">
         <h1>{store.storeName}</h1>
         {store.description && <p>{store.description}</p>}

@@ -11,6 +11,19 @@ export type ColorTag =
   | "violet"
   | "teal";
 
+/**
+ * A crop rectangle in the original image's decoded pixel coordinate space.
+ * `x` and `y` identify the top-left pixel; width and height are positive
+ * pixel lengths. `aspectRatio` is `width / height` for the intended output.
+ */
+export interface CropArea {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  aspectRatio: number;
+}
+
 export interface DelegationPolicy {
   maxPerTransaction: any;
   maxTotal: any;
@@ -298,13 +311,15 @@ export interface UserPreferenceItem {
 export type OfflineStatus = "online" | "offline" | "reconnecting";
 
 /**
- * Merchant policy and buyer protection info.
+ * Active Soroban token allowance granted to an escrow or router contract.
  */
-export interface MerchantPolicyInfo {
-  returnWindowDays: number;
-  restockingFeePercent: number;
-  freeShippingThresholdStroops?: string;
-  escrowProtectionNotice: string;
+export interface TokenAllowanceEntry {
+  tokenAddress: string;
+  tokenSymbol: string;
+  spenderAddress: string;
+  spenderLabel: string;
+  allowedAmountStroops: string;
+  expirationLedger: number;
 }
 
 export * from "./schemas.js";

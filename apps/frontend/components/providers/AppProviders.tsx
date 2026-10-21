@@ -9,6 +9,8 @@ import { NotificationProvider } from "../../hooks/useNotifications";
 import { AnnounceProvider } from "../../hooks/useAnnounce";
 import { CurrencyProvider } from "../../hooks/useCurrency";
 import { TimeFormatProvider } from "../../hooks/useTimeFormat";
+import { LocalePreferenceProvider } from "../../hooks/useLocalePreference";
+import { GlobalShortcutsProvider } from "../../hooks/useGlobalShortcuts";
 import { AudioNotificationsProvider } from "../../hooks/useAudioNotifications";
 import { FeatureFlagProvider } from "./FeatureFlagProvider";
 import { MockApiProvider } from "./MockApiProvider";
@@ -27,6 +29,18 @@ import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvide
 import { ChatDrawerProvider } from "../chat/public";
 import { CartProvider } from "../../hooks/useCart";
 import { CartDrawer } from "../cart/CartDrawer";
+import { CopilotBubbleProvider } from "../chat/CopilotBubbleProvider";
+import { useBroadcastChannel } from "../../hooks/useBroadcastChannel";
+import { syncWalletDisconnected } from "../../hooks/useWallet";
+
+function WalletTabSync() {
+  useBroadcastChannel((message) => {
+    if (message.type === "WALLET_DISCONNECTED") {
+      syncWalletDisconnected();
+    }
+  });
+  return null;
+}
 
 // Ephemeral session signing keys live only inside this worker's isolated
 // memory. Loaded client-side only so it never runs during SSR.
@@ -61,9 +75,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   return (
     <ThemeProvider>
+      <LocalePreferenceProvider>
       <FeatureFlagProvider>
       <MockApiProvider>
         <NetworkProvider>
+          <WalletTabSync />
           <CurrencyProvider>
             <TimeFormatProvider>
               <AudioNotificationsProvider>
@@ -72,20 +88,24 @@ export function AppProviders({ children }: { children: ReactNode }) {
                     <TourProvider>
                       <SessionKeyWorkerProvider>
                       <CommandPaletteProvider>
+                        <GlobalShortcutsProvider>
                         <ChatDrawerProvider>
                           <CartProvider>
-                            <DomainWarningBanner />
-                            <ConsentBanner />
-                            <DemoBanner />
-                            <SentryBreadcrumbs />
-                            <WebVitalsReporter />
-                            <QueueInspectorModal />
-                            {children}
-                            <CartDrawer />
-                            <NetworkMismatchModal />
-                            <IdleSessionGuard />
+                            <CopilotBubbleProvider>
+                              <DomainWarningBanner />
+                              <ConsentBanner />
+                              <DemoBanner />
+                              <SentryBreadcrumbs />
+                              <WebVitalsReporter />
+                              <QueueInspectorModal />
+                              {children}
+                              <CartDrawer />
+                              <NetworkMismatchModal />
+                              <IdleSessionGuard />
+                            </CopilotBubbleProvider>
                           </CartProvider>
                         </ChatDrawerProvider>
+                        </GlobalShortcutsProvider>
                       </CommandPaletteProvider>
                       </SessionKeyWorkerProvider>
                     </TourProvider>
@@ -97,6 +117,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         </NetworkProvider>
       </MockApiProvider>
       </FeatureFlagProvider>
+      </LocalePreferenceProvider>
     </ThemeProvider>
   );
 }

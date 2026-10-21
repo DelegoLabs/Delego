@@ -15,15 +15,21 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   type ReactNode,
 } from "react";
 import {
   computeCartSummary,
+  isCartItem,
   readCartFromStorage,
   writeCartToStorage,
   type CartItem,
   type CartSummary,
 } from "../lib/cart";
+import {
+  useBroadcastChannel,
+  type TabSyncMessage,
+} from "./useBroadcastChannel";
 
 // ---------------------------------------------------------------------------
 // State & reducer
@@ -39,6 +45,7 @@ interface CartState {
 
 type CartAction =
   | { type: "HYDRATE"; items: CartItem[] }
+  | { type: "SYNC_ITEMS"; items: CartItem[] }
   | { type: "ADD_ITEM"; item: CartItem }
   | { type: "REMOVE_ITEM"; productId: string }
   | { type: "SET_QUANTITY"; productId: string; quantity: number }
@@ -49,6 +56,9 @@ type CartAction =
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case "HYDRATE":
+      return { ...state, items: action.items, hydrated: true };
+
+    case "SYNC_ITEMS":
       return { ...state, items: action.items, hydrated: true };
 
     case "ADD_ITEM": {
@@ -65,7 +75,11 @@ function cartReducer(state: CartState, action: CartAction): CartState {
           ...state,
           items: state.items.map((i) =>
             i.productId === action.item.productId
-              ? { ...i, quantity: next }
+              ? {
+                  ...i,
+                  quantity: next,
+                  assetCode: action.item.assetCode ?? i.assetCode,
+                }
               : i
           ),
         };
@@ -113,6 +127,11 @@ function cartReducer(state: CartState, action: CartAction): CartState {
   }
 }
 
+type CartMutationAction = Extract<
+  CartAction,
+  { type: "ADD_ITEM" | "REMOVE_ITEM" | "SET_QUANTITY" | "CLEAR" }
+>;
+
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
@@ -141,9 +160,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     hydrated: false,
     drawerOpen: false,
   });
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const receiveTabMessage = useCallback((message: TabSyncMessage) => {
+    if (
+      message.type !== "CART_UPDATED" ||
+      !Array.isArray(message.payload.items)
+    ) {
+      return;
+    }
+    const items = message.payload.items.filter(isCartItem);
+    stateRef.current = { ...stateRef.current, items, hydrated: true };
+    dispatch({ type: "SYNC_ITEMS", items });
+  }, []);
+  const { broadcast } = useBroadcastChannel(receiveTabMessage);
 
   // Hydrate from localStorage on the first client render
   useEffect(() => {
+    if (stateRef.current.hydrated) return;
     dispatch({ type: "HYDRATE", items: readCartFromStorage() });
   }, []);
 
@@ -153,21 +188,34 @@ export function CartProvider({ children }: { children: ReactNode }) {
     writeCartToStorage(state.items);
   }, [state.items, state.hydrated]);
 
+  const applyCartAction = useCallback(
+    (action: CartMutationAction) => {
+      const next = cartReducer(stateRef.current, action);
+      stateRef.current = next;
+      dispatch(action);
+      if (next.hydrated) {
+        writeCartToStorage(next.items);
+        broadcast("CART_UPDATED", { items: next.items });
+      }
+    },
+    [broadcast]
+  );
+
   const addItem = useCallback((item: CartItem) => {
-    dispatch({ type: "ADD_ITEM", item });
-  }, []);
+    applyCartAction({ type: "ADD_ITEM", item });
+  }, [applyCartAction]);
 
   const removeItem = useCallback((productId: string) => {
-    dispatch({ type: "REMOVE_ITEM", productId });
-  }, []);
+    applyCartAction({ type: "REMOVE_ITEM", productId });
+  }, [applyCartAction]);
 
   const setQuantity = useCallback((productId: string, quantity: number) => {
-    dispatch({ type: "SET_QUANTITY", productId, quantity });
-  }, []);
+    applyCartAction({ type: "SET_QUANTITY", productId, quantity });
+  }, [applyCartAction]);
 
   const clearCart = useCallback(() => {
-    dispatch({ type: "CLEAR" });
-  }, []);
+    applyCartAction({ type: "CLEAR" });
+  }, [applyCartAction]);
 
   const openDrawer = useCallback(() => {
     dispatch({ type: "OPEN_DRAWER" });

@@ -33,6 +33,13 @@ export interface SubscriptionConfig {
   rpcUrl: string;
 }
 
+export interface WebSocketReconnectState {
+  attemptCount: number;
+  maxDelayMs: number;
+  isReconnecting: boolean;
+  bufferedMessageCount: number;
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -58,7 +65,8 @@ function getStorageKey(networkId: NetworkId, contractId: string): string {
 function decodeXdrTopic(topics: unknown[]): string {
   return topics
     .map((topic) => {
-      if (topic === null || topic === undefined) return "null";
+      if (topic === null) return "null";
+      if (topic === undefined) return "undefined";
       if (typeof topic === "string") return topic;
       if (typeof topic === "number") return topic.toString();
       if (typeof topic === "bigint") return topic.toString();
@@ -120,6 +128,10 @@ function encodeTopicFilter(topics: (string | symbol | number | bigint)[]): unkno
         return { type: "u32", value: topic };
       }
       return { type: "i32", value: topic };
+    }
+    if (typeof topic === "string") {
+      if (topic === "*") return "*";
+      return { type: "symbol", value: topic };
     }
     return topic;
   });
@@ -190,17 +202,30 @@ function buildWebSocketUrl(rpcUrl: string): string {
 // ---------------------------------------------------------------------------
 
 export class EventSubscriptionManager {
-  private subscriptions = new Map<string, ContractEventSubscription>();
+  private subscriptions = new (class extends Map<string, ContractEventSubscription> {
+    constructor(private manager: EventSubscriptionManager) {
+      super();
+    }
+    override delete(key: string): boolean {
+      const res = super.delete(key);
+      if (this.size === 0) {
+        this.manager.disconnect();
+      }
+      return res;
+    }
+  })(this);
   private socket: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private attemptCount = 0;
   private connected = false;
+  private isReconnecting = false;
   private bufferedEvents: SorobanParsedEvent[] = [];
   private lastLedgerSequences = new Map<string, number>();
   private networkId: NetworkId;
   private network: NetworkConfig;
   private rpcUrl: string;
   private cancelled = false;
+  private subCounter = 0;
 
   constructor(config: SubscriptionConfig) {
     this.networkId = config.networkId;
@@ -212,15 +237,19 @@ export class EventSubscriptionManager {
    * Subscribe to contract events with automatic replay of missed events.
    */
   subscribe(subscription: ContractEventSubscription): () => void {
-    const key = this.getSubscriptionKey(subscription.contractId, subscription.topics);
+    const baseKey = this.getSubscriptionKey(subscription.contractId, subscription.topics);
+    const key = this.subscriptions.has(baseKey)
+      ? `${baseKey}#${++this.subCounter}`
+      : baseKey;
     this.subscriptions.set(key, subscription);
 
     // Update last ledger sequence from storage if available
     const storedLedger = this.loadLastLedgerSequence(subscription.contractId);
     const startLedger = Math.max(storedLedger ?? 0, subscription.startLedger);
 
-    // If already connected, immediately trigger subscription
-    if (this.connected && this.socket?.readyState === WebSocket.OPEN) {
+    if (!this.socket && !this.reconnectTimer && !this.cancelled) {
+      this.connect();
+    } else if (this.connected && this.socket?.readyState === (WebSocket.OPEN ?? 1)) {
       this.sendSubscription(subscription, startLedger);
     }
 
@@ -249,11 +278,32 @@ export class EventSubscriptionManager {
     return subscriptions.map((s) => this.subscribe(s));
   }
 
+  private parseSorobanEvent(rawEvent: any, networkId?: NetworkId): SorobanParsedEvent {
+    return parseSorobanEvent(rawEvent, networkId ?? this.networkId);
+  }
+
+  private parseEventPayload(data: unknown): Record<string, unknown> {
+    return parseEventPayload(data);
+  }
+
+  private encodeTopicFilter(topics: (string | symbol | number | bigint)[]): unknown[] {
+    return encodeTopicFilter(topics);
+  }
+
+  getReconnectState(): WebSocketReconnectState {
+    return {
+      attemptCount: this.attemptCount,
+      maxDelayMs: MAX_RECONNECT_DELAY_MS,
+      isReconnecting: this.isReconnecting,
+      bufferedMessageCount: this.bufferedEvents.length,
+    };
+  }
+
   /**
    * Get the current connection status.
    */
   isConnected(): boolean {
-    return this.connected && this.socket?.readyState === WebSocket.OPEN;
+    return this.connected && this.socket?.readyState === (WebSocket.OPEN ?? 1);
   }
 
   /**
@@ -274,6 +324,7 @@ export class EventSubscriptionManager {
    * Force reconnection to the Soroban RPC WebSocket.
    */
   reconnect(): void {
+    this.attemptCount = 0;
     this.disconnect();
     this.connect();
   }
@@ -283,6 +334,7 @@ export class EventSubscriptionManager {
    */
   disconnect(): void {
     this.cancelled = true;
+    this.isReconnecting = false;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -302,6 +354,8 @@ export class EventSubscriptionManager {
     this.subscriptions.clear();
     this.bufferedEvents = [];
     this.lastLedgerSequences.clear();
+    this.attemptCount = 0;
+    this.isReconnecting = false;
   }
 
   // ---------------------------------------------------------------------------
@@ -327,21 +381,41 @@ export class EventSubscriptionManager {
   }
 
   private saveLastLedgerSequence(contractId: string, ledger: number): void {
+    const current =
+      this.lastLedgerSequences.get(contractId) ??
+      this.loadLastLedgerSequence(contractId) ??
+      0;
+    if (ledger <= current) return;
+    this.lastLedgerSequences.set(contractId, ledger);
     if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(
         getStorageKey(this.networkId, contractId),
         ledger.toString()
       );
-      this.lastLedgerSequences.set(contractId, ledger);
     } catch {
       // Storage unavailable - continue anyway
     }
   }
 
   private connect(): void {
-    this.cancelled = false;
-    this.attemptCount = 0;
+    if (this.cancelled) return;
+    if (this.socket && (this.socket.readyState === (WebSocket.CONNECTING ?? 0) || this.socket.readyState === (WebSocket.OPEN ?? 1))) {
+      return;
+    }
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.socket) {
+      try {
+        this.socket.close();
+      } catch {
+        // ignore
+      }
+      this.socket = null;
+    }
+    this.connected = false;
     this.setupWebSocket();
   }
 
@@ -352,6 +426,8 @@ export class EventSubscriptionManager {
       const wsUrl = buildWebSocketUrl(this.rpcUrl);
       this.socket = new WebSocket(wsUrl);
     } catch (err) {
+      this.connected = false;
+      this.socket = null;
       const error = err instanceof Error ? err : new Error("Failed to open WebSocket");
       this.broadcastError(error);
       this.scheduleReconnect();
@@ -364,6 +440,7 @@ export class EventSubscriptionManager {
         return;
       }
       this.attemptCount = 0;
+      this.isReconnecting = false;
       this.connected = true;
       this.broadcastStatus(true);
 
@@ -395,14 +472,22 @@ export class EventSubscriptionManager {
     this.socket.addEventListener("close", () => {
       if (this.cancelled) return;
       this.connected = false;
+      if (this.socket) {
+        this.socket = null;
+      }
       this.broadcastStatus(false);
       this.scheduleReconnect();
     });
 
     this.socket.addEventListener("error", (err) => {
       if (this.cancelled) return;
+      this.connected = false;
+      if (this.socket) {
+        this.socket = null;
+      }
       const error = err instanceof Error ? err : new Error("WebSocket error");
       this.broadcastError(error);
+      this.scheduleReconnect();
     });
   }
 
@@ -410,7 +495,7 @@ export class EventSubscriptionManager {
     subscription: ContractEventSubscription,
     startLedger: number
   ): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+    if (!this.socket || this.socket.readyState !== (WebSocket.OPEN ?? 1)) return;
 
     const message = {
       type: "subscribe_contract_events",
@@ -477,14 +562,28 @@ export class EventSubscriptionManager {
     // Update last processed ledger
     this.saveLastLedgerSequence(event.contractId, event.ledger);
 
+    // If disconnected, buffer the event
+    if (!this.connected) {
+      this.bufferedEvents.push(event);
+      if (this.bufferedEvents.length > 500) {
+        this.bufferedEvents = this.bufferedEvents.slice(-500);
+      }
+      return;
+    }
+
     // Check if any subscription matches this event
     let matched = false;
-    this.subscriptions.forEach((subscription, key) => {
+    this.subscriptions.forEach((subscription) => {
       if (subscription.contractId === event.contractId) {
-        // Check if any topic filter matches
-        const matchesTopic = subscription.topics.some((topic) =>
-          event.topic.includes(topic)
-        );
+        const matchesTopic =
+          subscription.topics.length > 0 &&
+          subscription.topics.some(
+            (topic) =>
+              topic === "*" ||
+              event.topic === topic ||
+              event.topic.split("::").includes(topic) ||
+              event.topic.includes(topic)
+          );
         if (matchesTopic) {
           matched = true;
           try {
@@ -501,8 +600,7 @@ export class EventSubscriptionManager {
     // Buffer event if not matched (for future subscriptions)
     if (!matched) {
       this.bufferedEvents.push(event);
-      // Limit buffer size
-      if (this.bufferedEvents.length > 1000) {
+      if (this.bufferedEvents.length > 500) {
         this.bufferedEvents = this.bufferedEvents.slice(-500);
       }
     }
@@ -516,9 +614,15 @@ export class EventSubscriptionManager {
     eventsToDeliver.forEach((event) => {
       this.subscriptions.forEach((subscription) => {
         if (subscription.contractId === event.contractId) {
-          const matchesTopic = subscription.topics.some((topic) =>
-            event.topic.includes(topic)
-          );
+          const matchesTopic =
+            subscription.topics.length > 0 &&
+            subscription.topics.some(
+              (topic) =>
+                topic === "*" ||
+                event.topic === topic ||
+                event.topic.split("::").includes(topic) ||
+                event.topic.includes(topic)
+            );
           if (matchesTopic) {
             try {
               subscription.onEvent(event);
@@ -549,7 +653,12 @@ export class EventSubscriptionManager {
 
   private scheduleReconnect(): void {
     if (this.cancelled) return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
 
+    this.isReconnecting = true;
     const delay = Math.min(
       MAX_RECONNECT_DELAY_MS,
       BASE_RECONNECT_DELAY_MS * 2 ** this.attemptCount
@@ -557,6 +666,7 @@ export class EventSubscriptionManager {
     this.attemptCount += 1;
 
     this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
       if (!this.cancelled) {
         this.connect();
       }
@@ -575,11 +685,11 @@ export function createSubscriptionManager(
   config: Omit<SubscriptionConfig, "network">
 ): EventSubscriptionManager {
   const networkId = config.networkId;
-  const network = {
+  const network: NetworkConfig = {
     id: networkId,
     label: networkId === "mainnet" ? "Mainnet" : "Testnet",
     shortLabel: networkId === "mainnet" ? "MAIN" : "TEST",
-    freighterNetwork: networkId === "mainnet" ? "PUBLIC" : "TESTNET",
+    freighterNetwork: networkId === "mainnet" ? ("PUBLIC" as const) : ("TESTNET" as const),
     networkPassphrase:
       networkId === "mainnet"
         ? "Public Global Stellar Network ; September 2015"

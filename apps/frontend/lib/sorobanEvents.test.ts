@@ -62,6 +62,7 @@ function createMockSocket(url: string): MockSocket {
 // ---------------------------------------------------------------------------
 
 beforeAll(() => {
+  (vi as any).restore = () => vi.useRealTimers();
   const MockWebSocket = vi.fn().mockImplementation((url: string) => createMockSocket(url));
   const withConstants = MockWebSocket as unknown as Record<string, number>;
   withConstants.CONNECTING = WS_CONNECTING;
@@ -494,9 +495,8 @@ describe("EventSubscriptionManager", () => {
       // Verify the delay is capped
       const timer = vi.useFakeTimers();
       manager["scheduleReconnect"]();
-      timer.advanceTimersByTime(15000); // Should trigger reconnect after 15s cap
-
-      timer.restore();
+      timer.advanceTimersByTime(15000);
+      timer.clearAllTimers();
     });
   });
 
@@ -665,7 +665,7 @@ describe("EventSubscriptionManager", () => {
       sockets[0].open();
 
       const sub1 = createSubscription();
-      const sub2 = createSubscription();
+      const sub2 = createSubscription({ topics: ["escrow_updated"] });
 
       manager.subscribe(sub1);
       manager.subscribe(sub2);
@@ -774,7 +774,7 @@ describe("EventSubscriptionManager", () => {
       });
 
       // Reconnect
-      sockets.push(createMockSocket(sockets[0].url)); // Simulate new connection
+      manager["connect"]();
       sockets[1].open();
 
       // Events should be delivered

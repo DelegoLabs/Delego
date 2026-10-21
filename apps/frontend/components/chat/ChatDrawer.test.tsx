@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ChatDrawer, type ChatDrawerProps, type ChatMessage } from "./ChatDrawer";
+import { ChatDrawer, parseInChatTrackingSnippet, type ChatDrawerProps, type ChatMessage } from "./ChatDrawer";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -205,6 +205,49 @@ describe("ChatDrawer — tool calls", () => {
       screen.queryByTestId("tool-call-details")
     ).not.toBeInTheDocument();
   });
+
+  it("renders a structured tracking card with a safe carrier link and delivery update action", async () => {
+    const user = userEvent.setup();
+    const { onSendMessage } = renderDrawer({
+      messages: [makeMessage({
+        toolCalls: [{
+          toolName: "track_order",
+          arguments: { orderId: "123" },
+          result: {
+            orderId: "123",
+            status: "In transit",
+            carrier: "UPS",
+            trackingNumber: "1Z999",
+            lastCheckpointLocation: "Memphis, TN",
+            estimatedDeliveryDate: "2026-10-22",
+          },
+        }],
+      })],
+    });
+
+    expect(screen.getByTestId("in-chat-tracking-card")).toHaveTextContent("Order 123");
+    expect(screen.getByTestId("in-chat-tracking-card")).toHaveTextContent("Memphis, TN");
+    const link = screen.getByRole("link", { name: "Track with UPS" });
+    expect(link).toHaveAttribute("href", "https://www.ups.com/track?tracknum=1Z999");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+
+    await user.click(screen.getByRole("button", { name: "Request Delivery Update" }));
+    expect(onSendMessage).toHaveBeenCalledWith("Request a delivery update for order 123");
+  });
+
+  it("parses wrapped snake_case tracking responses and ignores incomplete responses", () => {
+    expect(parseInChatTrackingSnippet({ data: {
+      order_id: "123", status: "Out for delivery", carrier: "DHL",
+      tracking_number: "ABC", last_checkpoint_location: "Lagos",
+      estimated_delivery_date: "2026-10-22",
+    } })).toEqual({
+      orderId: "123", status: "Out for delivery", carrier: "DHL",
+      trackingNumber: "ABC", lastCheckpointLocation: "Lagos",
+      estimatedDeliveryDate: "2026-10-22",
+    });
+    expect(parseInChatTrackingSnippet({ orderId: "123" })).toBeNull();
+  });
 });
 
 // ── Proposal references ───────────────────────────────────────────────────────
@@ -232,7 +275,7 @@ describe("ChatDrawer — composer", () => {
     await user.type(input, "  find me a keyboard  ");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(onSendMessage).toHaveBeenCalledWith("find me a keyboard");
+    expect(onSendMessage).toHaveBeenCalledWith({ type: "text", content: "find me a keyboard" });
     expect(input).toHaveValue("");
   });
 
@@ -246,7 +289,7 @@ describe("ChatDrawer — composer", () => {
     expect(input).toHaveValue("hello\n");
 
     await user.type(input, "{Enter}");
-    expect(onSendMessage).toHaveBeenCalledWith("hello");
+    expect(onSendMessage).toHaveBeenCalledWith({ type: "text", content: "hello" });
   });
 
   it("does not send an empty message", async () => {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card } from "@delegolabs/ui";
 import {
   STRATEGY_OPTIONS,
+  PERSONA_OPTIONS,
   saveAgentConfig,
   type AgentPersonaConfig,
   type OptimizationStrategy,
@@ -74,6 +75,40 @@ export function AgentSettingsCard({ config: initialConfig }: AgentSettingsCardPr
                   name="agent-strategy"
                   checked={config.strategy === opt.value}
                   onChange={() => updateStrategy(opt.value)}
+                />
+                <span style={{ fontWeight: 600, fontSize: "0.8125rem" }}>{opt.label}</span>
+              </span>
+              <span style={{ fontSize: "0.75rem", color: "#6b7280", marginLeft: "1.375rem" }}>
+                {opt.description}
+              </span>
+            </label>
+          ))}
+        </div>
+
+        <legend style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+          Agent persona
+        </legend>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {PERSONA_OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.125rem",
+                padding: "0.625rem 0.75rem",
+                borderRadius: "0.5rem",
+                border: config.persona === opt.value ? "2px solid #2563eb" : "1px solid #d1d5db",
+                background: config.persona === opt.value ? "#eff6ff" : "#fff",
+                cursor: "pointer",
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <input
+                  type="radio"
+                  name="agent-persona"
+                  checked={config.persona === opt.value}
+                  onChange={() => setConfig((prev) => ({ ...prev, persona: opt.value }))}
                 />
                 <span style={{ fontWeight: 600, fontSize: "0.8125rem" }}>{opt.label}</span>
               </span>

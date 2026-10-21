@@ -18,6 +18,8 @@ export interface CartItem {
   title: string;
   /** Price per unit in stroops */
   priceStroops: string;
+  /** Asset used to price the product. Optional for carts saved before asset tracking. */
+  assetCode?: "USDC" | "XLM" | "EURC";
   /** Current quantity in cart (≥ 1) */
   quantity: number;
   /** Maximum purchasable quantity (from product stock) */
@@ -36,6 +38,19 @@ export interface CartSummary {
 
 /** localStorage key for persisted cart state. */
 export const CART_STORAGE_KEY = "delego_cart_items";
+
+export function isCartItem(item: unknown): item is CartItem {
+  if (item === null || typeof item !== "object") return false;
+  const candidate = item as Record<string, unknown>;
+  return (
+    typeof candidate.productId === "string" &&
+    typeof candidate.merchantId === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.priceStroops === "string" &&
+    typeof candidate.quantity === "number" &&
+    typeof candidate.maxStock === "number"
+  );
+}
 
 /**
  * Computes cart summary from an item list using BigInt arithmetic to
@@ -71,17 +86,7 @@ export function readCartFromStorage(): CartItem[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     // Basic shape validation — drop anything malformed
-    return parsed.filter(
-      (item): item is CartItem =>
-        item !== null &&
-        typeof item === "object" &&
-        typeof item.productId === "string" &&
-        typeof item.merchantId === "string" &&
-        typeof item.title === "string" &&
-        typeof item.priceStroops === "string" &&
-        typeof item.quantity === "number" &&
-        typeof item.maxStock === "number"
-    );
+    return parsed.filter(isCartItem);
   } catch {
     return [];
   }
