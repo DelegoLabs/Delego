@@ -77,5 +77,43 @@
     "generating": "Wird erstellt…",
     "errorGeneric": "Rechnung konnte nicht erstellt werden.",
     "ariaLabel": "PDF-Rechnung für Bestellung {orderId} herunterladen"
+  },
+  "bulkFulfillment": {
+    "selectAll": "Alle zu versendenden Bestellungen auswählen",
+    "selectOrder": "Bestellung {orderId} auswählen",
+    "actionBarLabel": "Sammelaktionen für Bestellungen",
+    "selectedCount": "{count, plural, one {# Bestellung ausgewählt} other {# Bestellungen ausgewählt}}",
+    "bulkFulfill": "Sammelversand",
+    "clearSelection": "Auswahl aufheben",
+    "modalTitle": "{count, plural, one {# Bestellung} other {# Bestellungen}} versenden",
+    "close": "Schließen",
+    "modeLabel": "Wie möchtest du die Sendungsnummern hinzufügen?",
+    "modeManual": "Manuell eingeben",
+    "modeCsv": "CSV hochladen",
+    "orderLabel": "Bestellung {orderId}",
+    "order": "Bestellung",
+    "carrier": "Versanddienstleister",
+    "trackingNumber": "Sendungsnummer",
+    "csvHint": "Füge eine Kopfzeile mit orderId, carrier und trackingNumber hinzu. Als Versanddienstleister sind FedEx, UPS, USPS, DHL oder Other möglich.",
+    "csvFile": "CSV-Datei",
+    "csvText": "Oder CSV einfügen",
+    "csvPreview": "Zuzuweisende Sendungsnummern",
+    "csvMissing": "{count, plural, one {# ausgewählte Bestellung hat} other {# ausgewählte Bestellungen haben}} keine Zeile in der CSV und {count, plural, one {wird} other {werden}} nicht versendet: {orderIds}",
+    "csvLineError": "Zeile {line}: {message}",
+    "cancel": "Abbrechen",
+    "submit": "{count, plural, one {# Bestellung} other {# Bestellungen}} als versendet markieren",
+    "submitting": "Sendungsnummern werden übermittelt…",
+    "result": {
+      "success": "{count, plural, one {# Bestellung} other {# Bestellungen}} als versendet markiert.",
+      "failed": "{count, plural, one {# Bestellung konnte nicht versendet werden und wurde} other {# Bestellungen konnten nicht versendet werden und wurden}} zurück zu „Zu versenden“ verschoben: {orderIds}"
+    },
+    "errors": {
+      "missingHeader": "Die CSV braucht eine Kopfzeile mit orderId, carrier und trackingNumber.",
+      "missingFields": "Bestellung, Versanddienstleister und Sendungsnummer sind Pflichtfelder.",
+      "unknownOrder": "Bestellung {orderId} gehört nicht zu den ausgewählten Bestellungen.",
+      "duplicateOrder": "Bestellung {orderId} kommt mehrfach vor.",
+      "invalidCarrier": "Bestellung {orderId} hat einen unbekannten Versanddienstleister.",
+      "invalidTracking": "Die Sendungsnummer von Bestellung {orderId} passt nicht zum Versanddienstleister."
+    }
   }
 }
