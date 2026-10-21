@@ -13,8 +13,8 @@ function Layout() {
     <NextIntlClientProvider locale="en" messages={en}>
       <SkipToContent />
       <nav aria-label="Primary">
-        <a href="/orders">Orders</a>
-        <a href="/settings">Settings</a>
+        <button type="button">Orders</button>
+        <button type="button">Settings</button>
       </nav>
       <main id={APP_CONTENT_ID} className="app-content" tabIndex={-1}>
         <h1>Dashboard</h1>
