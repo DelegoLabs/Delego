@@ -297,4 +297,15 @@ export interface UserPreferenceItem {
  */
 export type OfflineStatus = "online" | "offline" | "reconnecting";
 
+/**
+ * Auto-reorder webhook configuration for external supplier/ERP integration.
+ */
+export interface AutoReorderConfig {
+  supplierWebhookUrl: string;
+  authHeaderMasked: string;
+  minimumThreshold: number;
+  reorderQuantity: number;
+  isEnabled: boolean;
+}
+
 export * from "./schemas.js";

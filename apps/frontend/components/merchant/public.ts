@@ -9,3 +9,7 @@ export type { KycUploaderProps } from "./KycUploader";
 export type { KycUploadData, KycVerificationStatus } from "./kycTypes";
 export { encryptKycDocument } from "./kycEncryption";
 export { uploadKycDocument } from "./kycUploadClient";
+export { AutoReorderConfigForm } from "./AutoReorderConfigForm";
+export type { AutoReorderConfigFormProps } from "./AutoReorderConfigForm";
+export { InventorySettings } from "./InventorySettings";
+export type { InventorySettingsProps } from "./InventorySettings";
