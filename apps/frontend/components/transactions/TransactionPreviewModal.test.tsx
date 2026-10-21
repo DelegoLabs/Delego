@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import {
   Address,
   BASE_FEE,
@@ -13,6 +14,8 @@ import {
   nativeToScVal,
 } from "@stellar/stellar-sdk";
 import { NetworkProvider } from "../../hooks/useNetwork";
+import { server } from "../../mocks/server";
+import { CONGESTED_NETWORK_FEE_STATS } from "../../mocks/handlers/fees";
 import { TransactionPreviewModal } from "./TransactionPreviewModal";
 
 const SOURCE = Keypair.fromPublicKey(
@@ -20,6 +23,16 @@ const SOURCE = Keypair.fromPublicKey(
 );
 const RECIPIENT = "GBZH4MBWR3TBGRKE33DXVCMZKPCOLHYQOAFB2GNFY57ETYBTBQPLVLOD";
 const ESCROW_CONTRACT_ID = StrKey.encodeContract(Buffer.alloc(32, 7));
+const TESTNET_FEE_STATS_URL = "https://horizon-testnet.stellar.org/fee_stats";
+
+/** A congested network: fees far above the default 100,000-stroop limit. */
+function useCongestedNetwork() {
+  server.use(
+    http.get(TESTNET_FEE_STATS_URL, () =>
+      HttpResponse.json(CONGESTED_NETWORK_FEE_STATS)
+    )
+  );
+}
 
 function Providers({ children }: { children: React.ReactNode }) {
   return <NetworkProvider>{children}</NetworkProvider>;
@@ -176,5 +189,96 @@ describe("TransactionPreviewModal", () => {
     expect(
       screen.getByRole("button", { name: /confirm & sign/i })
     ).toBeDisabled();
+  });
+
+  it("warns before signing when the network fee is above the user's limit", async () => {
+    useCongestedNetwork();
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(
+      <TransactionPreviewModal
+        xdr={buildReleaseXdr(1n)}
+        onCancel={vi.fn()}
+        onConfirm={onConfirm}
+      />,
+      { wrapper: Providers }
+    );
+
+    await user.click(screen.getByRole("button", { name: /confirm & sign/i }));
+
+    const warning = await screen.findByRole("dialog", {
+      name: /network fees are surging/i,
+    });
+    expect(warning).toBeInTheDocument();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("signs the transaction once the user approves the surge fee", async () => {
+    useCongestedNetwork();
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(
+      <TransactionPreviewModal
+        xdr={buildReleaseXdr(1n)}
+        onCancel={vi.fn()}
+        onConfirm={onConfirm}
+      />,
+      { wrapper: Providers }
+    );
+
+    await user.click(screen.getByRole("button", { name: /confirm & sign/i }));
+    await screen.findByRole("dialog", { name: /network fees are surging/i });
+    await user.click(screen.getByRole("button", { name: /approve surge fee/i }));
+
+    await waitFor(() => {
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("postpones the transaction without signing when the user declines", async () => {
+    useCongestedNetwork();
+    const user = userEvent.setup();
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+    render(
+      <TransactionPreviewModal
+        xdr={buildReleaseXdr(1n)}
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+      />,
+      { wrapper: Providers }
+    );
+
+    await user.click(screen.getByRole("button", { name: /confirm & sign/i }));
+    await screen.findByRole("dialog", { name: /network fees are surging/i });
+    await user.click(screen.getByRole("button", { name: /postpone/i }));
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("dialog", { name: /network fees are surging/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not warn while the network fee stays under the user's limit", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(
+      <TransactionPreviewModal
+        xdr={buildReleaseXdr(1n)}
+        onCancel={vi.fn()}
+        onConfirm={onConfirm}
+      />,
+      { wrapper: Providers }
+    );
+
+    await user.click(screen.getByRole("button", { name: /confirm & sign/i }));
+
+    await waitFor(() => {
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      screen.queryByRole("dialog", { name: /network fees are surging/i })
+    ).not.toBeInTheDocument();
   });
 });

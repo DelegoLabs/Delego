@@ -19,6 +19,7 @@ export type { AddressPickerProps } from "./AddressPicker";
 export { AddressBookPage } from "./AddressBookPage";
 export type { AddressBookPageProps } from "./AddressBookPage";
 export { KillSwitchCard } from "./KillSwitchCard";
+export { MaxFeeCapCard } from "./MaxFeeCapCard";
 export { ChatAudioSettingsCard } from "./ChatAudioSettingsCard";
 export { WebhookDeliveryLogViewer } from "./WebhookDeliveryLogViewer";
 export type { WebhookDeliveryLogViewerProps } from "./WebhookDeliveryLogViewer";
