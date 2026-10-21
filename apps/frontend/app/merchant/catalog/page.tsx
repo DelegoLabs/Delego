@@ -28,12 +28,132 @@ import { CatalogCsvImporter } from "../../../components/merchant/CatalogCsvImpor
 import { importMerchantCatalog } from "../../../lib/merchantRegistration";
 import type { CatalogImportRow } from "../../../lib/catalogCsv";
 import type { CsvImportRow } from "../../../lib/csvCatalogImport";
+import { DuplicateProductModal } from "../../../components/DuplicateProductModal";
+import {
+  collectTakenSkus,
+  type DuplicateProductDraft,
+} from "../../../lib/productDuplicate";
+import {
+  catalogProductKey,
+  loadCatalogVariants,
+  saveCatalogVariants,
+} from "../../../lib/variantMatrix";
+import type { MerchantProduct } from "../../../lib/merchantCatalog";
+
+/** Per-product "⋯" actions menu (#1012). */
+function ProductRowMenu({
+  product,
+  onDuplicate,
+}: {
+  product: MerchantProduct;
+  onDuplicate: (product: MerchantProduct) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuId = `product-actions-${product.id}`;
+
+  return (
+    <div
+      style={{ position: "relative", alignSelf: "flex-end" }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setOpen(false);
+      }}
+    >
+      <button
+        type="button"
+        aria-label={`Actions for ${product.title}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          border: "1px solid #d1d5db",
+          borderRadius: "0.375rem",
+          background: "#fff",
+          padding: "0 0.5rem",
+          cursor: "pointer",
+          lineHeight: 1.5,
+        }}
+      >
+        ⋯
+      </button>
+      {open && (
+        <div
+          id={menuId}
+          role="menu"
+          style={{
+            position: "absolute",
+            right: 0,
+            top: "calc(100% + 4px)",
+            zIndex: 10,
+            minWidth: 140,
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: "0.5rem",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+            padding: "0.25rem",
+          }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onDuplicate(product);
+            }}
+            style={{
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              border: "none",
+              background: "transparent",
+              padding: "0.375rem 0.5rem",
+              fontSize: "0.8125rem",
+              cursor: "pointer",
+            }}
+          >
+            Duplicate
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function MerchantCatalogPage() {
   const [page, setPage] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [duplicateSource, setDuplicateSource] = useState<MerchantProduct | null>(null);
 
   const { products, total, loading, error, toggleListed, refresh } = useMerchantCatalog(page);
+
+  // Product and variant SKUs on this page. The server still has the final
+  // say for SKUs on other pages — a collision there surfaces as a submit error.
+  const takenSkus = useMemo(
+    () =>
+      collectTakenSkus(
+        products,
+        products.map((p) => loadCatalogVariants(catalogProductKey(p.title)))
+      ),
+    [products]
+  );
+
+  const handleDuplicate = async (draft: DuplicateProductDraft) => {
+    await importMerchantCatalog([
+      {
+        sku: draft.sku,
+        title: draft.title,
+        priceStroops: draft.priceStroops,
+        assetCode: draft.assetCode,
+        stockQuantity: draft.stockQuantity,
+        isListed: draft.isListed,
+        ...(draft.category ? { category: draft.category } : {}),
+        ...(draft.description ? { description: draft.description } : {}),
+        ...(draft.imageUrl ? { imageUrl: draft.imageUrl } : {}),
+      },
+    ]);
+    if (draft.variants) saveCatalogVariants(draft.variants);
+    await refresh();
+  };
   const { filters, setFilters, resetFilters, hydrated } = useCatalogFilters();
   const [threshold, setThreshold] = useState(DEFAULT_LOW_STOCK_THRESHOLD);
 
@@ -177,6 +297,7 @@ export default function MerchantCatalogPage() {
                     opacity: product.isListed ? 1 : 0.6,
                   }}
                 >
+                  <ProductRowMenu product={product} onDuplicate={setDuplicateSource} />
                   <span style={{ fontWeight: 600, fontSize: "0.875rem" }}>{product.title}</span>
                   <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>SKU {product.sku}</span>
                   {product.category && (
@@ -260,6 +381,19 @@ export default function MerchantCatalogPage() {
         categories={categories}
         onChange={setFilters}
         onReset={resetFilters}
+      />
+
+      <DuplicateProductModal
+        open={duplicateSource !== null}
+        source={duplicateSource}
+        existingSkus={takenSkus}
+        sourceVariants={
+          duplicateSource
+            ? loadCatalogVariants(catalogProductKey(duplicateSource.title))
+            : null
+        }
+        onClose={() => setDuplicateSource(null)}
+        onSubmit={handleDuplicate}
       />
     </div>
   );

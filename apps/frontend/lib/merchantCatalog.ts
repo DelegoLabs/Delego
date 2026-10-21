@@ -14,6 +14,9 @@ export interface MerchantProduct {
   category?: string;
   /** Average product rating 0–5 */
   rating?: number;
+  description?: string;
+  /** Primary product image */
+  imageUrl?: string;
 }
 
 const retryingFetch = createRetryingFetch();

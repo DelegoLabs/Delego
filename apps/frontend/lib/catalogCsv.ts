@@ -17,6 +17,10 @@ export interface CatalogImportRow {
   assetCode: CatalogAssetCode;
   stockQuantity: number;
   category?: string;
+  /** Set by the duplicate tool (#1012); CSV rows leave these unset. */
+  description?: string;
+  imageUrl?: string;
+  isListed?: boolean;
 }
 
 export interface CatalogRowError {

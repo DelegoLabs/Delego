@@ -8,6 +8,7 @@ import { ExpiryCountdown } from "../../../components/delegations/ExpiryCountdown
 import { ShipmentUploadModal } from "../../../components/orders/ShipmentUploadModal";
 import { DeliveryEvidenceUploader } from "../../../components/escrows/DeliveryEvidenceUploader";
 import { VirtualTable } from "../../../components/orders/VirtualTable";
+import { ReturnLabelModal } from "../../../components/ReturnLabelModal";
 import { deadlineUrgency, type MerchantEscrowOrder } from "../../../lib/merchantEscrowOrders";
 
 type Tab = "toShip" | "shipped" | "settled";
@@ -35,6 +36,7 @@ export default function MerchantOrdersPage() {
   const [activeTab, setActiveTab] = useState<Tab>("toShip");
   const [shipModalOrderId, setShipModalOrderId] = useState<string | null>(null);
   const [evidenceOrderId, setEvidenceOrderId] = useState<string | null>(null);
+  const [returnLabelOrder, setReturnLabelOrder] = useState<MerchantEscrowOrder | null>(null);
 
   const activeStatuses = TABS.find((t) => t.key === activeTab)!.statuses;
   const visibleOrders = orders.filter((o) => activeStatuses.includes(o.status));
@@ -153,6 +155,24 @@ export default function MerchantOrdersPage() {
                       Add proof
                     </button>
                   )}
+                  {(order.status === "shipped" || order.status === "delivered") && (
+                    <button
+                      type="button"
+                      onClick={() => setReturnLabelOrder(order)}
+                      style={{
+                        padding: "0.375rem 0.75rem",
+                        borderRadius: "0.5rem",
+                        border: "1px solid #d1d5db",
+                        background: "#fff",
+                        color: "#374151",
+                        fontWeight: 600,
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Return label
+                    </button>
+                  )}
                   {order.status !== "funded" && <Badge tone="neutral">{order.status}</Badge>}
                 </div>
               </div>
@@ -179,6 +199,13 @@ export default function MerchantOrdersPage() {
           }}
         />
       ) : null}
+
+      <ReturnLabelModal
+        open={returnLabelOrder !== null}
+        orderId={returnLabelOrder?.orderId ?? ""}
+        buyerAddress={returnLabelOrder?.shippingAddress ?? ""}
+        onClose={() => setReturnLabelOrder(null)}
+      />
     </div>
   );
 }
