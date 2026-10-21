@@ -77,5 +77,24 @@
     "generating": "Wird erstellt…",
     "errorGeneric": "Rechnung konnte nicht erstellt werden.",
     "ariaLabel": "PDF-Rechnung für Bestellung {orderId} herunterladen"
+  },
+  "webhookHealth": {
+    "title": "Zustellungsstatus (letzte 7 Tage)",
+    "gaugeLabel": "Erfolgsquote der Zustellungen (7 Tage)",
+    "rate": "{rate} %",
+    "tier": {
+      "healthy": "Stabil",
+      "warning": "Beeinträchtigt",
+      "critical": "Kritisch"
+    },
+    "attempts": "{count, plural, one {# Zustellversuch} other {# Zustellversuche}}",
+    "consecutiveFailures": "{count, plural, one {# Fehlschlag in Folge} other {# Fehlschläge in Folge}}",
+    "noData": "Keine Zustellungen an diesen Endpunkt in den letzten 7 Tagen.",
+    "warning": {
+      "warning": "Einige Zustellungen an diesen Endpunkt schlagen fehl. Prüfe deine Server-Logs.",
+      "critical": "Dieser Endpunkt lehnt zu viele Zustellungen ab. Ereignisse können verloren gehen."
+    },
+    "recentErrorsButton": "Letzte Fehler",
+    "recentErrorsTitle": "Letzte HTTP-Fehler"
   }
 }
