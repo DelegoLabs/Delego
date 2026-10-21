@@ -1,10 +1,9 @@
 "use client";
 
 import { jsPDF } from "jspdf";
+import "jspdf-autotable";
 import { useRef, useState } from "react";
 import { useNow } from "../../hooks/useNow";
-
-let autoTableImported = false;
 
 export interface ChatMessage {
   id: string;
@@ -28,10 +27,7 @@ export interface ChatExportResult {
 }
 
 function ensureAutoTable() {
-  if (!autoTableImported) {
-    // jspdf-autotable is typically loaded globally by the app
-    autoTableImported = true;
-  }
+  // jspdf-autotable is imported and extends jsPDF prototype automatically
 }
 
 export function useChatExport(
@@ -133,20 +129,20 @@ export function useChatExport(
       return row;
     });
 
-    ;(autoTable as any)(doc, {
+    doc.autoTable({
       startY: yPos,
-      columns,
+      columns: columns as any,
       body: rows,
       head: [columns.map((col) => col.header)],
       theme: "grid",
       headStyles: {
-        fill: [["#1e293b"]],
+        fillColor: ["#1e293b"],
         textColor: [255, 255, 255],
         fontStyle: "bold",
       },
     });
 
-    const finalY = (autoTable as any).lastAutoTable?.finalY + 10 || yPos + 10;
+    const finalY = (doc as any).lastAutoTable?.finalY + 10 || yPos + 10;
 
     if (options.includeTxHashes && messages.some((m) => m.txHash)) {
       doc.setFontSize(10);
@@ -199,5 +195,5 @@ export function useChatExport(
     }
   };
 
-  return { exportFile };
+  return exportFile();
 }
