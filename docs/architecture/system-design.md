@@ -450,6 +450,7 @@ Disaster recovery procedures:
 
 - **Encryption at Rest**: All data encrypted
 - **Encryption in Transit**: TLS for all communication
+- **Delivery Instructions**: Gate codes and buzzer notes are encrypted in the browser with the merchant's published RSA-OAEP key before they are attached to an order, so only that merchant can read them (see `apps/frontend/lib/deliveryInstructions.ts`)
 - **Key Management**: Secure key storage
 - **Access Control**: Least privilege access
 

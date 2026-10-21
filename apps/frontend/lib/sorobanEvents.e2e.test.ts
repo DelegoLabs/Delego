@@ -364,10 +364,11 @@ describe("EventSubscriptionManager - Integration", () => {
 
         manager.subscribe(subscription);
         manager["connect"]();
-        sockets[0].open();
+        const activeSocket = sockets[sockets.length - 1];
+        activeSocket.open();
 
         // Verify the subscription used the stored ledger sequence
-        const sentMessage = JSON.parse(sockets[0].sentMessages[0] as string);
+        const sentMessage = JSON.parse(activeSocket.sentMessages[0] as string);
         expect(sentMessage.fromLedger).toBe(5004);
 
         manager.destroy();

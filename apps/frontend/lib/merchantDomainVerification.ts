@@ -18,6 +18,13 @@ export interface DomainVerificationResult {
   signingKey?: string;
 }
 
+export interface ParsedStellarToml {
+  SIGNING_KEY?: string | string[];
+  ACCOUNTS?: string[];
+  VERSION?: string;
+  [key: string]: unknown;
+}
+
 export interface SEP0001TOML {
   [key: string]: string | string[];
   SIGNING_KEY?: string | string[];
@@ -42,79 +49,130 @@ function normalizeDomain(domain: string): string {
 }
 
 /**
+ * Strips comments from a line, respecting quoted strings.
+ */
+function stripComment(line: string): string {
+  let inDouble = false;
+  let inSingle = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"' && !inSingle && (i === 0 || line[i - 1] !== "\\")) {
+      inDouble = !inDouble;
+    } else if (char === "'" && !inDouble && (i === 0 || line[i - 1] !== "\\")) {
+      inSingle = !inSingle;
+    } else if (char === "#" && !inDouble && !inSingle) {
+      return line.slice(0, i);
+    }
+  }
+
+  return line;
+}
+
+/**
+ * Strips surrounding single or double quotes from a string value.
+ */
+function stripQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'") && trimmed.length >= 2)
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+/**
+ * Parses elements inside a bracketed array string.
+ */
+function parseArrayElements(content: string): string[] {
+  const elements: string[] = [];
+  let current = "";
+  let inDouble = false;
+  let inSingle = false;
+
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+    if (char === '"' && !inSingle && (i === 0 || content[i - 1] !== "\\")) {
+      inDouble = !inDouble;
+      current += char;
+    } else if (char === "'" && !inDouble && (i === 0 || content[i - 1] !== "\\")) {
+      inSingle = !inSingle;
+      current += char;
+    } else if (char === "," && !inDouble && !inSingle) {
+      const cleaned = stripQuotes(current.trim());
+      if (cleaned.length > 0) {
+        elements.push(cleaned);
+      }
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  const cleaned = stripQuotes(current.trim());
+  if (cleaned.length > 0) {
+    elements.push(cleaned);
+  }
+
+  return elements;
+}
+
+/**
  * Parses a simple TOML string into key-value pairs.
  * 
  * This is a minimal TOML parser for the specific subset we need:
  * - Simple key-value pairs: KEY = "value"
  * - Arrays: KEY = ["value1", "value2"]
  * - Comments starting with #
- * - Multi-line values in quotes
+ * - Multi-line bracketed arrays
  */
-function parseTOML(toml: string): SEP0001TOML {
-  const result: SEP0001TOML = {};
+export function parseTOML(toml: string): ParsedStellarToml {
+  const result: ParsedStellarToml = {};
   const lines = toml.split("\n");
 
-  let currentKey: string | null = null;
+  let currentArrayKey: string | null = null;
+  let currentArrayBuffer = "";
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Skip empty lines and comments
-    if (!trimmed || trimmed.startsWith("#")) continue;
-
-    // Handle multi-line array values
-    if (currentKey && trimmed.endsWith("]")) {
-      const arrayValue = trimmed.replace("]", "");
-      const values = arrayValue
-        .split(",")
-        .map((v) => v.trim().replace(/^["']|["']$/g, ""))
-        .filter((v) => v);
-      result[currentKey] = result[currentKey]
-        ? [...(Array.isArray(result[currentKey]) ? result[currentKey] : [result[currentKey]]), ...values]
-        : values;
-      currentKey = null;
+  for (const rawLine of lines) {
+    const withoutComment = stripComment(rawLine).trim();
+    if (!withoutComment && currentArrayKey === null) {
       continue;
     }
 
-    if (currentKey) {
-      // Continue accumulating multi-line array value
-      const arrayValue = trimmed.replace("]", "");
-      const values = arrayValue
-        .split(",")
-        .map((v) => v.trim().replace(/^["']|["']$/g, ""))
-        .filter((v) => v);
-      result[currentKey] = result[currentKey]
-        ? [...(Array.isArray(result[currentKey]) ? result[currentKey] : [result[currentKey]]), ...values]
-        : values;
-      currentKey = null;
+    if (currentArrayKey !== null) {
+      const closeBracketIndex = withoutComment.indexOf("]");
+      if (closeBracketIndex !== -1) {
+        currentArrayBuffer += " " + withoutComment.slice(0, closeBracketIndex);
+        result[currentArrayKey] = parseArrayElements(currentArrayBuffer);
+        currentArrayKey = null;
+        currentArrayBuffer = "";
+      } else {
+        currentArrayBuffer += " " + withoutComment;
+      }
       continue;
     }
 
-    // Parse KEY = "value" or KEY = ["value1", "value2"]
-    const equalsIndex = trimmed.indexOf("=");
+    const equalsIndex = withoutComment.indexOf("=");
     if (equalsIndex === -1) continue;
 
-    const key = trimmed.slice(0, equalsIndex).trim();
-    let value = trimmed.slice(equalsIndex + 1).trim();
+    const key = withoutComment.slice(0, equalsIndex).trim();
+    const value = withoutComment.slice(equalsIndex + 1).trim();
 
-    // Check if this is an array
     if (value.startsWith("[")) {
-      if (value.endsWith("]")) {
+      const closeBracketIndex = value.indexOf("]");
+      if (closeBracketIndex !== -1) {
         // Single-line array
-        value = value.slice(1, -1);
-        const values = value
-          .split(",")
-          .map((v) => v.trim().replace(/^["']|["']$/g, ""))
-          .filter((v) => v);
-        result[key] = values.length > 0 ? values : [];
+        const inner = value.slice(1, closeBracketIndex);
+        result[key] = parseArrayElements(inner);
       } else {
-        // Multi-line array - start accumulating
-        currentKey = key;
-        result[key] = [];
+        // Multi-line array start
+        currentArrayKey = key;
+        currentArrayBuffer = value.slice(1);
       }
     } else {
-      // Single value - strip quotes
-      result[key] = value.replace(/^["']|["']$/g, "");
+      result[key] = stripQuotes(value);
     }
   }
 

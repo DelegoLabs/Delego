@@ -5,7 +5,7 @@
  * Supports search filtering and adding products to the global cart (#917).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatAmount } from "@delegolabs/ui";
 import { StockDepletionPanel } from "../../../components/storefront/StockDepletionPanel";
 import {
@@ -20,6 +20,31 @@ import {
 } from "../../../lib/stockDepletion";
 import { useCart } from "../../../hooks/useCart";
 import type { CartItem } from "../../../lib/cart";
+import { useInfiniteScroll } from "../../../hooks/useInfiniteScroll";
+
+const CATALOG_PAGE_SIZE = 12;
+
+interface SavedCatalogPosition {
+  displayedCount: number;
+  scrollY: number;
+}
+
+function catalogScrollKey(merchantId: string): string {
+  return `delego:storefront-catalog:${merchantId}`;
+}
+
+function readSavedPosition(key: string): SavedCatalogPosition | null {
+  try {
+    const value = window.sessionStorage.getItem(key);
+    if (!value) return null;
+    const parsed = JSON.parse(value) as Partial<SavedCatalogPosition>;
+    return Number.isFinite(parsed.displayedCount) && Number.isFinite(parsed.scrollY)
+      ? { displayedCount: Math.max(0, parsed.displayedCount!), scrollY: Math.max(0, parsed.scrollY!) }
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 function formatPrice(priceStroops: string): string {
   if (!/^\d+$/.test(priceStroops)) return priceStroops;
@@ -46,10 +71,21 @@ export function StorefrontCatalog({
   payoutAddress,
 }: StorefrontCatalogProps) {
   const [query, setQuery] = useState("");
+  const [displayedCount, setDisplayedCount] = useState(CATALOG_PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [paginationError, setPaginationError] = useState<string | null>(null);
   const [liveStock, setLiveStock] = useState<Record<string, StockDepletionInfo>>({});
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { addItem, openDrawer, summary } = useCart();
-  const productKey = products.map((product) => product.id).join("\n");
+  const uniqueProducts = useMemo(
+    () => Array.from(new Map(products.map((product) => [product.id, product])).values()),
+    [products]
+  );
+  const productKey = uniqueProducts.map((product) => product.id).join("\n");
+  const scrollKey = useMemo(() => catalogScrollKey(merchantId), [merchantId]);
+  const savedPosition = useRef<SavedCatalogPosition | null>(null);
+  const restoredPosition = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +95,10 @@ export function StorefrontCatalog({
         ids.map(async (id) => [id, await fetchStockDepletion(merchantId, id)] as const)
       );
       if (cancelled) return;
+      setChecked((prev) => ({
+        ...prev,
+        ...Object.fromEntries(ids.map((id) => [`${merchantId}/${id}`, true])),
+      }));
       setLiveStock((prev) => {
         const next = { ...prev };
         for (const [id, stock] of updates) {
@@ -80,9 +120,89 @@ export function StorefrontCatalog({
   }
 
   const visible = useMemo(
-    () => filterStoreProducts(products, query),
-    [products, query]
+    () => filterStoreProducts(uniqueProducts, query),
+    [uniqueProducts, query]
   );
+
+  const displayedProducts = visible.slice(0, displayedCount);
+  const hasMore = displayedCount < visible.length;
+
+  useEffect(() => {
+    restoredPosition.current = false;
+    savedPosition.current = readSavedPosition(scrollKey);
+    setDisplayedCount(
+      Math.max(CATALOG_PAGE_SIZE, savedPosition.current?.displayedCount ?? CATALOG_PAGE_SIZE)
+    );
+  }, [scrollKey]);
+
+  useEffect(() => {
+    // A changed search is a new catalog session; don't restore an old position.
+    if (!query) return;
+    restoredPosition.current = true;
+    savedPosition.current = null;
+    setDisplayedCount(CATALOG_PAGE_SIZE);
+    setPaginationError(null);
+    try {
+      window.sessionStorage.removeItem(scrollKey);
+    } catch {
+      // Storage can be unavailable in privacy-restricted browsers.
+    }
+  }, [query, scrollKey]);
+
+  useEffect(() => {
+    const saved = savedPosition.current;
+    if (!saved || restoredPosition.current || displayedProducts.length < Math.min(saved.displayedCount, visible.length)) {
+      return;
+    }
+    const restore = () => window.scrollTo({ top: saved.scrollY, behavior: "auto" });
+    const frame = window.requestAnimationFrame?.(restore) ?? window.setTimeout(restore, 0);
+    restoredPosition.current = true;
+    return () => {
+      if (window.cancelAnimationFrame) window.cancelAnimationFrame(frame);
+      else window.clearTimeout(frame);
+    };
+  }, [displayedProducts.length, visible.length]);
+
+  useEffect(() => {
+    return () => {
+      // Save only the unfiltered catalog. A filter change intentionally starts
+      // a fresh browsing session rather than restoring a stale scroll offset.
+      if (query) return;
+      try {
+        window.sessionStorage.setItem(
+          scrollKey,
+          JSON.stringify({ displayedCount, scrollY: window.scrollY })
+        );
+      } catch {
+        // Storage can be unavailable in privacy-restricted browsers.
+      }
+    };
+  }, [displayedCount, query, scrollKey]);
+
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+    setPaginationError(null);
+    setIsLoadingMore(true);
+    try {
+      // The public storefront API currently returns its complete active
+      // catalog in the server-rendered response. Reveal its next local page
+      // here without inventing an unsupported pagination endpoint. Yield once
+      // so assistive technology and the inline skeleton can announce loading.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      setDisplayedCount((count) => Math.min(count + CATALOG_PAGE_SIZE, visible.length));
+    } catch (error) {
+      setPaginationError(error instanceof Error ? error.message : "Could not load more products.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMore, isLoadingMore, visible.length]);
+
+  const sentinelRef = useInfiniteScroll({
+    hasMore,
+    isLoading: isLoadingMore,
+    onLoadMore: loadMore,
+    disabled: Boolean(paginationError),
+  });
 
   function handleAddToCart(product: MerchantProduct) {
     const stock = stockFor(product);
@@ -97,6 +217,7 @@ export function StorefrontCatalog({
       payoutAddress,
       title: product.name,
       priceStroops: product.priceStroops,
+      assetCode: product.assetCode,
       quantity: 1,
       maxStock,
     };
@@ -189,8 +310,8 @@ export function StorefrontCatalog({
         </button>
       </div>
 
-      {products.length === 0 && <p>This store has no active products.</p>}
-      {products.length > 0 && visible.length === 0 && (
+      {uniqueProducts.length === 0 && <p>This store has no active products.</p>}
+      {uniqueProducts.length > 0 && visible.length === 0 && (
         <p>No products match that search.</p>
       )}
 
@@ -203,7 +324,7 @@ export function StorefrontCatalog({
           gap: "0.75rem",
         }}
       >
-        {visible.map((product) => {
+        {displayedProducts.map((product) => {
           const stock = stockFor(product);
           const blocked = stock ? !canAddToCart(stock) : false;
           return (
@@ -213,7 +334,12 @@ export function StorefrontCatalog({
             style={{ padding: "0.875rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}
           >
             <h2 style={{ margin: 0, fontSize: "1rem" }}>{product.name}</h2>
-            {stock && <StockDepletionPanel merchantId={merchantId} stock={stock} mode="card" />}
+            <StockDepletionPanel
+              merchantId={merchantId}
+              stock={stock}
+              loading={!stock && !checked[`${merchantId}/${product.id}`]}
+              mode="card"
+            />
             {product.description && (
               <p style={{ margin: 0, color: "#6b7280", fontSize: "0.875rem" }}>
                 {product.description}
@@ -259,13 +385,45 @@ export function StorefrontCatalog({
             >
               {expandedId === product.id ? "Hide details" : "View details"}
             </button>
-            {expandedId === product.id && stock && (
-              <StockDepletionPanel merchantId={merchantId} stock={stock} mode="detail" />
+            {expandedId === product.id && (
+              <StockDepletionPanel
+                merchantId={merchantId}
+                stock={stock}
+                loading={!stock && !checked[`${merchantId}/${product.id}`]}
+                mode="detail"
+              />
             )}
           </li>
           );
         })}
       </ul>
+
+      {hasMore && (
+        <div
+          ref={sentinelRef}
+          aria-live="polite"
+          aria-busy={isLoadingMore}
+          style={{ minHeight: "1px" }}
+          data-testid="storefront-load-more-sentinel"
+        >
+          {isLoadingMore && (
+            <ul aria-label="Loading more products" style={{ listStyle: "none", margin: "0.75rem 0 0", padding: 0, display: "grid", gap: "0.75rem" }}>
+              <li className="card" aria-hidden="true" style={{ minHeight: "10rem", padding: "0.875rem", background: "linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%)", backgroundSize: "400% 100%" }} />
+            </ul>
+          )}
+        </div>
+      )}
+
+      {paginationError && (
+        <div role="alert">
+          <p>{paginationError}</p>
+          <button type="button" onClick={() => void loadMore()}>Try again</button>
+        </div>
+      )}
+
+      {uniqueProducts.length > 0 && visible.length > 0 && !hasMore && !isLoadingMore && (
+        <p role="status">You&apos;ve reached the end of this catalog.</p>
+      )}
     </section>
   );
 }

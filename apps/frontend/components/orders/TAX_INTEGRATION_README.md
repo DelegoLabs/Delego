@@ -95,6 +95,43 @@ import { TaxEnabledCheckoutFlow } from "../orders/TaxEnabledCheckoutFlow";
 />
 ```
 
+### Pattern 4: Encrypted Delivery Instructions
+
+The Delivery Information step also offers a "Delivery instructions (gate
+code, buzzer)" field (#1005). The note is encrypted in the browser with the
+merchant's published key before it is handed back, so the plaintext never
+reaches the network. Pass the key the merchant publishes in the directory
+(`deliveryPublicKey`); without one the field is disabled.
+
+```typescript
+import { useMerchantDirectory } from "../../hooks/useMerchantDirectory";
+import { merchantDeliveryKey } from "../../lib/merchantDirectory";
+
+const { merchants } = useMerchantDirectory();
+
+<TaxEnabledCheckoutFlow
+  order={order}
+  merchantPublicKey={merchantDeliveryKey(merchants, order.merchantId)}
+  onApprove={(orderId, taxInclusiveAmount, metadata) => {
+    // metadata?.encryptedDeliveryNote goes into the order request as is.
+  }}
+/>
+```
+
+`metadata.encryptedDeliveryNote` follows `EncryptedDeliveryNote` from
+`lib/deliveryInstructions.ts`:
+
+- `recipientInstructions` is always `"encrypted"`; it never carries the text.
+- `merchantPublicKey` is the base64 SPKI key the note was sealed for.
+- `encryptedPayload` is base64 of the JSON envelope
+  `{ v: 1, alg: "AES-256-GCM+RSA-OAEP-256", iv, key, ct }`.
+
+To read a note, the merchant decrypts `key` with its RSA-OAEP (SHA-256)
+private key to get the AES-256 key, then decrypts `ct` with AES-GCM using
+`iv`. This is the same scheme as the KYC upload in `lib/kycUpload.ts`.
+Merchant keys must be RSA, at least 2048 bits, published as base64 SPKI or
+PEM. Notes are trimmed and limited to 500 characters.
+
 ## Data Model Extensions
 
 ### TaxEnhancedOrder Type

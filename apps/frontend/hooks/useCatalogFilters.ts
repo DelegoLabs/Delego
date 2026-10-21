@@ -54,7 +54,7 @@ export function useCatalogFilters(): {
         const params = new URLSearchParams(searchParams.toString());
 
         // Remove all existing filter keys first to avoid stale values.
-        for (const key of ["cat", "minPrice", "maxPrice", "inStock", "minRating"]) {
+        for (const key of ["cat", "minPrice", "maxPrice", "inStock", "lowStock", "minRating"]) {
           params.delete(key);
         }
 
@@ -78,7 +78,7 @@ export function useCatalogFilters(): {
     setFiltersState(DEFAULT_CATALOG_FILTERS);
 
     const params = new URLSearchParams(searchParams.toString());
-    for (const key of ["cat", "minPrice", "maxPrice", "inStock", "minRating"]) {
+    for (const key of ["cat", "minPrice", "maxPrice", "inStock", "lowStock", "minRating"]) {
       params.delete(key);
     }
     const query = params.toString();

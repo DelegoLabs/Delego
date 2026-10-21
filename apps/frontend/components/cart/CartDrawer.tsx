@@ -10,17 +10,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../hooks/useCart";
-import { formatAmount } from "@delegolabs/ui";
 import type { CartItem } from "../../lib/cart";
-import { MultiMerchantCheckout } from "./MultiMerchantCheckout";
+import { MultiMerchantCheckout, type MultiMerchantCheckoutProps } from "./MultiMerchantCheckout";
+import { CartPromoCode } from "./CartPromoCode";
+import { useCartPromoCode } from "../../hooks/useCartPromoCode";
+import { formatPromoStroops } from "../../lib/promoCode";
 
 const STROOPS_PER_XLM = 10_000_000n;
+const MAX_QUANTITY = 99;
+const QUANTITY_DEBOUNCE_MS = 250;
 
 function formatStroops(stroops: string): string {
   try {
-    const value = BigInt(stroops);
-    const xlm = Number(value) / Number(STROOPS_PER_XLM);
-    return `${xlm.toLocaleString(undefined, { maximumFractionDigits: 7 })} XLM`;
+    return formatPromoStroops(stroops);
   } catch {
     return stroops;
   }
@@ -35,6 +37,19 @@ function formatItemPrice(priceStroops: string, quantity: number): string {
   }
 }
 
+function clampQuantity(value: number, maxStock: number): number {
+  const upperBound = Math.min(maxStock, MAX_QUANTITY);
+  if (!Number.isFinite(value)) return 1;
+  const truncated = Math.trunc(value);
+  if (truncated < 1) return 1;
+  if (truncated > upperBound) return upperBound;
+  return truncated;
+}
+
+function sanitizeQuantityInput(raw: string): string {
+  return raw.replace(/[^0-9]/g, "");
+}
+
 interface QuantityControlProps {
   item: CartItem;
 }
@@ -42,19 +57,73 @@ interface QuantityControlProps {
 function QuantityControl({ item }: QuantityControlProps) {
   const { setQuantity, removeItem } = useCart();
 
+  const maxQuantity = Math.min(item.maxStock, MAX_QUANTITY);
+  const [inputValue, setInputValue] = useState<string>(String(item.quantity));
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep local input in sync when the cart quantity changes externally
+  useEffect(() => {
+    setInputValue(String(item.quantity));
+  }, [item.quantity]);
+
+  // Clear any pending debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current !== null) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  const scheduleQuantityChange = (nextQuantity: number) => {
+    if (debounceRef.current !== null) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+      setQuantity(item.productId, clampQuantity(nextQuantity, item.maxStock));
+    }, QUANTITY_DEBOUNCE_MS);
+  };
+
   const decrement = () => {
     if (item.quantity <= 1) {
       removeItem(item.productId);
     } else {
-      setQuantity(item.productId, item.quantity - 1);
+      const next = clampQuantity(item.quantity - 1, item.maxStock);
+      setInputValue(String(next));
+      scheduleQuantityChange(next);
     }
   };
 
   const increment = () => {
-    setQuantity(item.productId, item.quantity + 1);
+    const next = clampQuantity(item.quantity + 1, item.maxStock);
+    setInputValue(String(next));
+    scheduleQuantityChange(next);
   };
 
-  const atMax = item.quantity >= item.maxStock;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const sanitized = sanitizeQuantityInput(e.target.value);
+    setInputValue(sanitized);
+    if (sanitized === "") return;
+    const parsed = Number.parseInt(sanitized, 10);
+    if (!Number.isFinite(parsed)) return;
+    scheduleQuantityChange(parsed);
+  };
+
+  const handleInputBlur = () => {
+    if (debounceRef.current !== null) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    const parsed = Number.parseInt(inputValue, 10);
+    const clamped = clampQuantity(Number.isFinite(parsed) ? parsed : item.quantity, item.maxStock);
+    setInputValue(String(clamped));
+    if (clamped !== item.quantity) {
+      setQuantity(item.productId, clamped);
+    }
+  };
+
+  const atMax = item.quantity >= maxQuantity;
 
   return (
     <div
@@ -70,19 +139,31 @@ function QuantityControl({ item }: QuantityControlProps) {
       >
         −
       </button>
-      <span
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        aria-label={`Quantity for ${item.title}`}
         aria-live="polite"
-        aria-atomic="true"
-        style={{ minWidth: "1.5rem", textAlign: "center", fontWeight: 600, fontSize: "0.875rem" }}
-      >
-        {item.quantity}
-      </span>
+        value={inputValue}
+        onChange={handleInputChange}
+        onBlur={handleInputBlur}
+        style={{
+          width: "2.5rem",
+          textAlign: "center",
+          fontWeight: 600,
+          fontSize: "0.875rem",
+          border: "1px solid #d1d5db",
+          borderRadius: "0.375rem",
+          padding: "0.125rem 0.25rem",
+        }}
+      />
       <button
         type="button"
         aria-label={`Increase quantity of ${item.title}${atMax ? " (maximum reached)" : ""}`}
         onClick={increment}
         disabled={atMax}
-        title={atMax ? `Maximum stock: ${item.maxStock}` : undefined}
+        title={atMax ? `Maximum stock: ${maxQuantity}` : undefined}
         style={{ ...btnStyle, opacity: atMax ? 0.4 : 1, cursor: atMax ? "not-allowed" : "pointer" }}
       >
         +
@@ -107,11 +188,16 @@ const btnStyle: React.CSSProperties = {
   color: "#374151",
 };
 
-export function CartDrawer() {
+export { clampQuantity, sanitizeQuantityInput, MAX_QUANTITY };
+
+export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheckoutProps, "signEscrow" | "refundEscrow"> = {}) {
   const { summary, drawerOpen, closeDrawer, removeItem, clearCart } = useCart();
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [checkingOut, setCheckingOut] = useState(false);
+  const coupon = useCartPromoCode(summary.items);
+
+  const [recoveryRequired, setRecoveryRequired] = useState(false);
 
   // Focus the close button when drawer opens
   useEffect(() => {
@@ -124,11 +210,11 @@ export function CartDrawer() {
   useEffect(() => {
     if (!drawerOpen) return;
     const handle = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeDrawer();
+      if (e.key === "Escape" && !recoveryRequired) closeDrawer();
     };
     document.addEventListener("keydown", handle);
     return () => document.removeEventListener("keydown", handle);
-  }, [drawerOpen, closeDrawer]);
+  }, [drawerOpen, closeDrawer, recoveryRequired]);
 
   // Prevent body scroll when open
   useEffect(() => {
@@ -152,7 +238,7 @@ export function CartDrawer() {
       <div
         ref={backdropRef}
         aria-hidden="true"
-        onClick={closeDrawer}
+        onClick={() => { if (!recoveryRequired) closeDrawer(); }}
         style={{
           position: "fixed",
           inset: 0,
@@ -218,7 +304,8 @@ export function CartDrawer() {
             ref={closeBtnRef}
             type="button"
             aria-label="Close cart"
-            onClick={closeDrawer}
+            disabled={recoveryRequired}
+            onClick={() => { if (!recoveryRequired) closeDrawer(); }}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -243,8 +330,16 @@ export function CartDrawer() {
         >
           {checkingOut ? (
             <MultiMerchantCheckout
-              onCancel={() => setCheckingOut(false)}
+              promoCode={coupon.applied ?? undefined}
+              onRecoveryRequiredChange={setRecoveryRequired}
+              signEscrow={signEscrow}
+              refundEscrow={refundEscrow}
+              onCancel={() => {
+                setRecoveryRequired(false);
+                setCheckingOut(false);
+              }}
               onComplete={() => {
+                setRecoveryRequired(false);
                 setCheckingOut(false);
                 closeDrawer();
               }}
@@ -355,6 +450,7 @@ export function CartDrawer() {
               gap: "0.75rem",
             }}
           >
+            <CartPromoCode coupon={coupon} />
             <div
               style={{
                 display: "flex",
@@ -367,7 +463,12 @@ export function CartDrawer() {
                 data-testid="cart-subtotal"
                 style={{ fontWeight: 700, fontSize: "1rem" }}
               >
-                {formatStroops(subtotalStroops)}
+                {formatPromoStroops(
+                  (
+                    BigInt(subtotalStroops) -
+                    BigInt(coupon.applied?.discount.appliedDiscountStroops ?? "0")
+                  ).toString()
+                )}
               </span>
             </div>
 
@@ -394,6 +495,7 @@ export function CartDrawer() {
             <button
               type="button"
               onClick={() => setCheckingOut(true)}
+              disabled={coupon.pending}
               data-testid="proceed-to-checkout"
               style={{
                 padding: "0.625rem 1rem",

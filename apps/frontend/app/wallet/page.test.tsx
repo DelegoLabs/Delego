@@ -39,6 +39,18 @@ vi.mock("../../hooks/useBalanceHistory", () => ({
   })),
 }));
 
+vi.mock("../../hooks/usePaymentStream", () => ({
+  usePaymentStream: vi.fn(() => ({
+    status: "idle",
+    latestPayment: null,
+    error: null,
+  })),
+}));
+
+vi.mock("../../hooks/useAudioNotifications", () => ({
+  useAudioNotifications: vi.fn(() => ({ playChime: vi.fn() })),
+}));
+
 vi.mock("../../hooks/useFriendbot", () => ({
   useFriendbot: vi.fn(() => ({
     state: { status: "idle", cooldownSecondsRemaining: 0 },

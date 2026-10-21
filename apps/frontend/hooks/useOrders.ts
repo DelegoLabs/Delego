@@ -21,6 +21,7 @@ import {
   peekReadModel,
   writeReadModel,
 } from "../lib/readModelCache";
+import { useBroadcastChannel } from "./useBroadcastChannel";
 
 /**
  * Fetch (and optionally poll) the current user's orders from the Delego API,
@@ -161,6 +162,19 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
     await load();
   }, [load]);
 
+  const receiveTabMessage = useCallback(
+    (message: { type: string; payload: Record<string, unknown> }) => {
+      if (
+        message.type === "ORDER_STATUS_CHANGED" &&
+        typeof message.payload.orderId === "string"
+      ) {
+        void refresh();
+      }
+    },
+    [refresh]
+  );
+  const { broadcast } = useBroadcastChannel(receiveTabMessage);
+
   useEffect(() => {
     mountedRef.current = true;
     const controller = new AbortController();
@@ -189,6 +203,7 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
         setOrders((prev) =>
           prev.map((o) => (o.id === id ? { ...o, status: "approved" } : o))
         );
+        broadcast("ORDER_STATUS_CHANGED", { orderId: id, status: "approved" });
         return orders.find((o) => o.id === id) ?? null;
       }
 
@@ -205,6 +220,10 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
           setOrders((prev) =>
             prev.map((order) => (order.id === id ? updated : order))
           );
+          broadcast("ORDER_STATUS_CHANGED", {
+            orderId: id,
+            status: updated.status,
+          });
           return updated;
         }
         return null;
@@ -214,12 +233,13 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
         setOrders((prev) =>
           prev.map((o) => (o.id === id ? { ...o, status: "approved" } : o))
         );
+        broadcast("ORDER_STATUS_CHANGED", { orderId: id, status: "approved" });
         return null;
       } finally {
         setPending(id, false);
       }
     },
-    [orders, setPending]
+    [orders, setPending, broadcast]
   );
 
   const rejectOrder = useCallback(
@@ -234,13 +254,17 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
         setOrders((prev) =>
           prev.map((o) => (o.id === id ? { ...o, status: "rejected" } : o))
         );
+        broadcast("ORDER_STATUS_CHANGED", { orderId: id, status: "rejected" });
         return orders.find((o) => o.id === id) ?? null;
       }
 
       setPending(id, true);
       setError(null);
       try {
-        const res = (await api.rejectOrder(id, { reason, reasonCode })) as RejectOrderResponse;
+        const res = (await api.rejectOrder(id, {
+          reason,
+          reasonCode,
+        })) as RejectOrderResponse;
         if (res.error) {
           setError(res.error.message);
           return null;
@@ -250,6 +274,10 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
           setOrders((prev) =>
             prev.map((order) => (order.id === id ? updated : order))
           );
+          broadcast("ORDER_STATUS_CHANGED", {
+            orderId: id,
+            status: updated.status,
+          });
           return updated;
         }
         return null;
@@ -259,12 +287,13 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
         setOrders((prev) =>
           prev.map((o) => (o.id === id ? { ...o, status: "rejected" } : o))
         );
+        broadcast("ORDER_STATUS_CHANGED", { orderId: id, status: "rejected" });
         return null;
       } finally {
         setPending(id, false);
       }
     },
-    [orders, setPending]
+    [orders, setPending, broadcast]
   );
 
   return {

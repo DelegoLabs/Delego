@@ -6,6 +6,7 @@ import { useCatalogFilters } from "../../../hooks/useCatalogFilters";
 import {
   InventoryThresholdField,
   LowStockBadge,
+  LowStockBannerAlert,
 } from "../../../components/merchant/InventoryAlerts";
 import {
   applyFilters,
@@ -14,6 +15,7 @@ import {
 } from "../../../lib/catalogFilters";
 import {
   DEFAULT_LOW_STOCK_THRESHOLD,
+  computeDepletedProducts,
   readLowStockThreshold,
   subscribeLowStockThreshold,
 } from "../../../lib/inventoryStock";
@@ -40,6 +42,13 @@ export default function MerchantCatalogPage() {
     return subscribeLowStockThreshold(setThreshold);
   }, []);
 
+  const { depletedProductsCount, criticalItemTitles, hasOutOfStock, severity } =
+    useMemo(() => computeDepletedProducts(products), [products]);
+
+  const handleQuickRestock = () => {
+    setFilters({ lowStockOnly: true });
+  };
+
   // Extract categories from the full (unfiltered) list so category options
   // remain stable while filters are active.
   const categories = useMemo(() => extractCategories(products), [products]);
@@ -55,6 +64,14 @@ export default function MerchantCatalogPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <LowStockBannerAlert
+        depletedProductsCount={depletedProductsCount}
+        criticalItemTitles={criticalItemTitles}
+        onQuickRestockClick={handleQuickRestock}
+        hasOutOfStock={hasOutOfStock}
+        severity={severity}
+      />
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Catalog</h1>
 
@@ -94,6 +111,8 @@ export default function MerchantCatalogPage() {
           )}
         </button>
       </div>
+
+      <InventoryThresholdField />
 
       <CatalogCsvImporter
         onImport={async (rows) => {

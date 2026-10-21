@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
-import { useWallet, __resetWalletStoreForTests } from "./useWallet";
+import {
+  useWallet,
+  __resetWalletStoreForTests,
+  syncWalletDisconnected,
+} from "./useWallet";
 import {
   enableDemoMode,
   DEMO_WALLET_ADDRESS,
@@ -27,6 +31,16 @@ const {
   mockOnNetworkChange: vi.fn(),
   mockWatchWalletChanges: vi.fn(),
 }));
+
+class MockBroadcastChannel {
+  static instances: MockBroadcastChannel[] = [];
+  postMessage = vi.fn();
+  addEventListener = vi.fn();
+
+  constructor(readonly name: string) {
+    MockBroadcastChannel.instances.push(this);
+  }
+}
 
 vi.mock("@stellar/freighter-api", () => ({
   isConnected: mockIsConnected,
@@ -217,6 +231,10 @@ describe("useWallet", () => {
 
   describe("disconnect", () => {
     it("resets state to disconnected", async () => {
+      Object.defineProperty(window, "BroadcastChannel", {
+        configurable: true,
+        value: MockBroadcastChannel,
+      });
       mockIsConnected.mockResolvedValue({ isConnected: true });
       mockIsAllowed.mockResolvedValue({ isAllowed: true });
       mockGetAddress.mockResolvedValue({ address: "GABC123" });
@@ -235,6 +253,32 @@ describe("useWallet", () => {
       expect(result.current.status).toBe("disconnected");
       expect(result.current.address).toBeNull();
       expect(result.current.isConnected).toBe(false);
+      expect(
+        MockBroadcastChannel.instances.at(-1)?.postMessage
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "WALLET_DISCONNECTED",
+          payload: {},
+        })
+      );
+    });
+
+    it("clears the connected state when another tab disconnects", async () => {
+      mockIsConnected.mockResolvedValue({ isConnected: true });
+      mockIsAllowed.mockResolvedValue({ isAllowed: true });
+      mockGetAddress.mockResolvedValue({ address: "GABC123" });
+      mockGetNetwork.mockResolvedValue({
+        network: "TESTNET",
+        networkPassphrase: "Test SDF Network ; September 2015",
+      });
+
+      const { result } = renderHook(() => useWallet());
+      await waitFor(() => expect(result.current.status).toBe("connected"));
+
+      act(() => syncWalletDisconnected());
+
+      expect(result.current.status).toBe("disconnected");
+      expect(result.current.address).toBeNull();
     });
   });
 
@@ -338,12 +382,10 @@ describe("useWallet", () => {
 
     it("updates network details when network changes mid-session", async () => {
       let networkCallback: ((newNet: string) => void) | undefined;
-      mockOnNetworkChange.mockImplementation(
-        (cb: (newNet: string) => void) => {
-          networkCallback = cb;
-          return () => {};
-        }
-      );
+      mockOnNetworkChange.mockImplementation((cb: (newNet: string) => void) => {
+        networkCallback = cb;
+        return () => {};
+      });
 
       mockIsConnected.mockResolvedValue({ isConnected: true });
       mockIsAllowed.mockResolvedValue({ isAllowed: true });
@@ -440,13 +482,17 @@ describe("useWallet", () => {
     it("persists the selected wallet across hook mounts", async () => {
       mockIsConnected.mockResolvedValue({ isConnected: false });
       const first = renderHook(() => useWallet());
-      await waitFor(() => expect(first.result.current.status).toBe("unavailable"));
+      await waitFor(() =>
+        expect(first.result.current.status).toBe("unavailable")
+      );
 
       act(() => {
         first.result.current.selectWallet("xbull");
       });
       expect(first.result.current.walletId).toBe("xbull");
-      expect(window.sessionStorage.getItem("delego.activeWallet")).toBe("xbull");
+      expect(window.sessionStorage.getItem("delego.activeWallet")).toBe(
+        "xbull"
+      );
       first.unmount();
 
       const second = renderHook(() => useWallet());
@@ -477,7 +523,9 @@ describe("useWallet", () => {
       act(() => {
         result.current.selectWallet("xbull");
       });
-      expect(window.sessionStorage.getItem("delego.activeWallet")).toBe("xbull");
+      expect(window.sessionStorage.getItem("delego.activeWallet")).toBe(
+        "xbull"
+      );
 
       act(() => {
         result.current.disconnect();

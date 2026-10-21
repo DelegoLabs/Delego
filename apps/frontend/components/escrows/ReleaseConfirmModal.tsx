@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@delegolabs/ui";
 import type { Escrow } from "@delegolabs/types";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -11,6 +11,7 @@ import {
 } from "../../lib/releaseConfirmation";
 import { ConfettiBurst } from "./ConfettiBurst";
 import { StarRating } from "./StarRating";
+import { inspectTapTarget } from "../../lib/tapjacking";
 
 export interface ReleaseConfirmModalProps {
   isOpen: boolean;
@@ -54,13 +55,79 @@ export function ReleaseConfirmModal({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [released, setReleased] = useState(false);
+  const blockedTouchRef = useRef(false);
 
   useFocusTrap({ containerRef: dialogRef, isActive: isOpen });
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const reportObscuredButton = (button: HTMLButtonElement, x: number, y: number) => {
+      if (typeof document.elementFromPoint !== "function") return false;
+      const inspection = inspectTapTarget(button, x, y);
+      if (!inspection.isObscured) return false;
+
+      blockedTouchRef.current = true;
+      setFailure(
+        "Release blocked because an unexpected overlay covers this button. Close suspicious overlay apps and try again."
+      );
+      return true;
+    };
+
+    const inspectButtonBounds = () => {
+      const protectedButtons = document.querySelectorAll<HTMLButtonElement>(
+        "button[data-tapjacking-protected]"
+      );
+      for (const button of protectedButtons) {
+        const bounds = button.getBoundingClientRect();
+        if (bounds.width <= 0 || bounds.height <= 0) continue;
+        const insetX = Math.min(2, bounds.width / 4);
+        const insetY = Math.min(2, bounds.height / 4);
+        const points = [
+          [bounds.left + bounds.width / 2, bounds.top + bounds.height / 2],
+          [bounds.left + insetX, bounds.top + insetY],
+          [bounds.right - insetX, bounds.top + insetY],
+          [bounds.left + insetX, bounds.bottom - insetY],
+          [bounds.right - insetX, bounds.bottom - insetY],
+        ];
+        if (points.some(([x, y]) => reportObscuredButton(button, x, y))) return;
+      }
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      const protectedButtons = document.querySelectorAll<HTMLButtonElement>(
+        "button[data-tapjacking-protected]"
+      );
+      for (const touch of Array.from(event.changedTouches)) {
+        const button = Array.from(protectedButtons).find((candidate) => {
+          const bounds = candidate.getBoundingClientRect();
+          return (
+            !candidate.disabled &&
+            touch.clientX >= bounds.left &&
+            touch.clientX <= bounds.right &&
+            touch.clientY >= bounds.top &&
+            touch.clientY <= bounds.bottom
+          );
+        });
+        if (!button) continue;
+
+        if (reportObscuredButton(button, touch.clientX, touch.clientY)) return;
+      }
+    };
+
+    inspectButtonBounds();
+    document.addEventListener("touchend", onTouchEnd, true);
+    return () => document.removeEventListener("touchend", onTouchEnd, true);
+  }, [isOpen]);
 
   const isSubmitting = submitting || busy;
   const message = failure ?? error ?? null;
 
   const handleConfirm = useCallback(async () => {
+    if (blockedTouchRef.current) {
+      blockedTouchRef.current = false;
+      return;
+    }
     if (released || isSubmitting) return;
 
     setBusy(true);
@@ -192,8 +259,12 @@ export function ReleaseConfirmModal({
               <Button
                 variant="primary"
                 onClick={() => void handleConfirm()}
+                onPointerDown={() => {
+                  blockedTouchRef.current = false;
+                }}
                 disabled={isSubmitting}
                 loading={isSubmitting}
+                data-tapjacking-protected
               >
                 {isSubmitting ? "Releasing…" : "Confirm & release"}
               </Button>

@@ -34,14 +34,19 @@ export function AgentUserPreferencesList() {
   async function handleSaveEdit(key: string) {
     try {
       setSaving(true);
-      const existing = preferences.find(p => p.key === key);
+      const existing = preferences.find((p) => p.key === key);
       const item: UserPreferenceItem = existing
-        ? { ...existing, value: editValue }
-        : { key, value: editValue };
-        
+        ? { ...existing, value: editValue, updatedAt: new Date().toISOString() }
+        : {
+            key,
+            value: editValue,
+            category: "agent",
+            updatedAt: new Date().toISOString(),
+          };
+
       await updateUserPreference(item);
-      setPreferences(prev => {
-        const idx = prev.findIndex(p => p.key === key);
+      setPreferences((prev) => {
+        const idx = prev.findIndex((p) => p.key === key);
         if (idx >= 0) {
           const newPrefs = [...prev];
           newPrefs[idx] = item;
@@ -71,7 +76,7 @@ export function AgentUserPreferencesList() {
 
   function startEdit(item: UserPreferenceItem) {
     setEditingKey(item.key);
-    setEditValue(item.value);
+    setEditValue(String(item.value));
   }
 
   if (loading) return <Card title="Agent Preferences Memory"><p>Loading preferences...</p></Card>;
@@ -107,8 +112,10 @@ export function AgentUserPreferencesList() {
                       <strong style={{ fontSize: "0.875rem" }}>{item.key}</strong>
                       <span style={{ fontSize: "0.875rem", color: "#374151" }}>{item.value}</span>
                     </div>
-                    {item.learnedFromOrder && (
-                      <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>Learned from order: {item.learnedFromOrder}</span>
+                    {item.category && (
+                      <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
+                        {item.category}
+                      </span>
                     )}
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem" }}>

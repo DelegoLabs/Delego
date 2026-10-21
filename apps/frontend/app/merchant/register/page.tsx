@@ -22,6 +22,7 @@ import {
   parseCatalogCsv,
   readCatalogCsvFile,
   CATALOG_CSV_HEADER,
+  type CatalogImportRow,
   type CatalogRowError,
 } from "../../../lib/catalogCsv";
 import {
@@ -39,10 +40,10 @@ import {
 } from "../../../services/wallet";
 
 const STEPS: { id: OnboardingStep; label: string }[] = [
-  { id: "store_info", label: "Store info" },
-  { id: "catalog_import", label: "Catalog" },
-  { id: "wallet_verify", label: "Verify wallet" },
-  { id: "contract_register", label: "Register" },
+  { id: "store_details", label: "Store info" },
+  { id: "payout_address", label: "Payout" },
+  { id: "contract_binding", label: "Verify wallet" },
+  { id: "verification", label: "Register" },
   { id: "complete", label: "Complete" },
 ];
 
@@ -56,11 +57,13 @@ const MAX_KYC_FILE_BYTES = 10 * 1024 * 1024;
 
 const EMPTY_FORM: MerchantRegistrationForm = {
   storeName: "",
+  storeSlug: "",
   description: "",
   contactEmail: "",
-  stellarPayoutAddress: "",
-  category: "other",
-  websiteUrl: "",
+  payoutAddress: "",
+  domainName: "",
+  isDomainVerified: false,
+  acceptedCurrencies: [],
 };
 
 export default function MerchantRegisterPage() {
@@ -78,6 +81,8 @@ export default function MerchantRegisterPage() {
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
 
+  // Catalog import state (optional step between store_details and payout_address)
+  const [catalogRows, setCatalogRows] = useState<CatalogImportRow[] | null>(null);
   const [catalogFileName, setCatalogFileName] = useState<string | null>(null);
   const [catalogRowErrors, setCatalogRowErrors] = useState<CatalogRowError[]>([]);
   const [catalogParseError, setCatalogParseError] = useState<string | null>(null);
@@ -103,8 +108,8 @@ export default function MerchantRegisterPage() {
     if (!form.storeName.trim()) errors.storeName = "Store name is required.";
     if (!form.description.trim()) errors.description = "Description is required.";
     if (!isValidContactEmail(form.contactEmail)) errors.contactEmail = "Enter a valid email address.";
-    if (!StrKey.isValidEd25519PublicKey(form.stellarPayoutAddress.trim())) {
-      errors.stellarPayoutAddress = "Enter a valid Stellar public key (starts with G).";
+    if (!StrKey.isValidEd25519PublicKey(form.payoutAddress.trim())) {
+      errors.payoutAddress = "Enter a valid Stellar public key (starts with G).";
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -114,9 +119,9 @@ export default function MerchantRegisterPage() {
     if (!validateStoreInfoFormat()) return;
     setValidatingAddress(true);
     try {
-      const result = await validateStorePayoutAddress(form.stellarPayoutAddress, network);
+      const result = await validateStorePayoutAddress(form.payoutAddress, network);
       if (!result.valid) {
-        setFormErrors((prev) => ({ ...prev, stellarPayoutAddress: result.error }));
+        setFormErrors((prev) => ({ ...prev, payoutAddress: result.error }));
         return;
       }
       setStepIndex(1);
@@ -130,7 +135,7 @@ export default function MerchantRegisterPage() {
     setCatalogRowErrors([]);
     if (!file) {
       setCatalogFileName(null);
-      setForm((prev) => ({ ...prev, catalogRows: undefined }));
+      setCatalogRows(null);
       return;
     }
     setCatalogFileName(file.name);
@@ -138,7 +143,7 @@ export default function MerchantRegisterPage() {
       const text = await readCatalogCsvFile(file);
       const { rows, errors } = parseCatalogCsv(text);
       setCatalogRowErrors(errors);
-      setForm((prev) => ({ ...prev, catalogRows: rows.length > 0 ? rows : undefined }));
+      setCatalogRows(rows.length > 0 ? rows : null);
       if (rows.length === 0 && errors.length === 0) {
         setCatalogParseError("The file has no product rows.");
       }
@@ -148,7 +153,7 @@ export default function MerchantRegisterPage() {
   }
 
   function handleCatalogSkip() {
-    setForm((prev) => ({ ...prev, catalogRows: undefined }));
+    setCatalogRows(null);
     setCatalogFileName(null);
     setCatalogRowErrors([]);
     setCatalogParseError(null);
@@ -206,7 +211,7 @@ export default function MerchantRegisterPage() {
       return;
     }
     if (file.size > MAX_KYC_FILE_BYTES) {
-      setKycError("KyC documents must be 10 MB or smaller.");
+      setKycError("KYC documents must be 10 MB or smaller.");
       setKycFile(null);
       return;
     }
@@ -282,11 +287,11 @@ export default function MerchantRegisterPage() {
     try {
       const result = await registerMerchant(form, walletProof);
       setTransactionHash(result.transactionHash);
-      if (form.catalogRows && form.catalogRows.length > 0) {
+      if (catalogRows && catalogRows.length > 0) {
         setCatalogImporting(true);
         setCatalogImportError(null);
         try {
-          const imported = await importMerchantCatalog(form.catalogRows);
+          const imported = await importMerchantCatalog(catalogRows);
           setCatalogImportedCount(imported.imported);
         } catch (err) {
           setCatalogImportError(
@@ -325,31 +330,30 @@ export default function MerchantRegisterPage() {
 
       <Stepper steps={STEPS} currentIndex={stepIndex} />
 
-      {step === "store_info" && (
+      {step === "store_details" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           {(
             [
               ["storeName", "Store name", "text"],
               ["contactEmail", "Contact email", "email"],
-              ["stellarPayoutAddress", "Stellar payout address", "text"],
-              ["websiteUrl", "Website URL ((optional)", "url"],
+              ["websiteUrl", "Website URL (optional)", "url"],
             ] as const
           ).map(([field, label, type]) => (
             <label key={field} style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
               <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{label}</span>
               <input
                 type={type}
-                value={form[field] ?? ""}
+                value={(form[field as keyof MerchantRegistrationForm] as string) ?? ""}
                 onChange={(e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))}
                 style={{
                   padding: "0.5rem 0.625rem",
                   borderRadius: "0.5rem",
-                  border: `1px solid ${formErrors[field] ? "#dc2626" : "#d1d5db"}`,
+                  border: `1px solid ${formErrors[field as keyof MerchantRegistrationForm] ? "#dc2626" : "#d1d5db"}`,
                 }}
               />
-              {formErrors[field] && (
+              {formErrors[field as keyof MerchantRegistrationForm] && (
                 <span role="alert" style={{ fontSize: "0.75rem", color: "#dc2626" }}>
-                  {formErrors[field]}
+                  {formErrors[field as keyof MerchantRegistrationForm]}
                 </span>
               )}
             </label>
@@ -375,35 +379,59 @@ export default function MerchantRegisterPage() {
           </label>
 
           <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-            <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Category</span>
-            <select
-              value={form.category}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, category: e.target.value as MerchantRegistrationForm["category"] }))
-              }
-              style={{ padding: "0.5rem 0.625rem", borderRadius: "0.5rem", border: "1px solid #d1d5db" }}
-            >
-              {MERCHANT_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
+            <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Accepted currencies</span>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+              {MERCHANT_CATEGORIES.map((currency) => (
+                <label key={currency} style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.875rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={form.acceptedCurrencies.includes(currency)}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        acceptedCurrencies: e.target.checked
+                          ? [...prev.acceptedCurrencies, currency]
+                          : prev.acceptedCurrencies.filter((c) => c !== currency),
+                      }))
+                    }
+                  />
+                  {currency}
+                </label>
               ))}
-            </select>
+            </div>
           </label>
 
           <button
             type="button"
-            onClick={handleStoreInfoNext}
-            disabled={validatingAddress}
-            style={{ padding: "0.625rem 1rem", borderRadius: "0.5rem", border: "none", background: "#2563eb", color: "#fff", fontWeight: 600, cursor: validatingAddress ? "wait" : "pointer" }}
+            onClick={() => setStepIndex(1)}
+            style={{ padding: "0.625rem 1rem", borderRadius: "0.5rem", border: "none", background: "#2563eb", color: "#fff", fontWeight: 600, cursor: "pointer" }}
           >
-            {validatingAddress ? "Checking address…" : "Continue"}
+            Continue
           </button>
         </div>
       )}
 
-      {step === "catalog_import" && (
+      {step === "payout_address" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+            <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Stellar payout address</span>
+            <input
+              type="text"
+              value={form.payoutAddress}
+              onChange={(e) => setForm((prev) => ({ ...prev, payoutAddress: e.target.value }))}
+              style={{
+                padding: "0.5rem 0.625rem",
+                borderRadius: "0.5rem",
+                border: `1px solid ${formErrors.payoutAddress ? "#dc2626" : "#d1d5db"}`,
+              }}
+            />
+            {formErrors.payoutAddress && (
+              <span role="alert" style={{ fontSize: "0.75rem", color: "#dc2626" }}>
+                {formErrors.payoutAddress}
+              </span>
+            )}
+          </label>
+
           <p style={{ fontSize: "0.8125rem", color: "#374151" }}>
             Optionally import your product catalog now. Upload a CSV with columns:{" "}
             <code>{CATALOG_CSV_HEADER.join(", ")}</code>. You can also add products later from the catalog page.
@@ -419,9 +447,9 @@ export default function MerchantRegisterPage() {
               {catalogParseError}
             </p>
           )}
-          {catalogFileName && form.catalogRows && (
+          {catalogFileName && catalogRows && (
             <p style={{ fontSize: "0.8125rem", color: "#166534" }}>
-              {catalogFileName}: {form.catalogRows.length} product{form.catalogRows.length === 1 ? "" : "s"} ready to import.
+              {catalogFileName}: {catalogRows.length} product{catalogRows.length === 1 ? "" : "s"} ready to import.
             </p>
           )}
           {catalogRowErrors.length > 0 && (
@@ -446,16 +474,17 @@ export default function MerchantRegisterPage() {
             </button>
             <button
               type="button"
-              onClick={handleCatalogNext}
-              style={{ padding: "0.625rem 1rem", borderRadius: "0.5rem", border: "none", background: "#2563eb", color: "#fff", fontWeight: 600, cursor: "pointer" }}
+              onClick={handleStoreInfoNext}
+              disabled={validatingAddress}
+              style={{ padding: "0.625rem 1rem", borderRadius: "0.5rem", border: "none", background: "#2563eb", color: "#fff", fontWeight: 600, cursor: validatingAddress ? "wait" : "pointer" }}
             >
-              Continue
+              {validatingAddress ? "Checking address…" : "Continue"}
             </button>
           </div>
         </div>
       )}
 
-      {step === "wallet_verify" && (
+      {step === "contract_binding" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           <p style={{ fontSize: "0.8125rem", color: "#374151" }}>
             {isConnected
@@ -483,7 +512,7 @@ export default function MerchantRegisterPage() {
         </div>
       )}
 
-      {step === "contract_register" && (
+      {step === "verification" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           <p style={{ fontSize: "0.8125rem", color: "#374151" }}>
             Wallet verified as <code>{walletProof?.signerAddress}</code>. Submit your registration to the
@@ -547,7 +576,7 @@ export default function MerchantRegisterPage() {
                   aria-valuenow={Math.round(kycProgress)}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-label="Kow document upload progress"
+                  aria-label="KYC document upload progress"
                   style={{
                     width: "100%",
                     height: 8,
@@ -566,7 +595,7 @@ export default function MerchantRegisterPage() {
                   />
                 </div>
                 <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
-                  {kycUploading ? `Uploading … ${Math.round(kycProgress)}%` : `Upload complete (${Math.round(kycProgress)}%)`}
+                  {kycUploading ? `Uploading… ${Math.round(kycProgress)}%` : `Upload complete (${Math.round(kycProgress)}%)`}
                 </span>
               </div>
             ) : null}

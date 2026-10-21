@@ -3,9 +3,11 @@
  * Tests the complete tax calculation integration across the checkout process.
  */
 
+import { webcrypto } from "node:crypto";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { Order } from "@delegolabs/types";
 import { TaxEnabledCheckoutFlow, TaxAwareApprovalCard } from "./TaxEnabledCheckoutFlow";
+import type { DeliveryNoteOrderMetadata } from "../../lib/deliveryInstructions";
 
 // Mock dependencies
 vi.mock("../../hooks/useCurrency", () => ({
@@ -33,19 +35,43 @@ vi.mock("@delegolabs/ui", () => ({
   }) => (
     <button onClick={onClick} data-variant={variant}>{children}</button>
   ),
-  FormField: ({ children, label }: { children: React.ReactNode; label: string }) => (
+  FormField: ({
+    children,
+    label,
+    hint,
+    error,
+    inputProps,
+  }: {
+    children: React.ReactNode;
+    label: string;
+    hint?: string;
+    error?: string;
+    inputProps?: { id?: string };
+  }) => (
     <div>
-      <label>{label}</label>
+      <label htmlFor={inputProps?.id}>{label}</label>
+      {hint ? <p id={`${inputProps?.id}-hint`}>{hint}</p> : null}
       {children}
+      {error ? (
+        <p id={`${inputProps?.id}-error`} role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   ),
 }));
 
-// Mock other components
+// Mock other components. Like the real ApprovalCard, a rejected onApprove
+// is caught (the real card announces the failure).
 vi.mock("./ApprovalCard", () => ({
   ApprovalCard: ({ order, deliveryPostalCode, onApprove, onReject }: any) => (
     <div data-testid="approval-card" data-postal-code={deliveryPostalCode ?? ""}>
-      <button onClick={() => onApprove(order.id)} data-testid="approve-btn">
+      <button
+        onClick={() => {
+          Promise.resolve(onApprove(order.id)).catch(() => {});
+        }}
+        data-testid="approve-btn"
+      >
         Approve
       </button>
       <button onClick={() => onReject(order.id, "test reason")} data-testid="reject-btn">
@@ -311,115 +337,203 @@ describe("Integration scenarios", () => {
     expect(receiptPanel).toHaveAttribute("data-order-id", "test-order-123");
   });
 });
-describe("Checkout Review Step - Gift Options Integration", () => {
-  test("renders 'This is a gift' checkbox in checkout review step", () => {
-    render(<TaxEnabledCheckoutFlow order={mockOrder} mode="full" />);
 
-    const reviewStep = screen.getByTestId("checkout-review-step");
-    expect(reviewStep).toBeInTheDocument();
+describe("Delivery instructions (#1005)", () => {
+  const LABEL = "Delivery instructions (gate code, buzzer)";
+  const GATE_CODE = "Gate code 4821#, buzzer 12B";
+  let merchantPublicKey: string;
+  let merchantPrivateKey: CryptoKey;
 
-    const giftCheckbox = screen.getByTestId("gift-options-checkbox");
-    expect(giftCheckbox).toBeInTheDocument();
-    expect(giftCheckbox).not.toBeChecked();
+  beforeAll(async () => {
+    // Pin Node's WebCrypto so the test does not depend on what the jsdom
+    // environment exposes as `globalThis.crypto`.
+    vi.stubGlobal("crypto", webcrypto);
+    const pair = await globalThis.crypto.subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      true,
+      ["encrypt", "decrypt"]
+    );
+    const spki = await globalThis.crypto.subtle.exportKey("spki", pair.publicKey);
+    merchantPublicKey = Buffer.from(spki).toString("base64");
+    merchantPrivateKey = pair.privateKey;
   });
 
-  test("reveals gift message textarea with 250-character counter upon checking gift checkbox", () => {
-    render(<TaxEnabledCheckoutFlow order={mockOrder} mode="full" />);
-
-    const giftCheckbox = screen.getByTestId("gift-options-checkbox");
-    fireEvent.click(giftCheckbox);
-
-    expect(giftCheckbox).toBeChecked();
-    expect(screen.getByTestId("gift-message-textarea")).toBeInTheDocument();
-    expect(screen.getByTestId("gift-message-counter")).toHaveTextContent("0/250 characters (250 remaining)");
-    expect(screen.getByTestId("gift-recipient-name-input")).toBeInTheDocument();
-    expect(screen.getByTestId("gift-hide-price-checkbox")).toBeInTheDocument();
+  afterAll(() => {
+    vi.unstubAllGlobals();
   });
 
-  test("passes gift options in order metadata payload to backend on approval", async () => {
-    const onApprove = vi.fn();
-    const onGiftOptionsChange = vi.fn();
+  async function decryptAsMerchant(encryptedPayload: string): Promise<string> {
+    const subtle = globalThis.crypto.subtle;
+    const bytes = (value: string) => new Uint8Array(Buffer.from(value, "base64"));
+    const envelope = JSON.parse(
+      Buffer.from(encryptedPayload, "base64").toString("utf8")
+    ) as { iv: string; key: string; ct: string };
+    const rawKey = await subtle.decrypt(
+      { name: "RSA-OAEP" },
+      merchantPrivateKey,
+      bytes(envelope.key)
+    );
+    const aesKey = await subtle.importKey("raw", rawKey, { name: "AES-GCM" }, false, [
+      "decrypt",
+    ]);
+    const plaintext = await subtle.decrypt(
+      { name: "AES-GCM", iv: bytes(envelope.iv) },
+      aesKey,
+      bytes(envelope.ct)
+    );
+    return new TextDecoder().decode(plaintext);
+  }
 
+  test("renders the field in the delivery step with a privacy hint", () => {
     render(
       <TaxEnabledCheckoutFlow
         order={mockOrder}
-        onApprove={onApprove}
-        onGiftOptionsChange={onGiftOptionsChange}
+        merchantPublicKey={merchantPublicKey}
         mode="full"
       />
     );
 
-    // Toggle gift checkbox
-    fireEvent.click(screen.getByTestId("gift-options-checkbox"));
-    expect(onGiftOptionsChange).toHaveBeenCalledWith(
-      expect.objectContaining({ isGift: true })
+    const field = screen.getByLabelText(LABEL);
+    expect(field.tagName).toBe("TEXTAREA");
+    expect(field).toBeEnabled();
+    expect(field).toHaveAttribute("maxlength", "500");
+    expect(field).toHaveAccessibleDescription(
+      "Encrypted in your browser with the merchant's key. Only the merchant can read it."
+    );
+  });
+
+  test("disables the field when the merchant has not published a key", () => {
+    render(<TaxEnabledCheckoutFlow order={mockOrder} mode="full" />);
+
+    const field = screen.getByLabelText(LABEL);
+    expect(field).toBeDisabled();
+    expect(field).toHaveAccessibleDescription(
+      /has not published a delivery key/
+    );
+  });
+
+  test("approves without metadata when no instructions were entered", async () => {
+    const onApprove = vi.fn();
+    render(
+      <TaxEnabledCheckoutFlow
+        order={mockOrder}
+        merchantPublicKey={merchantPublicKey}
+        onApprove={onApprove}
+        mode="full"
+      />
     );
 
-    // Enter recipient name
-    fireEvent.change(screen.getByTestId("gift-recipient-name-input"), {
-      target: { value: "Samantha Jones" },
-    });
+    fireEvent.click(screen.getByTestId("approve-btn"));
 
-    // Enter gift message
-    fireEvent.change(screen.getByTestId("gift-message-textarea"), {
-      target: { value: "Wishing you a wonderful celebration!" },
-    });
+    await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
+    expect(onApprove.mock.calls[0]).toHaveLength(2);
+  });
 
-    expect(screen.getByTestId("gift-message-counter")).toHaveTextContent("36/250 characters (214 remaining)");
+  test("forwards only the encrypted note in the order metadata", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    const onApprove = vi.fn(
+      async (
+        orderId: string,
+        _amount: bigint,
+        metadata?: DeliveryNoteOrderMetadata
+      ) => {
+        // Stand-in for the caller's order request.
+        await fetch(`https://api.example.com/orders/${orderId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ metadata }),
+        });
+      }
+    );
 
-    // Approve order
-    const approveBtn = screen.getByTestId("approve-btn");
-    fireEvent.click(approveBtn);
+    try {
+      render(
+        <TaxEnabledCheckoutFlow
+          order={mockOrder}
+          merchantPublicKey={merchantPublicKey}
+          onApprove={onApprove}
+          mode="full"
+        />
+      );
+      fireEvent.change(screen.getByLabelText(LABEL), {
+        target: { value: GATE_CODE },
+      });
+      fireEvent.click(screen.getByTestId("approve-btn"));
 
-    await waitFor(() => {
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+
+      const metadata = onApprove.mock.calls[0][2];
       expect(onApprove).toHaveBeenCalledWith(
         "test-order-123",
         expect.any(BigInt),
         {
-          giftOptions: {
-            isGift: true,
-            recipientName: "Samantha Jones",
-            giftMessage: "Wishing you a wonderful celebration!",
-            hidePackingSlipPrice: true,
+          encryptedDeliveryNote: {
+            recipientInstructions: "encrypted",
+            merchantPublicKey,
+            encryptedPayload: expect.any(String),
           },
         }
       );
-    });
+
+      const body = String(fetchSpy.mock.calls[0][1]?.body);
+      expect(body).not.toContain(GATE_CODE);
+      expect(body).not.toContain("Gate code");
+      expect(body).toContain(metadata!.encryptedDeliveryNote.encryptedPayload);
+
+      await expect(
+        decryptAsMerchant(metadata!.encryptedDeliveryNote.encryptedPayload)
+      ).resolves.toBe(GATE_CODE);
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
-  test("propagates hidePackingSlipPrice toggle into metadata payload", async () => {
-    const onApprove = vi.fn();
-
+  test("clears the plaintext once it is sealed, even if the order request fails", async () => {
+    const onApprove = vi.fn().mockRejectedValue(new Error("network down"));
     render(
       <TaxEnabledCheckoutFlow
         order={mockOrder}
+        merchantPublicKey={merchantPublicKey}
         onApprove={onApprove}
         mode="full"
       />
     );
 
-    // Turn on gift options
-    fireEvent.click(screen.getByTestId("gift-options-checkbox"));
-
-    // Turn off hide packing slip price
-    const hidePriceCheckbox = screen.getByTestId("gift-hide-price-checkbox");
-    fireEvent.click(hidePriceCheckbox);
-    expect(hidePriceCheckbox).not.toBeChecked();
-
-    // Approve order
+    const field = screen.getByLabelText(LABEL);
+    fireEvent.change(field, { target: { value: GATE_CODE } });
     fireEvent.click(screen.getByTestId("approve-btn"));
 
-    await waitFor(() => {
-      expect(onApprove).toHaveBeenCalledWith(
-        "test-order-123",
-        expect.any(BigInt),
-        expect.objectContaining({
-          giftOptions: expect.objectContaining({
-            isGift: true,
-            hidePackingSlipPrice: false,
-          }),
-        })
-      );
-    });
+    await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(field).toHaveValue(""));
+    expect(screen.queryByTestId("receipt-panel")).not.toBeInTheDocument();
+  });
+
+  test("blocks approval and explains why when the note cannot be encrypted", async () => {
+    const onApprove = vi.fn();
+    render(
+      <TaxEnabledCheckoutFlow
+        order={mockOrder}
+        merchantPublicKey="not-a-valid-key"
+        onApprove={onApprove}
+        mode="full"
+      />
+    );
+
+    const field = screen.getByLabelText(LABEL);
+    fireEvent.change(field, { target: { value: GATE_CODE } });
+    fireEvent.click(screen.getByTestId("approve-btn"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The merchant's delivery key is not a valid RSA-OAEP public key."
+    );
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(field).toHaveValue(GATE_CODE);
+    expect(onApprove).not.toHaveBeenCalled();
   });
 });

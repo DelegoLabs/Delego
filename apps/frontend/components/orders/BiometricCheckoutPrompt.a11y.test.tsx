@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { BiometricCheckoutPrompt } from "./BiometricCheckoutPrompt";
+import { BiometricCheckoutPrompt, type FocusRestoreOptions } from "./BiometricCheckoutPrompt";
 
 vi.mock("../../lib/apiFetch", () => ({
   apiFetch: vi.fn(),
@@ -98,6 +98,73 @@ describe("BiometricCheckoutPrompt focus trap (#900)", () => {
 
     await user.click(screen.getByTestId("biometric-checkout-cancel"));
     await waitFor(() => expect(screen.getByTestId("pay-trigger")).toHaveFocus());
+    expect(screen.queryByTestId("biometric-checkout-modal")).not.toBeInTheDocument();
+  });
+  it("restores focus to the trigger when dismissed with the Escape key", async () => {
+    const user = userEvent.setup();
+
+    function OpenableEsc() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" data-testid="pay-trigger-esc" onClick={() => setOpen(true)}>
+            Pay
+          </button>
+          {open ? (
+            <BiometricCheckoutPrompt
+              orderAmount="2.50 XLM"
+              merchantName="Coffee Cart"
+              onSuccess={vi.fn()}
+              onCancel={() => setOpen(false)}
+            />
+          ) : null}
+        </>
+      );
+    }
+
+    render(<OpenableEsc />);
+    await user.click(screen.getByTestId("pay-trigger-esc"));
+
+    const passkey = await screen.findByTestId("biometric-checkout-passkey");
+    await waitFor(() => expect(passkey).toHaveFocus());
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.getByTestId("pay-trigger-esc")).toHaveFocus());
+    expect(screen.queryByTestId("biometric-checkout-modal")).not.toBeInTheDocument();
+  });
+
+  it("restores focus to explicit triggerRef upon modal close", async () => {
+    const user = userEvent.setup();
+
+    function OpenableRef() {
+      const [open, setOpen] = useState(false);
+      const triggerRef = useRef<HTMLButtonElement>(null);
+      return (
+        <>
+          <button ref={triggerRef} type="button" data-testid="pay-trigger-explicit" onClick={() => setOpen(true)}>
+            Pay
+          </button>
+          {open ? (
+            <BiometricCheckoutPrompt
+              orderAmount="2.50 XLM"
+              merchantName="Coffee Cart"
+              onSuccess={vi.fn()}
+              onClose={() => setOpen(false)}
+              triggerRef={triggerRef}
+            />
+          ) : null}
+        </>
+      );
+    }
+
+    render(<OpenableRef />);
+    await user.click(screen.getByTestId("pay-trigger-explicit"));
+
+    const passkey = await screen.findByTestId("biometric-checkout-passkey");
+    await waitFor(() => expect(passkey).toHaveFocus());
+
+    await user.click(screen.getByTestId("biometric-checkout-cancel"));
+    await waitFor(() => expect(screen.getByTestId("pay-trigger-explicit")).toHaveFocus());
     expect(screen.queryByTestId("biometric-checkout-modal")).not.toBeInTheDocument();
   });
 });

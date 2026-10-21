@@ -10,10 +10,14 @@ export interface MerchantRegistrationForm {
   storeSlug: string;
   description: string;
   contactEmail: string;
-  payoutAddress: string;
-  domainName: string;
-  isDomainVerified: boolean;
-  acceptedCurrencies: string[];
+  stellarPayoutAddress: string;
+  category: string;
+  websiteUrl: string;
+  payoutAddress?: string;
+  domainName?: string;
+  isDomainVerified?: boolean;
+  acceptedCurrencies?: string[];
+  catalogRows?: CatalogImportRow[];
 }
 
 export interface MerchantOnboardingData {
@@ -27,15 +31,18 @@ export interface MerchantOnboardingData {
   acceptedCurrencies: string[];
 }
 
-export type OnboardingStep = "store_details" | "payout_address" | "contract_binding" | "verification" | "complete";
+export type OnboardingStep =
+  | "store_info"
+  | "catalog_import"
+  | "wallet_verify"
+  | "contract_register"
+  | "complete"
+  | "store_details"
+  | "payout_address"
+  | "contract_binding"
+  | "verification";
 
-export const MERCHANT_CATEGORIES: MerchantRegistrationForm["acceptedCurrencies"] = [
-  "XLM",
-  "USD",
-  "EUR",
-  "GBP",
-  "JPY",
-] as const;
+export const MERCHANT_CATEGORIES = ["XLM", "USD", "EUR", "GBP", "JPY"] as const;
 
 const retryingFetch = createRetryingFetch();
 

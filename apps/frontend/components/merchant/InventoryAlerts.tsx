@@ -12,6 +12,9 @@ import {
   type StockedCatalogProduct,
 } from "../../lib/inventoryStock";
 
+export { LowStockBannerAlert } from "./LowStockBannerAlert";
+export type { LowStockBannerAlert as LowStockBannerAlertProps } from "./LowStockBannerAlert";
+
 const badgeStyle = (tone: "amber" | "red") =>
   ({
     alignSelf: "flex-start",

@@ -87,6 +87,7 @@ describe("Store Page Metadata Generation", () => {
       stellarAddress: "GABC123",
       reputationScore: 95,
       products: [],
+      announcement: null,
     });
 
     const metadata = await generateMetadata({
