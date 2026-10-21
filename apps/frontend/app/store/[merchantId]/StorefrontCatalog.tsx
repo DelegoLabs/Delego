@@ -6,9 +6,11 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { formatAmount } from "@delegolabs/ui";
+import { formatAmount, PolicyAccordion, type MerchantPolicyInfo } from "@delegolabs/ui";
+
 import { StockDepletionPanel } from "../../../components/storefront/StockDepletionPanel";
 import {
+  DEFAULT_MERCHANT_POLICY,
   filterStoreProducts,
   type MerchantProduct,
 } from "../../../lib/storefront";
@@ -37,6 +39,7 @@ interface StorefrontCatalogProps {
   merchantId: string;
   merchantName: string;
   payoutAddress: string;
+  merchantPolicy?: MerchantPolicyInfo;
 }
 
 export function StorefrontCatalog({
@@ -44,6 +47,7 @@ export function StorefrontCatalog({
   merchantId,
   merchantName,
   payoutAddress,
+  merchantPolicy,
 }: StorefrontCatalogProps) {
   const [query, setQuery] = useState("");
   const [liveStock, setLiveStock] = useState<Record<string, StockDepletionInfo>>({});
@@ -259,8 +263,14 @@ export function StorefrontCatalog({
             >
               {expandedId === product.id ? "Hide details" : "View details"}
             </button>
-            {expandedId === product.id && stock && (
-              <StockDepletionPanel merchantId={merchantId} stock={stock} mode="detail" />
+            {expandedId === product.id && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.5rem" }}>
+                {stock && <StockDepletionPanel merchantId={merchantId} stock={stock} mode="detail" />}
+                <PolicyAccordion
+                  policy={product.policy ?? merchantPolicy ?? DEFAULT_MERCHANT_POLICY}
+                  merchantName={merchantName}
+                />
+              </div>
             )}
           </li>
           );

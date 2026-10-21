@@ -4,6 +4,16 @@
 
 import { parseStockDepletion, type StockDepletionInfo } from "./stockDepletion";
 
+import type { MerchantPolicyInfo } from "@delegolabs/types";
+
+export const DEFAULT_MERCHANT_POLICY: MerchantPolicyInfo = {
+  returnWindowDays: 30,
+  restockingFeePercent: 0,
+  freeShippingThresholdStroops: "100000000",
+  escrowProtectionNotice:
+    "Purchases are protected by Delego smart contract escrow. Funds are securely locked until delivery is confirmed.",
+};
+
 export interface MerchantProduct {
   id: string;
   name: string;
@@ -11,6 +21,7 @@ export interface MerchantProduct {
   priceStroops: string;
   active: boolean;
   stock?: StockDepletionInfo;
+  policy?: MerchantPolicyInfo;
 }
 
 export interface StorefrontData {
@@ -20,6 +31,7 @@ export interface StorefrontData {
   stellarAddress: string;
   reputationScore: number;
   products: MerchantProduct[];
+  policy?: MerchantPolicyInfo;
 }
 
 export function isSafeMerchantId(id: string): boolean {
@@ -65,6 +77,25 @@ function parseProduct(value: unknown): MerchantProduct | null {
   };
 }
 
+function parsePolicy(value: unknown): MerchantPolicyInfo | undefined {
+  const record = asRecord(value);
+  if (!record) return undefined;
+  return {
+    returnWindowDays: asNumber(record.returnWindowDays ?? record.return_window_days) || 30,
+    restockingFeePercent: asNumber(record.restockingFeePercent ?? record.restocking_fee_percent) || 0,
+    freeShippingThresholdStroops:
+      typeof record.freeShippingThresholdStroops === "string"
+        ? record.freeShippingThresholdStroops
+        : typeof record.free_shipping_threshold_stroops === "string"
+        ? record.free_shipping_threshold_stroops
+        : undefined,
+    escrowProtectionNotice:
+      typeof record.escrowProtectionNotice === "string" && record.escrowProtectionNotice.trim()
+        ? record.escrowProtectionNotice.trim()
+        : DEFAULT_MERCHANT_POLICY.escrowProtectionNotice,
+  };
+}
+
 export function parseStorefront(
   payload: unknown,
   merchantId: string
@@ -88,6 +119,7 @@ export function parseStorefront(
     stellarAddress:
       typeof body.stellarAddress === "string" ? body.stellarAddress : "",
     reputationScore: asNumber(body.reputationScore),
+    policy: parsePolicy(body.policy) ?? DEFAULT_MERCHANT_POLICY,
     products,
   };
 }

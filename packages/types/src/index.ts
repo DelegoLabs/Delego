@@ -297,4 +297,14 @@ export interface UserPreferenceItem {
  */
 export type OfflineStatus = "online" | "offline" | "reconnecting";
 
+/**
+ * Merchant policy and buyer protection info.
+ */
+export interface MerchantPolicyInfo {
+  returnWindowDays: number;
+  restockingFeePercent: number;
+  freeShippingThresholdStroops?: string;
+  escrowProtectionNotice: string;
+}
+
 export * from "./schemas.js";
