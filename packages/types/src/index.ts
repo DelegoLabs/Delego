@@ -298,3 +298,16 @@ export interface UserPreferenceItem {
 export type OfflineStatus = "online" | "offline" | "reconnecting";
 
 export * from "./schemas.js";
+
+
+export interface SavedShippingAddress {
+  id: string;
+  label: "Home" | "Work" | "Other";
+  recipientName: string;
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isDefault: boolean;
+}

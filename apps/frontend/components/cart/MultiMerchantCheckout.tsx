@@ -21,6 +21,8 @@ import {
   type MerchantCartPartition,
 } from "../../lib/cartPartition";
 import { useCart } from "../../hooks/useCart";
+import { ShippingAddressPicker } from "./ShippingAddressPicker";
+import type { SavedShippingAddress } from "@delegolabs/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -348,6 +350,8 @@ export interface MultiMerchantCheckoutProps {
    * Receives the partition to sign.
    */
   signEscrow?: (partition: MerchantCartPartition) => Promise<void>;
+  selectedAddressId?: string | null;
+  onSelectAddress?: (address: SavedShippingAddress) => void;
 }
 
 /**
@@ -370,8 +374,20 @@ export function MultiMerchantCheckout({
   onComplete,
   onCancel,
   signEscrow = defaultSignEscrow,
+  selectedAddressId,
+  onSelectAddress,
 }: MultiMerchantCheckoutProps) {
   const { summary, clearCart } = useCart();
+  const [selectedShippingAddress, setSelectedShippingAddress] =
+    useState<SavedShippingAddress | null>(null);
+
+  const handleAddressSelect = useCallback(
+    (address: SavedShippingAddress) => {
+      setSelectedShippingAddress(address);
+      onSelectAddress?.(address);
+    },
+    [onSelectAddress]
+  );
 
   const initialPartitions = useMemo(
     () => partitionCartByMerchant(summary.items),
@@ -477,6 +493,12 @@ export function MultiMerchantCheckout({
           {globalError}
         </div>
       )}
+
+      {/* Delivery address selection */}
+      <ShippingAddressPicker
+        selectedAddressId={selectedAddressId ?? selectedShippingAddress?.id}
+        onSelectAddress={handleAddressSelect}
+      />
 
       {/* Partition cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>

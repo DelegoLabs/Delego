@@ -339,6 +339,9 @@ export default function SettingsPage() {
       <AgentUserPreferencesList />
       <MerchantWebhookCard />
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <Link href="/settings/addresses" prefetch={true}>
+          <Button variant="secondary">Manage delivery addresses</Button>
+        </Link>
         <Link href="/settings/webhooks/logs" prefetch={true}>
           <Button variant="secondary">View webhook activity</Button>
         </Link>
