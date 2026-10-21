@@ -13,6 +13,7 @@ import { useCart } from "../../hooks/useCart";
 import { formatAmount } from "@delegolabs/ui";
 import type { CartItem } from "../../lib/cart";
 import { MultiMerchantCheckout } from "./MultiMerchantCheckout";
+import { PriceDisplay } from "../storefront/PriceDisplay";
 
 const STROOPS_PER_XLM = 10_000_000n;
 
@@ -314,7 +315,7 @@ export function CartDrawer() {
                   >
                     <QuantityControl item={item} />
                     <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#111827" }}>
-                      {formatItemPrice(item.priceStroops, item.quantity)}
+                      <PriceDisplay stroops={BigInt(item.priceStroops) * BigInt(item.quantity)} />
                     </span>
                   </div>
                 </div>
@@ -367,7 +368,7 @@ export function CartDrawer() {
                 data-testid="cart-subtotal"
                 style={{ fontWeight: 700, fontSize: "1rem" }}
               >
-                {formatStroops(subtotalStroops)}
+                <PriceDisplay stroops={subtotalStroops} />
               </span>
             </div>
 

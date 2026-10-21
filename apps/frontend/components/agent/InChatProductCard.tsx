@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type SyntheticEvent } from "react";
-import { Amount, Badge, Button, Card } from "@delegolabs/ui";
+import { Badge, Button, Card } from "@delegolabs/ui";
+import { PriceDisplay } from "../storefront/PriceDisplay";
 
 /**
  * Props for the in-chat product recommendation card (#790).
@@ -126,7 +127,7 @@ export function InChatProductCard({
               style={{ fontSize: "1rem", color: "#111827" }}
               data-testid="in-chat-product-price"
             >
-              <Amount stroops={priceStroops} />
+              <PriceDisplay stroops={priceStroops} />
             </strong>
 
             {stockQuantity !== undefined && (

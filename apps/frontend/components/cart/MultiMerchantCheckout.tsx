@@ -21,6 +21,7 @@ import {
   type MerchantCartPartition,
 } from "../../lib/cartPartition";
 import { useCart } from "../../hooks/useCart";
+import { PriceDisplay } from "../storefront/PriceDisplay";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -256,7 +257,7 @@ function PartitionCard({
       >
         <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>Subtotal</span>
         <span style={{ fontSize: "0.9375rem", fontWeight: 700 }}>
-          {formatStroops(partition.subtotalStroops)}
+          <PriceDisplay stroops={partition.subtotalStroops} />
         </span>
       </div>
 

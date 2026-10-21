@@ -9,6 +9,7 @@ import { NetworkToggle } from "../network/NetworkToggle";
 import { SorobanHealthIndicator } from "../network/SorobanHealthIndicator";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
+import { CurrencyToggleDropdown } from "./CurrencyToggleDropdown";
 import { CommandPaletteTrigger } from "../command-palette/CommandPaletteTrigger";
 import { ChatDrawerTrigger } from "../chat/public";
 import { DataSaverChip } from "./DataSaverChip";
@@ -55,6 +56,8 @@ export function Header() {
         <ThemeToggle />
 
         <NetworkToggle />
+
+        <CurrencyToggleDropdown />
 
         <SorobanHealthIndicator />
 
