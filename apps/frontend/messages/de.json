@@ -78,6 +78,32 @@
     "errorGeneric": "Rechnung konnte nicht erstellt werden.",
     "ariaLabel": "PDF-Rechnung für Bestellung {orderId} herunterladen"
   },
+  "kycVerification": {
+    "pageTitle": "Identitätsprüfung",
+    "pageDescription": "Schließe jede Prüfung ab, um die nächste Händlerstufe freizuschalten.",
+    "currentTier": "Verifizierungsstufe",
+    "progress": "{completed} von {total} Prüfungen abgeschlossen",
+    "notVerified": "Noch nicht verifiziert",
+    "tierLabel": "Stufe {tier} · {badge}",
+    "tierBadge": {
+      "bronze": "Bronze",
+      "silver": "Silber",
+      "goldBusiness": "Gold Business"
+    },
+    "verifiedBadge": "{badge} verifiziert",
+    "status": {
+      "verified": "Verifiziert",
+      "next": "Nächster Schritt",
+      "pending": "Nicht begonnen"
+    },
+    "verifyNow": "Jetzt verifizieren",
+    "verifyNowFor": "Jetzt verifizieren: {name}",
+    "requirements": {
+      "email": "E-Mail-Adresse verifiziert",
+      "domain": "Geschäftsdomain verifiziert",
+      "businessEntity": "Unternehmen on-chain verifiziert"
+    }
+  },
   "bulkFulfillment": {
     "selectAll": "Alle zu versendenden Bestellungen auswählen",
     "selectOrder": "Bestellung {orderId} auswählen",
@@ -134,6 +160,5 @@
     },
     "recentErrorsButton": "Letzte Fehler",
     "recentErrorsTitle": "Letzte HTTP-Fehler"
-  }
   }
 }

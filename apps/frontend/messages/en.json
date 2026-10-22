@@ -161,6 +161,32 @@
     "errorGeneric": "Failed to generate invoice.",
     "ariaLabel": "Download PDF invoice for order {orderId}"
   },
+  "kycVerification": {
+    "pageTitle": "Identity verification",
+    "pageDescription": "Complete each verification to unlock the next merchant tier.",
+    "currentTier": "Verification tier",
+    "progress": "{completed} of {total} verifications complete",
+    "notVerified": "Not yet verified",
+    "tierLabel": "Tier {tier} · {badge}",
+    "tierBadge": {
+      "bronze": "Bronze",
+      "silver": "Silver",
+      "goldBusiness": "Gold Business"
+    },
+    "verifiedBadge": "{badge} verified",
+    "status": {
+      "verified": "Verified",
+      "next": "Next step",
+      "pending": "Not started"
+    },
+    "verifyNow": "Verify now",
+    "verifyNowFor": "Verify now: {name}",
+    "requirements": {
+      "email": "Email address verified",
+      "domain": "Business domain verified",
+      "businessEntity": "On-chain business entity verified"
+    }
+  },
   "bulkFulfillment": {
     "selectAll": "Select all orders to ship",
     "selectOrder": "Select order {orderId}",
@@ -217,6 +243,5 @@
     },
     "recentErrorsButton": "Recent errors",
     "recentErrorsTitle": "Most recent HTTP errors"
-  }
   }
 }
