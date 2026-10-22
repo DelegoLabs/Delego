@@ -15,6 +15,7 @@ import { MultiMerchantCheckout, type MultiMerchantCheckoutProps } from "./MultiM
 import { CartPromoCode } from "./CartPromoCode";
 import { useCartPromoCode } from "../../hooks/useCartPromoCode";
 import { formatPromoStroops } from "../../lib/promoCode";
+import { CartConflictModal } from "../CartConflictModal";
 
 const STROOPS_PER_XLM = 10_000_000n;
 const MAX_QUANTITY = 99;
@@ -191,7 +192,8 @@ const btnStyle: React.CSSProperties = {
 export { clampQuantity, sanitizeQuantityInput, MAX_QUANTITY };
 
 export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheckoutProps, "signEscrow" | "refundEscrow"> = {}) {
-  const { summary, drawerOpen, closeDrawer, removeItem, clearCart } = useCart();
+  const { summary, drawerOpen, closeDrawer, removeItem, clearCart, canCheckout } =
+    useCart();
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [checkingOut, setCheckingOut] = useState(false);
@@ -494,8 +496,10 @@ export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheck
 
             <button
               type="button"
-              onClick={() => setCheckingOut(true)}
-              disabled={coupon.pending}
+              onClick={() => {
+                if (canCheckout) setCheckingOut(true);
+              }}
+              disabled={coupon.pending || !canCheckout}
               data-testid="proceed-to-checkout"
               style={{
                 padding: "0.625rem 1rem",
@@ -513,6 +517,7 @@ export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheck
           </div>
         )}
       </div>
+      {drawerOpen && <CartConflictModal />}
     </>
   );
 }
