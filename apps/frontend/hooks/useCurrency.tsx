@@ -18,37 +18,43 @@ import {
   type CurrencyConfig,
   type CurrencyId,
 } from "../lib/currencies";
+import {
+  CURRENCY_PREFERENCE_STORAGE_KEY,
+  DEFAULT_CURRENCY_PREFERENCE,
+  parseStoredCurrencyPreference,
+  type CurrencyPreference,
+  type DisplayCurrencyMode,
+} from "../lib/currencyPreference";
 import { fetchXlmRate, isRateStale, type RateSnapshot } from "../lib/rates";
 
+export type { DisplayCurrencyMode, CurrencyPreference };
+
 interface CurrencyContextValue {
-  /** The active display-currency id */
   currencyId: CurrencyId;
-  /** Full config for the active currency */
   currency: CurrencyConfig;
-  /** All selectable currencies */
   currencies: CurrencyConfig[];
-  /** Switch the active display currency (persisted to localStorage) */
   setCurrency: (id: CurrencyId) => void;
-  /** Latest XLM/USD rate snapshot, used by estimate modes */
+  preference: CurrencyPreference;
+  setPreference: (
+    next:
+      | CurrencyPreference
+      | ((prev: CurrencyPreference) => CurrencyPreference)
+  ) => void;
+  setCurrencyMode: (mode: DisplayCurrencyMode) => void;
+  setTargetFiat: (fiat: CurrencyPreference["targetFiat"]) => void;
+  toggleCurrencyMode: () => void;
   rate: RateSnapshot | null;
-  /** True when `rate` is the static fallback or older than the staleness window */
   rateIsStale: boolean;
-  /** True once the persisted value has been read on the client */
   hydrated: boolean;
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 
-/**
- * Provides the active display-currency preference to the whole app (FE-039).
- *
- * Mirrors hooks/useNetwork.tsx: the selection is persisted in localStorage,
- * read after mount to avoid hydration drift, and synced across tabs. When an
- * estimate mode (USDC/USD) is active, also fetches and caches the XLM rate
- * (see lib/rates.ts) so formatAmount can convert.
- */
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currencyId, setCurrencyId] = useState<CurrencyId>(DEFAULT_CURRENCY_ID);
+  const [preference, setPreferenceState] = useState<CurrencyPreference>(
+    DEFAULT_CURRENCY_PREFERENCE
+  );
   const [hydrated, setHydrated] = useState(false);
   const [rate, setRate] = useState<RateSnapshot | null>(null);
 
@@ -58,8 +64,14 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       if (stored && isCurrencyId(stored)) {
         setCurrencyId(stored);
       }
+      const storedPref = window.localStorage.getItem(
+        CURRENCY_PREFERENCE_STORAGE_KEY
+      );
+      if (storedPref) {
+        setPreferenceState(parseStoredCurrencyPreference(storedPref));
+      }
     } catch {
-      // localStorage may be unavailable (private mode) — keep the default.
+      // localStorage unavailable in private browsing
     }
     setHydrated(true);
   }, []);
@@ -70,6 +82,9 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
         if (isCurrencyId(event.newValue)) {
           setCurrencyId(event.newValue);
         }
+      }
+      if (event.key === CURRENCY_PREFERENCE_STORAGE_KEY && event.newValue) {
+        setPreferenceState(parseStoredCurrencyPreference(event.newValue));
       }
     }
     window.addEventListener("storage", onStorage);
@@ -90,9 +105,53 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     try {
       window.localStorage.setItem(CURRENCY_STORAGE_KEY, id);
     } catch {
-      // Ignore persistence failures — the in-memory value still updates.
+      // ignore
     }
   }, []);
+
+  const setPreference = useCallback(
+    (
+      next:
+        | CurrencyPreference
+        | ((prev: CurrencyPreference) => CurrencyPreference)
+    ) => {
+      setPreferenceState((prev) => {
+        const resolved = typeof next === "function" ? next(prev) : next;
+        try {
+          window.localStorage.setItem(
+            CURRENCY_PREFERENCE_STORAGE_KEY,
+            JSON.stringify(resolved)
+          );
+        } catch {
+          // ignore
+        }
+        return resolved;
+      });
+    },
+    []
+  );
+
+  const setCurrencyMode = useCallback(
+    (mode: DisplayCurrencyMode) => {
+      setPreference((prev) => ({ ...prev, mode }));
+    },
+    [setPreference]
+  );
+
+  const setTargetFiat = useCallback(
+    (targetFiat: CurrencyPreference["targetFiat"]) => {
+      setPreference((prev) => ({ ...prev, targetFiat }));
+    },
+    [setPreference]
+  );
+
+  const toggleCurrencyMode = useCallback(() => {
+    setPreference((prev) => ({
+      ...prev,
+      mode:
+        prev.mode === "crypto_primary" ? "fiat_primary" : "crypto_primary",
+    }));
+  }, [setPreference]);
 
   const value = useMemo<CurrencyContextValue>(
     () => ({
@@ -100,11 +159,26 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       currency: getCurrencyConfig(currencyId),
       currencies: Object.values(CURRENCIES),
       setCurrency,
+      preference,
+      setPreference,
+      setCurrencyMode,
+      setTargetFiat,
+      toggleCurrencyMode,
       rate,
       rateIsStale: rate ? isRateStale(rate) : false,
       hydrated,
     }),
-    [currencyId, setCurrency, rate, hydrated]
+    [
+      currencyId,
+      setCurrency,
+      preference,
+      setPreference,
+      setCurrencyMode,
+      setTargetFiat,
+      toggleCurrencyMode,
+      rate,
+      hydrated,
+    ]
   );
 
   return (
@@ -114,11 +188,29 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Access the active display-currency preference. Must be used within a CurrencyProvider. */
 export function useCurrency(): CurrencyContextValue {
   const ctx = useContext(CurrencyContext);
   if (!ctx) {
     throw new Error("useCurrency must be used within a CurrencyProvider");
   }
   return ctx;
+}
+
+export function useCurrencyPreference() {
+  const {
+    preference,
+    setPreference,
+    setCurrencyMode,
+    setTargetFiat,
+    toggleCurrencyMode,
+  } = useCurrency();
+  return {
+    preference,
+    mode: preference.mode,
+    targetFiat: preference.targetFiat,
+    setPreference,
+    setCurrencyMode,
+    setTargetFiat,
+    toggleCurrencyMode,
+  };
 }

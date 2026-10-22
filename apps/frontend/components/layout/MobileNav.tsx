@@ -104,7 +104,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
           </button>
         </div>
         <a
-          href="#main-content"
+          href="#app-content"
           className="focus-visible-ring skip-to-content"
           onClick={onClose}
           tabIndex={open ? 0 : -1}

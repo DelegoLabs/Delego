@@ -127,7 +127,7 @@ export function InChatProductCard({
               style={{ fontSize: "1rem", color: "#111827" }}
               data-testid="in-chat-product-price"
             >
-              <Amount stroops={priceStroops} />
+              <PriceDisplay stroops={priceStroops} />
             </strong>
 
             {stockQuantity !== undefined && (

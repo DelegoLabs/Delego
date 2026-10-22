@@ -1,3 +1,10 @@
+export type DisplayCurrencyMode = "crypto_primary" | "fiat_primary";
+
+export interface CurrencyPreference {
+  mode: DisplayCurrencyMode;
+  targetFiat: "USD" | "EUR" | "GBP" | "NGN";
+}
+
 export type DelegationPermissionLevel =
   "VIEW_ONLY" | "AUTO_APPROVE" | "SIGNER" | "ADMIN";
 
@@ -323,3 +330,16 @@ export interface TokenAllowanceEntry {
 }
 
 export * from "./schemas.js";
+
+
+export interface SavedShippingAddress {
+  id: string;
+  label: "Home" | "Work" | "Other";
+  recipientName: string;
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isDefault: boolean;
+}

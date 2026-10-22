@@ -409,7 +409,7 @@ export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheck
                   >
                     <QuantityControl item={item} />
                     <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#111827" }}>
-                      {formatItemPrice(item.priceStroops, item.quantity)}
+                      <PriceDisplay stroops={BigInt(item.priceStroops) * BigInt(item.quantity)} />
                     </span>
                   </div>
                 </div>

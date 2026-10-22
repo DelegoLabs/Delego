@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ProductCarousel } from "./ProductCarousel";
+import type { RecommendedProduct } from "./ProductCard";
 
-const mockProducts: import("../packages/ui/src/ProductCard").RecommendedProduct[] = [
+const mockProducts: RecommendedProduct[] = [
   {
     id: "prod-1",
     title: "Mechanical Keyboard",
@@ -111,7 +112,7 @@ describe("ProductCarousel", () => {
     const firstCard = screen.getByRole("article");
     const buyButton = firstCard.querySelector("button[aria-label*='Buy']");
     expect(buyButton).toBeInTheDocument();
-    fireEvent.click(buyButton);
+    if (buyButton) fireEvent.click(buyButton);
     expect(onSelect).toHaveBeenCalledWith("prod-1");
   });
 
@@ -128,7 +129,7 @@ describe("ProductCarousel", () => {
     const firstCard = screen.getByRole("article");
     const skipButton = firstCard.querySelector("button[aria-label*='Skip']");
     expect(skipButton).toBeInTheDocument();
-    fireEvent.click(skipButton);
+    if (skipButton) fireEvent.click(skipButton);
     expect(onQuickAdd).toHaveBeenCalledWith("prod-1");
   });
 

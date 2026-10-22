@@ -9,6 +9,7 @@ import { NetworkToggle } from "../network/NetworkToggle";
 import { SorobanHealthIndicator } from "../network/SorobanHealthIndicator";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
+import { CurrencyToggleDropdown } from "./CurrencyToggleDropdown";
 import { CommandPaletteTrigger } from "../command-palette/CommandPaletteTrigger";
 import { ChatDrawerTrigger } from "../chat/public";
 import { DataSaverChip } from "./DataSaverChip";
@@ -26,7 +27,7 @@ export function Header() {
 
   return (
     <>
-      <a href="#main-content" className="skip-to-content focus-visible-ring">
+      <a href="#app-content" className="skip-to-content focus-visible-ring">
         {t("skipToContent")}
       </a>
       <header className="app-header">
@@ -55,6 +56,8 @@ export function Header() {
         <ThemeToggle />
 
         <NetworkToggle />
+
+        <CurrencyToggleDropdown />
 
         <SorobanHealthIndicator />
 
