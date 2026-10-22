@@ -1,3 +1,10 @@
+export type DisplayCurrencyMode = "crypto_primary" | "fiat_primary";
+
+export interface CurrencyPreference {
+  mode: DisplayCurrencyMode;
+  targetFiat: "USD" | "EUR" | "GBP" | "NGN";
+}
+
 export type DelegationPermissionLevel =
   "VIEW_ONLY" | "AUTO_APPROVE" | "SIGNER" | "ADMIN";
 
