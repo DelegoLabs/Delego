@@ -160,5 +160,24 @@
     "generating": "Generating…",
     "errorGeneric": "Failed to generate invoice.",
     "ariaLabel": "Download PDF invoice for order {orderId}"
+  },
+  "webhookHealth": {
+    "title": "Delivery health (last 7 days)",
+    "gaugeLabel": "7-day delivery success rate",
+    "rate": "{rate}%",
+    "tier": {
+      "healthy": "Healthy",
+      "warning": "Degraded",
+      "critical": "Critical"
+    },
+    "attempts": "{count, plural, one {# delivery attempt} other {# delivery attempts}}",
+    "consecutiveFailures": "{count, plural, one {# consecutive failure} other {# consecutive failures}}",
+    "noData": "No deliveries to this endpoint in the last 7 days.",
+    "warning": {
+      "warning": "Some deliveries to this endpoint are failing. Check your server logs.",
+      "critical": "This endpoint is failing too many deliveries. Events may be missed."
+    },
+    "recentErrorsButton": "Recent errors",
+    "recentErrorsTitle": "Most recent HTTP errors"
   }
 }

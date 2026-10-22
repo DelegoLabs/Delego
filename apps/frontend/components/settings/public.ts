@@ -23,6 +23,8 @@ export { MaxFeeCapCard } from "./MaxFeeCapCard";
 export { ChatAudioSettingsCard } from "./ChatAudioSettingsCard";
 export { WebhookDeliveryLogViewer } from "./WebhookDeliveryLogViewer";
 export type { WebhookDeliveryLogViewerProps } from "./WebhookDeliveryLogViewer";
+export { WebhookHealthMeter } from "./WebhookHealthMeter";
+export type { WebhookHealthMeterProps } from "./WebhookHealthMeter";
 export { BudgetAllocationChart } from "./BudgetAllocationChart";
 export type { BudgetAllocationChartProps } from "./BudgetAllocationChart";
 export { BudgetAllocationSliders } from "./BudgetAllocationSliders";
