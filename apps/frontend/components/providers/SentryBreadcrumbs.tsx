@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import * as Sentry from "@sentry/nextjs";
 import { useNetwork } from "../../hooks/useNetwork";
 import { useWallet } from "../../hooks/useWallet";
 
@@ -18,18 +17,32 @@ export function SentryBreadcrumbs() {
   const { status: walletStatus } = useWallet();
 
   useEffect(() => {
-    Sentry.addBreadcrumb({
-      category: "navigation",
-      message: `route: ${pathname}`,
-      level: "info",
-    });
+    if (!process.env.NEXT_PUBLIC_SENTRY_DSN) return;
+    void import("@sentry/nextjs")
+      .then((Sentry) => {
+        Sentry.addBreadcrumb({
+          category: "navigation",
+          message: `route: ${pathname}`,
+          level: "info",
+        });
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to load Sentry navigation breadcrumbs.", error);
+      });
   }, [pathname]);
 
   useEffect(() => {
-    Sentry.setContext("app", {
-      networkId,
-      walletConnected: walletStatus === "connected",
-    });
+    if (!process.env.NEXT_PUBLIC_SENTRY_DSN) return;
+    void import("@sentry/nextjs")
+      .then((Sentry) => {
+        Sentry.setContext("app", {
+          networkId,
+          walletConnected: walletStatus === "connected",
+        });
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to load Sentry application context.", error);
+      });
   }, [networkId, walletStatus]);
 
   return null;

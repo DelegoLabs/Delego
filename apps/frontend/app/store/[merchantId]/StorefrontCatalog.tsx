@@ -80,7 +80,7 @@ export function StorefrontCatalog({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [paginationError, setPaginationError] = useState<string | null>(null);
   const [liveStock, setLiveStock] = useState<
-    Record<string, StockDepletionInfo>
+    Record<string, StockDepletionInfo | null>
   >({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{
@@ -112,9 +112,7 @@ export function StorefrontCatalog({
       if (cancelled) return;
       setLiveStock((prev) => {
         const next = { ...prev };
-        for (const [id, stock] of updates) {
-          if (stock) next[id] = stock;
-        }
+        for (const [id, stock] of updates) next[id] = stock;
         return next;
       });
     }
@@ -128,6 +126,13 @@ export function StorefrontCatalog({
 
   function stockFor(product: MerchantProduct): StockDepletionInfo | null {
     return liveStock[product.id] ?? product.stock ?? null;
+  }
+
+  function isStockLoading(product: MerchantProduct): boolean {
+    return (
+      !Object.prototype.hasOwnProperty.call(liveStock, product.id) &&
+      product.stock == null
+    );
   }
 
   const visible = useMemo(
@@ -418,13 +423,12 @@ export function StorefrontCatalog({
                   ))}
                 </div>
               )}
-              {stock && (
-                <StockDepletionPanel
-                  merchantId={merchantId}
-                  stock={stock}
-                  mode="card"
-                />
-              )}
+              <StockDepletionPanel
+                merchantId={merchantId}
+                stock={stock}
+                loading={isStockLoading(product)}
+                mode="card"
+              />
               {product.description && (
                 <p
                   style={{ margin: 0, color: "#6b7280", fontSize: "0.875rem" }}

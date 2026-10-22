@@ -1,7 +1,6 @@
 "use client";
 
 import { useReportWebVitals } from "next/web-vitals";
-import * as Sentry from "@sentry/nextjs";
 
 /**
  * Reports Core Web Vitals (LCP, CLS, INP, FCP, TTFB) for #512. In dev, metrics
@@ -21,11 +20,19 @@ export function WebVitalsReporter() {
       return;
     }
 
-    Sentry.setMeasurement(
-      metric.name,
-      metric.value,
-      metric.name === "CLS" ? "" : "millisecond"
-    );
+    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+      void import("@sentry/nextjs")
+        .then((Sentry) => {
+          Sentry.setMeasurement(
+            metric.name,
+            metric.value,
+            metric.name === "CLS" ? "" : "millisecond"
+          );
+        })
+        .catch((error: unknown) => {
+          console.error("Failed to report web vitals to Sentry.", error);
+        });
+    }
 
     const endpoint = process.env.NEXT_PUBLIC_WEB_VITALS_ENDPOINT;
     if (endpoint && typeof navigator.sendBeacon === "function") {
