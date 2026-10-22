@@ -60,6 +60,9 @@ const EMPTY_FORM: MerchantRegistrationForm = {
   storeSlug: "",
   description: "",
   contactEmail: "",
+  stellarPayoutAddress: "",
+  category: "",
+  websiteUrl: "",
   payoutAddress: "",
   domainName: "",
   isDomainVerified: false,
@@ -108,7 +111,7 @@ export default function MerchantRegisterPage() {
     if (!form.storeName.trim()) errors.storeName = "Store name is required.";
     if (!form.description.trim()) errors.description = "Description is required.";
     if (!isValidContactEmail(form.contactEmail)) errors.contactEmail = "Enter a valid email address.";
-    if (!StrKey.isValidEd25519PublicKey(form.payoutAddress.trim())) {
+    if (!form.payoutAddress || !StrKey.isValidEd25519PublicKey(form.payoutAddress.trim())) {
       errors.payoutAddress = "Enter a valid Stellar public key (starts with G).";
     }
     setFormErrors(errors);
@@ -119,7 +122,8 @@ export default function MerchantRegisterPage() {
     if (!validateStoreInfoFormat()) return;
     setValidatingAddress(true);
     try {
-      const result = await validateStorePayoutAddress(form.payoutAddress, network);
+      const payoutAddress = form.payoutAddress ?? "";
+      const result = await validateStorePayoutAddress(payoutAddress, network);
       if (!result.valid) {
         setFormErrors((prev) => ({ ...prev, payoutAddress: result.error }));
         return;
@@ -385,14 +389,17 @@ export default function MerchantRegisterPage() {
                 <label key={currency} style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.875rem" }}>
                   <input
                     type="checkbox"
-                    checked={form.acceptedCurrencies.includes(currency)}
+                    checked={form.acceptedCurrencies?.includes(currency) ?? false}
                     onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        acceptedCurrencies: e.target.checked
-                          ? [...prev.acceptedCurrencies, currency]
-                          : prev.acceptedCurrencies.filter((c) => c !== currency),
-                      }))
+                      setForm((prev) => {
+                        const current = prev.acceptedCurrencies ?? [];
+                        return {
+                          ...prev,
+                          acceptedCurrencies: e.target.checked
+                            ? [...current, currency]
+                            : current.filter((c) => c !== currency),
+                        };
+                      })
                     }
                   />
                   {currency}

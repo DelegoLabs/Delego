@@ -15,6 +15,7 @@ export interface ProposalComparisonMatrix {
     estimatedDeliveryDays: number;
     ratingScore: number;
     escrowAddress: string;
+    proposalId: string;
   }>;
   recommendedIndex: number;
 }
