@@ -6,6 +6,7 @@ vi.mock("../lib/offlineCache", () => ({
 }));
 
 import { listCachedReads } from "../lib/offlineCache";
+import { clearQueue, enqueueMutation } from "../lib/offlineQueue";
 import { useOnlineStatus, OFFLINE_BLOCKED_MESSAGE } from "./useOnlineStatus";
 
 const mockedListCachedReads = vi.mocked(listCachedReads);
@@ -19,9 +20,10 @@ function setOnline(value: boolean) {
 }
 
 describe("useOnlineStatus (#773)", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockedListCachedReads.mockResolvedValue([]);
     setOnline(true);
+    await clearQueue();
   });
 
   afterEach(() => {
@@ -32,6 +34,13 @@ describe("useOnlineStatus (#773)", () => {
     const { result } = renderHook(() => useOnlineStatus());
     await waitFor(() => expect(result.current.connectionStatus).toBe("online"));
     expect(result.current.disabledProps).toEqual({});
+    expect(result.current.connectivityState).toMatchObject({
+      isOnline: true,
+      queuedActionCount: 0,
+    });
+    expect(
+      result.current.connectivityState.lastConnectedTimestamp
+    ).toBeGreaterThan(0);
   });
 
   it("flips offline on the window `offline` event and back on `online`, exposing disabled props", async () => {
@@ -54,6 +63,10 @@ describe("useOnlineStatus (#773)", () => {
     });
     expect(result.current.connectionStatus).toBe("online");
     expect(result.current.disabledProps).toEqual({});
+    expect(result.current.connectivityState.isOnline).toBe(true);
+    expect(
+      result.current.connectivityState.lastConnectedTimestamp
+    ).toBeGreaterThan(0);
   });
 
   it("derives cachedOrdersCount and lastSyncedAt from the offline cache", async () => {
@@ -68,5 +81,17 @@ describe("useOnlineStatus (#773)", () => {
 
     await waitFor(() => expect(result.current.cachedOrdersCount).toBe(1));
     expect(result.current.lastSyncedAt).toEqual(newer);
+  });
+
+  it("tracks queued background action count", async () => {
+    const { result } = renderHook(() => useOnlineStatus());
+
+    await act(async () => {
+      await enqueueMutation("approve_order", "order-queued");
+    });
+
+    await waitFor(() =>
+      expect(result.current.connectivityState.queuedActionCount).toBe(1)
+    );
   });
 });

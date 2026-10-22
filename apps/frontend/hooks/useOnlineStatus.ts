@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { OfflineStatus as ConnectionStatus } from "@delegolabs/types";
+import type {
+  ConnectivityState,
+  OfflineStatus as ConnectionStatus,
+} from "@delegolabs/types";
 import { listCachedReads } from "../lib/offlineCache";
+import { subscribeToQueue } from "../lib/offlineQueue";
 
 /** Accessible reason attached to controls disabled while offline. */
 export const OFFLINE_BLOCKED_MESSAGE =
@@ -11,6 +15,8 @@ export const OFFLINE_BLOCKED_MESSAGE =
 export interface UseOnlineStatusResult {
   /** Connection status from the browser (online/offline/reconnecting). */
   connectionStatus: ConnectionStatus;
+  /** Connectivity and pending-action snapshot. */
+  connectivityState: ConnectivityState;
   /**
    * Number of orders cached for offline browsing. Populated when
    * `connectionStatus` is "offline" or "reconnecting".
@@ -48,16 +54,19 @@ export function useOnlineStatus(): UseOnlineStatusResult {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("online");
   const [cachedOrdersCount, setCachedOrdersCount] = useState(0);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [queuedActionCount, setQueuedActionCount] = useState(0);
+  const [lastConnectedTimestamp, setLastConnectedTimestamp] = useState(0);
 
   useEffect(() => {
+    let previousOnline: boolean | null = null;
+
     function update() {
-      if (!navigator.onLine) {
-        setConnectionStatus("offline");
-      } else {
-        // Try to detect reconnecting state by checking if we were offline recently
-        // For now, just set to online when navigator.onLine is true
-        setConnectionStatus("online");
+      const isOnline = navigator.onLine;
+      setConnectionStatus(isOnline ? "online" : "offline");
+      if (isOnline && previousOnline !== true) {
+        setLastConnectedTimestamp(Date.now());
       }
+      previousOnline = isOnline;
     }
 
     update();
@@ -66,6 +75,17 @@ export function useOnlineStatus(): UseOnlineStatusResult {
     return () => {
       window.removeEventListener("online", update);
       window.removeEventListener("offline", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const unsubscribe = subscribeToQueue((queue) => {
+      if (active) setQueuedActionCount(queue.length);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
     };
   }, []);
 
@@ -91,12 +111,23 @@ export function useOnlineStatus(): UseOnlineStatusResult {
   return useMemo(
     () => ({
       connectionStatus,
+      connectivityState: {
+        isOnline: connectionStatus === "online",
+        queuedActionCount,
+        lastConnectedTimestamp,
+      },
       cachedOrdersCount,
       lastSyncedAt,
       disabledProps: connectionStatus !== "online"
         ? { disabled: true as const, title: OFFLINE_BLOCKED_MESSAGE }
         : ({} as Record<string, never>),
     }),
-    [connectionStatus, cachedOrdersCount, lastSyncedAt]
+    [
+      connectionStatus,
+      queuedActionCount,
+      lastConnectedTimestamp,
+      cachedOrdersCount,
+      lastSyncedAt,
+    ]
   );
 }

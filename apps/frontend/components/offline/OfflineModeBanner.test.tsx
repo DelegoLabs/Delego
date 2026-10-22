@@ -20,8 +20,11 @@ vi.mock("../../hooks/useOnlineStatus", () => ({
 }));
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) =>
-    key === "banner" ? "Offline Mode — Browse Only" : key,
+  useTranslations: () => (key: string) => {
+    if (key === "banner") return "Offline Mode — Browse Only";
+    if (key === "backOnline") return "Back Online";
+    return key;
+  },
 }));
 
 import { OfflineModeBanner } from "./OfflineModeBanner";
@@ -43,5 +46,19 @@ describe("OfflineModeBanner (#773)", () => {
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent("Offline Mode — Browse Only");
     expect(status).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("shows a green Back Online toast after an offline-to-online transition", () => {
+    const { rerender } = render(<OfflineModeBanner />);
+
+    connection.connectionStatus = "offline";
+    rerender(<OfflineModeBanner />);
+    expect(screen.queryByText("Back Online")).not.toBeInTheDocument();
+
+    connection.connectionStatus = "online";
+    rerender(<OfflineModeBanner />);
+    expect(screen.getByRole("status"))
+      .toHaveClass("back-online-toast");
+    expect(screen.getByRole("status")).toHaveTextContent("Back Online");
   });
 });

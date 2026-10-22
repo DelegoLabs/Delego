@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 
@@ -18,8 +19,33 @@ import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 export function OfflineModeBanner() {
   const t = useTranslations("offline");
   const { connectionStatus } = useOnlineStatus();
+  const wasOffline = useRef(false);
+  const [showBackOnline, setShowBackOnline] = useState(false);
 
-  if (connectionStatus === "online") return null;
+  useEffect(() => {
+    if (connectionStatus !== "online") {
+      wasOffline.current = true;
+      setShowBackOnline(false);
+      return;
+    }
+
+    if (!wasOffline.current) return;
+    wasOffline.current = false;
+    setShowBackOnline(true);
+
+    const timeout = window.setTimeout(() => setShowBackOnline(false), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [connectionStatus]);
+
+  if (connectionStatus === "online") {
+    if (!showBackOnline) return null;
+    return (
+      <div className="back-online-toast" role="status" aria-live="polite">
+        <span aria-hidden="true">✓</span>
+        <span>{t("backOnline")}</span>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -4,7 +4,8 @@
     "tagline": "Delegiere Einkäufe an KI-Agenten mit Ausgabenkontrolle"
   },
   "offline": {
-    "banner": "Offline-Modus — Nur Browsen"
+    "banner": "Offline-Modus — Nur Browsen",
+    "backOnline": "Wieder online"
   },
   "nav": {
     "dashboard": "Übersicht",

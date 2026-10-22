@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { waitFor } from "@testing-library/react";
 import {
   enqueueMutation,
   getQueuedMutations,
   clearQueue,
 } from "./offlineQueue";
-import { replayOfflineQueue } from "./replayEngine";
+import { initReplayEngine, replayOfflineQueue } from "./replayEngine";
 import { api } from "./api";
 
 vi.mock("./api", () => ({
@@ -16,9 +17,17 @@ vi.mock("./api", () => ({
   },
 }));
 
+function setOnline(value: boolean) {
+  Object.defineProperty(window.navigator, "onLine", {
+    configurable: true,
+    get: () => value,
+  });
+}
+
 describe("Offline Mutation Queue & Replay Engine (#618)", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    setOnline(true);
     // Reset IndexedDB in fake environment if available or clear queue
     try {
       await clearQueue();
@@ -54,6 +63,30 @@ describe("Offline Mutation Queue & Replay Engine (#618)", () => {
     expect(result.replayed).toBe(1);
     const queue = await getQueuedMutations();
     expect(queue.find((q) => q.id === item.id)).toBeUndefined();
+  });
+
+  it("automatically flushes queued mutations when the browser comes online", async () => {
+    vi.mocked(api.approveOrder).mockResolvedValue({
+      data: { id: "order-reconnect", status: "approved" },
+    } as never);
+    await enqueueMutation("approve_order", "order-reconnect");
+
+    setOnline(false);
+    const stopReplayEngine = initReplayEngine();
+    try {
+      setOnline(true);
+      window.dispatchEvent(new Event("online"));
+
+      await waitFor(() =>
+        expect(api.approveOrder).toHaveBeenCalledWith("order-reconnect")
+      );
+      await waitFor(async () =>
+        expect(await getQueuedMutations()).toHaveLength(0)
+      );
+    } finally {
+      stopReplayEngine();
+      setOnline(true);
+    }
   });
 
   it("flags HTTP 409 conflicts as 'conflict' and does NOT auto-force update", async () => {

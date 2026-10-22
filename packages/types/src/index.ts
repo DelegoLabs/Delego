@@ -331,6 +331,12 @@ export interface UserPreferenceItem {
  */
 export type OfflineStatus = "online" | "offline" | "reconnecting";
 
+export interface ConnectivityState {
+  isOnline: boolean;
+  queuedActionCount: number;
+  lastConnectedTimestamp: number;
+}
+
 /**
  * Active Soroban token allowance granted to an escrow or router contract.
  */
