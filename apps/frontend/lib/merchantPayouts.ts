@@ -4,6 +4,9 @@ import { createRetryingFetch } from "./api";
 export interface PayoutRecord {
   id: string;
   escrowId: string;
+  /** Order the payout settles; older records only carry the escrow id. */
+  orderId?: string;
+  /** Gross amount released from escrow, before fees. */
   amountStroops: string;
   currency: string;
   transactionHash: string;

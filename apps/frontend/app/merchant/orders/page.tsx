@@ -11,6 +11,7 @@ import { BulkFulfillActionBar } from "../../../components/orders/BulkFulfillActi
 import { BulkFulfillModal } from "../../../components/orders/BulkFulfillModal";
 import { DeliveryEvidenceUploader } from "../../../components/escrows/DeliveryEvidenceUploader";
 import { VirtualTable } from "../../../components/orders/VirtualTable";
+import { ReturnLabelModal } from "../../../components/ReturnLabelModal";
 import { deadlineUrgency, type MerchantEscrowOrder } from "../../../lib/merchantEscrowOrders";
 import { MerchantPackingSlipModal } from "../../../components/orders/MerchantPackingSlipModal";
 import {
@@ -51,6 +52,7 @@ export default function MerchantOrdersPage() {
   const [activeTab, setActiveTab] = useState<Tab>("toShip");
   const [shipModalOrderId, setShipModalOrderId] = useState<string | null>(null);
   const [evidenceOrderId, setEvidenceOrderId] = useState<string | null>(null);
+  const [returnLabelOrder, setReturnLabelOrder] = useState<MerchantEscrowOrder | null>(null);
   const [packingSlipOrder, setPackingSlipOrder] = useState<MerchantEscrowOrder | null>(null);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -252,6 +254,24 @@ export default function MerchantOrdersPage() {
                       Add proof
                     </button>
                   )}
+                  {(order.status === "shipped" || order.status === "delivered") && (
+                    <button
+                      type="button"
+                      onClick={() => setReturnLabelOrder(order)}
+                      style={{
+                        padding: "0.375rem 0.75rem",
+                        borderRadius: "0.5rem",
+                        border: "1px solid #d1d5db",
+                        background: "#fff",
+                        color: "#374151",
+                        fontWeight: 600,
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Return label
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setPackingSlipOrder(order)}
@@ -318,6 +338,13 @@ export default function MerchantOrdersPage() {
           }}
         />
       ) : null}
+
+      <ReturnLabelModal
+        open={returnLabelOrder !== null}
+        orderId={returnLabelOrder?.orderId ?? ""}
+        buyerAddress={returnLabelOrder?.shippingAddress ?? ""}
+        onClose={() => setReturnLabelOrder(null)}
+      />
     </div>
   );
 }

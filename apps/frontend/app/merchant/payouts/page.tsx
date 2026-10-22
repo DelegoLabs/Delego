@@ -1,14 +1,13 @@
 "use client";
 
 import { Card } from "@delegolabs/ui";
-import { CopyButton } from "../../../components/wallet/CopyButton";
 import { LowStockBanner } from "../../../components/merchant/InventoryAlerts";
 import { RevenueAreaChart } from "../../../components/merchant/RevenueAreaChart";
 import { useMerchantCatalog } from "../../../hooks/useMerchantCatalog";
 import { useMerchantPayouts } from "../../../hooks/useMerchantPayouts";
 import { useMerchantEscrowOrders } from "../../../hooks/useMerchantEscrowOrders";
 import { useNetwork } from "../../../hooks/useNetwork";
-import { resolveProofHashExplorerUrl, truncateHash } from "../../../lib/proofAttachments";
+import { PayoutHistoryTable } from "../../../components/PayoutHistoryTable";
 import { stroopsToDisplay, totalNetEarningsStroops } from "../../../lib/merchantPayouts";
 import { computePayoutProjections } from "../../../lib/merchantEscrowOrders";
 
@@ -45,7 +44,7 @@ export default function MerchantPayoutsPage() {
             <span title="Pending gross amount locked in active escrows">
               Gross: {stroopsToDisplay(projections.pendingGrossStroops)} XLM
             </span>
-            {" ? "}
+            {" · "}
             <span title="Estimated 1% platform fee withheld at release">
               Fees: {stroopsToDisplay(projections.estimatedPlatformFees)} XLM
             </span>
@@ -62,53 +61,9 @@ export default function MerchantPayoutsPage() {
       )}
 
       {loading ? (
-        <p style={{ color: "#6b7280" }}>Loading payout history?</p>
-      ) : payouts.length === 0 ? (
-        <p style={{ color: "#6b7280" }}>No payouts yet.</p>
+        <p style={{ color: "#6b7280" }}>Loading payout history…</p>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
-            <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-                <th style={{ padding: "0.5rem" }}>Escrow</th>
-                <th style={{ padding: "0.5rem" }}>Amount</th>
-                <th style={{ padding: "0.5rem" }}>Fee</th>
-                <th style={{ padding: "0.5rem" }}>Settled</th>
-                <th style={{ padding: "0.5rem" }}>Transaction</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payouts.map((payout) => {
-                const explorerUrl = resolveProofHashExplorerUrl(payout.transactionHash, network.id);
-                return (
-                  <tr key={payout.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                    <td style={{ padding: "0.5rem" }}>{payout.escrowId.slice(0, 8)}</td>
-                    <td style={{ padding: "0.5rem", fontVariantNumeric: "tabular-nums" }}>
-                      {stroopsToDisplay(payout.amountStroops)} {payout.currency}
-                    </td>
-                    <td style={{ padding: "0.5rem", fontVariantNumeric: "tabular-nums", color: "#6b7280" }}>
-                      {stroopsToDisplay(payout.feeStroops)} {payout.currency}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>
-                      {new Date(payout.ledgerClosedAt).toLocaleString()}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                        <code>{truncateHash(payout.transactionHash)}</code>
-                        <CopyButton value={payout.transactionHash} label="Copy transaction hash" />
-                        {explorerUrl && (
-                          <a href={explorerUrl} target="_blank" rel="noopener noreferrer">
-                            View
-                          </a>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <PayoutHistoryTable payouts={payouts} networkId={network.id} />
       )}
     </div>
   );
