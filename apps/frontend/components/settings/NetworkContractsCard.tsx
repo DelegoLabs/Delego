@@ -5,6 +5,7 @@ import { NETWORK_IDS, getNetworkConfig, type NetworkId } from "../../lib/network
 import { getConfiguredContracts, explorerContractUrl } from "../../lib/contracts";
 import { useContractVersions } from "../../hooks/useContractVersions";
 import { useNetwork } from "../../hooks/useNetwork";
+import { ContractVerificationButton } from "../ContractVerificationButton";
 
 interface NetworkContractsSectionProps {
   networkId: NetworkId;
@@ -63,13 +64,20 @@ function NetworkContractsSection({ networkId, isActive }: NetworkContractsSectio
                 </td>
                 <td>
                   {contract.address && contract.addressValid ? (
-                    <a
-                      href={explorerContractUrl(networkId, contract.address)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View
-                    </a>
+                    <span style={{ display: "inline-flex", gap: "0.5rem", alignItems: "center" }}>
+                      <a
+                        href={explorerContractUrl(networkId, contract.address)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View
+                      </a>
+                      <ContractVerificationButton
+                        contractAddress={contract.address}
+                        contractLabel={contract.label}
+                        networkId={networkId}
+                      />
+                    </span>
                   ) : (
                     "—"
                   )}
