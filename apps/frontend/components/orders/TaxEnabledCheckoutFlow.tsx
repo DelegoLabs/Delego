@@ -2,7 +2,8 @@
 
 import { useId, useMemo, useState } from "react";
 import { Card, Button, FormField } from "@delegolabs/ui";
-import type { Order } from "@delegolabs/types";
+import type { Order, GiftOptions } from "@delegolabs/types";
+import { GiftOptionsSection } from "./GiftOptionsSection";
 import { ApprovalCard } from "./ApprovalCard";
 import { ReceiptPanel } from "./ReceiptPanel";
 import { TaxBreakdownDisplay } from "./TaxBreakdownDisplay";
@@ -306,8 +307,15 @@ export function TaxEnabledCheckoutFlow({
           </Card>
         )}
 
-        {/* Step 3: Order Approval with Tax */}
-        <div className="checkout-step">
+        {/* Step 3: Order Approval with Tax & Gift Options in Review Step */}
+        <div className="checkout-step checkout-review-step" data-testid="checkout-review-step">
+          <Card title="Gift Options">
+            <GiftOptionsSection
+              value={giftOptions}
+              onChange={handleGiftOptionsChange}
+              disabled={isProcessing}
+            />
+          </Card>
           <ApprovalCard
             order={order}
             deliveryPostalCode={effectivePostalCode || undefined}

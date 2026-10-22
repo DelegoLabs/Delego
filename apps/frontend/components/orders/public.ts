@@ -52,3 +52,8 @@ export { BiometricApprovalPrompt } from "./BiometricApprovalPrompt";
 export type { BiometricPromptProps } from "./BiometricApprovalPrompt";
 export { VirtualTable } from "./VirtualTable";
 export type { VirtualTableProps } from "./VirtualTable";
+
+export { GiftOptionsSection, GIFT_MESSAGE_MAX_LENGTH } from './GiftOptionsSection';
+export type { GiftOptionsSectionProps } from './GiftOptionsSection';
+export { MerchantPackingSlipModal } from './MerchantPackingSlipModal';
+export type { MerchantPackingSlipModalProps } from './MerchantPackingSlipModal';

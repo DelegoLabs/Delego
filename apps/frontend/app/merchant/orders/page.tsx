@@ -12,6 +12,7 @@ import { BulkFulfillModal } from "../../../components/orders/BulkFulfillModal";
 import { DeliveryEvidenceUploader } from "../../../components/escrows/DeliveryEvidenceUploader";
 import { VirtualTable } from "../../../components/orders/VirtualTable";
 import { deadlineUrgency, type MerchantEscrowOrder } from "../../../lib/merchantEscrowOrders";
+import { MerchantPackingSlipModal } from "../../../components/orders/MerchantPackingSlipModal";
 import {
   isFulfillable,
   runBulkFulfillment,
@@ -50,6 +51,7 @@ export default function MerchantOrdersPage() {
   const [activeTab, setActiveTab] = useState<Tab>("toShip");
   const [shipModalOrderId, setShipModalOrderId] = useState<string | null>(null);
   const [evidenceOrderId, setEvidenceOrderId] = useState<string | null>(null);
+  const [packingSlipOrder, setPackingSlipOrder] = useState<MerchantEscrowOrder | null>(null);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   // Orders shown as shipped while their batch submission is in flight (#1014).
@@ -250,6 +252,23 @@ export default function MerchantOrdersPage() {
                       Add proof
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setPackingSlipOrder(order)}
+                    data-testid={`packing-slip-btn-${order.orderId}`}
+                    style={{
+                      padding: "0.375rem 0.75rem",
+                      borderRadius: "0.5rem",
+                      border: "1px solid #d1d5db",
+                      background: "#fff",
+                      color: "#374151",
+                      fontWeight: 600,
+                      fontSize: "0.75rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Packing slip
+                  </button>
                   {order.status !== "funded" && <Badge tone="neutral">{order.status}</Badge>}
                 </div>
               </div>
@@ -280,6 +299,12 @@ export default function MerchantOrdersPage() {
         orderId={shipModalOrderId ?? ""}
         onClose={() => setShipModalOrderId(null)}
         onSubmitted={refresh}
+      />
+
+      <MerchantPackingSlipModal
+        isOpen={Boolean(packingSlipOrder)}
+        order={packingSlipOrder}
+        onClose={() => setPackingSlipOrder(null)}
       />
 
       {evidenceOrderId ? (

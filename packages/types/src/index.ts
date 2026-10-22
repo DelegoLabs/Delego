@@ -162,8 +162,22 @@ export interface Order {
   dualControl?: DualControlState;
   /** Optional note attached by the approver at approval time (#573). */
   approvalNote?: string | null;
+  /** Optional gift options attached to the order. */
+  giftOptions?: GiftOptions;
+  /** Metadata payload associated with the order. */
+  metadata?: {
+    giftOptions?: GiftOptions;
+    [key: string]: any;
+  };
   createdAt: Date | string;
   updatedAt?: Date | string;
+}
+
+export interface GiftOptions {
+  isGift: boolean;
+  recipientName?: string;
+  giftMessage?: string;
+  hidePackingSlipPrice: boolean;
 }
 
 export type DisputeStatus = string;
