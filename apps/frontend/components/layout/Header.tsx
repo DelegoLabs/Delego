@@ -27,7 +27,7 @@ export function Header() {
 
   return (
     <>
-      <a href="#main-content" className="skip-to-content focus-visible-ring">
+      <a href="#app-content" className="skip-to-content focus-visible-ring">
         {t("skipToContent")}
       </a>
       <header className="app-header">

@@ -1,7 +1,10 @@
 import "@testing-library/jest-dom";
 import "fake-indexeddb/auto";
-import { afterAll, afterEach, beforeAll } from "vitest";
+import { afterAll, afterEach, beforeAll, expect } from "vitest";
+import * as axeMatchers from "vitest-axe/matchers";
 import { server } from "../mocks/server";
+
+expect.extend(axeMatchers);
 
 // Ensure Node Uint8Array/ArrayBuffer instances pass in JSDOM environment for @stellar/stellar-sdk.
 //

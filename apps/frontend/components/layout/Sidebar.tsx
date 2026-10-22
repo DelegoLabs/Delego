@@ -22,7 +22,7 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar" aria-label={t("primaryNavigation")}>
-      <a href="#main-content" className="skip-link focus-visible-ring">
+      <a href="#app-content" className="skip-link focus-visible-ring">
         {t("skipToContent")}
       </a>
       <p className="sidebar-brand">{tApp("brand")}</p>
