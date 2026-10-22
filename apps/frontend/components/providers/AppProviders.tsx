@@ -19,6 +19,7 @@ import { WebVitalsReporter } from "./WebVitalsReporter";
 import { TourProvider } from "../tour/TourProvider";
 import { NetworkMismatchModal } from "../network/NetworkMismatchModal";
 import { initReplayEngine } from "../../lib/replayEngine";
+import { initCspViolationReporting } from "../../lib/cspReporting";
 import { setAnalyticsEmitter } from "../../lib/analytics";
 import { QueueInspectorModal } from "../offline/QueueInspectorModal";
 import { DemoBanner } from "../demo/DemoBanner";
@@ -56,6 +57,10 @@ const SessionKeyWorkerProvider = dynamic(
 export function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => {
     return initReplayEngine();
+  }, []);
+
+  useEffect(() => {
+    return initCspViolationReporting();
   }, []);
 
   useEffect(() => {

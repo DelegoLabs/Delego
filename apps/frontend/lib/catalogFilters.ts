@@ -18,6 +18,8 @@ export interface CatalogFilterState {
   maxPrice?: number;
   /** When true, only products with stockQuantity > 0 are shown. */
   inStockOnly?: boolean;
+  /** When true, only products with low stock (0 < stockQuantity < 5) are shown. */
+  lowStockOnly?: boolean;
   /** Minimum average rating 0–5 (inclusive). Undefined = no restriction. */
   minRating?: number;
 }
@@ -25,6 +27,7 @@ export interface CatalogFilterState {
 export const DEFAULT_CATALOG_FILTERS: CatalogFilterState = {
   categories: [],
   inStockOnly: false,
+  lowStockOnly: false,
 };
 
 // ---------------------------------------------------------------------------

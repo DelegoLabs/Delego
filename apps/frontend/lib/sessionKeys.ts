@@ -1,5 +1,12 @@
 import { Keypair, TransactionBuilder, Operation, BASE_FEE } from "@stellar/stellar-sdk";
 
+export interface GranularSessionScope {
+  maxAmountPerOrderStroops: string;
+  allowedMerchantAddresses: string[];
+  allowedCategories: string[];
+  maxTotalSpendStroops: string;
+}
+
 /** A time-bounded, spending-capped session key an agent can use on the user's behalf. */
 export interface SessionKeyGrant {
   sessionPublicKey: string;
@@ -7,6 +14,7 @@ export interface SessionKeyGrant {
   durationHours: number;
   allowedContractCalls: string[];
   expiresAt: string;
+  granularScope?: GranularSessionScope;
 }
 
 export const SESSION_DURATION_OPTIONS: { label: string; hours: number }[] = [
@@ -29,9 +37,7 @@ export function generateSessionKeypair(): Keypair {
  * Builds the master authorization transaction the user signs to activate a
  * session key: a single `manageData` operation on their own account,
  * anchoring the session's public key, spending cap, and expiry on-chain as a
- * verifiable (if lightweight) record. This does not itself enforce spending
- * limits on-chain — that requires a session-key-aware contract, which is out
- * of scope for this UI — it establishes an auditable, wallet-signed grant.
+ * verifiable record.
  */
 export function buildSessionKeyAuthTx(
   sourceAccount: { accountId: () => string; sequenceNumber: () => string; incrementSequenceNumber: () => void },
@@ -39,11 +45,13 @@ export function buildSessionKeyAuthTx(
   networkPassphrase: string
 ) {
   const dataName = `${MANAGE_DATA_NAME_PREFIX}:${grant.sessionPublicKey.slice(0, 8)}`;
-  const dataValue = JSON.stringify({
+  const payloadObject = {
     pk: grant.sessionPublicKey,
     cap: grant.maxAllowanceStroops,
     exp: grant.expiresAt,
-  }).slice(0, 64); // manageData values are capped at 64 bytes
+    ...(grant.granularScope ? { scope: grant.granularScope } : {}),
+  };
+  const dataValue = JSON.stringify(payloadObject).slice(0, 64); // manageData values are capped at 64 bytes
 
   return new TransactionBuilder(sourceAccount as never, {
     fee: BASE_FEE,
@@ -79,11 +87,6 @@ export function revokeSessionKeyGrant(): void {
   window.localStorage.removeItem(STORAGE_KEY);
 }
 
-/**
- * The ephemeral signing key lives inside a dedicated Web Worker so its bytes
- * never reach the main thread. The worker itself is owned by
- * `lib/session/sessionKeyClient` and shared process-wide.
- */
 export { initSessionKeyWorker } from "./session/sessionKeyClient";
 export { clearSessionKey } from "./session/sessionKeyClient";
 export type { SessionKeyWorkerMessage } from "../workers/sessionKeyWorker";

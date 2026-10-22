@@ -8,13 +8,13 @@ import {
   isWebAuthnSupported,
   passkeyErrorMessage,
   registerPasskey,
-  type PasskeyCredential,
+  type PasskeyRegistrationResult,
 } from "../../lib/passkey";
 
 export interface PasskeyRegisterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (credential: PasskeyCredential) => void;
+  onSuccess: (credential: PasskeyRegistrationResult) => void;
   stellarAddress: string;
 }
 
@@ -47,7 +47,7 @@ export function PasskeyRegisterModal({
     setError(null);
     try {
       const credential = await createPasskeyCredential(stellarAddress, name);
-      await registerPasskey(credential, stellarAddress);
+      await registerPasskey(credential, stellarAddress, name);
       onSuccess(credential);
     } catch (err) {
       setError(passkeyErrorMessage(err));

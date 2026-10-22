@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatAmount } from "@delegolabs/ui";
 import { StockDepletionPanel } from "../../../components/storefront/StockDepletionPanel";
 import {
+  DEFAULT_MERCHANT_POLICY,
   filterStoreProducts,
   type MerchantProduct,
 } from "../../../lib/storefront";
@@ -62,6 +63,7 @@ interface StorefrontCatalogProps {
   merchantId: string;
   merchantName: string;
   payoutAddress: string;
+  merchantPolicy?: MerchantPolicyInfo;
 }
 
 export function StorefrontCatalog({
@@ -69,6 +71,7 @@ export function StorefrontCatalog({
   merchantId,
   merchantName,
   payoutAddress,
+  merchantPolicy,
 }: StorefrontCatalogProps) {
   const [query, setQuery] = useState("");
   const [displayedCount, setDisplayedCount] = useState(CATALOG_PAGE_SIZE);

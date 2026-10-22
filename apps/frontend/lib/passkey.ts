@@ -1,5 +1,5 @@
 /**
- * WebAuthn passkey registration against the connected Stellar account (#696).
+ * WebAuthn passkey registration against the connected Stellar account (#696, #998).
  */
 
 import { apiFetch } from "./apiFetch";
@@ -8,6 +8,18 @@ export interface PasskeyCredential {
   credentialId: string;
   publicKey: string;
   name: string;
+  createdAt: string;
+}
+
+/**
+ * Result of a successful passkey registration, aligned with the API contract.
+ * The public key is returned in SPKI (SubjectPublicKeyInfo) base64url encoding.
+ * Supported algorithms: -7 (ES256) and -257 (RS256).
+ */
+export interface PasskeyRegistrationResult {
+  credentialId: string;
+  publicKeySpki: string;
+  algorithm: -7 | -257;
   createdAt: string;
 }
 
@@ -72,7 +84,7 @@ export async function createPasskeyCredential(
   stellarAddress: string,
   name: string,
   customOptions?: Partial<WebAuthnClientOptions>
-): Promise<PasskeyCredential> {
+): Promise<PasskeyRegistrationResult> {
   const options = buildWebAuthnOptions(
     customOptions?.rpId,
     customOptions?.userVerification,
@@ -126,22 +138,46 @@ export async function createPasskeyCredential(
     );
   }
 
+  // Extract algorithm from the attestation response (COSE algorithm identifier)
+  let algorithm: -7 | -257 = -7; // Default to ES256
+  if (attestation.getPublicKeyAlgorithm?.() !== undefined) {
+    const alg = attestation.getPublicKeyAlgorithm();
+    if (alg === -257 || alg === -7) algorithm = alg;
+  }
+
   return {
     credentialId: bytesToBase64Url(new Uint8Array(publicKeyCredential.rawId)),
-    publicKey: bytesToBase64Url(new Uint8Array(publicKey)),
-    name: name.trim() || "Delego passkey",
+    publicKeySpki: bytesToBase64Url(new Uint8Array(publicKey)),
     createdAt: new Date().toISOString(),
+    algorithm,
+  };
+}
+
+/**
+ * Convert a PasskeyCredential (legacy format) to PasskeyRegistrationResult (new format).
+ * Useful for backward compatibility with existing stored credentials.
+ */
+export function credentialToRegistrationResult(
+  credential: PasskeyCredential,
+  algorithm: -7 | -257 = -7
+): PasskeyRegistrationResult {
+  return {
+    credentialId: credential.credentialId,
+    publicKeySpki: credential.publicKey,
+    algorithm,
+    createdAt: credential.createdAt,
   };
 }
 
 /** Posts the new credential so the gateway can bind it to the Stellar account. */
 export async function registerPasskey(
-  credential: PasskeyCredential,
-  stellarAddress: string
+  credential: PasskeyRegistrationResult,
+  stellarAddress: string,
+  name?: string
 ): Promise<void> {
   const res = await apiFetch<{ credentialId: string }>("/passkeys", {
     method: "POST",
-    body: JSON.stringify({ ...credential, stellarAddress }),
+    body: JSON.stringify({ ...credential, stellarAddress, name }),
   });
   if (res.error) {
     throw new Error(res.error.message || "Could not register this passkey.");

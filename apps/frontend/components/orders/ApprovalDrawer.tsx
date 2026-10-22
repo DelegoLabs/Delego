@@ -16,10 +16,6 @@ import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
 import { PriceAdvisoryStrip } from "./PriceAdvisoryStrip";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useAnnounce } from "../../hooks/useAnnounce";
-// Imported directly rather than via the delegations barrel: the barrel drags
-// in the whole delegations feature — including MerchantFilterManager and the
-// Stellar SDK it needs for address validation — to supply this one badge,
-// which pushed /approvals over the First Load JS budget.
 import { DelegationTagBadge } from "../delegations/DelegationTagBadge";
 import { useDelegationTags } from "../../hooks/useDelegationTags";
 import { useDataSaver } from "../../hooks/useDataSaver";
@@ -32,43 +28,35 @@ import { ApprovalNoteDisplay } from "./ApprovalNoteDisplay";
 import { BiometricApprovalPrompt } from "./BiometricApprovalPrompt";
 import { YieldEscrowToggle } from "../escrows/YieldEscrowToggle";
 import { parseStroopsAmount } from "../../lib/yieldEscrow";
+import { QuorumApprovalChecklist, type QuorumSignerStatus } from "./QuorumApprovalChecklist";
 
 export interface ApprovalDrawerProps {
   order: Order | null;
   pending?: boolean;
-  /**
-   * Agent explainability data for `order` (item imagery, price hints, reasoning,
-   * evidence links, delegation context). Optional — sections with no data
-   * collapse cleanly. Keyed by the caller to the currently-open order.
-   */
   explainability?: OrderExplainability;
+  quorumConfig?: {
+    requiredThreshold: number;
+    signers: QuorumSignerStatus[];
+  };
   onApprove: (id: string) => void | Promise<unknown>;
   onReject: (
     id: string,
     reason?: string,
-    /** Structured reason code (#567); optional for callers that don't collect one. */
     reasonCode?: RejectionReasonCode
   ) => void | Promise<unknown>;
   onClose: () => void;
 }
 
-/**
- * Slide-over detail panel for a single approval — opened via the "Enter" hotkey
- * (FE-023) or by clicking a background approval notification. Includes the
- * agent explainability panel (#530): reasoning, price-range hints, evidence
- * links, and delegation context, alongside the standard line-item breakdown.
- */
 export function ApprovalDrawer({
   order,
   pending = false,
   explainability,
+  quorumConfig,
   onApprove,
   onReject,
   onClose,
 }: ApprovalDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  // Shared `Button` does not forward refs, so the PIN fallback focuses the
-  // approve control by id instead of through a ref.
   const approveButtonId = order ? `approval-drawer-approve-${order.id}` : undefined;
   const isOpen = order !== null;
   const { announce } = useAnnounce();
@@ -78,40 +66,24 @@ export function ApprovalDrawer({
   const [yieldEnabled, setYieldEnabled] = useState(false);
   const [yieldTimeoutDays, setYieldTimeoutDays] = useState(7);
   const { address: walletAddress } = useWallet();
-  // Approve-with-note (#573): see ApprovalCard for the capability-detection
-  // rationale — false means the note is kept local-only rather than sent.
   const approvalNoteSupported = useApprovalNoteCapability();
 
   const [showReasonPicker, setShowReasonPicker] = useState(false);
   const [reasonCode, setReasonCode] = useState<RejectionReasonCode | "">("");
   const [reasonNote, setReasonNote] = useState("");
-  /** WebAuthn approval proof for this order, when the user verified with biometrics (#724). */
   const [biometricProof, setBiometricProof] = useState<string | null>(null);
 
-  // Tracks which line-item images failed to load (#622) — merchant image
-  // URLs are arbitrary, unwhitelisted hosts (see OrderExplainability's
-  // doc comment), so a single unreachable/broken CDN must not break the
-  // rest of the list. Keyed by productId since this is a per-row concern.
   const [brokenImageProductIds, setBrokenImageProductIds] = useState<Set<string>>(
     () => new Set()
   );
 
-  // Reduced mode (#623): images render as a tap-to-load placeholder instead
-  // of fetching immediately, so a metered/slow connection doesn't pay for
-  // every line-item image up front. Per-product so tapping one image
-  // doesn't reveal every other placeholder too.
   const { reducedModeActive } = useDataSaver();
   const [revealedImageProductIds, setRevealedImageProductIds] = useState<Set<string>>(
     () => new Set()
   );
 
-  // Escape closes the drawer; the trap restores focus to whatever opened it
-  // (#752) instead of leaving it stranded on the unmounted panel.
   useFocusTrap({ containerRef: panelRef, isActive: isOpen, onEscape: onClose });
 
-  // Price advisory (#571): summarize the payload's comparable-range hints, if
-  // any, into one non-blocking strip. Never fabricated — `null` when the
-  // payload carries no hints.
   const priceAdvisory = useMemo(
     () =>
       assessPriceAdvisory(
@@ -121,10 +93,11 @@ export function ApprovalDrawer({
     [order, explainability]
   );
   const [priceAckd, setPriceAckd] = useState(false);
-  // Rehydrate the per-session acknowledgement whenever a new order opens.
+
   useEffect(() => {
     if (order) setPriceAckd(readPriceAdvisoryAck());
   }, [order]);
+
   const handlePriceAckChange = (next: boolean) => {
     setPriceAckd(next);
     if (next) writePriceAdvisoryAck();
@@ -132,7 +105,6 @@ export function ApprovalDrawer({
   const approveBlockedByPrice =
     priceAdvisory?.level === "above" && !priceAckd;
 
-  // Reset the draft note whenever the drawer is opened for a different order.
   useEffect(() => {
     setNote("");
     setYieldEnabled(false);
@@ -223,6 +195,17 @@ export function ApprovalDrawer({
           )}
         </dl>
 
+        {quorumConfig && (
+          <div className="mb-4 border-b border-gray-100 pb-4">
+            <QuorumApprovalChecklist
+              orderId={order.id}
+              requiredThreshold={quorumConfig.requiredThreshold}
+              signers={quorumConfig.signers}
+              onDisburse={() => handleApprove()}
+            />
+          </div>
+        )}
+
         {priceAdvisory && (
           <PriceAdvisoryStrip
             advisory={priceAdvisory}
@@ -312,13 +295,6 @@ export function ApprovalDrawer({
                             width={32}
                             height={32}
                             className="approval-line-item-image"
-                            // Item images come from arbitrary, unwhitelisted
-                            // merchant sources (#622) — next/image's
-                            // remotePatterns optimizer can't cover a host
-                            // list that isn't known ahead of time, so this
-                            // is unoptimized on purpose. We still get
-                            // explicit dimensions (zero CLS contribution)
-                            // and onError, which is the actual point here.
                             unoptimized
                             onError={() =>
                               setBrokenImageProductIds((prev) => {
@@ -468,10 +444,6 @@ export function ApprovalDrawer({
           variant="textarea"
         />
 
-        {/* Biometric quick-approval (#724): offered for high-value orders as a
-            faster alternative to the wallet PIN. It never blocks approval —
-            after MAX_BIOMETRIC_ATTEMPTS failures it hands the user back to the
-            PIN path, which is what the Approve button always does. */}
         {isHighValue(order) && (
           <BiometricApprovalPrompt
             orderId={order.id}

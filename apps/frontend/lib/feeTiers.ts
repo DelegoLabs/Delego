@@ -9,7 +9,8 @@ import type { FeeTier, FeeTierOption } from "@delegolabs/ui";
  * network minimum. A failed or malformed response falls back to that minimum.
  */
 
-const MINIMUM_FEE_STROOPS = 100;
+/** Stellar's protocol-minimum base fee — what a transaction costs at rest. */
+export const MINIMUM_FEE_STROOPS = 100;
 
 const TIER_PERCENTILE = {
   standard: "p50",
@@ -37,17 +38,22 @@ export interface FeeTierQuote {
   source: "horizon" | "fallback";
 }
 
-interface PercentileBucket {
+/** One percentile bucket of a Horizon `fee_stats` body. */
+export interface HorizonFeePercentiles {
   p50?: unknown;
   p90?: unknown;
   p95?: unknown;
   p99?: unknown;
 }
 
-interface FeeStatsPayload {
+/**
+ * The shape of Horizon's `/fee_stats` body. Shared with the surge detector
+ * (`lib/feeSurge.ts`) so both read the network feed the same way.
+ */
+export interface HorizonFeeStats {
   last_ledger_base_fee?: unknown;
-  max_fee?: PercentileBucket;
-  fee_charged?: PercentileBucket;
+  max_fee?: HorizonFeePercentiles;
+  fee_charged?: HorizonFeePercentiles;
 }
 
 export function fallbackFeeTierOptions(): FeeTierOption[] {
@@ -65,11 +71,20 @@ function asPositiveNumber(value: unknown): number | null {
   return parsed;
 }
 
-function readPercentile(bucket: PercentileBucket | undefined, key: "p50" | "p95" | "p99"): number | null {
+/**
+ * Reads a percentile out of a Horizon `fee_stats` bucket. Exported so the
+ * surge detector quotes the same percentiles the tier selector does.
+ *
+ * Some Horizon deployments omit p95 and publish p90 instead, so a p95 lookup
+ * falls back to p90.
+ */
+export function readFeePercentile(
+  bucket: HorizonFeePercentiles | undefined,
+  key: "p50" | "p90" | "p95" | "p99"
+): number | null {
   if (!bucket) return null;
   const direct = asPositiveNumber(bucket[key]);
   if (direct != null) return direct;
-  // Some Horizon deployments omit p95 and publish p90 instead.
   if (key === "p95") return asPositiveNumber(bucket.p90);
   return null;
 }
@@ -78,7 +93,7 @@ function readPercentile(bucket: PercentileBucket | undefined, key: "p50" | "p95"
  * Maps a Horizon `fee_stats` body onto the three selector tiers.
  * Returns null when none of the percentiles can be read.
  */
-export function feeTierOptionsFromStats(stats: FeeStatsPayload): FeeTierOption[] | null {
+export function feeTierOptionsFromStats(stats: HorizonFeeStats): FeeTierOption[] | null {
   const floor = Math.max(
     MINIMUM_FEE_STROOPS,
     Math.round(asPositiveNumber(stats.last_ledger_base_fee) ?? MINIMUM_FEE_STROOPS)
@@ -86,8 +101,8 @@ export function feeTierOptionsFromStats(stats: FeeStatsPayload): FeeTierOption[]
   const options = TIERS.map((tier) => {
     const percentile = TIER_PERCENTILE[tier];
     const quoted =
-      readPercentile(stats.max_fee, percentile) ??
-      readPercentile(stats.fee_charged, percentile);
+      readFeePercentile(stats.max_fee, percentile) ??
+      readFeePercentile(stats.fee_charged, percentile);
     if (quoted == null) return null;
     return {
       tier,
@@ -110,7 +125,7 @@ export async function fetchFeeTierQuote(horizonUrl: string): Promise<FeeTierQuot
     const base = horizonUrl.replace(/\/$/, "");
     const response = await fetch(`${base}/fee_stats`);
     if (!response.ok) return fallback();
-    const stats = (await response.json()) as FeeStatsPayload;
+    const stats = (await response.json()) as HorizonFeeStats;
     const options = feeTierOptionsFromStats(stats);
     if (!options) return fallback();
     return { options, source: "horizon" };

@@ -26,7 +26,7 @@ export interface ParsedStellarToml {
 }
 
 export interface SEP0001TOML {
-  [key: string]: string | string[];
+  [key: string]: string | string[] | undefined;
   SIGNING_KEY?: string | string[];
 }
 

@@ -102,13 +102,14 @@ export function ChatDrawerProvider({
     []
   );
 
-  const handleSend = useCallback((content: string) => {
+  const handleSend = useCallback((content: string | { type: string; content?: string; count?: number }) => {
+    const textContent = typeof content === "string" ? content : content.content ?? "";
     setMessages((previous) => [
       ...previous,
       {
         id: makeId("user"),
         role: "user",
-        content,
+        content: textContent,
         createdAt: new Date().toISOString(),
         status: "complete",
       },
@@ -122,7 +123,7 @@ export function ChatDrawerProvider({
         {
           id: makeId("assistant"),
           role: "assistant",
-          content: scriptedReply(content),
+          content: scriptedReply(textContent),
           createdAt: new Date().toISOString(),
           status: "complete",
         },
