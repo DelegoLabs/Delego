@@ -4,3 +4,7 @@ export {
   FiatCurrencySwitcher,
   type FiatCurrencySwitcherProps,
 } from "./FiatCurrencySwitcher";
+export {
+  ImageLightboxModal,
+  type LightboxImageProps,
+} from "./ImageLightboxModal";
