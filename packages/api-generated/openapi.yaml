@@ -74,6 +74,9 @@ components:
         unitPriceStroops:
           type: string
           description: Stroops as a string-encoded bigint
+        category:
+          type: string
+          description: Product category of the line item (#989). Optional.
 
     Order:
       type: object
@@ -115,6 +118,9 @@ components:
           type: string
           nullable: true
           description: Free-text detail accompanying rejectionReason.
+        category:
+          type: string
+          description: Product category the order was placed in (#989). Optional.
         createdAt:
           type: string
           format: date-time

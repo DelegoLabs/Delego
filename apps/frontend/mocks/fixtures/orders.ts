@@ -10,12 +10,27 @@ const STATUSES: OrderStatus[] = [
   "settled",
 ];
 
+const CATEGORIES = [
+  "Hardware",
+  "Services",
+  "Apparel",
+  "Groceries",
+  "Dining",
+  "Transport",
+  "Entertainment",
+  "Utilities",
+];
+
 /** Build one deterministic Order fixture from a numeric seed. */
-export function buildOrder(seed: number, overrides: Partial<Order> = {}): Order {
+export function buildOrder(
+  seed: number,
+  overrides: Partial<Order> = {}
+): Order {
   const rand = createSeededRandom(seed);
   const now = new Date("2026-01-01T00:00:00.000Z");
   const unitPriceStroops = BigInt(Math.floor(rand() * 50) + 1) * 10_000_000n;
   const quantity = Math.floor(rand() * 3) + 1;
+  const category = pick(CATEGORIES, rand);
 
   return {
     id: seededId("order", rand),
@@ -23,12 +38,14 @@ export function buildOrder(seed: number, overrides: Partial<Order> = {}): Order 
     delegationId: seededId("delegation", rand),
     merchantId: seededId("merchant", rand),
     status: pick(STATUSES, rand),
+    category,
     totalStroops: unitPriceStroops * BigInt(quantity),
     lineItems: [
       {
         productId: seededId("product", rand),
         quantity,
         unitPriceStroops,
+        category,
       },
     ],
     escrowContractId: null,
@@ -54,6 +71,9 @@ export function okResponse<T>(data: T): ApiResponse<T> {
   return { data, error: null };
 }
 
-export function errorResponse<T>(message: string, code = "internal_error"): ApiResponse<T> {
+export function errorResponse<T>(
+  message: string,
+  code = "internal_error"
+): ApiResponse<T> {
   return { data: null, error: { code, message } };
 }

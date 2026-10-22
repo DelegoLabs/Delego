@@ -4,14 +4,15 @@ import { useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
 import { AnalyticsDashboard } from "../../components/analytics/AnalyticsDashboard";
-import {
-  parseAnalyticsRange,
-  type AnalyticsRange,
-} from "../../lib/analytics";
+import { parseAnalyticsRange, type AnalyticsRange } from "../../lib/analytics";
 import {
   parseForecastHorizon,
   type ForecastHorizonDays,
 } from "../../lib/spendForecast";
+import {
+  parseSpendingCategoryRange,
+  type SpendingCategoryRange,
+} from "../../lib/spendingByCategory";
 
 export default function AnalyticsPage() {
   const locale = useLocale();
@@ -21,6 +22,10 @@ export default function AnalyticsPage() {
 
   const range = parseAnalyticsRange(searchParams.get("range"));
   const forecastHorizon = parseForecastHorizon(searchParams.get("forecast"));
+
+  const spendingCategoryRange = parseSpendingCategoryRange(
+    searchParams.get("spending")
+  );
 
   const setRange = useCallback(
     (next: AnalyticsRange) => {
@@ -40,6 +45,15 @@ export default function AnalyticsPage() {
     [router, pathname, searchParams]
   );
 
+  const setSpendingCategoryRange = useCallback(
+    (next: SpendingCategoryRange) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("spending", next);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [router, pathname, searchParams]
+  );
+
   return (
     <div className="settings-page">
       <header className="header">
@@ -53,6 +67,8 @@ export default function AnalyticsPage() {
         onRangeChange={setRange}
         forecastHorizon={forecastHorizon}
         onForecastHorizonChange={setForecastHorizon}
+        spendingCategoryRange={spendingCategoryRange}
+        onSpendingCategoryRangeChange={setSpendingCategoryRange}
       />
     </div>
   );
