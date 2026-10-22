@@ -103,7 +103,6 @@ describe("AgentChatDrawer with filter pills (#978)", () => {
           minRating: 3,
           categories: ["Electronics"],
         }}
-        onClearFilters={() => {}}
       />
     );
     const clearButton = screen.getByText(/^Clear filters$/);

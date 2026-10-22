@@ -9,6 +9,7 @@
 
 import { freighterAdapter } from "./freighterAdapter";
 import { lobstrAdapter } from "./lobstrAdapter";
+import { ledgerAdapter } from "./ledgerAdapter";
 import type { StellarWalletAdapter, WalletId } from "./types";
 
 /** Used whenever no persisted selection exists yet, or it is no longer valid. */
@@ -18,6 +19,7 @@ export const DEFAULT_WALLET_ID: WalletId = "freighter";
 export const walletAdapters: readonly StellarWalletAdapter[] = [
   freighterAdapter,
   lobstrAdapter,
+  ledgerAdapter,
 ];
 
 /**

@@ -145,3 +145,11 @@ export const ApiResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
     data: dataSchema.nullable(),
     error: ApiErrorSchema.nullable(),
   });
+
+export const AutoReorderConfigSchema = z.object({
+  supplierWebhookUrl: z.string().url(),
+  authHeaderMasked: z.string(),
+  minimumThreshold: z.number().int().min(0),
+  reorderQuantity: z.number().int().min(1),
+  isEnabled: z.boolean(),
+});

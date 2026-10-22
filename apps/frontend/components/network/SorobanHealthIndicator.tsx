@@ -1,29 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { useSorobanHealth } from "../../hooks/useSorobanHealth";
+import { useRpcLatencyProber } from "../../hooks/useRpcLatencyProber";
 import { useNetwork } from "../../hooks/useNetwork";
 
-const STATUS_COLOR: Record<string, string> = {
-  optimal: "#16a34a",
-  degraded: "#f59e0b",
-  down: "#dc2626",
+const STATUS_COLOR: Record<"green" | "yellow" | "red", string> = {
+  green: "#16a34a",
+  yellow: "#f59e0b",
+  red: "#dc2626",
 };
 
 /**
  * Small status dot (footer/header) showing Soroban RPC health for the
- * active network — green/amber/red, with a native tooltip giving the
- * latest ledger sequence and ping time. Clicking opens a details modal.
+ * active network — green (<200ms), yellow (200-800ms), red (>800ms / unavailable),
+ * with a native tooltip giving the latest ledger sequence and ping time.
+ * Automatically selects the fastest healthy endpoint. Clicking opens a details modal.
  */
 export function SorobanHealthIndicator() {
-  const health = useSorobanHealth();
-  const { network } = useNetwork();
+  const { networkId, network } = useNetwork();
+  const prober = useRpcLatencyProber(networkId, [network.sorobanRpcUrl]);
   const [modalOpen, setModalOpen] = useState(false);
 
-  if (!health) {
+  const active = prober.activeEndpoint;
+  const statusColor = prober.statusColor;
+
+  if (!active) {
     return (
-      // role="img" so the span is allowed to carry an accessible name; a plain
-      // span may not, which axe reports as aria-prohibited-attr.
       <span
         role="img"
         aria-label="Soroban RPC status: checking"
@@ -39,18 +41,17 @@ export function SorobanHealthIndicator() {
     );
   }
 
-  const color = STATUS_COLOR[health.status];
-  const tooltip =
-    health.status === "down"
-      ? "Soroban RPC unreachable"
-      : `Ledger ${health.latestLedger.toLocaleString()} · ${health.rpcLatencyMs}ms`;
+  const color = STATUS_COLOR[statusColor];
+  const tooltip = !active.isAvailable
+    ? "Soroban RPC unreachable"
+    : `Ledger ${active.latestLedgerSequence.toLocaleString()} · ${active.latencyMs}ms`;
 
   return (
     <>
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        aria-label={`Soroban RPC status: ${health.status}`}
+        aria-label={`Soroban RPC status: ${statusColor}`}
         title={tooltip}
         style={{
           display: "inline-flex",
@@ -109,20 +110,20 @@ export function SorobanHealthIndicator() {
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.875rem" }}>
               <div>
-                <strong style={{ color: "#374151" }}>Network:</strong> {health.network}
+                <strong style={{ color: "#374151" }}>Network:</strong> {networkId}
               </div>
               <div>
-                <strong style={{ color: "#374151" }}>Endpoint:</strong> {network.sorobanRpcUrl}
+                <strong style={{ color: "#374151" }}>Active Endpoint:</strong> {active.url}
               </div>
               <div>
                 <strong style={{ color: "#374151" }}>Status:</strong>{" "}
-                <span style={{ color, fontWeight: 600, textTransform: "capitalize" }}>{health.status}</span>
+                <span style={{ color, fontWeight: 600, textTransform: "capitalize" }}>{statusColor}</span>
               </div>
               <div>
-                <strong style={{ color: "#374151" }}>Latency:</strong> {health.rpcLatencyMs}ms
+                <strong style={{ color: "#374151" }}>Latency:</strong> {active.latencyMs}ms
               </div>
               <div>
-                <strong style={{ color: "#374151" }}>Latest Ledger:</strong> {health.latestLedger.toLocaleString()}
+                <strong style={{ color: "#374151" }}>Latest Ledger:</strong> {active.latestLedgerSequence.toLocaleString()}
               </div>
             </div>
             <button

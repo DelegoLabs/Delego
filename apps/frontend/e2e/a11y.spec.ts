@@ -34,3 +34,20 @@ for (const route of [...PUBLIC_ROUTES, ...PROTECTED_ROUTES]) {
     ).toEqual([]);
   });
 }
+
+/** Skip-to-main-content link (#1015, WCAG 2.4.1) on a fresh page load. */
+test("skip link is the first Tab stop and moves focus into main", async ({ page }) => {
+  await page.goto("/");
+
+  await page.keyboard.press("Tab");
+  const skipLink = page.locator("a.skip-to-content").first();
+  await expect(skipLink).toBeFocused();
+  await expect(skipLink).toHaveAttribute("href", "#app-content");
+  await expect(skipLink).toBeInViewport();
+
+  await page.keyboard.press("Enter");
+  await expect(page.locator("main#app-content")).toBeFocused();
+
+  const results = await new AxeBuilder({ page }).withRules(["skip-link"]).analyze();
+  expect(results.violations).toEqual([]);
+});

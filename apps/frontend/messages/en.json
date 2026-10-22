@@ -160,5 +160,88 @@
     "generating": "Generating…",
     "errorGeneric": "Failed to generate invoice.",
     "ariaLabel": "Download PDF invoice for order {orderId}"
+  },
+  "kycVerification": {
+    "pageTitle": "Identity verification",
+    "pageDescription": "Complete each verification to unlock the next merchant tier.",
+    "currentTier": "Verification tier",
+    "progress": "{completed} of {total} verifications complete",
+    "notVerified": "Not yet verified",
+    "tierLabel": "Tier {tier} · {badge}",
+    "tierBadge": {
+      "bronze": "Bronze",
+      "silver": "Silver",
+      "goldBusiness": "Gold Business"
+    },
+    "verifiedBadge": "{badge} verified",
+    "status": {
+      "verified": "Verified",
+      "next": "Next step",
+      "pending": "Not started"
+    },
+    "verifyNow": "Verify now",
+    "verifyNowFor": "Verify now: {name}",
+    "requirements": {
+      "email": "Email address verified",
+      "domain": "Business domain verified",
+      "businessEntity": "On-chain business entity verified"
+    }
+  },
+  "bulkFulfillment": {
+    "selectAll": "Select all orders to ship",
+    "selectOrder": "Select order {orderId}",
+    "actionBarLabel": "Bulk order actions",
+    "selectedCount": "{count, plural, one {# order selected} other {# orders selected}}",
+    "bulkFulfill": "Bulk Fulfill",
+    "clearSelection": "Clear selection",
+    "modalTitle": "Fulfill {count, plural, one {# order} other {# orders}}",
+    "close": "Close",
+    "modeLabel": "How do you want to add tracking numbers?",
+    "modeManual": "Enter manually",
+    "modeCsv": "Upload CSV",
+    "orderLabel": "Order {orderId}",
+    "order": "Order",
+    "carrier": "Carrier",
+    "trackingNumber": "Tracking number",
+    "csvHint": "Include a header row with orderId, carrier and trackingNumber. Carrier can be FedEx, UPS, USPS, DHL or Other.",
+    "csvFile": "CSV file",
+    "csvText": "Or paste CSV",
+    "csvPreview": "Tracking numbers to assign",
+    "csvMissing": "{count, plural, one {# selected order has} other {# selected orders have}} no row in the CSV and won't be fulfilled: {orderIds}",
+    "csvLineError": "Line {line}: {message}",
+    "cancel": "Cancel",
+    "submit": "Mark {count, plural, one {# order} other {# orders}} shipped",
+    "submitting": "Submitting tracking numbers…",
+    "result": {
+      "success": "{count, plural, one {# order} other {# orders}} marked shipped.",
+      "failed": "{count, plural, one {# order couldn't be shipped and was} other {# orders couldn't be shipped and were}} moved back to To Ship: {orderIds}"
+    },
+    "errors": {
+      "missingHeader": "The CSV needs a header row with orderId, carrier and trackingNumber.",
+      "missingFields": "Order, carrier and tracking number are all required.",
+      "unknownOrder": "Order {orderId} isn't one of the selected orders.",
+      "duplicateOrder": "Order {orderId} appears more than once.",
+      "invalidCarrier": "Order {orderId} has an unknown carrier.",
+      "invalidTracking": "Order {orderId} has a tracking number that doesn't match its carrier."
+    }
+  },
+  "webhookHealth": {
+    "title": "Delivery health (last 7 days)",
+    "gaugeLabel": "7-day delivery success rate",
+    "rate": "{rate}%",
+    "tier": {
+      "healthy": "Healthy",
+      "warning": "Degraded",
+      "critical": "Critical"
+    },
+    "attempts": "{count, plural, one {# delivery attempt} other {# delivery attempts}}",
+    "consecutiveFailures": "{count, plural, one {# consecutive failure} other {# consecutive failures}}",
+    "noData": "No deliveries to this endpoint in the last 7 days.",
+    "warning": {
+      "warning": "Some deliveries to this endpoint are failing. Check your server logs.",
+      "critical": "This endpoint is failing too many deliveries. Events may be missed."
+    },
+    "recentErrorsButton": "Recent errors",
+    "recentErrorsTitle": "Most recent HTTP errors"
   }
 }

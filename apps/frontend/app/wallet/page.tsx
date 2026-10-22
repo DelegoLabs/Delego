@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Card } from "@delegolabs/ui";
-import { PasskeyRegisterModal } from "../../components/wallet/PasskeyRegisterModal";
+import { PasskeyRegistrationStepper } from "../../components/wallet/PasskeyRegistrationStepper";
 import { FriendbotModal } from "../../components/wallet/FriendbotModal";
 import { useWallet } from "../../hooks/useWallet";
 import { useNetwork } from "../../hooks/useNetwork";
@@ -261,11 +261,11 @@ export default function WalletPage() {
               </Button>
             )}
           </div>
-          <PasskeyRegisterModal
+          <PasskeyRegistrationStepper
             isOpen={passkeyOpen}
             stellarAddress={address ?? ""}
             onClose={() => setPasskeyOpen(false)}
-            onSuccess={() => {
+            onSuccess={(_credential) => {
               setPasskeyOpen(false);
               notifications.add({
                 type: "success",

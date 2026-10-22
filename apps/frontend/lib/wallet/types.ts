@@ -74,7 +74,8 @@ export interface StellarWalletAdapter {
   /** Display name shown in the wallet picker, e.g. `Freighter`. */
   readonly name: string;
   /** Install/download page linked from the picker when not installed. */
-  readonly installUrl: string;
+  readonly installUrl?: string;
+  readonly downloadUrl?: string;
   /** Whether the extension is available. Must never prompt the user. */
   detect(): Promise<boolean>;
   /**

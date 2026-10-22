@@ -1,4 +1,5 @@
 export { Amount, type AmountProps } from "./Amount.js";
+export { PriceDisplay, type PriceDisplayProps } from "./PriceDisplay.js";
 export { Button, type ButtonProps } from "./Button.js";
 export { Card, type CardProps } from "./Card.js";
 export {
@@ -78,4 +79,10 @@ export {
 } from "./ProductCard.js";
 
 export { VerificationBadge, type VerificationBadgeProps } from "./VerificationBadge.js";
+export {
+  PolicyAccordion,
+  type PolicyAccordionProps,
+  type MerchantPolicyInfo,
+  type AccordionSectionId,
+} from "./PolicyAccordion.js";
 export * from "./InteractiveTrackingTimeline.js";

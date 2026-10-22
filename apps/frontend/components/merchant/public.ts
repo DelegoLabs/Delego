@@ -11,3 +11,5 @@ export { encryptKycDocument } from "./kycEncryption";
 export { uploadKycDocument } from "./kycUploadClient";
 export { StorefrontBannerUploader } from "./StorefrontBannerUploader";
 export type { StorefrontBannerUploaderProps } from "./StorefrontBannerUploader";
+export { VerificationStepper } from "./VerificationStepper";
+export type { VerificationStepperProps } from "./VerificationStepper";
