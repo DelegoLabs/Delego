@@ -20,6 +20,13 @@ export const STRATEGY_OPTIONS: { value: OptimizationStrategy; label: string; des
   { value: "balanced", label: "Balanced", description: "Weigh price, rating, and delivery time evenly." },
 ];
 
+export const PERSONA_OPTIONS: { value: AgentPersonaConfig["persona"]; label: string; description: string }[] = [
+  { value: "bargain-hunter", label: "Bargain hunter", description: "Aggressively seeks the lowest price." },
+  { value: "speed-shopper", label: "Speed shopper", description: "Prioritizes fastest delivery time." },
+  { value: "eco-friendly", label: "Eco-friendly", description: "Prefers sustainable/green options." },
+  { value: "balanced", label: "Balanced", description: "Weighs all factors evenly." },
+];
+
 const retryingFetch = createRetryingFetch();
 
 /**

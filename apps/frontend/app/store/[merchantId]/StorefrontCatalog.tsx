@@ -8,7 +8,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatAmount } from "@delegolabs/ui";
 import { StockDepletionPanel } from "../../../components/storefront/StockDepletionPanel";
+import { ImageLightboxModal } from "../../../components/storefront/ImageLightboxModal";
 import {
+  DEFAULT_MERCHANT_POLICY,
   filterStoreProducts,
   type MerchantProduct,
 } from "../../../lib/storefront";
@@ -38,8 +40,12 @@ function readSavedPosition(key: string): SavedCatalogPosition | null {
     const value = window.sessionStorage.getItem(key);
     if (!value) return null;
     const parsed = JSON.parse(value) as Partial<SavedCatalogPosition>;
-    return Number.isFinite(parsed.displayedCount) && Number.isFinite(parsed.scrollY)
-      ? { displayedCount: Math.max(0, parsed.displayedCount!), scrollY: Math.max(0, parsed.scrollY!) }
+    return Number.isFinite(parsed.displayedCount) &&
+      Number.isFinite(parsed.scrollY)
+      ? {
+          displayedCount: Math.max(0, parsed.displayedCount!),
+          scrollY: Math.max(0, parsed.scrollY!),
+        }
       : null;
   } catch {
     return null;
@@ -62,6 +68,7 @@ interface StorefrontCatalogProps {
   merchantId: string;
   merchantName: string;
   payoutAddress: string;
+  merchantPolicy?: MerchantPolicyInfo;
 }
 
 export function StorefrontCatalog({
@@ -69,17 +76,26 @@ export function StorefrontCatalog({
   merchantId,
   merchantName,
   payoutAddress,
+  merchantPolicy,
 }: StorefrontCatalogProps) {
   const [query, setQuery] = useState("");
   const [displayedCount, setDisplayedCount] = useState(CATALOG_PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [paginationError, setPaginationError] = useState<string | null>(null);
-  const [liveStock, setLiveStock] = useState<Record<string, StockDepletionInfo>>({});
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [liveStock, setLiveStock] = useState<
+    Record<string, StockDepletionInfo>
+  >({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{
+    images: string[];
+    index: number;
+  } | null>(null);
   const { addItem, openDrawer, summary } = useCart();
   const uniqueProducts = useMemo(
-    () => Array.from(new Map(products.map((product) => [product.id, product])).values()),
+    () =>
+      Array.from(
+        new Map(products.map((product) => [product.id, product])).values()
+      ),
     [products]
   );
   const productKey = uniqueProducts.map((product) => product.id).join("\n");
@@ -92,7 +108,9 @@ export function StorefrontCatalog({
     const ids = productKey ? productKey.split("\n") : [];
     async function tick() {
       const updates = await Promise.all(
-        ids.map(async (id) => [id, await fetchStockDepletion(merchantId, id)] as const)
+        ids.map(
+          async (id) => [id, await fetchStockDepletion(merchantId, id)] as const
+        )
       );
       if (cancelled) return;
       setChecked((prev) => ({
@@ -131,7 +149,10 @@ export function StorefrontCatalog({
     restoredPosition.current = false;
     savedPosition.current = readSavedPosition(scrollKey);
     setDisplayedCount(
-      Math.max(CATALOG_PAGE_SIZE, savedPosition.current?.displayedCount ?? CATALOG_PAGE_SIZE)
+      Math.max(
+        CATALOG_PAGE_SIZE,
+        savedPosition.current?.displayedCount ?? CATALOG_PAGE_SIZE
+      )
     );
   }, [scrollKey]);
 
@@ -151,11 +172,17 @@ export function StorefrontCatalog({
 
   useEffect(() => {
     const saved = savedPosition.current;
-    if (!saved || restoredPosition.current || displayedProducts.length < Math.min(saved.displayedCount, visible.length)) {
+    if (
+      !saved ||
+      restoredPosition.current ||
+      displayedProducts.length < Math.min(saved.displayedCount, visible.length)
+    ) {
       return;
     }
-    const restore = () => window.scrollTo({ top: saved.scrollY, behavior: "auto" });
-    const frame = window.requestAnimationFrame?.(restore) ?? window.setTimeout(restore, 0);
+    const restore = () =>
+      window.scrollTo({ top: saved.scrollY, behavior: "auto" });
+    const frame =
+      window.requestAnimationFrame?.(restore) ?? window.setTimeout(restore, 0);
     restoredPosition.current = true;
     return () => {
       if (window.cancelAnimationFrame) window.cancelAnimationFrame(frame);
@@ -189,9 +216,13 @@ export function StorefrontCatalog({
       // here without inventing an unsupported pagination endpoint. Yield once
       // so assistive technology and the inline skeleton can announce loading.
       await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
-      setDisplayedCount((count) => Math.min(count + CATALOG_PAGE_SIZE, visible.length));
+      setDisplayedCount((count) =>
+        Math.min(count + CATALOG_PAGE_SIZE, visible.length)
+      );
     } catch (error) {
-      setPaginationError(error instanceof Error ? error.message : "Could not load more products.");
+      setPaginationError(
+        error instanceof Error ? error.message : "Could not load more products."
+      );
     } finally {
       setIsLoadingMore(false);
     }
@@ -208,7 +239,13 @@ export function StorefrontCatalog({
     const stock = stockFor(product);
     if (stock && !canAddToCart(stock)) return;
     const available = stock ? availableToSell(stock) : 99;
-    const maxStock = !stock ? 99 : available > 0 ? available : stock.allowBackorder ? 99 : 0;
+    const maxStock = !stock
+      ? 99
+      : available > 0
+        ? available
+        : stock.allowBackorder
+          ? 99
+          : 0;
     if (maxStock <= 0) return;
     const item: CartItem = {
       productId: product.id,
@@ -228,10 +265,19 @@ export function StorefrontCatalog({
   const cartCount = summary.totalQuantity;
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+    <section
+      style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+    >
       {/* Search + cart icon row */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.25rem",
+          }}
+        >
           <label htmlFor="store-product-search" style={{ fontWeight: 500 }}>
             Search products
           </label>
@@ -328,72 +374,131 @@ export function StorefrontCatalog({
           const stock = stockFor(product);
           const blocked = stock ? !canAddToCart(stock) : false;
           return (
-          <li
-            key={product.id}
-            className="card"
-            style={{ padding: "0.875rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}
-          >
-            <h2 style={{ margin: 0, fontSize: "1rem" }}>{product.name}</h2>
-            <StockDepletionPanel
-              merchantId={merchantId}
-              stock={stock}
-              loading={!stock && !checked[`${merchantId}/${product.id}`]}
-              mode="card"
-            />
-            {product.description && (
-              <p style={{ margin: 0, color: "#6b7280", fontSize: "0.875rem" }}>
-                {product.description}
-              </p>
-            )}
-            <div
+            <li
+              key={product.id}
+              className="card"
               style={{
+                padding: "0.875rem",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
+                flexDirection: "column",
                 gap: "0.5rem",
-                flexWrap: "wrap",
               }}
             >
-              <p style={{ margin: 0, fontWeight: 600 }}>
-                {formatPrice(product.priceStroops)}
-              </p>
-              <button
-                type="button"
-                onClick={() => handleAddToCart(product)}
-                disabled={blocked}
-                data-testid={`add-to-cart-${product.id}`}
+              <h2 style={{ margin: 0, fontSize: "1rem" }}>{product.name}</h2>
+              {product.images && product.images.length > 0 && (
+                <div
+                  aria-label={`${product.name} images`}
+                  style={{ display: "flex", gap: "0.5rem", overflowX: "auto" }}
+                >
+                  {product.images.map((image, index) => (
+                    <button
+                      key={image}
+                      type="button"
+                      aria-label={`View ${product.name} image ${index + 1}`}
+                      onClick={() =>
+                        setLightbox({ images: product.images!, index })
+                      }
+                      style={{
+                        flex: "0 0 auto",
+                        padding: 0,
+                        border: "1px solid #d1d5db",
+                        borderRadius: "0.5rem",
+                        background: "#fff",
+                        cursor: "zoom-in",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={image}
+                        alt={`${product.name} ${index + 1}`}
+                        width={96}
+                        height={96}
+                        style={{
+                          display: "block",
+                          width: "6rem",
+                          height: "6rem",
+                          objectFit: "cover",
+                        }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {stock && (
+                <StockDepletionPanel
+                  merchantId={merchantId}
+                  stock={stock}
+                  mode="card"
+                />
+              )}
+              {product.description && (
+                <p
+                  style={{ margin: 0, color: "#6b7280", fontSize: "0.875rem" }}
+                >
+                  {product.description}
+                </p>
+              )}
+              <div
                 style={{
-                  padding: "0.4375rem 0.875rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  background: blocked ? "#d1d5db" : "#2563eb",
-                  color: "#fff",
-                  fontWeight: 600,
-                  fontSize: "0.8125rem",
-                  cursor: blocked ? "not-allowed" : "pointer",
-                  whiteSpace: "nowrap",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.5rem",
+                  flexWrap: "wrap",
                 }}
               >
-                Add to cart
+                <p style={{ margin: 0, fontWeight: 600 }}>
+                  {formatPrice(product.priceStroops)}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleAddToCart(product)}
+                  disabled={blocked}
+                  data-testid={`add-to-cart-${product.id}`}
+                  style={{
+                    padding: "0.4375rem 0.875rem",
+                    borderRadius: "0.5rem",
+                    border: "none",
+                    background: blocked ? "#d1d5db" : "#2563eb",
+                    color: "#fff",
+                    fontWeight: 600,
+                    fontSize: "0.8125rem",
+                    cursor: blocked ? "not-allowed" : "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Add to cart
+                </button>
+              </div>
+              <button
+                type="button"
+                aria-expanded={expandedId === product.id}
+                onClick={() =>
+                  setExpandedId((current) =>
+                    current === product.id ? null : product.id
+                  )
+                }
+                style={{
+                  alignSelf: "flex-start",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "#2563eb",
+                  cursor: "pointer",
+                  fontSize: "0.75rem",
+                }}
+              >
+                {expandedId === product.id ? "Hide details" : "View details"}
               </button>
-            </div>
-            <button
-              type="button"
-              aria-expanded={expandedId === product.id}
-              onClick={() => setExpandedId((current) => (current === product.id ? null : product.id))}
-              style={{ alignSelf: "flex-start", background: "none", border: "none", padding: 0, color: "#2563eb", cursor: "pointer", fontSize: "0.75rem" }}
-            >
-              {expandedId === product.id ? "Hide details" : "View details"}
-            </button>
-            {expandedId === product.id && (
-              <StockDepletionPanel
-                merchantId={merchantId}
-                stock={stock}
-                loading={!stock && !checked[`${merchantId}/${product.id}`]}
-                mode="detail"
-              />
-            )}
-          </li>
+              {expandedId === product.id && stock && (
+                <StockDepletionPanel
+                  merchantId={merchantId}
+                  stock={stock}
+                  mode="detail"
+                />
+              )}
+            </li>
           );
         })}
       </ul>
@@ -407,8 +512,27 @@ export function StorefrontCatalog({
           data-testid="storefront-load-more-sentinel"
         >
           {isLoadingMore && (
-            <ul aria-label="Loading more products" style={{ listStyle: "none", margin: "0.75rem 0 0", padding: 0, display: "grid", gap: "0.75rem" }}>
-              <li className="card" aria-hidden="true" style={{ minHeight: "10rem", padding: "0.875rem", background: "linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%)", backgroundSize: "400% 100%" }} />
+            <ul
+              aria-label="Loading more products"
+              style={{
+                listStyle: "none",
+                margin: "0.75rem 0 0",
+                padding: 0,
+                display: "grid",
+                gap: "0.75rem",
+              }}
+            >
+              <li
+                className="card"
+                aria-hidden="true"
+                style={{
+                  minHeight: "10rem",
+                  padding: "0.875rem",
+                  background:
+                    "linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%)",
+                  backgroundSize: "400% 100%",
+                }}
+              />
             </ul>
           )}
         </div>
@@ -417,13 +541,24 @@ export function StorefrontCatalog({
       {paginationError && (
         <div role="alert">
           <p>{paginationError}</p>
-          <button type="button" onClick={() => void loadMore()}>Try again</button>
+          <button type="button" onClick={() => void loadMore()}>
+            Try again
+          </button>
         </div>
       )}
 
-      {uniqueProducts.length > 0 && visible.length > 0 && !hasMore && !isLoadingMore && (
-        <p role="status">You&apos;ve reached the end of this catalog.</p>
-      )}
+      {uniqueProducts.length > 0 &&
+        visible.length > 0 &&
+        !hasMore &&
+        !isLoadingMore && (
+          <p role="status">You&apos;ve reached the end of this catalog.</p>
+        )}
+      <ImageLightboxModal
+        images={lightbox?.images ?? []}
+        initialIndex={lightbox?.index ?? 0}
+        isOpen={lightbox !== null}
+        onClose={() => setLightbox(null)}
+      />
     </section>
   );
 }

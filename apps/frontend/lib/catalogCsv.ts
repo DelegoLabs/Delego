@@ -33,7 +33,7 @@ export interface CatalogCsvParseResult {
   errors: CatalogRowError[];
 }
 
-function splitCsvLine(line: string): string[] {
+export function splitCsvLine(line: string): string[] {
   const fields: string[] = [];
   let current = "";
   let inQuotes = false;
@@ -63,7 +63,7 @@ function splitCsvLine(line: string): string[] {
   return fields;
 }
 
-function splitCsvRecords(text: string): string[] {
+export function splitCsvRecords(text: string): string[] {
   const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const lines = normalized.split("\n");
   const records: string[] = [];

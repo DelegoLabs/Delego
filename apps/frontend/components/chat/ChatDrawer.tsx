@@ -169,6 +169,7 @@ export function ChatDrawer({
 }: ChatDrawerProps) {
   const [draft, setDraft] = useState("");
   const [images, setImages] = useState<File[]>([]);
+  const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>(
     {}
   );
@@ -201,6 +202,7 @@ export function ChatDrawer({
     onSendMessage?.(content);
     setDraft("");
     setImages([]);
+    setThumbnails([]);
   }
 
   function handleDrop(event: React.DragEvent) {
@@ -235,19 +237,26 @@ export function ChatDrawer({
 
   function validateAndAddImage(file: File) {
     const maxSizeBytes = 5 * 1024 * 1024; // 5MB
-    const allowedMimeTypes = [
+    const allowedMimeTypes = new Set([
       "image/jpeg",
       "image/png",
       "image/webp",
-    ] as const;
+    ]);
 
     if (file.size > maxSizeBytes) {
       return;
     }
 
-    if (!allowedMimeTypes.includes(file.mimeType)) {
+    if (!allowedMimeTypes.has(file.type)) {
       return;
     }
+
+    // Generate thumbnail
+    const reader = new FileReader();
+    reader.onload = () => {
+      setThumbnails((prev) => [...prev, reader.result as string]);
+    };
+    reader.readAsDataURL(file);
 
     setImages((prev) => [...prev, file]);
   }
@@ -645,12 +654,8 @@ export function ChatDrawer({
                   alignItems: "flex-end",
                 }}
               >
-                {images.map((file, idx) => {
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    const thumbnailUrl = reader.result as string;
-                  };
-                  reader.readAsDataURL(file);
+                {images.map((_file, idx) => {
+                  const thumbnailUrl = thumbnails[idx];
 
                   return (
                     <div
@@ -666,15 +671,17 @@ export function ChatDrawer({
                         overflow: "hidden",
                       }}
                     >
-                      <img
-                        src={thumbnailUrl}
-                        alt=""
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                      />
+                      {thumbnailUrl && (
+                        <img
+                          src={thumbnailUrl}
+                          alt=""
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      )}
                       <button
                         type="button"
                         onClick={() => {
@@ -682,6 +689,7 @@ export function ChatDrawer({
                             (_file, i) => i !== idx
                           );
                           setImages(newImages);
+                          setThumbnails((prev) => prev.filter((_, i) => i !== idx));
                         }}
                         style={{
                           position: "absolute",

@@ -16,26 +16,37 @@ export interface ProductCarouselProps {
   ariaLabel?: string;
 }
 
-const carouselContainerStyle = {
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    if (media.matches !== matches) setMatches(media.matches);
+    const listener = () => setMatches(media.matches);
+    media.addEventListener("change", listener);
+    return () => media.removeEventListener("change", listener);
+  }, [matches, query]);
+  return matches;
+}
+
+const carouselContainerStyle: React.CSSProperties = {
   display: "flex",
   overflowX: "auto",
   scrollSnapType: "x mandatory",
   padding: "1rem 0",
   scrollBehavior: "smooth",
-  "-webkit-overflow-scrolling": "touch",
+  WebkitOverflowScrolling: "touch",
 };
 
-const cardStyle = {
+const cardStyle: React.CSSProperties = {
   flex: "0 0 auto",
   width: `calc(100% / ${CARDS_TO_SHOW} - 1rem)`,
   marginRight: "0.5rem",
   marginBottom: "1rem",
-  scrollSnap: "center",
+  scrollSnapAlign: "center",
 };
 
-const prevButtonStyle = {
+const baseButtonStyle: React.CSSProperties = {
   position: "absolute",
-  left: "1rem",
   top: "50%",
   transform: "translateY(-50%)",
   zIndex: 10,
@@ -45,31 +56,15 @@ const prevButtonStyle = {
   padding: "0.5rem",
   borderRadius: "0.375rem",
   cursor: "pointer",
-  display: "none",
-  "@media (min-width: 768px)": {
-    display: "block",
-  },
 };
 
-const nextButtonStyle = {
-  position: "absolute",
-  right: "1rem",
-  top: "50%",
-  transform: "translateY(-50%)",
-  zIndex: 10,
-  border: "none",
-  background: "rgba(37, 99, 235, 0.8)",
-  color: "#fff",
-  padding: "0.5rem",
-  borderRadius: "0.375rem",
-  cursor: "pointer",
-  display: "none",
-  "@media (min-width: 768px)": {
-    display: "block",
-  },
+const paginationContainerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  marginTop: "1rem",
 };
 
-const dotStyle = {
+const dotStyle: React.CSSProperties = {
   width: "0.75rem",
   height: "0.75rem",
   borderRadius: "9999px",
@@ -77,15 +72,6 @@ const dotStyle = {
   margin: "0 0.25rem",
   cursor: "pointer",
   transition: "background 0.2s",
-  "&.active": {
-    background: "#2563eb",
-  },
-};
-
-const paginationContainerStyle = {
-  display: "flex",
-  justifyContent: "center",
-  marginTop: "1rem",
 };
 
 export function ProductCarousel({
@@ -96,6 +82,7 @@ export function ProductCarousel({
 }: ProductCarouselProps) {
   const [visibleIndex, setVisibleIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -128,6 +115,18 @@ export function ProductCarousel({
       behavior: "smooth",
     });
     setVisibleIndex(index);
+  };
+
+  const prevButtonStyle: React.CSSProperties = {
+    ...baseButtonStyle,
+    left: "1rem",
+    display: isDesktop ? "block" : "none",
+  };
+
+  const nextButtonStyle: React.CSSProperties = {
+    ...baseButtonStyle,
+    right: "1rem",
+    display: isDesktop ? "block" : "none",
   };
 
   return (

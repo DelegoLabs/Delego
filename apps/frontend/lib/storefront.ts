@@ -5,6 +5,16 @@
 import { parseStockDepletion, type StockDepletionInfo } from "./stockDepletion";
 import type { CartItem } from "./cart";
 
+import type { MerchantPolicyInfo } from "@delegolabs/types";
+
+export const DEFAULT_MERCHANT_POLICY: MerchantPolicyInfo = {
+  returnWindowDays: 30,
+  restockingFeePercent: 0,
+  freeShippingThresholdStroops: "100000000",
+  escrowProtectionNotice:
+    "Purchases are protected by Delego smart contract escrow. Funds are securely locked until delivery is confirmed.",
+};
+
 export interface MerchantProduct {
   id: string;
   name: string;
@@ -12,7 +22,10 @@ export interface MerchantProduct {
   priceStroops: string;
   assetCode?: CartItem["assetCode"];
   active: boolean;
+  /** Product gallery URLs supplied by the storefront API, in display order. */
+  images?: string[];
   stock?: StockDepletionInfo;
+  policy?: MerchantPolicyInfo;
 }
 
 export type StoreAnnouncementType = "info" | "warning" | "promotion";
@@ -46,7 +59,11 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function asNumber(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+  if (
+    typeof value === "string" &&
+    value.trim() &&
+    Number.isFinite(Number(value))
+  ) {
     return Number(value);
   }
   return 0;
@@ -54,30 +71,52 @@ function asNumber(value: unknown): number {
 
 function parseProduct(value: unknown): MerchantProduct | null {
   const record = asRecord(value);
-  if (!record || typeof record.id !== "string" || typeof record.name !== "string") {
+  if (
+    !record ||
+    typeof record.id !== "string" ||
+    typeof record.name !== "string"
+  ) {
     return null;
   }
   const price = record.priceStroops ?? record.price_stroops ?? "0";
   const stock = parseStockDepletion(
     record.stock ?? {
-      remainingStock: record.remainingStock ?? record.remaining_stock ?? record.stockQuantity,
+      remainingStock:
+        record.remainingStock ?? record.remaining_stock ?? record.stockQuantity,
       reservedStock: record.reservedStock ?? record.reserved_stock,
       allowBackorder: record.allowBackorder ?? record.allow_backorder,
-      restockWaitlistCount: record.restockWaitlistCount ?? record.restock_waitlist_count,
+      restockWaitlistCount:
+        record.restockWaitlistCount ?? record.restock_waitlist_count,
     },
     record.id
   );
-  const assetCode = record.assetCode ?? record.asset_code;
+  const imageValues = Array.isArray(record.images)
+    ? record.images
+    : Array.isArray(record.imageUrls)
+      ? record.imageUrls
+      : Array.isArray(record.image_urls)
+        ? record.image_urls
+        : [record.imageUrl ?? record.image_url];
+  const images = Array.from(
+    new Set(
+      imageValues.filter(
+        (image): image is string =>
+          typeof image === "string" && image.trim().length > 0
+      )
+    )
+  );
   return {
     id: record.id,
     name: record.name,
-    description: typeof record.description === "string" ? record.description : "",
+    description:
+      typeof record.description === "string" ? record.description : "",
     priceStroops:
       typeof price === "bigint" ? price.toString() : String(price ?? "0"),
     ...(assetCode === "USDC" || assetCode === "XLM" || assetCode === "EURC"
       ? { assetCode }
       : {}),
     active: record.active !== false,
+    ...(images.length > 0 ? { images } : {}),
     ...(stock ? { stock } : {}),
   };
 }
@@ -146,12 +185,14 @@ export function parseStorefront(
   );
 
   return {
-    merchantId: typeof body.merchantId === "string" ? body.merchantId : merchantId,
+    merchantId:
+      typeof body.merchantId === "string" ? body.merchantId : merchantId,
     storeName: body.storeName.trim(),
     description: typeof body.description === "string" ? body.description : "",
     stellarAddress:
       typeof body.stellarAddress === "string" ? body.stellarAddress : "",
     reputationScore: asNumber(body.reputationScore),
+    policy: parsePolicy(body.policy) ?? DEFAULT_MERCHANT_POLICY,
     products,
     announcement,
   };

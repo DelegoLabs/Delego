@@ -84,6 +84,15 @@ export const OrderSchema = z.object({
   items: z.array(OrderItemSchema).optional(),
   lineItems: z.array(OrderItemSchema).optional(),
   escrowContractId: z.string().nullable().optional(),
+  giftOptions: z.lazy(() => GiftOptionsSchema).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+export const GiftOptionsSchema = z.object({
+  isGift: z.boolean(),
+  recipientName: z.string().optional(),
+  giftMessage: z.string().max(250).optional(),
+  hidePackingSlipPrice: z.boolean(),
 });
 
 export const EscrowStatusSchema = z.enum([
@@ -136,3 +145,11 @@ export const ApiResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
     data: dataSchema.nullable(),
     error: ApiErrorSchema.nullable(),
   });
+
+export const AutoReorderConfigSchema = z.object({
+  supplierWebhookUrl: z.string().url(),
+  authHeaderMasked: z.string(),
+  minimumThreshold: z.number().int().min(0),
+  reorderQuantity: z.number().int().min(1),
+  isEnabled: z.boolean(),
+});

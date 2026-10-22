@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge, Card } from "@delegolabs/ui";
 import {
   DEFAULT_MERCHANT_WEBHOOK_CONFIG,
@@ -11,6 +11,9 @@ import {
   saveMerchantWebhookConfig,
   type MerchantWebhookConfig,
 } from "../../lib/merchantWebhooks";
+import { loadWebhookDeliveryLogs, type WebhookDeliveryLog } from "../../lib/webhookDeliveryLog";
+import { computeWebhookHealthScore, getRecentDeliveryErrors } from "../../lib/webhookHealth";
+import { WebhookHealthMeter } from "./WebhookHealthMeter";
 
 const EVENT_LABELS: Record<MerchantWebhookConfig["subscribedEvents"][number], string> = {
   "order.created": "New order created",
@@ -27,10 +30,26 @@ export function MerchantWebhookCard() {
   const [urlError, setUrlError] = useState<string | null>(null);
   const [testStatus, setTestStatus] = useState<TestStatus>("idle");
   const [saved, setSaved] = useState(false);
+  const [deliveryLogs, setDeliveryLogs] = useState<WebhookDeliveryLog[]>([]);
+  // The persisted endpoint, so editing the URL field doesn't rescore the
+  // meter on every keystroke (#1010).
+  const [savedUrl, setSavedUrl] = useState("");
 
   useEffect(() => {
-    setConfig(loadMerchantWebhookConfig());
+    const loaded = loadMerchantWebhookConfig();
+    setConfig(loaded);
+    setSavedUrl(loaded.isActive ? loaded.webhookUrl : "");
+    setDeliveryLogs(loadWebhookDeliveryLogs());
   }, []);
+
+  const health = useMemo(() => {
+    if (!savedUrl) return null;
+    const now = new Date();
+    return {
+      score: computeWebhookHealthScore(savedUrl, deliveryLogs, now),
+      recentErrors: getRecentDeliveryErrors(savedUrl, deliveryLogs, now),
+    };
+  }, [savedUrl, deliveryLogs]);
 
   function toggleEvent(event: MerchantWebhookConfig["subscribedEvents"][number]) {
     setConfig((prev) => ({
@@ -55,6 +74,7 @@ export function MerchantWebhookCard() {
     };
     setConfig(next);
     saveMerchantWebhookConfig(next);
+    setSavedUrl(next.isActive ? next.webhookUrl : "");
     setSaved(true);
   }
 
@@ -89,6 +109,12 @@ export function MerchantWebhookCard() {
       <p style={{ fontSize: "0.8125rem", color: "#6b7280", marginTop: "0.25rem" }}>
         Receive HTTP POST notifications for new orders and escrow activity.
       </p>
+
+      {health && (
+        <div style={{ marginTop: "0.75rem" }}>
+          <WebhookHealthMeter score={health.score} recentErrors={health.recentErrors} />
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.75rem" }}>
         <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>

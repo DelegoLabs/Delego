@@ -83,6 +83,7 @@ export default async function StorePage({
         merchantId={store.merchantId}
         merchantName={store.storeName}
         payoutAddress={store.stellarAddress}
+        merchantPolicy={store.policy}
       />
     </div>
   );

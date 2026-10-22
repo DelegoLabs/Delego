@@ -39,6 +39,7 @@ export function ReceiptPanel({ order, jurisdictionCode, category }: ReceiptPanel
   const { currencyId, rate } = useCurrency();
   const subtotal = receiptSubtotalStroops(order);
   const fee = receiptFeeStroops(order);
+  const giftOptions = order.giftOptions ?? order.metadata?.giftOptions;
   const tax = computeTaxBreakdown({
     subtotalStroops: subtotal,
     networkFeeStroops: fee,
@@ -72,6 +73,49 @@ export function ReceiptPanel({ order, jurisdictionCode, category }: ReceiptPanel
         </Button>
         <DownloadInvoiceButton order={order} variant="primary" />
       </div>
+
+      {giftOptions?.isGift && (
+        <div
+          data-testid="order-gift-details"
+          className="receipt-gift-details"
+          style={{
+            margin: "1rem 0",
+            padding: "1rem",
+            borderRadius: "0.5rem",
+            backgroundColor: "#fef3c7",
+            border: "1px solid #f59e0b",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.375rem" }}>
+            <span role="img" aria-label="gift">🎁</span>
+            <strong style={{ fontSize: "0.875rem", color: "#92400e" }}>Gift Order</strong>
+          </div>
+          {giftOptions.recipientName && (
+            <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.8125rem", color: "#78350f" }}>
+              <strong>Recipient:</strong> <span data-testid="gift-recipient-name">{giftOptions.recipientName}</span>
+            </p>
+          )}
+          {giftOptions.giftMessage && (
+            <div style={{ fontSize: "0.8125rem", color: "#78350f" }}>
+              <strong>Gift message:</strong>
+              <blockquote
+                data-testid="order-gift-message"
+                style={{
+                  margin: "0.25rem 0 0 0",
+                  padding: "0.5rem 0.75rem",
+                  background: "#fff",
+                  borderRadius: "0.375rem",
+                  borderLeft: "3px solid #d97706",
+                  fontStyle: "italic",
+                  color: "#1f2937",
+                }}
+              >
+                {giftOptions.giftMessage}
+              </blockquote>
+            </div>
+          )}
+        </div>
+      )}
 
       <dl className="receipt-meta">
         <div className="receipt-meta-row">

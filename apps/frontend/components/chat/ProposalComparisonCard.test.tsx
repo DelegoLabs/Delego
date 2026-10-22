@@ -1,12 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { render, screen } from "@testing-library/react";
-import { ProposalComparisonCard } from "./ProposalComparisonCard";
+import { ProposalComparisonCard, type ProposalComparisonMatrix } from "./ProposalComparisonCard";
 import type { PurchaseProposal } from "../../types/proposal";
 
 function makeMatrix(): ProposalComparisonMatrix {
   return {
     productTitle: "Wireless Headphones",
+    recommendedIndex: 0,
     offers: [
       {
         merchantId: "merchant-1",
@@ -39,7 +40,6 @@ function makeMatrix(): ProposalComparisonMatrix {
         proposalId: "prop-3",
       },
     ],
-    recommendedIndex: 0,
   };
 };
 
@@ -56,7 +56,7 @@ describe("ProposalComparisonCard — display", () => {
 
   it("renders merchant names", () => {
     render(
-      <ProposalComparisonCard matrix={makeMatrix()} onAccept={() => {}} />
+      <ProposalComparisonCard matrix={makeMatrix()} onAccept={async () => {}} />
     );
     expect(screen.getByText("Merchant A")).toBeInTheDocument();
     expect(screen.getByText("Merchant B")).toBeInTheDocument();
@@ -64,7 +64,7 @@ describe("ProposalComparisonCard — display", () => {
   });
 
   it("renders prices for each offer", () => {
-    const onAccept = vi.fn();
+    const onAccept = vi.fn().mockResolvedValue(undefined);
     render(
       <ProposalComparisonCard matrix={makeMatrix()} onAccept={onAccept} />
     );
@@ -77,7 +77,7 @@ describe("ProposalComparisonCard — display", () => {
 
   it("renders delivery estimates", () => {
     render(
-      <ProposalComparisonCard matrix={makeMatrix()} onAccept={() => {}} />
+      <ProposalComparisonCard matrix={makeMatrix()} onAccept={async () => {}} />
     );
     expect(screen.getByText("3 days")).toBeInTheDocument();
     expect(screen.getByText("5 days")).toBeInTheDocument();
@@ -86,7 +86,7 @@ describe("ProposalComparisonCard — display", () => {
 
   it("renders rating badges", () => {
     render(
-      <ProposalComparisonCard matrix={makeMatrix()} onAccept={() => {}} />
+      <ProposalComparisonCard matrix={makeMatrix()} onAccept={async () => {}} />
     );
     expect(screen.getAllByTestId("proposal-rating-badge")).toHaveLength(3);
   });
@@ -113,8 +113,8 @@ describe("ProposalComparisonCard — accept flow", () => {
     const acceptButtons = screen.getAllByRole("button", {
       name: /Accept This Offer|Selected/,
     });
-    expect(acceptButtons[0].disabled).toBe(false);
+    expect((acceptButtons[0] as HTMLButtonElement).disabled).toBe(false);
     await userEvent.click(acceptButtons[0]);
-    expect(acceptButtons[0].disabled).toBe(true);
+    expect((acceptButtons[0] as HTMLButtonElement).disabled).toBe(true);
   });
 });
