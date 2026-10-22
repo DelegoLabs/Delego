@@ -329,6 +329,37 @@ export interface TokenAllowanceEntry {
   expirationLedger: number;
 }
 
+export interface Sep0024InteractiveSession {
+  anchorDomain: string;
+  assetCode: string;
+  action: "deposit" | "withdraw";
+  interactiveUrl: string;
+  transactionId: string;
+}
+
+export interface QrDownloadOptions {
+  format: "png" | "svg";
+  sizePx: number;
+  fileName: string;
+}
+
+export interface SorobanSimulationMetrics {
+  cpuInstructions: number;
+  memoryBytes: number;
+  minResourceFeeStroops: string;
+  readBytes: number;
+  writeBytes: number;
+  isSimulatedSuccessfully: boolean;
+}
+
+export interface LedgerConnectionState {
+  isConnected: boolean;
+  bip32Path: string;
+  publicKey?: string;
+  deviceModel?: string;
+  isAppOpen: boolean;
+}
+
 export * from "./schemas.js";
 
 
