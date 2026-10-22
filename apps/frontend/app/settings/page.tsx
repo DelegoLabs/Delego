@@ -19,6 +19,7 @@ import { DataSaverSettingsCard } from "../../components/settings/DataSaverSettin
 import { LanguageSwitcher } from "../../components/settings/LanguageSwitcher";
 import { CurrencySwitcher } from "../../components/settings/CurrencySwitcher";
 import { TimeFormatSwitcher } from "../../components/settings/TimeFormatSwitcher";
+import { MaxFeeCapCard } from "../../components/settings/MaxFeeCapCard";
 import { OfflineDataCard } from "../../components/settings/OfflineDataCard";
 import { AgentSettingsCard } from "../../components/settings/AgentSettingsCard";
 import type { CategoryBudgetAllocation } from "../../components/settings/CategoryBudgetAllocationCard";
@@ -330,6 +331,7 @@ export default function SettingsPage() {
       <LanguageSwitcher />
       <CurrencySwitcher />
       <TimeFormatSwitcher />
+      <MaxFeeCapCard />
       <ChatAudioSettingsCard />
       <NetworkContractsCard />
       <CategoryBudgetAllocationCard

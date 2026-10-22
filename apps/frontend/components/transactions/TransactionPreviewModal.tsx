@@ -9,10 +9,13 @@ import {
   type DecodedOperation,
 } from "../../lib/decodeTransactionPreview";
 import { useNetwork } from "../../hooks/useNetwork";
+import { useFeeSurgeGuard } from "../../hooks/useFeeSurgeGuard";
+import { exceedsMaxFeeCap, isFeeAboveUserLimit, type GasFeeEstimate } from "../../lib/feeSurge";
 import {
   simulateTransactionEnvelope,
   type SimulationDryRunResult,
 } from "../../lib/simulationDryRun";
+import { FeeSurgeWarningModal } from "./FeeSurgeWarningModal";
 import { SimulationDryRunModal } from "./SimulationDryRunModal";
 
 export interface TransactionPreviewModalProps {
@@ -147,6 +150,8 @@ export function TransactionPreviewModal({
   const [dryRunOpen, setDryRunOpen] = useState(false);
   const [dryRunLoading, setDryRunLoading] = useState(false);
   const [dryRun, setDryRun] = useState<SimulationDryRunResult | null>(null);
+  const [surgeEstimate, setSurgeEstimate] = useState<GasFeeEstimate | null>(null);
+  const { estimate, whenReady } = useFeeSurgeGuard();
 
   const preview = useMemo<TransactionPreview | { error: string }>(() => {
     try {
@@ -182,6 +187,33 @@ export function TransactionPreviewModal({
     dryRunRequest.current += 1;
     setDryRunOpen(false);
     setDryRunLoading(false);
+  }
+
+  async function handleConfirm() {
+    // The fee guard (#1002): the transaction may only proceed once the user
+    // has acknowledged a fee above their comfort limit. Two things can trip
+    // it — the network's recommended fee being over the limit, or the
+    // transaction itself having been built with a fee over the limit.
+    //
+    // The estimate is awaited so a surge can't slip through the guard while
+    // the fee-stats request is still in flight.
+    const current = estimate ?? (await whenReady());
+    if (current) {
+      const overLimit =
+        isFeeAboveUserLimit(current) ||
+        (!hasError && exceedsMaxFeeCap(preview.fee, current.userConfiguredMaxFeeStroops));
+      if (overLimit) {
+        setSurgeEstimate(current);
+        return;
+      }
+    }
+    await onConfirm();
+  }
+
+  /** Postpone: the transaction stays unsigned and the preview is dismissed. */
+  function handlePostponeSurge() {
+    setSurgeEstimate(null);
+    onCancel();
   }
 
   return (
@@ -251,7 +283,7 @@ export function TransactionPreviewModal({
           </Button>
           <Button
             variant="primary"
-            onClick={() => void onConfirm()}
+            onClick={() => void handleConfirm()}
             disabled={hasError || confirming || confirmBlockedByRevert}
             loading={confirming}
           >
@@ -270,6 +302,19 @@ export function TransactionPreviewModal({
             handleCloseDryRun();
           }}
         />
+        {surgeEstimate && (
+          <FeeSurgeWarningModal
+            isOpen
+            estimate={surgeEstimate}
+            transactionFeeStroops={hasError ? undefined : preview.fee}
+            approving={confirming}
+            onApprove={async () => {
+              setSurgeEstimate(null);
+              await onConfirm();
+            }}
+            onPostpone={handlePostponeSurge}
+          />
+        )}
       </div>
     </div>
   );
