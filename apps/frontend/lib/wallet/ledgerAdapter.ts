@@ -1,4 +1,5 @@
 import type { LedgerConnectionState } from "@delegolabs/types";
+import { StrKey } from "@stellar/stellar-sdk";
 import type { StellarWalletAdapter } from "./types";
 
 export const DEFAULT_LEDGER_BIP32_PATH = "44'/148'/0'";
@@ -49,17 +50,17 @@ export class LedgerAdapter implements StellarWalletAdapter {
       this.bip32Path = bipPath;
 
       const res = await this.appStr.getPublicKey(this.bip32Path);
-      if (!res || !res.publicKey) {
+      if (!res || !res.rawPublicKey) {
         throw new Error("Failed to retrieve public key from Ledger device.");
       }
 
-      this.connectedPublicKey = res.publicKey;
+      this.connectedPublicKey = StrKey.encodeEd25519PublicKey(res.rawPublicKey);
       this.deviceModelName = this.transport.deviceModel?.id || "Ledger Device";
 
       return {
         isConnected: true,
         bip32Path: this.bip32Path,
-        publicKey: res.publicKey,
+        publicKey: this.connectedPublicKey,
         deviceModel: this.deviceModelName,
         isAppOpen: true,
       };
@@ -102,16 +103,16 @@ export class LedgerAdapter implements StellarWalletAdapter {
     if (this.connectedPublicKey) {
       return this.connectedPublicKey;
     }
-    const state = await this.connect(this.bip32Path);
-    if (!state.publicKey) {
+    const publicKey = await this.connect();
+    if (!publicKey) {
       throw new Error("No public key available on Ledger device.");
     }
-    return state.publicKey;
+    return publicKey;
   }
 
   async signTransaction(xdr: string, _opts?: { networkPassphrase?: string }): Promise<string> {
     if (!this.appStr) {
-      await this.connect(this.bip32Path);
+      await this.connect();
     }
 
     try {
@@ -131,7 +132,7 @@ export class LedgerAdapter implements StellarWalletAdapter {
 
   async signBlob(blob: Uint8Array): Promise<Uint8Array> {
     if (!this.appStr) {
-      await this.connect(this.bip32Path);
+      await this.connect();
     }
 
     try {

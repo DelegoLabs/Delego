@@ -3,6 +3,7 @@
 import { useState, type SyntheticEvent } from "react";
 import { Amount, Badge, Button, Card } from "@delegolabs/ui";
 import { RestockNotifyPopover } from "../storefront/RestockNotifyPopover";
+import { PriceDisplay } from "../storefront/PriceDisplay";
 
 /**
  * Props for the in-chat product recommendation card (#790).

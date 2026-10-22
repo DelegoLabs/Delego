@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useCurrency } from "../../hooks/useCurrency";
+import { useCurrency, type CurrencyPreference } from "../../hooks/useCurrency";
 import {
   FIAT_TARGETS,
   type DisplayCurrencyMode,

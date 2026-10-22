@@ -10,7 +10,6 @@ import { formatAmount } from "@delegolabs/ui";
 import { StockDepletionPanel } from "../../../components/storefront/StockDepletionPanel";
 import { ImageLightboxModal } from "../../../components/storefront/ImageLightboxModal";
 import {
-  DEFAULT_MERCHANT_POLICY,
   filterStoreProducts,
   type MerchantProduct,
 } from "../../../lib/storefront";
@@ -68,7 +67,6 @@ interface StorefrontCatalogProps {
   merchantId: string;
   merchantName: string;
   payoutAddress: string;
-  merchantPolicy?: MerchantPolicyInfo;
 }
 
 export function StorefrontCatalog({
@@ -76,7 +74,6 @@ export function StorefrontCatalog({
   merchantId,
   merchantName,
   payoutAddress,
-  merchantPolicy,
 }: StorefrontCatalogProps) {
   const [query, setQuery] = useState("");
   const [displayedCount, setDisplayedCount] = useState(CATALOG_PAGE_SIZE);
@@ -113,10 +110,6 @@ export function StorefrontCatalog({
         )
       );
       if (cancelled) return;
-      setChecked((prev) => ({
-        ...prev,
-        ...Object.fromEntries(ids.map((id) => [`${merchantId}/${id}`, true])),
-      }));
       setLiveStock((prev) => {
         const next = { ...prev };
         for (const [id, stock] of updates) {

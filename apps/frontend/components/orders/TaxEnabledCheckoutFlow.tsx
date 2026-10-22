@@ -84,8 +84,17 @@ export function TaxEnabledCheckoutFlow({
   const [showReceipt, setShowReceipt] = useState(mode === "receipt");
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [deliveryError, setDeliveryError] = useState<string | null>(null);
+  const [giftOptions, setGiftOptions] = useState<GiftOptions>(
+    order.giftOptions ??
+      order.metadata?.giftOptions ?? {
+        isGift: false,
+        hidePackingSlipPrice: true,
+      }
+  );
   const deliveryFieldId = useId();
   const deliveryKeyAvailable = Boolean(merchantPublicKey?.trim());
+  const handleGiftOptionsChange = (options: GiftOptions) =>
+    setGiftOptions(options);
 
   const addressValidation = useAddressValidation({
     streetAddress,

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { StrKey } from "@stellar/stellar-sdk";
 import { ledgerAdapter } from "./ledgerAdapter";
 
 vi.mock("@ledgerhq/hw-transport-webhid", () => ({
@@ -12,7 +13,9 @@ vi.mock("@ledgerhq/hw-transport-webhid", () => ({
 
 vi.mock("@ledgerhq/hw-app-str", () => ({
   default: vi.fn().mockImplementation(() => ({
-    getPublicKey: vi.fn().mockResolvedValue({ publicKey: "GABCLEDGER1234567890" }),
+    getPublicKey: vi
+      .fn()
+      .mockResolvedValue({ rawPublicKey: Buffer.alloc(32, 1) }),
     signTransaction: vi.fn().mockResolvedValue({ signature: Buffer.from("fakesig") }),
   })),
 }));
@@ -31,7 +34,9 @@ describe("LedgerAdapter", () => {
   it("connects and retrieves public key from mock device", async () => {
     const state = await ledgerAdapter.connectLedger("44'/148'/0'");
     expect(state.isConnected).toBe(true);
-    expect(state.publicKey).toBe("GABCLEDGER1234567890");
+    expect(state.publicKey).toBe(
+      StrKey.encodeEd25519PublicKey(Buffer.alloc(32, 1))
+    );
     expect(state.deviceModel).toBe("nanoS");
   });
 

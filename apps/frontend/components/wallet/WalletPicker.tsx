@@ -97,7 +97,7 @@ export function WalletPicker({
 
               {isConnected || wallet.installed === null ? null : (
                 <>
-                  {wallet.installed === false ? (
+                  {wallet.installed === false && wallet.installUrl ? (
                     <a
                       href={wallet.installUrl}
                       target="_blank"
@@ -106,7 +106,7 @@ export function WalletPicker({
                     >
                       Install {wallet.name}
                     </a>
-                  ) : (
+                  ) : wallet.installed === false ? null : (
                     <Button
                       variant="secondary"
                       onClick={() => void onConnect(wallet.id)}

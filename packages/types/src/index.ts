@@ -337,6 +337,21 @@ export interface ConnectivityState {
   lastConnectedTimestamp: number;
 }
 
+export interface MerchantPolicyInfo {
+  returnWindowDays: number;
+  restockingFeePercent: number;
+  freeShippingThresholdStroops?: string;
+  escrowProtectionNotice: string;
+}
+
+export interface AutoReorderConfig {
+  supplierWebhookUrl: string;
+  authHeaderMasked: string;
+  minimumThreshold: number;
+  reorderQuantity: number;
+  isEnabled: boolean;
+}
+
 /**
  * Active Soroban token allowance granted to an escrow or router contract.
  */

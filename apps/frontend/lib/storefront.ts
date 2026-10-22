@@ -44,6 +44,7 @@ export interface StorefrontData {
   description: string;
   stellarAddress: string;
   reputationScore: number;
+  policy: MerchantPolicyInfo;
   products: MerchantProduct[];
   announcement: StoreAnnouncement | null;
 }
@@ -69,6 +70,39 @@ function asNumber(value: unknown): number {
   return 0;
 }
 
+function parsePolicy(value: unknown): MerchantPolicyInfo | null {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  const returnWindowDays = asNumber(record.returnWindowDays ?? record.return_window_days);
+  const restockingFeePercent = asNumber(
+    record.restockingFeePercent ?? record.restocking_fee_percent
+  );
+  const rawThreshold =
+    record.freeShippingThresholdStroops ??
+    record.free_shipping_threshold_stroops;
+  const escrowProtectionNotice =
+    record.escrowProtectionNotice ?? record.escrow_protection_notice;
+
+  if (
+    returnWindowDays < 0 ||
+    restockingFeePercent < 0 ||
+    typeof escrowProtectionNotice !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    returnWindowDays,
+    restockingFeePercent,
+    freeShippingThresholdStroops:
+      typeof rawThreshold === "string" && /^\d+$/.test(rawThreshold)
+        ? rawThreshold
+        : undefined,
+    escrowProtectionNotice,
+  };
+}
+
 function parseProduct(value: unknown): MerchantProduct | null {
   const record = asRecord(value);
   if (
@@ -79,6 +113,11 @@ function parseProduct(value: unknown): MerchantProduct | null {
     return null;
   }
   const price = record.priceStroops ?? record.price_stroops ?? "0";
+  const rawAssetCode = record.assetCode ?? record.asset_code;
+  const assetCode =
+    rawAssetCode === "USDC" || rawAssetCode === "XLM" || rawAssetCode === "EURC"
+      ? rawAssetCode
+      : undefined;
   const stock = parseStockDepletion(
     record.stock ?? {
       remainingStock:
