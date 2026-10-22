@@ -26,7 +26,7 @@ import {
  * mismatch — same pattern as DomainWarningBanner/DemoBanner.
  */
 export function ConsentBanner() {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     setVisible(!hasConsentChoice());

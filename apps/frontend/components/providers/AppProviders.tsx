@@ -28,11 +28,15 @@ import { DomainWarningBanner } from "../security/DomainWarningBanner";
 import { ConsentBanner } from "../consent/ConsentBanner";
 import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvider";
 import { ChatDrawerProvider } from "../chat/public";
-import { CartProvider } from "../../hooks/useCart";
-import { CartDrawer } from "../cart/CartDrawer";
+import { CartProvider, useCart } from "../../hooks/useCart";
 import { CopilotBubbleProvider } from "../chat/CopilotBubbleProvider";
 import { useBroadcastChannel } from "../../hooks/useBroadcastChannel";
 import { syncWalletDisconnected } from "../../hooks/useWallet";
+
+const CartDrawer = dynamic(
+  () => import("../cart/CartDrawer").then((module) => module.CartDrawer),
+  { ssr: false }
+);
 
 function WalletTabSync() {
   useBroadcastChannel((message) => {
@@ -41,6 +45,11 @@ function WalletTabSync() {
     }
   });
   return null;
+}
+
+function CartDrawerHost() {
+  const { drawerOpen } = useCart();
+  return drawerOpen ? <CartDrawer /> : null;
 }
 
 // Ephemeral session signing keys live only inside this worker's isolated
@@ -104,7 +113,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
                               <WebVitalsReporter />
                               <QueueInspectorModal />
                               {children}
-                              <CartDrawer />
+                              <CartDrawerHost />
                               <NetworkMismatchModal />
                               <IdleSessionGuard />
                             </CopilotBubbleProvider>

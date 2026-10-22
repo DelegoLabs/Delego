@@ -38,6 +38,12 @@ const PREFS_KEY = "delego_consent_preferences";
 const LOG_KEY = "delego_consent_log";
 const MAX_LOG_ENTRIES = 200;
 
+export const consentBootstrapScript = `try {
+  if (localStorage.getItem("${PREFS_KEY}")) {
+    document.documentElement.dataset.consentChoice = "1";
+  }
+} catch {}`;
+
 /** Default preferences before the user has made any choice: essential only. */
 export const DEFAULT_CONSENT_PREFERENCES: ConsentPreferences = {
   essential: true,

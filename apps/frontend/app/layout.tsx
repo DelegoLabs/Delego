@@ -20,6 +20,7 @@ import { a11yBootstrapScript } from "../hooks/useAccessibility";
 import { EXTERNAL_SCRIPTS } from "../lib/sri";
 import { AgentFab } from "../components/layout/AgentFab";
 import { SkipToContent } from "../components/layout/SkipToContent";
+import { consentBootstrapScript } from "../lib/consent";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -75,6 +76,7 @@ export default async function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <script dangerouslySetInnerHTML={{ __html: a11yBootstrapScript }} />
+        <script dangerouslySetInnerHTML={{ __html: consentBootstrapScript }} />
         {/* Externally referenced CDN scripts with Subresource Integrity (SRI) (#763) */}
         <script
           src={EXTERNAL_SCRIPTS.turnstile.src}

@@ -2270,6 +2270,10 @@ body.font-sans-system {
   font-size: 0.875rem;
 }
 
+html[data-consent-choice="1"] .consent-banner {
+  display: none;
+}
+
 .consent-banner-text {
   margin: 0;
   flex: 1 1 20rem;

@@ -10,9 +10,21 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ChatDrawer, type ChatMessage } from "./ChatDrawer";
-import { ContextMemoryPanel } from "../agent/ContextMemoryPanel";
+import dynamic from "next/dynamic";
+import type { ChatMessage } from "./ChatDrawer";
 import { useAgentConversationContext } from "../../hooks/useAgentConversationContext";
+
+const ChatDrawer = dynamic(
+  () => import("./ChatDrawer").then((module) => module.ChatDrawer),
+  { ssr: false }
+);
+const ContextMemoryPanel = dynamic(
+  () =>
+    import("../agent/ContextMemoryPanel").then(
+      (module) => module.ContextMemoryPanel
+    ),
+  { ssr: false }
+);
 
 interface ChatDrawerContextValue {
   isOpen: boolean;
@@ -140,23 +152,27 @@ export function ChatDrawerProvider({
   return (
     <ChatDrawerContext.Provider value={value}>
       {children}
-      <ChatDrawer
-        isOpen={isOpen}
-        onClose={closeChat}
-        agentId={agentId}
-        messages={messages}
-        isGenerating={isGenerating}
-        initialDraft={initialDraft}
-        onSendMessage={handleSend}
-        onOpenContextPanel={openContextPanel}
-      />
-      <ContextMemoryPanel
-        isOpen={isContextPanelOpen}
-        onClose={closeContextPanel}
-        context={context}
-        onReset={resetContext}
-        wasRecentlyReset={wasRecentlyReset}
-      />
+      {isOpen ? (
+        <ChatDrawer
+          isOpen={isOpen}
+          onClose={closeChat}
+          agentId={agentId}
+          messages={messages}
+          isGenerating={isGenerating}
+          initialDraft={initialDraft}
+          onSendMessage={handleSend}
+          onOpenContextPanel={openContextPanel}
+        />
+      ) : null}
+      {isContextPanelOpen ? (
+        <ContextMemoryPanel
+          isOpen={isContextPanelOpen}
+          onClose={closeContextPanel}
+          context={context}
+          onReset={resetContext}
+          wasRecentlyReset={wasRecentlyReset}
+        />
+      ) : null}
     </ChatDrawerContext.Provider>
   );
 }
