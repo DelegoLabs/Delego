@@ -5,6 +5,16 @@
 import { parseStockDepletion, type StockDepletionInfo } from "./stockDepletion";
 import type { CartItem } from "./cart";
 
+import type { MerchantPolicyInfo } from "@delegolabs/types";
+
+export const DEFAULT_MERCHANT_POLICY: MerchantPolicyInfo = {
+  returnWindowDays: 30,
+  restockingFeePercent: 0,
+  freeShippingThresholdStroops: "100000000",
+  escrowProtectionNotice:
+    "Purchases are protected by Delego smart contract escrow. Funds are securely locked until delivery is confirmed.",
+};
+
 export interface MerchantProduct {
   id: string;
   name: string;
@@ -13,6 +23,7 @@ export interface MerchantProduct {
   assetCode?: CartItem["assetCode"];
   active: boolean;
   stock?: StockDepletionInfo;
+  policy?: MerchantPolicyInfo;
 }
 
 export type StoreAnnouncementType = "info" | "warning" | "promotion";
@@ -152,6 +163,7 @@ export function parseStorefront(
     stellarAddress:
       typeof body.stellarAddress === "string" ? body.stellarAddress : "",
     reputationScore: asNumber(body.reputationScore),
+    policy: parsePolicy(body.policy) ?? DEFAULT_MERCHANT_POLICY,
     products,
     announcement,
   };
