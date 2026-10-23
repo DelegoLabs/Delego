@@ -13,3 +13,10 @@ export { StorefrontBannerUploader } from "./StorefrontBannerUploader";
 export type { StorefrontBannerUploaderProps } from "./StorefrontBannerUploader";
 export { VerificationStepper } from "./VerificationStepper";
 export type { VerificationStepperProps } from "./VerificationStepper";
+export { CustomDomainCard } from "./CustomDomainCard";
+export type { CustomDomainCardProps } from "./CustomDomainCard";
+export { DomainStatusBadge } from "./DomainStatusBadge";
+export type {
+  DomainStatusBadgeProps,
+  DomainStatusBadgeStatus,
+} from "./DomainStatusBadge";

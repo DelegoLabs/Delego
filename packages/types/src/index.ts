@@ -374,6 +374,16 @@ export interface LedgerConnectionState {
   isAppOpen: boolean;
 }
 
+export type DomainSslStatus = "pending" | "active" | "error";
+
+export interface DomainRoutingStatus {
+  domain: string;
+  cnameTarget: string;
+  isCnameConfigured: boolean;
+  sslStatus: DomainSslStatus;
+  lastCheckedAt: string;
+}
+
 export * from "./schemas.js";
 
 
