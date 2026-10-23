@@ -74,7 +74,7 @@ describe("cart coupon flow", () => {
     await user.click(screen.getByTestId("proceed-to-checkout"));
     expect(
       screen.getByRole("region", { name: "Multi-merchant checkout" })
-    ).toHaveTextContent("9 XLM");
+    ).toHaveTextContent("9.00 XLM");
   });
 
   it.each(["Invalid coupon code.", "This coupon has expired."])(
@@ -96,7 +96,9 @@ describe("cart coupon flow", () => {
     await user.click(
       screen.getByRole("button", { name: "Increase quantity of Tea" })
     );
-    expect(screen.getByTestId("cart-subtotal")).toHaveTextContent("20 XLM");
+    await waitFor(() =>
+      expect(screen.getByTestId("cart-subtotal")).toHaveTextContent("20 XLM")
+    );
     expect(
       screen.queryByRole("button", { name: "Remove promo code" })
     ).not.toBeInTheDocument();
@@ -114,6 +116,9 @@ describe("cart coupon flow", () => {
     expect(screen.getByTestId("proceed-to-checkout")).toBeDisabled();
     await user.click(
       screen.getByRole("button", { name: "Increase quantity of Tea" })
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("cart-subtotal")).toHaveTextContent("20 XLM")
     );
     await act(async () => resolve(discount));
     expect(screen.getByTestId("cart-subtotal")).toHaveTextContent("20 XLM");

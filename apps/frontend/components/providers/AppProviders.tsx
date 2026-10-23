@@ -32,6 +32,8 @@ import { CartProvider, useCart } from "../../hooks/useCart";
 import { CopilotBubbleProvider } from "../chat/CopilotBubbleProvider";
 import { useBroadcastChannel } from "../../hooks/useBroadcastChannel";
 import { syncWalletDisconnected } from "../../hooks/useWallet";
+// SSR-safe: the Web Worker is constructed only when ensureWorker is called.
+import { SessionKeyWorkerProvider } from "../session/SessionKeyWorkerProvider";
 
 const CartDrawer = dynamic(
   () => import("../cart/CartDrawer").then((module) => module.CartDrawer),
@@ -51,13 +53,6 @@ function CartDrawerHost() {
   const { drawerOpen } = useCart();
   return drawerOpen ? <CartDrawer /> : null;
 }
-
-// Ephemeral session signing keys live only inside this worker's isolated
-// memory. Loaded client-side only so it never runs during SSR.
-const SessionKeyWorkerProvider = dynamic(
-  () => import("../session/SessionKeyWorkerProvider").then((m) => m.SessionKeyWorkerProvider),
-  { ssr: false },
-);
 
 /**
  * Client-side context providers shared across the app shell.
