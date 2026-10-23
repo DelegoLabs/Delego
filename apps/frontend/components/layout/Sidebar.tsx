@@ -54,7 +54,7 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Help section — replay tour (#637) */}
+      {/* Help section — launch or replay tour (#637) */}
       <div style={{ marginTop: "auto", padding: "1rem 0.5rem 0.5rem" }}>
         <button
           type="button"
@@ -74,7 +74,7 @@ export function Sidebar() {
             color: "var(--color-text-secondary, #4b5563)",
             textAlign: "left",
           }}
-          aria-label="Replay product tour"
+          aria-label="Start or replay product tour"
         >
           <span aria-hidden="true">🎯</span> Take the tour
         </button>

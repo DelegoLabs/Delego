@@ -66,7 +66,7 @@ const TourContext = createContext<TourContextValue | null>(null);
 /**
  * Tour engine (#637).
  *
- * - Auto-starts for first-session users (neither completed nor dismissed).
+ * - Starts only when requested so it does not interrupt the first page view.
  * - Survives route changes mid-flow: the spotlight follows the anchor via
  *   `ResizeObserver`/`IntersectionObserver`; if an anchor is missing the step
  *   is skipped gracefully.
@@ -80,14 +80,6 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
   const [active, setActive] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
-
-  // Auto-start for first-session users once the DOM has settled.
-  useEffect(() => {
-    if (hasSeen) return;
-    const timer = setTimeout(() => setActive(true), 600);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const dismiss = useCallback(() => {
     writeFlag(TOUR_DISMISSED_KEY, true);
