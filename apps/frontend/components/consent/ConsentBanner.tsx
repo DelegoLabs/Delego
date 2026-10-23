@@ -47,9 +47,7 @@ export function ConsentBanner() {
   return (
     <div className="consent-banner" role="region" aria-label="Privacy preferences">
       <p className="consent-banner-text">
-        We use essential functionality by default. With your permission
-        we&apos;d also like to use product analytics to improve the app —
-        you can change this any time in Settings.
+        Essential features work. Allow product analytics?
       </p>
       <div className="consent-banner-actions">
         <Link href="/settings" className="consent-banner-customize-link">

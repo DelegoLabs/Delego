@@ -229,11 +229,12 @@ describe("Tax Integration E2E", () => {
       );
 
       // Enter postal code
-      const postalInput = screen.getByPlaceholderText("Enter postal code for tax calculation");
+      const streetAddressInput = screen.getByPlaceholderText("123 Main St");
+      fireEvent.change(streetAddressInput, {
+        target: { value: "123 Main St" },
+      });
+      const postalInput = screen.getByPlaceholderText("Enter postal code");
       fireEvent.change(postalInput, { target: { value: "90210" } });
-
-      // Should show tax calculation message
-      expect(screen.getByText("Tax will be calculated based on this delivery location")).toBeInTheDocument();
 
       // Should show tax breakdown. Both the step Card and the breakdown panel are
       // titled "Tax Calculation", so the match is deliberately ambiguous.

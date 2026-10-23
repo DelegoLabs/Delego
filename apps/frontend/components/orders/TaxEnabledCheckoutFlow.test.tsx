@@ -120,6 +120,15 @@ const mockOrder: Order = {
   updatedAt: "2024-01-01T00:00:00Z",
 };
 
+function enterValidDeliveryAddress(postalCode = "90210") {
+  fireEvent.change(screen.getByPlaceholderText("123 Main St"), {
+    target: { value: "123 Main St" },
+  });
+  fireEvent.change(screen.getByPlaceholderText("Enter postal code"), {
+    target: { value: postalCode },
+  });
+}
+
 describe("TaxEnabledCheckoutFlow", () => {
   test("renders tax preview mode", () => {
     render(
@@ -142,11 +151,12 @@ describe("TaxEnabledCheckoutFlow", () => {
       />
     );
 
-    const postalInput = screen.getByPlaceholderText("Enter postal code for tax calculation");
+    const postalInput = screen.getByPlaceholderText("Enter postal code");
     fireEvent.change(postalInput, { target: { value: "90210" } });
 
     expect(postalInput).toHaveValue("90210");
-    expect(screen.getByText("Tax will be calculated based on this delivery location")).toBeInTheDocument();
+    expect(screen.getAllByText("Tax Calculation").length).toBeGreaterThan(0);
+    expect(screen.getByText("California, USA")).toBeInTheDocument();
   });
 
   test("shows approval card with postal code when provided", () => {
@@ -174,6 +184,7 @@ describe("TaxEnabledCheckoutFlow", () => {
       />
     );
 
+    enterValidDeliveryAddress();
     const approveBtn = screen.getByTestId("approve-btn");
     fireEvent.click(approveBtn);
 
@@ -290,11 +301,11 @@ describe("Integration scenarios", () => {
     );
 
     // Enter California postal code
-    const postalInput = screen.getByPlaceholderText("Enter postal code for tax calculation");
-    fireEvent.change(postalInput, { target: { value: "90210" } });
+    enterValidDeliveryAddress();
 
     // Should show tax calculation
-    expect(screen.getByText("Tax will be calculated based on this delivery location")).toBeInTheDocument();
+    expect(screen.getAllByText("Tax Calculation").length).toBeGreaterThan(0);
+    expect(screen.getByText("California, USA")).toBeInTheDocument();
 
     // Approve the order
     const approveBtn = screen.getByTestId("approve-btn");
@@ -318,7 +329,7 @@ describe("Integration scenarios", () => {
     );
 
     // Should show postal code input
-    expect(screen.getByPlaceholderText("Enter postal code for tax calculation")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Enter postal code")).toBeInTheDocument();
     
     // Should not show tax breakdown initially
     expect(screen.queryByText("Tax Calculation")).not.toBeInTheDocument();
@@ -428,6 +439,7 @@ describe("Delivery instructions (#1005)", () => {
       />
     );
 
+    enterValidDeliveryAddress();
     fireEvent.click(screen.getByTestId("approve-btn"));
 
     await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
@@ -461,6 +473,7 @@ describe("Delivery instructions (#1005)", () => {
           mode="full"
         />
       );
+      enterValidDeliveryAddress();
       fireEvent.change(screen.getByLabelText(LABEL), {
         target: { value: GATE_CODE },
       });
@@ -506,6 +519,7 @@ describe("Delivery instructions (#1005)", () => {
     );
 
     const field = screen.getByLabelText(LABEL);
+    enterValidDeliveryAddress();
     fireEvent.change(field, { target: { value: GATE_CODE } });
     fireEvent.click(screen.getByTestId("approve-btn"));
 
@@ -526,6 +540,7 @@ describe("Delivery instructions (#1005)", () => {
     );
 
     const field = screen.getByLabelText(LABEL);
+    enterValidDeliveryAddress();
     fireEvent.change(field, { target: { value: GATE_CODE } });
     fireEvent.click(screen.getByTestId("approve-btn"));
 
