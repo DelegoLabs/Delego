@@ -25,7 +25,7 @@ import { consentBootstrapScript } from "../lib/consent";
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
-  preload: false,
+  preload: true,
   fallback: ["system-ui", "-apple-system", "sans-serif"],
 });
 
@@ -103,10 +103,10 @@ export default async function RootLayout({
                   <Header />
                   <AgentLiveStatusBanner />
                   <TestnetFaucetBanner />
-                  <InstallPromptCard />
                   <main id="app-content" className="app-content" tabIndex={-1}>
                     {children}
                   </main>
+                  <InstallPromptCard />
                   <Footer />
                 </div>
               </div>
