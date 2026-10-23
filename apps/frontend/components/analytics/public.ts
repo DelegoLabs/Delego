@@ -10,3 +10,12 @@ export { SpendForecastChart } from "./SpendForecastChart";
 export type { SpendForecastChartProps } from "./SpendForecastChart";
 export type { SpendForecastPoint } from "../../lib/spendForecast";
 export type { ForecastHorizonDays } from "../../lib/spendForecast";
+export { SpendingByCategoryCard } from "./SpendingByCategoryCard";
+export { SpendingDonutChart } from "./SpendingDonutChart";
+export { SpendingLegend } from "./SpendingLegend";
+export { SpendingRangeSelector } from "./SpendingRangeSelector";
+export type {
+  SpendMode,
+  SpendingCategoryRange,
+  BuyerSpendingCategory,
+} from "../../lib/spendingByCategory";
