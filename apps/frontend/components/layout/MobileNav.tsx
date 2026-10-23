@@ -119,8 +119,8 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    // Same policy as the desktop Sidebar — see #621.
-                    prefetch={true}
+                    // Don't prefetch every hidden route while the drawer is closed.
+                    prefetch={open}
                     className={`nav-link focus-visible-ring${isActive ? " active" : ""}`}
                     aria-current={isActive ? "page" : undefined}
                     onClick={onClose}

@@ -27,7 +27,7 @@ import { IdleSessionGuard } from "../session/IdleSessionGuard";
 import { DomainWarningBanner } from "../security/DomainWarningBanner";
 import { ConsentBanner } from "../consent/ConsentBanner";
 import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvider";
-import { ChatDrawerProvider } from "../chat/public";
+import { ChatDrawerProvider } from "../chat/ChatDrawerProvider";
 import { CartProvider, useCart } from "../../hooks/useCart";
 import { CopilotBubbleProvider } from "../chat/CopilotBubbleProvider";
 import { useBroadcastChannel } from "../../hooks/useBroadcastChannel";

@@ -29,7 +29,7 @@ hover-intent prefetch has to be done by hand via `router.prefetch()`.
 | Route / component | Policy | Rationale |
 | --- | --- | --- |
 | `components/layout/Sidebar.tsx` (primary nav) | viewport | Small fixed set, always visible, near-certain to be used. |
-| `components/layout/MobileNav.tsx` (primary nav) | viewport | Same as Sidebar — the mobile equivalent. |
+| `components/layout/MobileNav.tsx` (primary nav) | viewport while open; none while closed | The links are hidden in the off-canvas drawer until opened, so prefetch only when they become visible. |
 | `app/not-found.tsx` ("Go Home") | viewport | Single link, trivial cost. |
 | `app/escrows/[id]/page.tsx` ("Back to Escrows", ×2: not-found and detail states) | viewport | Single link per render, likely to be clicked leaving a detail page. |
 | `app/delegations/[id]/page.tsx` ("Back to Delegations", ×2) | viewport | Same reasoning as the escrow detail page. |

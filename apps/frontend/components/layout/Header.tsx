@@ -11,7 +11,7 @@ import { NotificationBell } from "../notifications/NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
 import { CurrencyToggleDropdown } from "./CurrencyToggleDropdown";
 import { CommandPaletteTrigger } from "../command-palette/CommandPaletteTrigger";
-import { ChatDrawerTrigger } from "../chat/public";
+import { ChatDrawerTrigger } from "../chat/ChatDrawerTrigger";
 import { DataSaverChip } from "./DataSaverChip";
 import { BalanceSwitcher } from "./BalanceSwitcher";
 
