@@ -82,16 +82,14 @@ describe("InChatProductCard — stock badge", () => {
     );
   });
 
-  it("shows an out-of-stock badge and disables checkout when sold out", async () => {
-    const user = userEvent.setup();
+  it("shows an out-of-stock badge and offers restock notifications instead of checkout", () => {
     const { onBuyNow } = renderCard({ stockQuantity: 0 });
 
     expect(screen.getByTestId("in-chat-product-stock-badge")).toHaveTextContent(
       "Out of stock"
     );
-    expect(buyButton()).toBeDisabled();
-
-    await user.click(buyButton());
+    expect(screen.queryByTestId("in-chat-product-buy-button")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /notify me/i })).toBeInTheDocument();
     expect(onBuyNow).not.toHaveBeenCalled();
   });
 

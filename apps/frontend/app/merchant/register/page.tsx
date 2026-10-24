@@ -128,7 +128,7 @@ export default function MerchantRegisterPage() {
         setFormErrors((prev) => ({ ...prev, payoutAddress: result.error }));
         return;
       }
-      setStepIndex(1);
+      setStepIndex(2);
     } finally {
       setValidatingAddress(false);
     }

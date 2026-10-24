@@ -374,6 +374,7 @@ describe("decodeParamsToFilters", () => {
       minPrice: 100,
       maxPrice: 5000,
       inStockOnly: true,
+      lowStockOnly: false,
       minRating: 3,
     };
     const encoded = encodeFiltersToParams(original);

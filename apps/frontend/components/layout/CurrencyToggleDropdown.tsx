@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CurrencyPreference } from "@delegolabs/types";
 import { useCurrency } from "../../hooks/useCurrency";
 import {
   FIAT_TARGETS,

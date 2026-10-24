@@ -25,8 +25,11 @@ vi.mock("../../hooks/useDemoModeGuard", () => ({
   DEMO_MODE_BLOCKED_MESSAGE: "Demo mode is read-only.",
 }));
 vi.mock("../../hooks/useOnlineStatus", () => ({
-  useOnlineStatus: () => ({ connectionStatus: "online" }),
+  useOnlineStatus: () => ({ connectionStatus: mockOnlineStatus.connectionStatus }),
   OFFLINE_BLOCKED_MESSAGE: "You're offline — reconnect to continue.",
+}));
+const mockOnlineStatus = vi.hoisted(() => ({
+  connectionStatus: "online" as "online" | "offline",
 }));
 vi.mock("../../hooks/useDelegationTags", () => ({
   useDelegationTags: () => ({ getTag: () => undefined }),
@@ -55,6 +58,10 @@ const mockSubmitApproval = vi.fn();
 vi.mock("../../services/approvals", () => ({
   submitApproval: (...args: unknown[]) => mockSubmitApproval(...args),
 }));
+
+beforeEach(() => {
+  mockOnlineStatus.connectionStatus = "online";
+});
 
 const mockSetLocalApprovalNote = vi.fn();
 vi.mock("../../lib/localApprovalNotes", () => ({
@@ -356,15 +363,7 @@ describe("ApprovalCard — callback guards and loading states (#898)", () => {
   });
 
   it("Approve & Pay button is disabled while offline", () => {
-    vi.mock("../../hooks/useOnlineStatus", () => ({
-      useOnlineStatus: () => ({
-        connectionStatus: "offline",
-        cachedOrdersCount: 0,
-        lastSyncedAt: null,
-        disabledProps: { disabled: true as const, title: "You're offline \u2014 reconnect to continue." },
-      }),
-      OFFLINE_BLOCKED_MESSAGE: "You're offline \u2014 reconnect to continue.",
-    }));
+    mockOnlineStatus.connectionStatus = "offline";
     render(<ApprovalCard order={makeOrder()} onApprove={vi.fn()} onReject={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Approve & Pay" })).toBeDisabled();
   });

@@ -115,7 +115,7 @@ function installCanvasMock(output: (type?: string) => Uint8Array = () => CLEAN_J
     type?: string
   ) {
     encoded.push({ width: this.width, height: this.height, type });
-    callback(new Blob([output(type)], { type }));
+    callback(new Blob([toArrayBuffer(output(type))], { type }));
   }) as unknown as typeof HTMLCanvasElement.prototype.toBlob;
   return { drawImage, encoded };
 }
@@ -127,6 +127,12 @@ function readFileBytes(file: Blob): Promise<Uint8Array> {
     reader.onerror = () => reject(reader.error);
     reader.readAsArrayBuffer(file);
   });
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
 }
 
 beforeEach(() => {
@@ -164,7 +170,7 @@ describe("stripExifData", () => {
   it("removes GPS and camera tags while preserving pixel dimensions", async () => {
     const { drawImage, encoded } = installCanvasMock();
     const sample = jpegWithGpsExif();
-    const input = new File([sample], "IMG_0042.JPG", { type: "image/jpeg" });
+    const input = new File([toArrayBuffer(sample)], "IMG_0042.JPG", { type: "image/jpeg" });
 
     const result = await stripExifData(input);
     const out = await readFileBytes(result.file);
@@ -183,7 +189,7 @@ describe("stripExifData", () => {
 
   it("keeps WebP sources as WebP", async () => {
     installCanvasMock(() => webp([["VP8 ", [1, 2, 3]]]));
-    const input = new File([new Uint8Array([1])], "avatar.webp", { type: "image/webp" });
+    const input = new File([toArrayBuffer(new Uint8Array([1]))], "avatar.webp", { type: "image/webp" });
     const result = await stripExifData(input);
     expect(result.file.type).toBe("image/webp");
     expect(result.file.name).toBe("avatar.webp");
@@ -200,12 +206,12 @@ describe("stripExifData", () => {
       encoded.push({ width: this.width, height: this.height, type });
       callback(
         type === "image/webp"
-          ? new Blob([new Uint8Array([0x89, 0x50])], { type: "image/png" })
-          : new Blob([CLEAN_JPEG], { type: "image/jpeg" })
+          ? new Blob([toArrayBuffer(new Uint8Array([0x89, 0x50]))], { type: "image/png" })
+          : new Blob([toArrayBuffer(CLEAN_JPEG)], { type: "image/jpeg" })
       );
     }) as unknown as typeof HTMLCanvasElement.prototype.toBlob;
 
-    const input = new File([new Uint8Array([1])], "photo.webp", { type: "image/webp" });
+    const input = new File([toArrayBuffer(new Uint8Array([1]))], "photo.webp", { type: "image/webp" });
     const result = await stripExifData(input);
     expect(encoded.map((e) => e.type)).toEqual(["image/webp", "image/jpeg"]);
     expect(result.file.type).toBe("image/jpeg");
@@ -213,7 +219,7 @@ describe("stripExifData", () => {
 
   it("refuses to return an image that still carries EXIF", async () => {
     installCanvasMock(() => jpegWithGpsExif());
-    const input = new File([jpegWithGpsExif()], "leaky.jpg", { type: "image/jpeg" });
+    const input = new File([toArrayBuffer(jpegWithGpsExif())], "leaky.jpg", { type: "image/jpeg" });
     await expect(stripExifData(input)).rejects.toBeInstanceOf(ImageSanitizeError);
   });
 

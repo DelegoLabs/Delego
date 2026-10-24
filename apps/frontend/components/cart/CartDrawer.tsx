@@ -16,6 +16,7 @@ import { CartPromoCode } from "./CartPromoCode";
 import { useCartPromoCode } from "../../hooks/useCartPromoCode";
 import { formatPromoStroops } from "../../lib/promoCode";
 import { CartConflictModal } from "../CartConflictModal";
+import { PriceDisplay } from "../storefront/PriceDisplay";
 
 const STROOPS_PER_XLM = 10_000_000n;
 const MAX_QUANTITY = 99;
