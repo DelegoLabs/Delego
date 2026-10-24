@@ -8,6 +8,9 @@ const cart = vi.hoisted(() => ({
   clearCart: vi.fn(),
   closeDrawer: vi.fn(),
   drawerOpen: true,
+  canCheckout: true,
+  conflicts: [],
+  resolveConflict: vi.fn(),
   removeItem: vi.fn(),
   setQuantity: vi.fn(),
   summary: { subtotalStroops: "30000000", totalQuantity: 3, items: ["a", "b", "c"].map(id => ({

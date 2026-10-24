@@ -7,6 +7,8 @@ import { Sidebar } from "../components/layout/Sidebar";
 import { Header } from "../components/layout/Header";
 import { Footer } from "../components/layout/Footer";
 import { AppProviders } from "../components/providers/AppProviders";
+import { ConsentBanner } from "../components/consent/ConsentBanner";
+import { CONSENT_PREFERENCES_STORAGE_KEY } from "../lib/consent";
 import { AnnouncementBanner } from "../components/announcements/AnnouncementBanner";
 import { OfflineModeBanner } from "../components/offline/OfflineModeBanner";
 import { ServiceWorkerRegistration } from "../components/pwa/ServiceWorkerRegistration";
@@ -45,6 +47,13 @@ export const metadata: Metadata = {
   },
 };
 
+const consentBannerBootstrapScript = `try {
+  const consent = localStorage.getItem("${CONSENT_PREFERENCES_STORAGE_KEY}");
+  if (consent !== null && JSON.parse(consent) !== null) {
+    document.documentElement.classList.add("has-consent-choice");
+  }
+} catch {}`;
+
 /**
  * Three theme-color entries so the browser chrome / status bar tints match
  * light, dark, and high-contrast modes immediately via `prefers-color-scheme`,
@@ -75,6 +84,7 @@ export default async function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <script dangerouslySetInnerHTML={{ __html: a11yBootstrapScript }} />
+        <script dangerouslySetInnerHTML={{ __html: consentBannerBootstrapScript }} />
         {/* Externally referenced CDN scripts with Subresource Integrity (SRI) (#763) */}
         <script
           src={EXTERNAL_SCRIPTS.turnstile.src}
@@ -88,9 +98,9 @@ export default async function RootLayout({
         <StrictMode>
           <NextIntlClientProvider locale={locale} messages={messages}>
             {/* Must stay the first focusable element in the body (#1015), so it
-                sits outside AppProviders, which renders banners (e.g. the
-                first-run ConsentBanner) ahead of its children. */}
+                sits before banners rendered by the app providers. */}
             <SkipToContent />
+            <ConsentBanner />
             <AppProviders>
               <ServiceWorkerRegistration />
               <OfflineModeBanner />

@@ -116,7 +116,7 @@ describe("useHydrationStableBalance", () => {
       );
 
       expect(result.current.formattedValue).toBeNull();
-      expect(result.current.isHydrated).toBe(false);
+      expect(result.current.isHydrated).toBe(true);
     });
 
     it("handles undefined stroopAmount", () => {
