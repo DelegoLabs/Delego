@@ -62,6 +62,7 @@ describe("useHydrationStableBalance", () => {
     });
   });
 
+
   describe("decimal places", () => {
     it("respects minimumFractionDigits", () => {
       const { result } = renderHook(() =>
@@ -164,7 +165,12 @@ describe("useHydrationStableTimestamp", () => {
         useHydrationStableTimestamp("2025-07-15T14:30:00Z")
       );
 
-      expect(result.current.formattedValue).toBeDefined();
+      expect(result.current.formattedValue).toBe(
+        new Intl.DateTimeFormat(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(new Date("2025-07-15T14:30:00Z"))
+      );
       expect(result.current.isHydrated).toBe(true);
     });
   });
@@ -175,7 +181,8 @@ describe("useHydrationStableTimestamp", () => {
         useHydrationStableTimestamp("invalid-date")
       );
 
-      expect(result.current.formattedValue).toBeNull();
+      expect(result.current.formattedValue).toBe("--");
+      expect(result.current.isHydrated).toBe(true);
     });
 
     it("handles null timestamp", () => {
@@ -183,7 +190,26 @@ describe("useHydrationStableTimestamp", () => {
         useHydrationStableTimestamp(null)
       );
 
-      expect(result.current.formattedValue).toBeNull();
+      expect(result.current.formattedValue).toBe("--");
+      expect(result.current.isHydrated).toBe(true);
+    });
+
+    it("uses a custom fallback for undefined and invalid Date timestamps", () => {
+      const undefinedTimestamp = renderHook(() =>
+        useHydrationStableTimestamp(undefined, {
+          fallbackPlaceholder: "Not available",
+        })
+      );
+      const invalidDate = renderHook(() =>
+        useHydrationStableTimestamp(new Date(Number.NaN), {
+          fallbackPlaceholder: "Not available",
+        })
+      );
+
+      expect(undefinedTimestamp.result.current.formattedValue).toBe(
+        "Not available"
+      );
+      expect(invalidDate.result.current.formattedValue).toBe("Not available");
     });
   });
 
@@ -193,7 +219,12 @@ describe("useHydrationStableTimestamp", () => {
         useHydrationStableTimestamp(testDate, { dateStyle: "full" })
       );
 
-      expect(result.current.formattedValue).toBeDefined();
+      expect(result.current.formattedValue).toBe(
+        new Intl.DateTimeFormat(undefined, {
+          dateStyle: "full",
+          timeStyle: "short",
+        }).format(testDate)
+      );
     });
 
     it("applies custom time style", () => {
@@ -201,7 +232,12 @@ describe("useHydrationStableTimestamp", () => {
         useHydrationStableTimestamp(testDate, { timeStyle: "long" })
       );
 
-      expect(result.current.formattedValue).toBeDefined();
+      expect(result.current.formattedValue).toBe(
+        new Intl.DateTimeFormat(undefined, {
+          dateStyle: "medium",
+          timeStyle: "long",
+        }).format(testDate)
+      );
     });
   });
 });
