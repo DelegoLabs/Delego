@@ -13,6 +13,7 @@ import { receiptFeeStroops, receiptSubtotalStroops } from "../../../lib/receipts
 import { PathPaymentQuotePanel } from "../../../components/orders/PathPaymentQuoteVisualizer";
 import { stroopsToDecimal } from "../../../hooks/usePathPaymentQuote";
 import { getConfiguredContracts } from "../../../lib/contracts";
+import { OrderTrackingCard } from "../../../components/orders/OrderTrackingCard";
 
 const OnChainVerificationPanel = dynamic(
   () =>
@@ -26,7 +27,7 @@ const OnChainVerificationPanel = dynamic(
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = (params?.id as string) ?? "";
-  const { orders, loading } = useOrders();
+  const { orders, loading } = useOrders({ pollIntervalMs: 15_000 });
   const order = orders.find((o) => o.id === orderId);
   const { networkId } = useNetwork();
 
@@ -95,6 +96,10 @@ export default function OrderDetailPage() {
       </div>
 
       <ReceiptPanel order={order} />
+
+      <div className="no-print">
+        <OrderTrackingCard order={order} />
+      </div>
 
       <div className="no-print">
         <OnChainVerificationPanel
