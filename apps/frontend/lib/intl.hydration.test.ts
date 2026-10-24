@@ -47,9 +47,11 @@ describe("formatDateTime hydration stability", () => {
   const testDate = new Date("2025-07-15T13:30:00Z");
 
   it("formats consistently with explicit locale", () => {
-    const result = formatDateTime(testDate, "en-US");
-    // Output will be something like "7/15/2025, 2:30 PM" or "Jul 15, 2025, 2:30 PM"
-    // The key is that server and client produce the same result (hyration stability)
+    const result = formatDateTime(testDate, "en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Europe/London",
+    });
     expect(result).toContain("2025");
     expect(result).toContain("2:30");
   });

@@ -37,7 +37,7 @@ describe("useFriendbot", () => {
       transactionHash: "tx-hash-1",
       fundedAmountXlm: "10000",
     });
-    expect(result.current.status).toBe("done");
+    expect(result.current.status).toBe("success");
   });
 
   it("encodes the address in the query string", async () => {

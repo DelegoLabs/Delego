@@ -89,6 +89,14 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("useSorobanEvents", () => {
+  const createSubscription = () => ({
+    contractId: "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
+    topics: ["test"],
+    startLedger: 1,
+    onEvent: vi.fn(),
+    onError: vi.fn(),
+  });
+
   it("creates an EventSubscriptionManager with network config", () => {
     const { result } = renderHook(
       () => useSorobanEvents(),
@@ -125,7 +133,7 @@ describe("useSorobanEvents", () => {
     expect(result.current).toBeDefined();
   });
 
-  it("connects to WebSocket on mount", () => {
+  it("connects to WebSocket when subscribing", () => {
     const { result } = renderHook(
       () => useSorobanEvents(),
       {
@@ -137,7 +145,8 @@ describe("useSorobanEvents", () => {
       }
     );
 
-    // The manager should be connected after mount
+    result.current.subscribe(createSubscription());
+
     expect(sockets).toHaveLength(1);
     expect(sockets[0].url).toContain("wss://");
   });
@@ -154,6 +163,7 @@ describe("useSorobanEvents", () => {
       }
     );
 
+    result.current.subscribe(createSubscription());
     const socket = sockets[0];
     expect(socket.readyState).toBe(WS_CONNECTING);
 
@@ -162,8 +172,8 @@ describe("useSorobanEvents", () => {
     expect(socket.readyState).toBe(WS_CLOSED);
   });
 
-  it("creates new manager when network changes", () => {
-    const { result, rerender } = renderHook(
+  it("reconnects after all subscriptions are removed", () => {
+    const { result } = renderHook(
       () => useSorobanEvents(),
       {
         wrapper: ({ children }: { children: React.ReactNode }) => (
@@ -174,19 +184,51 @@ describe("useSorobanEvents", () => {
       }
     );
 
+    const unsubscribe = result.current.subscribe(createSubscription());
+    unsubscribe();
+    expect(sockets[0].readyState).toBe(WS_CLOSED);
+
+    result.current.subscribe(createSubscription());
+    expect(sockets).toHaveLength(2);
+  });
+
+  it("creates new manager when network changes", () => {
+    const { result, rerender } = renderHook(
+      () => {
+        const manager = useSorobanEvents();
+        const { networkId, setNetwork } = useNetwork();
+        return { manager, networkId, setNetwork };
+      },
+      {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <NetworkProvider>
+            {children}
+          </NetworkProvider>
+        ),
+      }
+    );
+
+    const firstManager = result.current.manager;
+    firstManager.subscribe(createSubscription());
     expect(sockets).toHaveLength(1);
     const firstSocket = sockets[0];
+    const nextNetwork = result.current.networkId === "mainnet" ? "testnet" : "mainnet";
 
-    // Change network - in a real app this would trigger a rerender
-    // For now, just verify the hook works
-    expect(firstSocket.readyState).toBe(WS_CONNECTING);
+    act(() => result.current.setNetwork(nextNetwork));
+    rerender();
+
+    expect(result.current.manager).not.toBe(firstManager);
+    expect(firstSocket.readyState).toBe(WS_CLOSED);
+
+    result.current.manager.subscribe(createSubscription());
+    expect(sockets).toHaveLength(2);
   });
 
   it("allows subscribing to events", () => {
     const onEvent = vi.fn();
     const onError = vi.fn();
 
-    const { result } = renderHook(
+    renderHook(
       () => {
         const manager = useSorobanEvents();
         useEffect(() => {
@@ -233,12 +275,9 @@ describe("useSorobanEvents", () => {
     );
   });
 
-  it("does NOT throw when used outside NetworkProvider", () => {
-    // This test verifies that the hook gracefully handles missing context
-    // In a real app, it would throw, but for this test we just want to ensure
-    // the hook can be rendered without crashing
+  it("throws when used outside NetworkProvider", () => {
     expect(() => {
       renderHook(() => useSorobanEvents());
-    }).not.toThrow();
+    }).toThrow("useNetwork must be used within a NetworkProvider");
   });
 });
