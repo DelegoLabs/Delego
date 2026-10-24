@@ -106,6 +106,29 @@ export interface OrderItem {
   quantity: number;
 }
 
+export type TrackingStatus =
+  | "label_created"
+  | "in_transit"
+  | "out_for_delivery"
+  | "delivered"
+  | "exception";
+
+export interface TrackingEvent {
+  status?: TrackingStatus;
+  timestamp: string;
+  location: string;
+  description: string;
+}
+
+export interface PackageTrackingInfo {
+  packageId: string;
+  carrierName: string;
+  trackingNumber: string;
+  status: TrackingStatus;
+  estimatedDelivery?: string;
+  events: TrackingEvent[];
+}
+
 /** A single approve/countersign signature captured for an order (#574). */
 export interface ApprovalSignature {
   approverId: string;
@@ -154,6 +177,8 @@ export interface Order {
   lineItems?: OrderItem[];
   /** @deprecated superseded by lineItems; kept for older call sites. */
   items?: OrderItem[];
+  /** Independent carrier tracking state for each box in a multi-package order. */
+  packages?: PackageTrackingInfo[];
   escrowContractId?: string | null;
   /** Structured reject reason (#567). Optional for backward compatibility with rejections recorded before this field existed. */
   rejectionReason?: RejectionReasonCode | null;
