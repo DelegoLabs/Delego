@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { waitFor } from "@testing-library/react";
 import {
   enqueueMutation,
   getQueuedMutations,
   clearQueue,
 } from "./offlineQueue";
-import { replayOfflineQueue } from "./replayEngine";
+import { initReplayEngine, replayOfflineQueue } from "./replayEngine";
 import { api } from "./api";
 
 vi.mock("./api", () => ({
@@ -25,6 +26,13 @@ describe("Offline Mutation Queue & Replay Engine (#618)", () => {
     } catch {
       /* ignore */
     }
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      value: true,
+    });
   });
 
   it("enqueues mutations with unique idempotency keys", async () => {
@@ -54,6 +62,33 @@ describe("Offline Mutation Queue & Replay Engine (#618)", () => {
     expect(result.replayed).toBe(1);
     const queue = await getQueuedMutations();
     expect(queue.find((q) => q.id === item.id)).toBeUndefined();
+  });
+
+  it("automatically replays queued mutations after the browser comes online", async () => {
+    vi.mocked(api.approveOrder).mockResolvedValue({
+      data: { id: "order-online", status: "approved" },
+    } as never);
+    await enqueueMutation("approve_order", "order-online");
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      value: false,
+    });
+
+    const stopReplayEngine = initReplayEngine();
+    try {
+      Object.defineProperty(window.navigator, "onLine", {
+        configurable: true,
+        value: true,
+      });
+      window.dispatchEvent(new Event("online"));
+
+      await waitFor(async () => {
+        expect(api.approveOrder).toHaveBeenCalledWith("order-online");
+        expect(await getQueuedMutations()).toHaveLength(0);
+      });
+    } finally {
+      stopReplayEngine();
+    }
   });
 
   it("flags HTTP 409 conflicts as 'conflict' and does NOT auto-force update", async () => {

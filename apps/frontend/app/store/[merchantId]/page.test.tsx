@@ -86,6 +86,13 @@ describe("Store Page Metadata Generation", () => {
       description: "A test merchant store",
       stellarAddress: "GABC123",
       reputationScore: 95,
+      policy: {
+        returnWindowDays: 30,
+        restockingFeePercent: 0,
+        freeShippingThresholdStroops: "100000000",
+        escrowProtectionNotice:
+          "Purchases are protected by Delego smart contract escrow.",
+      },
       products: [],
       announcement: null,
     });

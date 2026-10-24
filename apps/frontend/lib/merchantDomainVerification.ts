@@ -1,3 +1,5 @@
+import { StrKey } from "@stellar/stellar-sdk";
+
 /**
  * Domain verification for merchant onboarding via SEP-0001 stellar.toml.
  *
@@ -183,11 +185,7 @@ export function parseTOML(toml: string): ParsedStellarToml {
  * Validates a Stellar public key (G...) address.
  */
 function isValidStellarAddress(address: string): boolean {
-  if (!address || address.length !== 56 || !address.startsWith("G")) {
-    return false;
-  }
-  // Simple character validation (should be base32)
-  return /^[A-Z2-7]+$/.test(address);
+  return StrKey.isValidEd25519PublicKey(address.trim());
 }
 
 /**
@@ -327,12 +325,19 @@ export function isValidDomainFormat(domain: string): boolean {
   if (!domain || domain.trim().length === 0) return false;
 
   const trimmed = domain.trim();
+  const domainWithoutProtocol = trimmed.replace(/^https?:\/\//i, "");
+  if (!domainWithoutProtocol || /[/:?#]/.test(domainWithoutProtocol)) {
+    return false;
+  }
 
-  // Remove protocol if present
-  const domainWithoutProtocol = trimmed.replace(/^https?:\/\//, "").replace(/^\/\//, "");
+  const labels = domainWithoutProtocol.split(".");
+  if (labels.length < 2 || labels[labels.length - 1].length < 2) {
+    return false;
+  }
 
-  // Basic domain regex (simplified)
-  const domainRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$/;
-
-  return domainRegex.test(domainWithoutProtocol);
+  return labels.every(
+    (label) =>
+      label.length <= 63 &&
+      /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(label)
+  );
 }

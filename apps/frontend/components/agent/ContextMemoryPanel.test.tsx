@@ -44,10 +44,9 @@ describe("ContextMemoryPanel — visibility", () => {
 
   it("renders a modal dialog when open", () => {
     renderPanel();
-    expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
     expect(
-      screen.getByLabelText("View context and memory", { exact: false })
-    ).not.toBeInTheDocument.bind(null); // just confirms dialog is present
+      screen.getByRole("dialog", { name: "Context / Memory" })
+    ).toHaveAttribute("aria-modal", "true");
     expect(screen.getByTestId("context-memory-panel")).toBeInTheDocument();
   });
 

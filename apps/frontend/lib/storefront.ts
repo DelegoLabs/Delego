@@ -44,6 +44,7 @@ export interface StorefrontData {
   description: string;
   stellarAddress: string;
   reputationScore: number;
+  policy: MerchantPolicyInfo;
   products: MerchantProduct[];
   announcement: StoreAnnouncement | null;
 }
@@ -105,6 +106,7 @@ function parseProduct(value: unknown): MerchantProduct | null {
       )
     )
   );
+  const assetCode = record.assetCode ?? record.asset_code;
   return {
     id: record.id,
     name: record.name,
@@ -162,6 +164,31 @@ function isSafeAnnouncementLink(value: string): boolean {
   if (!link) return false;
   if (link.startsWith("/") && !link.startsWith("//")) return true;
   return /^https?:\/\//i.test(link);
+}
+
+function parsePolicy(value: unknown): MerchantPolicyInfo | null {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  return {
+    returnWindowDays: asNumber(
+      record.returnWindowDays ?? record.return_window_days
+    ),
+    restockingFeePercent: asNumber(
+      record.restockingFeePercent ?? record.restocking_fee_percent
+    ),
+    freeShippingThresholdStroops: String(
+      record.freeShippingThresholdStroops ??
+        record.free_shipping_threshold_stroops ??
+        DEFAULT_MERCHANT_POLICY.freeShippingThresholdStroops
+    ),
+    escrowProtectionNotice:
+      typeof record.escrowProtectionNotice === "string"
+        ? record.escrowProtectionNotice
+        : typeof record.escrow_protection_notice === "string"
+          ? record.escrow_protection_notice
+          : DEFAULT_MERCHANT_POLICY.escrowProtectionNotice,
+  };
 }
 
 export function parseStorefront(

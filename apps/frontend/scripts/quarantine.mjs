@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Flake quarantine registry tooling (#630).
  *

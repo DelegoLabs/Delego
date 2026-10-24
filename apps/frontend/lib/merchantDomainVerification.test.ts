@@ -121,7 +121,7 @@ describe("generateVerificationMessage", () => {
 // ---------------------------------------------------------------------------
 
 describe("verifyDomainOwnership", () => {
-  const mockStellarAddress = "GDORSZV4ZSCYH5XVJXV7X7X7X7X7X7X7X7X7X7X7X7X7X7X7X7X7X7X7X7X7X7X7";
+  const mockStellarAddress = "GCEYUZC5MZNB7JYA6ZZ2JNP2LAD23SDUWG52EZKDYAEEIJ2Y6XVWER74";
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -168,7 +168,7 @@ SOME_OTHER_KEY = "value"
   });
 
   it("returns error when SIGNING_KEY does not match", async () => {
-    const differentAddress = "GDifferentAddressHere1234567890123456789012345678901234";
+    const differentAddress = "GDWGD3GWRECKKQ7IYSECJ2JKR4U3FQRRA66FMQFZWTPO2TEQTUNIWTYF";
     vi.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
       status: 200,
@@ -200,8 +200,8 @@ SIGNING_KEY = "${mockStellarAddress}"
   });
 
   it("handles array of signing keys", async () => {
-    const address1 = "GAddress1Here1234567890123456789012345678901234567";
-    const address2 = "GAddress2Here1234567890123456789012345678901234567";
+    const address1 = mockStellarAddress;
+    const address2 = "GDWGD3GWRECKKQ7IYSECJ2JKR4U3FQRRA66FMQFZWTPO2TEQTUNIWTYF";
 
     vi.spyOn(global, "fetch").mockResolvedValue({
       ok: true,

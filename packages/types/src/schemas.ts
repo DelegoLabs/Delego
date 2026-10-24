@@ -153,3 +153,5 @@ export const AutoReorderConfigSchema = z.object({
   reorderQuantity: z.number().int().min(1),
   isEnabled: z.boolean(),
 });
+
+export type AutoReorderConfig = z.infer<typeof AutoReorderConfigSchema>;

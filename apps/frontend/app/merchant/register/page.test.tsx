@@ -59,8 +59,13 @@ const VALID_ADDRESS = "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57"
 function fillStoreInfo() {
   fireEvent.change(screen.getByLabelText("Store name"), { target: { value: "Acme Mugs" } });
   fireEvent.change(screen.getByLabelText("Contact email"), { target: { value: "a@example.com" } });
-  fireEvent.change(screen.getByLabelText("Stellar payout address"), { target: { value: VALID_ADDRESS } });
   fireEvent.change(screen.getByLabelText("Description"), { target: { value: "We sell mugs." } });
+}
+
+function enterPayoutAddress() {
+  fireEvent.change(screen.getByLabelText("Stellar payout address"), {
+    target: { value: VALID_ADDRESS },
+  });
 }
 
 describe("MerchantRegisterPage catalog import step (#791)", () => {
@@ -74,11 +79,13 @@ describe("MerchantRegisterPage catalog import step (#791)", () => {
     mockImportMerchantCatalog.mockReset();
   });
 
-  it("advances to the catalog step only after the payout address passes network validation", async () => {
+  it("validates the payout address before advancing to wallet verification", async () => {
     mockValidateStorePayoutAddress.mockResolvedValue({ valid: true });
     render(<MerchantRegisterPage />);
 
     fillStoreInfo();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    enterPayoutAddress();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
@@ -87,7 +94,7 @@ describe("MerchantRegisterPage catalog import step (#791)", () => {
         expect.objectContaining({ id: "testnet" })
       );
     });
-    expect(await screen.findByText(/Optionally import your product catalog/)).toBeInTheDocument();
+    expect(await screen.findByText("Connect your wallet to continue.")).toBeInTheDocument();
   });
 
   it("shows the network error and does not advance when the address isn't funded", async () => {
@@ -99,9 +106,11 @@ describe("MerchantRegisterPage catalog import step (#791)", () => {
 
     fillStoreInfo();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    enterPayoutAddress();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByText(/isn't funded on Testnet/)).toBeInTheDocument();
-    expect(screen.queryByText(/Optionally import your product catalog/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Connect your wallet to continue.")).not.toBeInTheDocument();
   });
 
   it("parses a valid CSV and shows the ready-to-import count", async () => {
@@ -172,6 +181,7 @@ describe("MerchantRegisterPage catalog import step (#791)", () => {
     const file = new File([csvContent], "catalog.csv", { type: "text/csv" });
     fireEvent.change(screen.getByLabelText("Catalog CSV file"), { target: { files: [file] } });
     await screen.findByText(/1 product ready to import/);
+    enterPayoutAddress();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await screen.findByText("Sign to verify");
