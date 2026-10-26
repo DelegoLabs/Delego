@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatAmount } from "@delegolabs/ui";
 import { StockDepletionPanel } from "../../../components/storefront/StockDepletionPanel";
 import { ImageLightboxModal } from "../../../components/storefront/ImageLightboxModal";
+import { ProductQuestions } from "../../../components/storefront/ProductQuestions";
 import {
   DEFAULT_MERCHANT_POLICY,
   filterStoreProducts,
@@ -491,12 +492,21 @@ export function StorefrontCatalog({
               >
                 {expandedId === product.id ? "Hide details" : "View details"}
               </button>
-              {expandedId === product.id && stock && (
-                <StockDepletionPanel
-                  merchantId={merchantId}
-                  stock={stock}
-                  mode="detail"
-                />
+              {expandedId === product.id && (
+                <>
+                  {stock && (
+                    <StockDepletionPanel
+                      merchantId={merchantId}
+                      stock={stock}
+                      mode="detail"
+                    />
+                  )}
+                  <ProductQuestions
+                    productId={product.id}
+                    productName={product.name}
+                    merchantAddress={payoutAddress}
+                  />
+                </>
               )}
             </li>
           );
