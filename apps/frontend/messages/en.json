@@ -4,7 +4,9 @@
     "tagline": "Delegate shopping to AI agents with spending controls"
   },
   "offline": {
-    "banner": "Offline Mode — Browse Only"
+    "banner": "Offline Mode — Browse Only",
+    "backOnline": "Back Online",
+    "dismissBackOnline": "Dismiss"
   },
   "nav": {
     "dashboard": "Dashboard",

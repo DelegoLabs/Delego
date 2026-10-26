@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { OfflineStatus as ConnectionStatus } from "@delegolabs/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type {
+  ConnectivityState,
+  OfflineStatus as ConnectionStatus,
+} from "@delegolabs/types";
 import { listCachedReads } from "../lib/offlineCache";
+import { subscribeToQueue } from "../lib/offlineQueue";
 
 /** Accessible reason attached to controls disabled while offline. */
 export const OFFLINE_BLOCKED_MESSAGE =
@@ -11,6 +15,8 @@ export const OFFLINE_BLOCKED_MESSAGE =
 export interface UseOnlineStatusResult {
   /** Connection status from the browser (online/offline/reconnecting). */
   connectionStatus: ConnectionStatus;
+  /** Browser connectivity and the number of mutations waiting to replay. */
+  connectivityState: ConnectivityState;
   /**
    * Number of orders cached for offline browsing. Populated when
    * `connectionStatus` is "offline" or "reconnecting".
@@ -46,28 +52,62 @@ export interface UseOnlineStatusResult {
  */
 export function useOnlineStatus(): UseOnlineStatusResult {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("online");
+  const [connectivityState, setConnectivityState] = useState<ConnectivityState>({
+    isOnline: true,
+    queuedActionCount: 0,
+    lastConnectedTimestamp: 0,
+  });
   const [cachedOrdersCount, setCachedOrdersCount] = useState(0);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const previousOnline = useRef<boolean | null>(null);
 
   useEffect(() => {
-    function update() {
-      if (!navigator.onLine) {
-        setConnectionStatus("offline");
-      } else {
-        // Try to detect reconnecting state by checking if we were offline recently
-        // For now, just set to online when navigator.onLine is true
-        setConnectionStatus("online");
-      }
+    function update(isOnline: boolean) {
+      const wasOnline = previousOnline.current;
+      previousOnline.current = isOnline;
+      setConnectionStatus(isOnline ? "online" : "offline");
+      setConnectivityState((current) => ({
+        ...current,
+        isOnline,
+        lastConnectedTimestamp:
+          isOnline && (!current.lastConnectedTimestamp || wasOnline === false)
+            ? Date.now()
+            : current.lastConnectedTimestamp,
+      }));
     }
 
-    update();
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
+    function onOnline() {
+      update(true);
+    }
+
+    function onOffline() {
+      update(false);
+    }
+
+    update(navigator.onLine);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
     return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
     };
   }, []);
+
+  useEffect(
+    () =>
+      subscribeToQueue((queue) => {
+        const queuedActionCount = queue.filter(
+          (action) =>
+            action.status === "pending" || action.status === "replaying"
+        ).length;
+        setConnectivityState((current) =>
+          current.queuedActionCount === queuedActionCount
+            ? current
+            : { ...current, queuedActionCount }
+        );
+      }),
+    []
+  );
 
   // Re-read the cache whenever connectivity flips: a reconnect populates the
   // API read cache, and a disconnect is exactly when the counts matter.
@@ -91,12 +131,13 @@ export function useOnlineStatus(): UseOnlineStatusResult {
   return useMemo(
     () => ({
       connectionStatus,
+      connectivityState,
       cachedOrdersCount,
       lastSyncedAt,
       disabledProps: connectionStatus !== "online"
         ? { disabled: true as const, title: OFFLINE_BLOCKED_MESSAGE }
         : ({} as Record<string, never>),
     }),
-    [connectionStatus, cachedOrdersCount, lastSyncedAt]
+    [connectionStatus, connectivityState, cachedOrdersCount, lastSyncedAt]
   );
 }

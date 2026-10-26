@@ -5,6 +5,13 @@ export interface CurrencyPreference {
   targetFiat: "USD" | "EUR" | "GBP" | "NGN";
 }
 
+export interface MerchantPolicyInfo {
+  returnWindowDays: number;
+  restockingFeePercent: number;
+  freeShippingThresholdStroops: string;
+  escrowProtectionNotice: string;
+}
+
 export type DelegationPermissionLevel =
   "VIEW_ONLY" | "AUTO_APPROVE" | "SIGNER" | "ADMIN";
 
@@ -330,6 +337,12 @@ export interface UserPreferenceItem {
  * Connectivity status snapshot surfaced by the frontend's `useOnlineStatus` hook (#773).
  */
 export type OfflineStatus = "online" | "offline" | "reconnecting";
+
+export interface ConnectivityState {
+  isOnline: boolean;
+  queuedActionCount: number;
+  lastConnectedTimestamp: number;
+}
 
 /**
  * Active Soroban token allowance granted to an escrow or router contract.

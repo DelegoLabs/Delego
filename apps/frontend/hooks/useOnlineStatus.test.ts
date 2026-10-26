@@ -6,6 +6,7 @@ vi.mock("../lib/offlineCache", () => ({
 }));
 
 import { listCachedReads } from "../lib/offlineCache";
+import { clearQueue, enqueueMutation } from "../lib/offlineQueue";
 import { useOnlineStatus, OFFLINE_BLOCKED_MESSAGE } from "./useOnlineStatus";
 
 const mockedListCachedReads = vi.mocked(listCachedReads);
@@ -19,12 +20,14 @@ function setOnline(value: boolean) {
 }
 
 describe("useOnlineStatus (#773)", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await clearQueue();
     mockedListCachedReads.mockResolvedValue([]);
     setOnline(true);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await clearQueue();
     vi.clearAllMocks();
   });
 
@@ -43,6 +46,7 @@ describe("useOnlineStatus (#773)", () => {
       window.dispatchEvent(new Event("offline"));
     });
     expect(result.current.connectionStatus).toBe("offline");
+    expect(result.current.connectivityState.isOnline).toBe(false);
     expect(result.current.disabledProps).toEqual({
       disabled: true,
       title: OFFLINE_BLOCKED_MESSAGE,
@@ -53,6 +57,8 @@ describe("useOnlineStatus (#773)", () => {
       window.dispatchEvent(new Event("online"));
     });
     expect(result.current.connectionStatus).toBe("online");
+    expect(result.current.connectivityState.isOnline).toBe(true);
+    expect(result.current.connectivityState.lastConnectedTimestamp).toBeGreaterThan(0);
     expect(result.current.disabledProps).toEqual({});
   });
 
@@ -68,5 +74,14 @@ describe("useOnlineStatus (#773)", () => {
 
     await waitFor(() => expect(result.current.cachedOrdersCount).toBe(1));
     expect(result.current.lastSyncedAt).toEqual(newer);
+  });
+
+  it("reports the number of queued actions waiting to replay", async () => {
+    await enqueueMutation("approve_order", "order-queued");
+    const { result } = renderHook(() => useOnlineStatus());
+
+    await waitFor(() =>
+      expect(result.current.connectivityState.queuedActionCount).toBe(1)
+    );
   });
 });

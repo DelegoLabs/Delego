@@ -21,6 +21,7 @@ import {
 } from "../../lib/cartPartition";
 import { useCart } from "../../hooks/useCart";
 import type { AppliedPromoCode } from "../../lib/promoCode";
+import { PriceDisplay } from "../storefront/PriceDisplay";
 
 // ---------------------------------------------------------------------------
 // Helpers

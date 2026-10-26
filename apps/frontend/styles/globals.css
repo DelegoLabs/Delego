@@ -2162,6 +2162,35 @@ body.font-sans-system {
   flex-shrink: 0;
 }
 
+.back-online-toast {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 5.25rem;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: calc(100vw - 2.5rem);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-success-border);
+  border-radius: 0.5rem;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  box-shadow: 0 8px 24px var(--color-shadow);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.back-online-toast button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  text-decoration: underline;
+}
+
 /* ---------------------------------------------------------------------------
    Approve-with-note (#573)
    Optional note attached to an approve action: a compact popover for the

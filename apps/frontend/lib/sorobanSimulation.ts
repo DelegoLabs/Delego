@@ -20,6 +20,10 @@ export interface SorobanSimulationDiagnosticResult {
   warnings: string[];
 }
 
+function readResourceValue(value: unknown, receiver: object): number {
+  return Number(typeof value === "function" ? Reflect.apply(value, receiver, []) : value ?? 0);
+}
+
 export function formatStroopsToXlm(stroopsStr: string): string {
   try {
     const stroops = BigInt(stroopsStr || "0");
@@ -54,28 +58,22 @@ export function parseSimulationResponse(
   }
 
   const minResourceFeeStroops = simResponse.minResourceFee || "0";
-  const rawResults = simResponse.results || [];
   let cpuInstructions = 0;
   let memoryBytes = 0;
-
-  for (const res of rawResults) {
-    if (res.auth) {
-      // auth entries if present
-    }
-  }
 
   let readBytes = 0;
   let writeBytes = 0;
 
   if (simResponse.transactionData) {
     try {
-      const txData = typeof simResponse.transactionData.build === "function"
-        ? simResponse.transactionData.build()
-        : simResponse.transactionData;
-      const resources = typeof txData.resources === "function" ? txData.resources() : txData;
-      cpuInstructions = typeof resources.instructions === "function" ? Number(resources.instructions()) : Number(resources.instructions || 0);
-      readBytes = typeof resources.readBytes === "function" ? Number(resources.readBytes()) : Number(resources.readBytes || 0);
-      writeBytes = typeof resources.writeBytes === "function" ? Number(resources.writeBytes()) : Number(resources.writeBytes || 0);
+      const txData = simResponse.transactionData.build();
+      const resources = txData.resources();
+      cpuInstructions = readResourceValue(resources.instructions, resources);
+      readBytes = readResourceValue(
+        Reflect.get(resources, "diskReadBytes") ?? Reflect.get(resources, "readBytes"),
+        resources
+      );
+      writeBytes = readResourceValue(resources.writeBytes, resources);
       memoryBytes = readBytes + writeBytes;
     } catch {
       // Fallback or ignore extraction errors
@@ -90,9 +88,17 @@ export function parseSimulationResponse(
     );
   }
 
-  const preparedXdr = simResponse.transactionData
-    ? (typeof simResponse.transactionData.toXDR === "function" ? simResponse.transactionData.toXDR("base64") : String(simResponse.transactionData))
-    : undefined;
+  let preparedXdr: string | undefined;
+  if (simResponse.transactionData) {
+    try {
+      preparedXdr = simResponse.transactionData.build().toXDR("base64");
+    } catch {
+      const toXDR = Reflect.get(simResponse.transactionData, "toXDR");
+      preparedXdr = typeof toXDR === "function"
+        ? toXDR.call(simResponse.transactionData, "base64")
+        : String(simResponse.transactionData);
+    }
+  }
 
   return {
     metrics: {

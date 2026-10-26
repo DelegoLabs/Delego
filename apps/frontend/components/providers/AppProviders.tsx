@@ -33,6 +33,7 @@ import { CartDrawer } from "../cart/CartDrawer";
 import { CopilotBubbleProvider } from "../chat/CopilotBubbleProvider";
 import { useBroadcastChannel } from "../../hooks/useBroadcastChannel";
 import { syncWalletDisconnected } from "../../hooks/useWallet";
+import { BackOnlineToast } from "../offline/BackOnlineToast";
 
 function WalletTabSync() {
   useBroadcastChannel((message) => {
@@ -100,6 +101,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
                               <DomainWarningBanner />
                               <ConsentBanner />
                               <DemoBanner />
+                              <BackOnlineToast />
                               <SentryBreadcrumbs />
                               <WebVitalsReporter />
                               <QueueInspectorModal />

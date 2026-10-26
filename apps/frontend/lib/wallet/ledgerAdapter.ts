@@ -1,4 +1,6 @@
 import type { LedgerConnectionState } from "@delegolabs/types";
+import { StrKey } from "@stellar/stellar-sdk";
+import type Str from "@ledgerhq/hw-app-str";
 import type { StellarWalletAdapter } from "./types";
 
 export const DEFAULT_LEDGER_BIP32_PATH = "44'/148'/0'";
@@ -10,8 +12,8 @@ export class LedgerAdapter implements StellarWalletAdapter {
   readonly installUrl = "https://www.ledger.com/";
 
   private bip32Path = DEFAULT_LEDGER_BIP32_PATH;
-  private transport: any = null;
-  private appStr: any = null;
+  private transport: ConstructorParameters<typeof Str>[0] | null = null;
+  private appStr: Str | null = null;
   private connectedPublicKey: string | null = null;
   private deviceModelName: string | undefined = undefined;
 
@@ -19,7 +21,7 @@ export class LedgerAdapter implements StellarWalletAdapter {
     if (typeof window === "undefined" || typeof navigator === "undefined") {
       return false;
     }
-    return !!(navigator as any).hid;
+    return "hid" in navigator;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -44,28 +46,40 @@ export class LedgerAdapter implements StellarWalletAdapter {
       const TransportWebHID = (await import("@ledgerhq/hw-transport-webhid")).default;
       const StrApp = (await import("@ledgerhq/hw-app-str")).default;
 
-      this.transport = await TransportWebHID.create();
-      this.appStr = new StrApp(this.transport);
+      const transport = await TransportWebHID.create();
+      this.transport = transport;
+      const appStr = new StrApp(transport);
+      this.appStr = appStr;
       this.bip32Path = bipPath;
 
-      const res = await this.appStr.getPublicKey(this.bip32Path);
-      if (!res || !res.publicKey) {
+      const res = await appStr.getPublicKey(this.bip32Path);
+      const publicKey = res.rawPublicKey
+        ? StrKey.encodeEd25519PublicKey(res.rawPublicKey)
+        : Reflect.get(res, "publicKey");
+      if (typeof publicKey !== "string") {
         throw new Error("Failed to retrieve public key from Ledger device.");
       }
 
-      this.connectedPublicKey = res.publicKey;
-      this.deviceModelName = this.transport.deviceModel?.id || "Ledger Device";
+      this.connectedPublicKey = publicKey;
+      const deviceModel = Reflect.get(transport, "deviceModel");
+      this.deviceModelName =
+        typeof deviceModel === "object" &&
+        deviceModel !== null &&
+        "id" in deviceModel &&
+        typeof deviceModel.id === "string"
+          ? deviceModel.id
+          : "Ledger Device";
 
       return {
         isConnected: true,
         bip32Path: this.bip32Path,
-        publicKey: res.publicKey,
+        publicKey: this.connectedPublicKey,
         deviceModel: this.deviceModelName,
         isAppOpen: true,
       };
-    } catch (err: any) {
+    } catch (err) {
       await this.disconnect();
-      const msg = err?.message || String(err);
+      const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("0x6804") || msg.includes("locked")) {
         throw new Error("Ledger device is locked. Please unlock your device and try again.");
       }
@@ -102,7 +116,7 @@ export class LedgerAdapter implements StellarWalletAdapter {
     if (this.connectedPublicKey) {
       return this.connectedPublicKey;
     }
-    const state = await this.connect(this.bip32Path);
+    const state = await this.connectLedger(this.bip32Path);
     if (!state.publicKey) {
       throw new Error("No public key available on Ledger device.");
     }
@@ -111,17 +125,21 @@ export class LedgerAdapter implements StellarWalletAdapter {
 
   async signTransaction(xdr: string, _opts?: { networkPassphrase?: string }): Promise<string> {
     if (!this.appStr) {
-      await this.connect(this.bip32Path);
+      await this.connect();
+    }
+    const appStr = this.appStr;
+    if (!appStr) {
+      throw new Error("Failed to connect to Ledger device.");
     }
 
     try {
-      const result = await this.appStr.signTransaction(this.bip32Path, Buffer.from(xdr, "base64"));
+      const result = await appStr.signTransaction(this.bip32Path, Buffer.from(xdr, "base64"));
       if (!result || !result.signature) {
         throw new Error("Transaction signing was rejected on Ledger device.");
       }
       return result.signature.toString("base64");
-    } catch (err: any) {
-      const msg = err?.message || String(err);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("0x6985") || msg.includes("denied") || msg.includes("rejected")) {
         throw new Error("Transaction signing was rejected on the Ledger device.");
       }
@@ -131,17 +149,22 @@ export class LedgerAdapter implements StellarWalletAdapter {
 
   async signBlob(blob: Uint8Array): Promise<Uint8Array> {
     if (!this.appStr) {
-      await this.connect(this.bip32Path);
+      await this.connect();
+    }
+    const appStr = this.appStr;
+    if (!appStr) {
+      throw new Error("Failed to connect to Ledger device.");
     }
 
     try {
-      const result = await this.appStr.signHash(this.bip32Path, Buffer.from(blob));
+      const result = await appStr.signHash(this.bip32Path, Buffer.from(blob));
       if (!result || !result.signature) {
         throw new Error("Blob signing was rejected on Ledger device.");
       }
       return new Uint8Array(result.signature);
-    } catch (err: any) {
-      throw new Error(`Ledger blob signing error: ${err?.message || err}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`Ledger blob signing error: ${msg}`);
     }
   }
 }
