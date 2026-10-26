@@ -75,6 +75,44 @@ components:
           type: string
           description: Stroops as a string-encoded bigint
 
+    TrackingEvent:
+      type: object
+      required: [timestamp, location, description]
+      properties:
+        status:
+          type: string
+          enum:
+            [label_created, in_transit, out_for_delivery, delivered, exception]
+        timestamp:
+          type: string
+          format: date-time
+        location:
+          type: string
+        description:
+          type: string
+
+    PackageTrackingInfo:
+      type: object
+      required: [packageId, carrierName, trackingNumber, status, events]
+      properties:
+        packageId:
+          type: string
+        carrierName:
+          type: string
+        trackingNumber:
+          type: string
+        status:
+          type: string
+          enum:
+            [label_created, in_transit, out_for_delivery, delivered, exception]
+        estimatedDelivery:
+          type: string
+          format: date-time
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackingEvent"
+
     Order:
       type: object
       required:
@@ -105,6 +143,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/LineItem"
+        packages:
+          type: array
+          description: Separate carrier state and milestones for every package in the order.
+          items:
+            $ref: "#/components/schemas/PackageTrackingInfo"
         escrowContractId:
           type: string
           nullable: true

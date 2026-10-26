@@ -70,6 +70,36 @@ export const OrderItemSchema = z.object({
   quantity: z.number(),
 });
 
+export const TrackingEventSchema = z.object({
+  status: z
+    .enum([
+      "label_created",
+      "in_transit",
+      "out_for_delivery",
+      "delivered",
+      "exception",
+    ])
+    .optional(),
+  timestamp: z.string(),
+  location: z.string(),
+  description: z.string(),
+});
+
+export const PackageTrackingInfoSchema = z.object({
+  packageId: z.string(),
+  carrierName: z.string(),
+  trackingNumber: z.string(),
+  status: z.enum([
+    "label_created",
+    "in_transit",
+    "out_for_delivery",
+    "delivered",
+    "exception",
+  ]),
+  estimatedDelivery: z.string().optional(),
+  events: z.array(TrackingEventSchema),
+});
+
 export const OrderSchema = z.object({
   id: z.string(),
   delegationId: z.string(),
@@ -83,6 +113,7 @@ export const OrderSchema = z.object({
   updatedAt: z.union([z.string(), z.number(), z.date()]).optional(),
   items: z.array(OrderItemSchema).optional(),
   lineItems: z.array(OrderItemSchema).optional(),
+  packages: z.array(PackageTrackingInfoSchema).optional(),
   escrowContractId: z.string().nullable().optional(),
   giftOptions: z.lazy(() => GiftOptionsSchema).optional(),
   metadata: z.record(z.any()).optional(),
