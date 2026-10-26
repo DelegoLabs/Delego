@@ -2281,6 +2281,10 @@ body.font-sans-system {
   font-size: 0.875rem;
 }
 
+.has-consent-choice .consent-banner {
+  display: none;
+}
+
 .consent-banner-text {
   margin: 0;
   flex: 1 1 20rem;

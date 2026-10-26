@@ -132,35 +132,45 @@ export function useHydrationStableBalance(
   };
   }
 
+export interface TimestampFormatOptions {
+  dateStyle?: "short" | "medium" | "long" | "full";
+  timeStyle?: "short" | "medium" | "long" | "full";
+  fallbackPlaceholder?: string;
+}
+
+function formatTimestamp(
+  timestamp: Date | string | null | undefined,
+  options: TimestampFormatOptions
+): string {
+  const fallbackPlaceholder = options.fallbackPlaceholder ?? "--";
+  if (timestamp == null) return fallbackPlaceholder;
+
+  try {
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return fallbackPlaceholder;
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: options.dateStyle ?? "medium",
+      timeStyle: options.timeStyle ?? "short",
+    }).format(date);
+  } catch {
+    return fallbackPlaceholder;
+  }
+}
+
 /**
  * Composable hook for timestamp formatting without hydration mismatch.
  * Uses a skeleton placeholder until client-side formatting.
  */
 export function useHydrationStableTimestamp(
   timestamp: Date | string | null | undefined,
-  options: Intl.DateTimeFormatOptions = {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }
+  options: TimestampFormatOptions = {}
 ): UseHydrationStableBalanceResult {
   const [isHydrated, setIsHydrated] = useState(false);
   const [formattedValue, setFormattedValue] = useState<string | null>(null);
 
   useEffect(() => {
-    if (timestamp == null) {
-      setFormattedValue(null);
-      return;
-    }
-
-    const date = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
-
-    if (Number.isNaN(date.getTime())) {
-      setFormattedValue(null);
-      return;
-    }
-
-    const formatted = date.toLocaleString(undefined, options);
-    setFormattedValue(formatted);
+    setFormattedValue(formatTimestamp(timestamp, options));
     setIsHydrated(true);
   }, [timestamp, options]);
 
@@ -171,13 +181,7 @@ export function useHydrationStableTimestamp(
   );
 
   const refetch = () => {
-    if (timestamp != null) {
-      const date = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
-      if (!Number.isNaN(date.getTime())) {
-        const formatted = date.toLocaleString(undefined, options);
-        setFormattedValue(formatted);
-      }
-    }
+    setFormattedValue(formatTimestamp(timestamp, options));
   };
 
   return {

@@ -25,7 +25,6 @@ import { QueueInspectorModal } from "../offline/QueueInspectorModal";
 import { DemoBanner } from "../demo/DemoBanner";
 import { IdleSessionGuard } from "../session/IdleSessionGuard";
 import { DomainWarningBanner } from "../security/DomainWarningBanner";
-import { ConsentBanner } from "../consent/ConsentBanner";
 import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvider";
 import { ChatDrawerProvider } from "../chat/public";
 import { CartProvider } from "../../hooks/useCart";
@@ -99,7 +98,6 @@ export function AppProviders({ children }: { children: ReactNode }) {
                           <CartProvider>
                             <CopilotBubbleProvider>
                               <DomainWarningBanner />
-                              <ConsentBanner />
                               <DemoBanner />
                               <BackOnlineToast />
                               <SentryBreadcrumbs />

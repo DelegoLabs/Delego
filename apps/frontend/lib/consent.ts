@@ -34,7 +34,7 @@ export interface ConsentLogEntry {
   source: ConsentSource;
 }
 
-const PREFS_KEY = "delego_consent_preferences";
+export const CONSENT_PREFERENCES_STORAGE_KEY = "delego_consent_preferences";
 const LOG_KEY = "delego_consent_log";
 const MAX_LOG_ENTRIES = 200;
 
@@ -70,7 +70,7 @@ function writeJson(key: string, value: unknown): void {
  * is what's *assumed* — essential-only — until a choice is recorded).
  */
 export function getConsentPreferences(): ConsentPreferences | null {
-  return readJson<ConsentPreferences>(PREFS_KEY);
+  return readJson<ConsentPreferences>(CONSENT_PREFERENCES_STORAGE_KEY);
 }
 
 /** True once the user has made any first-run or settings consent choice. */
@@ -120,7 +120,7 @@ export function setConsentPreferences(
     }
   });
 
-  writeJson(PREFS_KEY, resolved);
+  writeJson(CONSENT_PREFERENCES_STORAGE_KEY, resolved);
   if (changedEntries.length > 0) appendLogEntries(changedEntries);
 
   return resolved;
@@ -146,7 +146,7 @@ export function acceptEssentialOnlyConsent(): ConsentPreferences {
 export function resetConsentForTesting(): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.removeItem(PREFS_KEY);
+    window.localStorage.removeItem(CONSENT_PREFERENCES_STORAGE_KEY);
     window.localStorage.removeItem(LOG_KEY);
   } catch {
     // no-op
