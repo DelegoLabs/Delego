@@ -7,7 +7,7 @@ import type { WalletId } from "../lib/wallet";
 export interface WalletOption {
   id: WalletId;
   name: string;
-  installUrl: string;
+  installUrl?: string;
   /** Whether the extension is installed — `null` while detection runs. */
   installed: boolean | null;
 }

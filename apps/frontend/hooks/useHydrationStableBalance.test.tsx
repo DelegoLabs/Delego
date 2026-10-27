@@ -3,32 +3,37 @@
  * Verifies hydration stability for balance and timestamp formatting
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { useHydrationStableBalance, useHydrationStableTimestamp } from "./useHydrationStableBalance";
 
-// Mock useEffect to simulate hydration lifecycle
-vi.mock("react", async () => {
-  const actual = await vi.importActual("react");
-  return {
-    ...actual,
-    useEffect: (fn: () => void | (() => void)) => {
-      // Simulate client-side mount after initial render
-      fn();
-    },
-  };
-});
+function ServerBalance() {
+  const { serverPlaceholder, formattedValue, isHydrated } =
+    useHydrationStableBalance(1_000_000_000n);
+  return (
+    <span data-hydrated={String(isHydrated)}>
+      {formattedValue ?? serverPlaceholder}
+    </span>
+  );
+}
+
+function ServerTimestamp() {
+  const { serverPlaceholder, formattedValue, isHydrated } =
+    useHydrationStableTimestamp(new Date("2025-07-15T14:30:00Z"));
+  return (
+    <span data-hydrated={String(isHydrated)}>
+      {formattedValue ?? serverPlaceholder}
+    </span>
+  );
+}
 
 describe("useHydrationStableBalance", () => {
   describe("basic formatting", () => {
     it("returns server placeholder before hydration", () => {
-      const { result } = renderHook(() =>
-        useHydrationStableBalance(1_000_000_000n)
-      );
-
-      expect(result.current.serverPlaceholder).toBeDefined();
-      expect(result.current.formattedValue).toBeNull();
-      expect(result.current.isHydrated).toBe(false);
+      const markup = renderToString(<ServerBalance />);
+      expect(markup).toContain('data-hydrated="false"');
+      expect(markup).toContain("---");
     });
 
     it("formats XLM balance after hydration", () => {
@@ -56,6 +61,7 @@ describe("useHydrationStableBalance", () => {
       expect(result.current.formattedValue).toBe("1.23 XLM");
     });
   });
+
 
   describe("decimal places", () => {
     it("respects minimumFractionDigits", () => {
@@ -110,7 +116,7 @@ describe("useHydrationStableBalance", () => {
       );
 
       expect(result.current.formattedValue).toBeNull();
-      expect(result.current.isHydrated).toBe(false);
+      expect(result.current.isHydrated).toBe(true);
     });
 
     it("handles undefined stroopAmount", () => {
@@ -139,13 +145,8 @@ describe("useHydrationStableTimestamp", () => {
 
   describe("basic formatting", () => {
     it("returns server placeholder before hydration", () => {
-      const { result } = renderHook(() =>
-        useHydrationStableTimestamp(testDate)
-      );
-
-      expect(result.current.serverPlaceholder).toBeDefined();
-      expect(result.current.formattedValue).toBeNull();
-      expect(result.current.isHydrated).toBe(false);
+      const markup = renderToString(<ServerTimestamp />);
+      expect(markup).toContain('data-hydrated="false"');
     });
 
     it("formats timestamp after hydration", () => {
@@ -164,7 +165,12 @@ describe("useHydrationStableTimestamp", () => {
         useHydrationStableTimestamp("2025-07-15T14:30:00Z")
       );
 
-      expect(result.current.formattedValue).toBeDefined();
+      expect(result.current.formattedValue).toBe(
+        new Intl.DateTimeFormat(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(new Date("2025-07-15T14:30:00Z"))
+      );
       expect(result.current.isHydrated).toBe(true);
     });
   });
@@ -175,7 +181,8 @@ describe("useHydrationStableTimestamp", () => {
         useHydrationStableTimestamp("invalid-date")
       );
 
-      expect(result.current.formattedValue).toBeNull();
+      expect(result.current.formattedValue).toBe("--");
+      expect(result.current.isHydrated).toBe(true);
     });
 
     it("handles null timestamp", () => {
@@ -183,7 +190,26 @@ describe("useHydrationStableTimestamp", () => {
         useHydrationStableTimestamp(null)
       );
 
-      expect(result.current.formattedValue).toBeNull();
+      expect(result.current.formattedValue).toBe("--");
+      expect(result.current.isHydrated).toBe(true);
+    });
+
+    it("uses a custom fallback for undefined and invalid Date timestamps", () => {
+      const undefinedTimestamp = renderHook(() =>
+        useHydrationStableTimestamp(undefined, {
+          fallbackPlaceholder: "Not available",
+        })
+      );
+      const invalidDate = renderHook(() =>
+        useHydrationStableTimestamp(new Date(Number.NaN), {
+          fallbackPlaceholder: "Not available",
+        })
+      );
+
+      expect(undefinedTimestamp.result.current.formattedValue).toBe(
+        "Not available"
+      );
+      expect(invalidDate.result.current.formattedValue).toBe("Not available");
     });
   });
 
@@ -193,7 +219,12 @@ describe("useHydrationStableTimestamp", () => {
         useHydrationStableTimestamp(testDate, { dateStyle: "full" })
       );
 
-      expect(result.current.formattedValue).toBeDefined();
+      expect(result.current.formattedValue).toBe(
+        new Intl.DateTimeFormat(undefined, {
+          dateStyle: "full",
+          timeStyle: "short",
+        }).format(testDate)
+      );
     });
 
     it("applies custom time style", () => {
@@ -201,7 +232,12 @@ describe("useHydrationStableTimestamp", () => {
         useHydrationStableTimestamp(testDate, { timeStyle: "long" })
       );
 
-      expect(result.current.formattedValue).toBeDefined();
+      expect(result.current.formattedValue).toBe(
+        new Intl.DateTimeFormat(undefined, {
+          dateStyle: "medium",
+          timeStyle: "long",
+        }).format(testDate)
+      );
     });
   });
 });

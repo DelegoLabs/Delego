@@ -21,12 +21,12 @@ import {
  * already in effect, so there's no gap between "banner visible" and
  * "consent decided" either way.
  *
- * Rendered client-only (reads localStorage via `hasConsentChoice`), so it
- * starts hidden and reveals itself in an effect to avoid a hydration
- * mismatch — same pattern as DomainWarningBanner/DemoBanner.
+ * Rendered immediately for first-run users. A head bootstrap script hides it
+ * before paint when a choice is already stored, avoiding both hydration
+ * mismatch and a delayed layout shift.
  */
 export function ConsentBanner() {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     setVisible(!hasConsentChoice());

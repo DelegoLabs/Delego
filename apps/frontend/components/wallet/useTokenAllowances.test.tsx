@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { useTokenAllowances } from "./useTokenAllowances";
 import type { NetworkConfig } from "../../lib/networks";
 import type { SpenderContract, TrackedToken } from "./allowanceConstants";
@@ -27,6 +27,9 @@ const mockToken: TrackedToken = {
   symbol: "USDC",
 };
 
+const mockSpenderContracts = [mockSpender];
+const mockTokens = [mockToken];
+
 describe("useTokenAllowances hook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -49,7 +52,7 @@ describe("useTokenAllowances hook", () => {
   it("fetches active allowances on mount when ownerAddress is present", async () => {
     const fetchSpy = vi
       .spyOn(queryModule, "fetchAllActiveTokenAllowances")
-      .mockResolvedValueOnce([
+      .mockResolvedValue([
         {
           tokenAddress: mockToken.address,
           tokenSymbol: mockToken.symbol,
@@ -64,16 +67,13 @@ describe("useTokenAllowances hook", () => {
       useTokenAllowances({
         network: mockNetwork,
         ownerAddress: "GABC1234",
-        spenderContracts: [mockSpender],
-        tokens: [mockToken],
+        spenderContracts: mockSpenderContracts,
+        tokens: mockTokens,
       })
     );
 
-    await act(async () => {
-      await result.current.refetch();
-    });
-
-    expect(result.current.allowances).toHaveLength(1);
+    await waitFor(() => expect(result.current.allowances).toHaveLength(1));
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(result.current.allowances[0].spenderLabel).toBe("Escrow Contract");
     expect(result.current.allowances[0].allowedAmountStroops).toBe("10000000");
   });
@@ -88,7 +88,7 @@ describe("useTokenAllowances hook", () => {
       expirationLedger: 500,
     };
 
-    vi.spyOn(queryModule, "fetchAllActiveTokenAllowances").mockResolvedValueOnce([
+    vi.spyOn(queryModule, "fetchAllActiveTokenAllowances").mockResolvedValue([
       initialEntry,
     ]);
 
@@ -102,17 +102,13 @@ describe("useTokenAllowances hook", () => {
       useTokenAllowances({
         network: mockNetwork,
         ownerAddress: "GABC1234",
-        spenderContracts: [mockSpender],
-        tokens: [mockToken],
+        spenderContracts: mockSpenderContracts,
+        tokens: mockTokens,
         signTransaction: mockSigner,
       })
     );
 
-    await act(async () => {
-      await result.current.refetch();
-    });
-
-    expect(result.current.allowances).toHaveLength(1);
+    await waitFor(() => expect(result.current.allowances).toHaveLength(1));
 
     await act(async () => {
       await result.current.revokeAllowance(initialEntry);

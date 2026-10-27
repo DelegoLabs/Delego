@@ -6,10 +6,11 @@ import {
 } from "./registry";
 
 describe("wallet registry", () => {
-  it("registers Freighter first and LOBSTR second", () => {
+  it("registers supported wallets in picker order", () => {
     expect(walletAdapters.map((adapter) => adapter.id)).toEqual([
       "freighter",
       "lobstr",
+      "ledger",
     ]);
   });
 

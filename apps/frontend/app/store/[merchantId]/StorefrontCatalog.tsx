@@ -7,8 +7,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatAmount } from "@delegolabs/ui";
+import type { MerchantPolicyInfo } from "@delegolabs/types";
 import { StockDepletionPanel } from "../../../components/storefront/StockDepletionPanel";
 import { ImageLightboxModal } from "../../../components/storefront/ImageLightboxModal";
+import { ProductQuestions } from "../../../components/storefront/ProductQuestions";
 import {
   DEFAULT_MERCHANT_POLICY,
   filterStoreProducts,
@@ -85,6 +87,9 @@ export function StorefrontCatalog({
   const [liveStock, setLiveStock] = useState<
     Record<string, StockDepletionInfo>
   >({});
+  const [resolvedStock, setResolvedStock] = useState<Record<string, boolean>>(
+    {}
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{
     images: string[];
@@ -106,6 +111,7 @@ export function StorefrontCatalog({
   useEffect(() => {
     let cancelled = false;
     const ids = productKey ? productKey.split("\n") : [];
+    setResolvedStock({});
     async function tick() {
       const updates = await Promise.all(
         ids.map(
@@ -113,15 +119,16 @@ export function StorefrontCatalog({
         )
       );
       if (cancelled) return;
-      setChecked((prev) => ({
-        ...prev,
-        ...Object.fromEntries(ids.map((id) => [`${merchantId}/${id}`, true])),
-      }));
       setLiveStock((prev) => {
         const next = { ...prev };
         for (const [id, stock] of updates) {
           if (stock) next[id] = stock;
         }
+        return next;
+      });
+      setResolvedStock((prev) => {
+        const next = { ...prev };
+        for (const id of ids) next[id] = true;
         return next;
       });
     }
@@ -425,13 +432,12 @@ export function StorefrontCatalog({
                   ))}
                 </div>
               )}
-              {stock && (
-                <StockDepletionPanel
-                  merchantId={merchantId}
-                  stock={stock}
-                  mode="card"
-                />
-              )}
+              <StockDepletionPanel
+                merchantId={merchantId}
+                stock={stock}
+                loading={!product.stock && !resolvedStock[product.id]}
+                mode="card"
+              />
               {product.description && (
                 <p
                   style={{ margin: 0, color: "#6b7280", fontSize: "0.875rem" }}
@@ -491,12 +497,21 @@ export function StorefrontCatalog({
               >
                 {expandedId === product.id ? "Hide details" : "View details"}
               </button>
-              {expandedId === product.id && stock && (
-                <StockDepletionPanel
-                  merchantId={merchantId}
-                  stock={stock}
-                  mode="detail"
-                />
+              {expandedId === product.id && (
+                <>
+                  {stock && (
+                    <StockDepletionPanel
+                      merchantId={merchantId}
+                      stock={stock}
+                      mode="detail"
+                    />
+                  )}
+                  <ProductQuestions
+                    productId={product.id}
+                    productName={product.name}
+                    merchantAddress={payoutAddress}
+                  />
+                </>
               )}
             </li>
           );

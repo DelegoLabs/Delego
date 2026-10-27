@@ -237,6 +237,7 @@ export class EventSubscriptionManager {
    * Subscribe to contract events with automatic replay of missed events.
    */
   subscribe(subscription: ContractEventSubscription): () => void {
+    this.cancelled = false;
     const baseKey = this.getSubscriptionKey(subscription.contractId, subscription.topics);
     const key = this.subscriptions.has(baseKey)
       ? `${baseKey}#${++this.subCounter}`

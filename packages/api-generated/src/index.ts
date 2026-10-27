@@ -53,6 +53,29 @@ export interface LineItem {
   category?: string;
 }
 
+export type TrackingStatus =
+  | "label_created"
+  | "in_transit"
+  | "out_for_delivery"
+  | "delivered"
+  | "exception";
+
+export interface TrackingEvent {
+  status?: TrackingStatus;
+  timestamp: string;
+  location: string;
+  description: string;
+}
+
+export interface PackageTrackingInfo {
+  packageId: string;
+  carrierName: string;
+  trackingNumber: string;
+  status: TrackingStatus;
+  estimatedDelivery?: string;
+  events: TrackingEvent[];
+}
+
 export interface Order {
   id: string;
   userId: string;
@@ -62,6 +85,7 @@ export interface Order {
   /** Stroops as string-encoded bigint */
   totalStroops: Stroops;
   lineItems: LineItem[];
+  packages?: PackageTrackingInfo[];
   escrowContractId: string | null;
   rejectionReason?: RejectionReasonCode | null;
   /** Free-text detail accompanying rejectionReason (#567). */
@@ -147,6 +171,10 @@ export function adaptOrder(raw: Order): DomainOrder {
       quantity: li.quantity,
       unitPriceStroops: parseStroops(li.unitPriceStroops),
       category: li.category,
+    })),
+    packages: raw.packages?.map((pkg) => ({
+      ...pkg,
+      events: pkg.events.map((event) => ({ ...event })),
     })),
     escrowContractId: raw.escrowContractId,
     rejectionReason: raw.rejectionReason,
