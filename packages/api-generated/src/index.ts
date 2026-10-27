@@ -49,6 +49,8 @@ export interface LineItem {
   quantity: number;
   /** Stroops as string-encoded bigint */
   unitPriceStroops: Stroops;
+  /** Product category of the line item (#989). Optional. */
+  category?: string;
 }
 
 export type TrackingStatus =
@@ -88,6 +90,8 @@ export interface Order {
   rejectionReason?: RejectionReasonCode | null;
   /** Free-text detail accompanying rejectionReason (#567). */
   rejectionNote?: string | null;
+  /** Product category the order was placed in (#989). Optional. */
+  category?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -166,6 +170,7 @@ export function adaptOrder(raw: Order): DomainOrder {
       productId: li.productId,
       quantity: li.quantity,
       unitPriceStroops: parseStroops(li.unitPriceStroops),
+      category: li.category,
     })),
     packages: raw.packages?.map((pkg) => ({
       ...pkg,
@@ -174,6 +179,7 @@ export function adaptOrder(raw: Order): DomainOrder {
     escrowContractId: raw.escrowContractId,
     rejectionReason: raw.rejectionReason,
     rejectionNote: raw.rejectionNote,
+    category: raw.category,
     createdAt: new Date(raw.createdAt),
     updatedAt: new Date(raw.updatedAt),
   };

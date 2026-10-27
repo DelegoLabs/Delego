@@ -111,6 +111,11 @@ export interface OrderItem {
   price?: number;
   unitPriceStroops?: any;
   quantity: number;
+  /**
+   * Product category the line item belongs to (#989). Optional — older
+   * orders and line items don't carry one.
+   */
+  category?: string;
 }
 
 export type TrackingStatus =
@@ -201,6 +206,13 @@ export interface Order {
     giftOptions?: GiftOptions;
     [key: string]: any;
   };
+  /**
+   * Product category the order was placed in (#989). Optional — orders
+   * created before the field existed don't carry one, and the buyer
+   * analytics fall back to the first line item's category (see
+   * `orderCategory` in the web app).
+   */
+  category?: string;
   createdAt: Date | string;
   updatedAt?: Date | string;
 }

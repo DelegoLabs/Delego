@@ -7,12 +7,17 @@ import { api } from "../../lib/api";
 import { getResource } from "../../lib/suspenseResource";
 import { spendByRange, type AnalyticsRange } from "../../lib/analytics";
 import type { ForecastHorizonDays } from "../../lib/spendForecast";
-import { adaptOrders, type ListOrdersResponse } from "@delegolabs/api-generated";
+import {
+  adaptOrders,
+  type ListOrdersResponse,
+} from "@delegolabs/api-generated";
 import { SpendingOverview } from "./SpendingOverview";
 import { SpendChart } from "./SpendChart";
 import { RangeSwitcher } from "./RangeSwitcher";
+import { SpendingByCategoryCard } from "./SpendingByCategoryCard";
 import { StaleBadge } from "../offline/StaleBadge";
 import type { SpendingOverview as SpendingOverviewType } from "../../hooks/useAnalytics";
+import type { SpendingCategoryRange } from "../../lib/spendingByCategory";
 import { WidgetBoundary } from "../dashboard/WidgetBoundary";
 
 const OVERVIEW_MIN_HEIGHT = "12rem";
@@ -51,8 +56,10 @@ function overviewFrom(delegations: Delegation[]): SpendingOverviewType {
     ),
     averageSpendingLimit:
       delegations.length > 0
-        ? delegations.reduce((sum, d) => sum + asBigInt(d.policy.maxTotal), 0n) /
-          BigInt(delegations.length)
+        ? delegations.reduce(
+            (sum, d) => sum + asBigInt(d.policy.maxTotal),
+            0n
+          ) / BigInt(delegations.length)
         : 0n,
     delegationsByStatus: delegations.reduce(
       (acc, d) => {
@@ -123,11 +130,16 @@ function ComparisonWidget() {
                     </span>
                   </td>
                   <td>
-                    {(Number(asBigInt(del.policy.maxPerTransaction)) / 10_000_000).toFixed(2)}{" "}
+                    {(
+                      Number(asBigInt(del.policy.maxPerTransaction)) /
+                      10_000_000
+                    ).toFixed(2)}{" "}
                     XLM
                   </td>
                   <td>
-                    {(Number(asBigInt(del.policy.maxTotal)) / 10_000_000).toFixed(2)}{" "}
+                    {(
+                      Number(asBigInt(del.policy.maxTotal)) / 10_000_000
+                    ).toFixed(2)}{" "}
                     XLM
                   </td>
                   <td>{del.policy.expiresAt ?? "Never"}</td>
@@ -181,6 +193,8 @@ export interface AnalyticsDashboardProps {
   forecastHorizon?: ForecastHorizonDays;
   /** Called when the user picks a different forecast horizon. */
   onForecastHorizonChange?: (horizon: ForecastHorizonDays) => void;
+  spendingCategoryRange: SpendingCategoryRange;
+  onSpendingCategoryRangeChange: (range: SpendingCategoryRange) => void;
   stale?: boolean;
   cachedAt?: number | null;
   ttlMs?: number;
@@ -194,15 +208,33 @@ export function AnalyticsDashboard({
   range,
   locale,
   onRangeChange,
+  spendingCategoryRange,
+  onSpendingCategoryRangeChange,
   stale = false,
   cachedAt = null,
   ttlMs,
 }: AnalyticsDashboardProps) {
   return (
     <div className="analytics-dashboard">
-      <StaleBadge family="analytics" stale={stale} cachedAt={cachedAt} ttlMs={ttlMs} />
+      <StaleBadge
+        family="analytics"
+        stale={stale}
+        cachedAt={cachedAt}
+        ttlMs={ttlMs}
+      />
+      <WidgetBoundary name="Spending by category" minHeight={CHART_MIN_HEIGHT}>
+        <SpendingByCategoryCard
+          range={spendingCategoryRange}
+          onRangeChange={onSpendingCategoryRangeChange}
+          locale={locale}
+        />
+      </WidgetBoundary>
       <WidgetBoundary name="Spending over time" minHeight={CHART_MIN_HEIGHT}>
-        <ChartWidget range={range} locale={locale} onRangeChange={onRangeChange} />
+        <ChartWidget
+          range={range}
+          locale={locale}
+          onRangeChange={onRangeChange}
+        />
       </WidgetBoundary>
       <WidgetBoundary name="Spending overview" minHeight={OVERVIEW_MIN_HEIGHT}>
         <OverviewWidget />
