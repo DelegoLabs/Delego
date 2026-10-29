@@ -1,14 +1,15 @@
-"use client";
+"client";
 
 import { Card } from "@delegolabs/ui";
 import { LowStockBanner } from "../../../components/merchant/InventoryAlerts";
 import { RevenueAreaChart } from "../../../components/merchant/RevenueAreaChart";
+import { AssetRevenueCards } from "../../../components/merchant/AssetRevenueCards";
 import { useMerchantCatalog } from "../../../hooks/useMerchantCatalog";
 import { useMerchantPayouts } from "../../../hooks/useMerchantPayouts";
 import { useMerchantEscrowOrders } from "../../../hooks/useMerchantEscrowOrders";
 import { useNetwork } from "../../../hooks/useNetwork";
 import { PayoutHistoryTable } from "../../../components/PayoutHistoryTable";
-import { stroopsToDisplay, totalNetEarningsStroops } from "../../../lib/merchantPayouts";
+import { stroopsToDisplay, totalNetEarningsStroops, computeAssetRevenueBreakdowns } from "../../../lib/merchantPayouts";
 import { computePayoutProjections } from "../../../lib/merchantEscrowOrders";
 
 export default function MerchantPayoutsPage() {
@@ -19,6 +20,7 @@ export default function MerchantPayoutsPage() {
   
   const totalNet = totalNetEarningsStroops(payouts);
   const projections = computePayoutProjections(orders);
+  const assetBreakdowns = computeAssetRevenueBreakdowns(payouts, orders);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -52,6 +54,11 @@ export default function MerchantPayoutsPage() {
         </Card>
       </div>
 
+      <div style={{ marginTop: "0.5rem" }}>
+        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.75rem" }}>Revenue Breakdown by Settlement Token</h2>
+        <AssetRevenueCards breakdowns={assetBreakdowns} payouts={payouts} networkId={network.id} />
+      </div>
+
       <RevenueAreaChart payouts={payouts} />
 
       {error && (
@@ -60,12 +67,9 @@ export default function MerchantPayoutsPage() {
         </div>
       )}
 
-      {loading ? (
+      {loading && (
         <p style={{ color: "#6b7280" }}>Loading payout history…</p>
-      ) : (
-        <PayoutHistoryTable payouts={payouts} networkId={network.id} />
       )}
     </div>
   );
 }
-
