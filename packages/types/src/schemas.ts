@@ -186,3 +186,12 @@ export const AutoReorderConfigSchema = z.object({
 });
 
 export type AutoReorderConfig = z.infer<typeof AutoReorderConfigSchema>;
+
+export interface AssetRevenueBreakdown {
+  assetCode: string;
+  symbol: string;
+  settledVolumeStroops: string;
+  pendingEscrowVolumeStroops: string;
+  refundedVolumeStroops: string;
+  fiatEquivalentUsd: number;
+}
