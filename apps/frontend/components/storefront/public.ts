@@ -8,3 +8,9 @@ export {
   ImageLightboxModal,
   type LightboxImageProps,
 } from "./ImageLightboxModal";
+export {
+  SafeStorefrontDescription,
+  sanitizeStorefrontHtml,
+  type SafeHtmlRendererProps,
+} from "./SafeStorefrontDescription";
+
