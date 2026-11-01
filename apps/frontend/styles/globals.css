@@ -5326,3 +5326,15 @@ body.font-sans-system {
     display: none;
   }
 }
+
+
+/* Safe area padding and mobile bottom nav support (Issue #1027) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+}
