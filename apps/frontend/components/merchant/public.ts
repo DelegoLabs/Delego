@@ -13,3 +13,5 @@ export { StorefrontBannerUploader } from "./StorefrontBannerUploader";
 export type { StorefrontBannerUploaderProps } from "./StorefrontBannerUploader";
 export { VerificationStepper } from "./VerificationStepper";
 export type { VerificationStepperProps } from "./VerificationStepper";
+export { CustomDomainSettingsCard } from "./CustomDomainSettingsCard";
+export type { CustomDomainSettingsCardProps } from "./CustomDomainSettingsCard";
