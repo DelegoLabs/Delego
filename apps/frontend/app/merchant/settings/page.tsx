@@ -1,6 +1,7 @@
 "use client";
 
 import { InventorySettings } from "../../../components/merchant/InventorySettings";
+import { CustomDomainSettingsCard } from "../../../components/merchant/CustomDomainSettingsCard";
 
 export default function MerchantSettingsPage() {
   return (
@@ -8,11 +9,12 @@ export default function MerchantSettingsPage() {
       <header>
         <h1 style={{ margin: 0 }}>Merchant Settings</h1>
         <p style={{ margin: "0.25rem 0 0", color: "#6b7280", fontSize: "0.875rem" }}>
-          Manage your inventory thresholds and automated supplier ERP hooks.
+          Manage your inventory thresholds, automated supplier ERP hooks, and custom domain routing.
         </p>
       </header>
 
       <InventorySettings />
+      <CustomDomainSettingsCard />
     </div>
   );
 }
