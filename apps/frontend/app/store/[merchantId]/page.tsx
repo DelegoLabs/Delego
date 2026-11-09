@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { fetchStorefront, isSafeMerchantId } from "../../../lib/storefront";
 import { StorefrontAnnouncementBar } from "../../../components/storefront/StorefrontAnnouncementBar";
+import { SafeStorefrontDescription } from "../../../components/merchant/public";
 import { StorefrontCatalog } from "./StorefrontCatalog";
 
 const loadStorefront = cache((merchantId: string) => fetchStorefront(merchantId));
@@ -64,7 +65,12 @@ export default async function StorePage({
       )}
       <header className="header">
         <h1>{store.storeName}</h1>
-        {store.description && <p>{store.description}</p>}
+        {store.description && (
+          <SafeStorefrontDescription
+            dirtyHtml={store.description}
+            containerClassName="storefront-description"
+          />
+        )}
       </header>
       <dl className="wallet-detail-list">
         <div className="wallet-detail-row">
