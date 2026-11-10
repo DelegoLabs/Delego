@@ -8,3 +8,8 @@ export {
   ImageLightboxModal,
   type LightboxImageProps,
 } from "./ImageLightboxModal";
+export {
+  DeliveryEstimateBadge,
+  type DeliveryEstimate,
+  type DeliveryEstimateBadgeProps,
+} from "./DeliveryEstimateBadge";
