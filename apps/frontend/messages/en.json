@@ -8,6 +8,14 @@
     "backOnline": "Back Online",
     "dismissBackOnline": "Dismiss"
   },
+  "mobileBottomNav": {
+    "ariaLabel": "Bottom navigation",
+    "store": "Store",
+    "orders": "Orders",
+    "cart": "Cart",
+    "cartWithCount": "{count, plural, one {Cart, # item} other {Cart, # items}}",
+    "copilot": "AI Copilot"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "delegations": "Delegations",
