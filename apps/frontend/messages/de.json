@@ -6,7 +6,15 @@
   "offline": {
     "banner": "Offline-Modus — Nur Browsen",
     "backOnline": "Wieder online",
-    "dismissBackOnline": "Schließen"
+    "dismissBackOnline": "Schließen",
+    "page": {
+      "title": "Du bist offline",
+      "description": "Delego kann das Netzwerk gerade nicht erreichen. Stelle die Verbindung wieder her und lade die Seite neu, um dort weiterzumachen, wo du aufgehört hast — bis dahin kannst du dir Folgendes ansehen.",
+      "availableTitle": "Offline verfügbar",
+      "checking": "Prüfe, was zwischengespeichert ist…",
+      "empty": "Noch nichts zwischengespeichert — besuche eine Seite, während du online bist, um sie hier zu speichern.",
+      "savedAt": "gespeichert am {time}"
+    }
   },
   "nav": {
     "dashboard": "Übersicht",
@@ -46,7 +54,8 @@
     "saving": "Wird gespeichert…",
     "submit": "Absenden",
     "close": "Schließen",
-    "loading": "Wird geladen…"
+    "loading": "Wird geladen…",
+    "tryAgain": "Erneut versuchen"
   },
   "delegations": {
     "wizard": {
@@ -166,5 +175,9 @@
   "analytics": {
     "title": "Analysen",
     "subtitle": "Vergleiche Delegationsrichtlinien und sieh dir aggregierte Ausgabendaten an"
+  },
+  "notFound": {
+    "description": "Die gesuchte Seite existiert nicht.",
+    "goHome": "Zur Startseite"
   }
 }

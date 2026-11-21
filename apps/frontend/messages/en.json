@@ -6,7 +6,15 @@
   "offline": {
     "banner": "Offline Mode — Browse Only",
     "backOnline": "Back Online",
-    "dismissBackOnline": "Dismiss"
+    "dismissBackOnline": "Dismiss",
+    "page": {
+      "title": "You're offline",
+      "description": "Delego can't reach the network right now. Reconnect and reload to pick up where you left off — in the meantime, here's what you can still look at.",
+      "availableTitle": "Available offline",
+      "checking": "Checking what's cached…",
+      "empty": "Nothing cached yet — visit a page while online to save it here.",
+      "savedAt": "saved {time}"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -49,7 +57,8 @@
     "loading": "Loading…",
     "required": "Required",
     "optional": "Optional",
-    "errorGeneric": "Something went wrong. Please try again."
+    "errorGeneric": "Something went wrong. Please try again.",
+    "tryAgain": "Try again"
   },
   "forms": {
     "labelRequiredSuffix": "*",
@@ -249,5 +258,9 @@
   "analytics": {
     "title": "Analytics",
     "subtitle": "Compare delegation policies and view aggregate spending data"
+  },
+  "notFound": {
+    "description": "The page you're looking for doesn't exist.",
+    "goHome": "Go home"
   }
 }
