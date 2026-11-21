@@ -67,7 +67,7 @@ function statusHeading(status: FriendbotRequestState["status"]): string {
     case "polling":
       return "Waiting for ledger confirmation…";
     case "success":
-      return "Account funded!";
+      return "Account funded";
     case "error":
       return "Funding failed";
     default:

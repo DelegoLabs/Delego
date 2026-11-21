@@ -1,4 +1,15 @@
 :root {
+  /* Shape tokens */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  /* Media preview tokens (storefront banner uploader) */
+  --color-media-backdrop: #111827;
+  --banner-preview-max-height: 260px;
+  --banner-aspect-landscape: 16 / 9;
+  --banner-aspect-panoramic: 3 / 1;
+
   /* Core structural colors */
   --color-bg-primary: #f9fafb;
   --color-bg-surface: #ffffff;
@@ -139,6 +150,36 @@
 .image-uploader-privacy-notice {
   color: var(--color-info-text);
   margin: 0;
+}
+
+/* Storefront banner uploader previews */
+.storefront-banner-preview {
+  display: block;
+  width: 100%;
+  max-height: var(--banner-preview-max-height);
+  aspect-ratio: var(--banner-aspect-landscape);
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+.storefront-banner-crop-frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: var(--banner-aspect-landscape);
+  border-radius: var(--radius-md);
+  background: var(--color-media-backdrop);
+}
+.storefront-banner-preview[data-aspect="panoramic"],
+.storefront-banner-crop-frame[data-aspect="panoramic"] {
+  aspect-ratio: var(--banner-aspect-panoramic);
+}
+.storefront-banner-crop-result {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.storefront-banner-crop-source {
+  position: absolute;
 }
 
 .image-uploader-count {
@@ -656,10 +697,111 @@ body.font-sans-system {
   line-height: 1;
 }
 
+/* ---------------------------------------------------------------------------
+   Mobile bottom navigation bar (#1027)
+   Exclusively visible on small viewports; hidden on desktop.
+   Safe-area inset covers the iPhone home indicator bar.
+--------------------------------------------------------------------------- */
+
+.mobile-bottom-nav {
+  display: none; /* hidden by default; shown inside the ≤768px breakpoint */
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+    align-items: stretch;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    background: var(--color-bg-surface);
+    border-top: 1px solid var(--color-border);
+    box-shadow: 0 -2px 8px var(--color-shadow);
+    /* Safe-area inset for iPhone home indicator bar */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+.mobile-bottom-nav__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.25rem;
+  min-height: 3.5rem;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    color 0.15s ease-in-out,
+    background 0.15s ease-in-out;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-bottom-nav__item:hover,
+.mobile-bottom-nav__item:active {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+}
+
+.mobile-bottom-nav__item--active {
+  color: var(--color-accent);
+}
+
+.mobile-bottom-nav__icon {
+  font-size: 1.375rem;
+  line-height: 1;
+}
+
+/* Wraps icon + badge so the badge positions relative to the icon */
+.mobile-bottom-nav__icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-bottom-nav__icon-wrap .nav-badge,
+.mobile-bottom-nav__badge {
+  position: absolute;
+  top: -0.375rem;
+  right: -0.625rem;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.25rem;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.125rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.mobile-bottom-nav__label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
 /* Breakpoint: collapse sidebar into mobile nav */
 @media (max-width: 768px) {
   .app-shell {
     grid-template-columns: 1fr;
+  }
+
+  /* Extra bottom padding so the bar doesn't overlap the last row of content */
+  .app-content {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   }
 
   .sidebar {
@@ -4404,6 +4546,45 @@ body.font-sans-system {
   box-shadow: 0 4px 16px rgb(0 0 0 / 22%);
   cursor: pointer;
 }
+.agent-fab__anchor {
+  position: relative;
+  display: inline-flex;
+}
+/* Shortcut hint tooltip (shown on hover/focus, dismissable with Escape). */
+.agent-fab__tooltip {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 0.5rem);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 2px 8px var(--color-shadow);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 120ms ease, visibility 120ms;
+}
+.agent-fab__tooltip[data-open="true"] {
+  visibility: visible;
+  opacity: 1;
+}
+.agent-fab__kbd {
+  font-family: inherit;
+  font-size: 0.6875rem;
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+}
 .agent-fab__icon {
   font-size: 1.5rem;
   line-height: 1;
@@ -4473,6 +4654,17 @@ body.font-sans-system {
   font: inherit;
   font-weight: 600;
 }
+/* Static, motion-free stand-in for the pulse when reduced motion is on. */
+.agent-fab--attention {
+  box-shadow: 0 4px 16px rgb(0 0 0 / 22%), 0 0 0 0.25rem rgb(18 102 91 / 35%);
+}
+.agent-fab-shell--reduced-motion {
+  transition: none;
+  transform: none;
+}
+.agent-fab-shell--reduced-motion .agent-fab__tooltip {
+  transition: none;
+}
 @keyframes copilot-bubble-pulse {
   0%, 100% { box-shadow: 0 4px 16px rgb(0 0 0 / 22%), 0 0 0 0 rgb(18 102 91 / 38%); }
   55% { box-shadow: 0 4px 16px rgb(0 0 0 / 22%), 0 0 0 0.65rem rgb(18 102 91 / 0%); }
@@ -4481,8 +4673,9 @@ body.font-sans-system {
   .agent-fab-shell { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .agent-fab-shell { transition: none; }
+  .agent-fab-shell { transition: none; transform: none; }
   .agent-fab--pulsing { animation: none; }
+  .agent-fab__tooltip { transition: none; }
 }
 
 /* ---------------------------------------------------------------------------

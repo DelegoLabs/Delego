@@ -44,28 +44,28 @@ export function AutoReorderConfigForm({
   }, [initialConfig]);
 
   const handleUrlChange = (value: string) => {
-    setConfig((prev) => ({ ...prev, supplierWebhookUrl: value }));
+    setConfig((prev: AutoReorderConfig) => ({ ...prev, supplierWebhookUrl: value }));
     setSaved(false);
     if (errors.supplierWebhookUrl) {
-      setErrors((prev) => ({ ...prev, supplierWebhookUrl: undefined }));
+      setErrors((prev: AutoReorderValidationErrors) => ({ ...prev, supplierWebhookUrl: undefined }));
     }
   };
 
   const handleThresholdChange = (value: string) => {
     const parsed = value === "" ? 0 : Number(value);
-    setConfig((prev) => ({ ...prev, minimumThreshold: parsed }));
+    setConfig((prev: AutoReorderConfig) => ({ ...prev, minimumThreshold: parsed }));
     setSaved(false);
     if (errors.minimumThreshold) {
-      setErrors((prev) => ({ ...prev, minimumThreshold: undefined }));
+      setErrors((prev: AutoReorderValidationErrors) => ({ ...prev, minimumThreshold: undefined }));
     }
   };
 
   const handleQuantityChange = (value: string) => {
     const parsed = value === "" ? 0 : Number(value);
-    setConfig((prev) => ({ ...prev, reorderQuantity: parsed }));
+    setConfig((prev: AutoReorderConfig) => ({ ...prev, reorderQuantity: parsed }));
     setSaved(false);
     if (errors.reorderQuantity) {
-      setErrors((prev) => ({ ...prev, reorderQuantity: undefined }));
+      setErrors((prev: AutoReorderValidationErrors) => ({ ...prev, reorderQuantity: undefined }));
     }
   };
 
@@ -78,12 +78,12 @@ export function AutoReorderConfigForm({
     setIsEditingAuth(false);
     if (authRawInput.trim()) {
       const masked = maskAuthHeader(authRawInput.trim());
-      setConfig((prev) => ({ ...prev, authHeaderMasked: masked }));
+      setConfig((prev: AutoReorderConfig) => ({ ...prev, authHeaderMasked: masked }));
     }
   };
 
   const handleToggleEnabled = () => {
-    setConfig((prev) => {
+    setConfig((prev: AutoReorderConfig) => {
       const nextEnabled = !prev.isEnabled;
       return { ...prev, isEnabled: nextEnabled };
     });

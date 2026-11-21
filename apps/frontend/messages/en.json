@@ -6,7 +6,23 @@
   "offline": {
     "banner": "Offline Mode — Browse Only",
     "backOnline": "Back Online",
-    "dismissBackOnline": "Dismiss"
+    "dismissBackOnline": "Dismiss",
+    "page": {
+      "title": "You're offline",
+      "description": "Delego can't reach the network right now. Reconnect and reload to pick up where you left off — in the meantime, here's what you can still look at.",
+      "availableTitle": "Available offline",
+      "checking": "Checking what's cached…",
+      "empty": "Nothing cached yet — visit a page while online to save it here.",
+      "savedAt": "saved {time}"
+    }
+  },
+  "mobileBottomNav": {
+    "ariaLabel": "Bottom navigation",
+    "store": "Store",
+    "orders": "Orders",
+    "cart": "Cart",
+    "cartWithCount": "{count, plural, one {Cart, # item} other {Cart, # items}}",
+    "copilot": "AI Copilot"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -38,7 +54,8 @@
   "agent": {
     "roster": {
       "fabAria": "Open agent roster",
-      "fabUnread": "{count, plural, one {# unread proposal} other {# unread proposals}}"
+      "fabUnread": "{count, plural, one {# unread proposal} other {# unread proposals}}",
+      "fabTooltip": "Open assistant"
     }
   },
   "copilot": {
@@ -56,7 +73,8 @@
     "loading": "Loading…",
     "required": "Required",
     "optional": "Optional",
-    "errorGeneric": "Something went wrong. Please try again."
+    "errorGeneric": "Something went wrong. Please try again.",
+    "tryAgain": "Try again"
   },
   "forms": {
     "labelRequiredSuffix": "*",
@@ -252,5 +270,43 @@
     },
     "recentErrorsButton": "Recent errors",
     "recentErrorsTitle": "Most recent HTTP errors"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "subtitle": "Compare delegation policies and view aggregate spending data"
+  },
+  "notFound": {
+    "description": "The page you're looking for doesn't exist.",
+    "goHome": "Go home"
+  },
+  "home": {
+    "title": "Delego",
+    "subtitle": "AI commerce with approval and spending controls",
+    "killSwitch": {
+      "bannerTitle": "Emergency kill-switch",
+      "bannerDescription": "Instantly revoke all active AI agent spending permissions.",
+      "open": "Revoke all delegations",
+      "title": "Revoke all delegations",
+      "description": "This will immediately revoke all {count, plural, one {# active AI agent spending permission} other {# active AI agent spending permissions}} on-chain. This action cannot be undone.",
+      "confirmLabel": "Type <strong>{word}</strong> to confirm",
+      "confirm": "Revoke all",
+      "revoking": "Revoking…",
+      "errorFallback": "Failed to revoke delegations."
+    },
+    "delegations": {
+      "title": "Delegations",
+      "description": "Grant AI agents scoped shopping authority.",
+      "empty": "No delegations yet.",
+      "create": "Create Delegation"
+    },
+    "orders": {
+      "title": "Orders",
+      "description": "Track purchases initiated by your agents.",
+      "empty": "No orders yet."
+    },
+    "wallet": {
+      "title": "Wallet",
+      "description": "Connect your Stellar wallet."
+    }
   }
 }

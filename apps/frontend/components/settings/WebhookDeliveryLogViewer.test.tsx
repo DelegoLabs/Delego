@@ -89,6 +89,13 @@ describe("WebhookDeliveryLogViewer", () => {
     expect(screen.getByTestId("webhook-retry-evt_404")).toBeInTheDocument();
   });
 
+  it("labels the retry button with the voice-guide verb", () => {
+    renderViewer({ onRetry: vi.fn() });
+    expect(screen.getByTestId("webhook-retry-evt_500")).toHaveTextContent(
+      /^Try again$/
+    );
+  });
+
   it("hides the retry button when no retry handler is supplied", () => {
     renderViewer({ onRetry: undefined });
     expect(screen.queryByTestId("webhook-retry-evt_500")).not.toBeInTheDocument();

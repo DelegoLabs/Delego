@@ -21,6 +21,7 @@ import { Inter } from "next/font/google";
 import { a11yBootstrapScript } from "../hooks/useAccessibility";
 import { EXTERNAL_SCRIPTS } from "../lib/sri";
 import { AgentFab } from "../components/layout/AgentFab";
+import { MobileBottomNav } from "../components/layout/MobileBottomNav";
 import { SkipToContent } from "../components/layout/SkipToContent";
 
 const inter = Inter({
@@ -119,6 +120,7 @@ export default async function RootLayout({
                 </div>
               </div>
               <AgentFab />
+              <MobileBottomNav />
               <Suspense fallback={null}>
                 <UpdatePromptToast />
               </Suspense>
