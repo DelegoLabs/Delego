@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button, Card } from "@delegolabs/ui";
 import { DelegationSkeleton } from "./DelegationSkeleton";
 import { ExpiryCountdown } from "./delegations/public";
@@ -9,6 +10,9 @@ import { WalletConnectButton } from "./wallet/public";
 import { useDelegations } from "../hooks/useDelegations";
 import { useOrders } from "../hooks/useOrders";
 import { StaleBadge } from "./offline/StaleBadge";
+
+/** Typed confirmation token; kept out of the catalog so translations can't change it. */
+const REVOKE_CONFIRMATION_WORD = "REVOKE";
 
 export interface KillSwitchModalProps {
   activeDelegationCount: number;
@@ -20,11 +24,13 @@ function KillSwitchModal({
   onConfirmRevokeAll,
   onClose,
 }: KillSwitchModalProps & { onClose(): void }) {
+  const tModal = useTranslations("home.killSwitch");
+  const tCommon = useTranslations("common");
   const [confirmation, setConfirmation] = useState("");
   const [revoking, setRevoking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const confirmed = confirmation === "REVOKE";
+  const confirmed = confirmation === REVOKE_CONFIRMATION_WORD;
 
   async function handleConfirm() {
     if (!confirmed || revoking) {
@@ -36,9 +42,7 @@ function KillSwitchModal({
       await onConfirmRevokeAll();
       onClose();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to revoke delegations."
-      );
+      setError(err instanceof Error ? err.message : tModal("errorFallback"));
     } finally {
       setRevoking(false);
     }
@@ -46,14 +50,13 @@ function KillSwitchModal({
 
   return (
     <div className="kill-switch-modal" role="dialog" aria-modal="true">
-      <h2>Revoke all delegations</h2>
-      <p>
-        This will immediately revoke all {activeDelegationCount} active AI agent
-        spending permission{activeDelegationCount === 1 ? "" : "s"} on-chain.
-        This action cannot be undone.
-      </p>
+      <h2>{tModal("title")}</h2>
+      <p>{tModal("description", { count: activeDelegationCount })}</p>
       <label htmlFor="kill-switch-confirmation">
-        Type <strong>REVOKE</strong> to confirm
+        {tModal.rich("confirmLabel", {
+          word: REVOKE_CONFIRMATION_WORD,
+          strong: (chunks) => <strong>{chunks}</strong>,
+        })}
       </label>
       <input
         id="kill-switch-confirmation"
@@ -66,14 +69,14 @@ function KillSwitchModal({
       {error ? <p className="stat-label">{error}</p> : null}
       <div className="kill-switch-actions">
         <Button variant="secondary" onClick={onClose} disabled={revoking}>
-          Cancel
+          {tCommon("cancel")}
         </Button>
         <Button
           variant="primary"
           onClick={handleConfirm}
           disabled={!confirmed || revoking}
         >
-          {revoking ? "Revoking…" : "Revoke all"}
+          {revoking ? tModal("revoking") : tModal("confirm")}
         </Button>
       </div>
     </div>
@@ -81,6 +84,7 @@ function KillSwitchModal({
 }
 
 export function HomeContent() {
+  const t = useTranslations("home");
   const {
     delegations,
     revokeDelegation,
@@ -114,23 +118,21 @@ export function HomeContent() {
   return (
     <div className="settings-page">
       <header className="header">
-        <h1>Delego</h1>
-        <p>AI commerce with approval and spending controls</p>
+        <h1>{t("title")}</h1>
+        <p>{t("subtitle")}</p>
       </header>
 
       <section className="emergency-banner" role="alert">
         <div>
-          <strong>Emergency kill-switch</strong>
-          <p className="stat-label">
-            Instantly revoke all active AI agent spending permissions.
-          </p>
+          <strong>{t("killSwitch.bannerTitle")}</strong>
+          <p className="stat-label">{t("killSwitch.bannerDescription")}</p>
         </div>
         <Button
           variant="primary"
           onClick={() => setKillSwitchOpen(true)}
           disabled={activeDelegationCount === 0}
         >
-          Revoke all delegations
+          {t("killSwitch.open")}
         </Button>
       </section>
 
@@ -143,8 +145,8 @@ export function HomeContent() {
       ) : null}
 
       <section className="grid">
-        <Card title="Delegations" titleLevel={2}>
-          <p>Grant AI agents scoped shopping authority.</p>
+        <Card title={t("delegations.title")} titleLevel={2}>
+          <p>{t("delegations.description")}</p>
           <StaleBadge
             family="delegations"
             stale={delegationsStale}
@@ -163,13 +165,13 @@ export function HomeContent() {
               ))}
             </ul>
           ) : (
-            <p className="stat-label">No delegations yet.</p>
+            <p className="stat-label">{t("delegations.empty")}</p>
           )}
-          <Button variant="primary">Create Delegation</Button>
+          <Button variant="primary">{t("delegations.create")}</Button>
         </Card>
 
-        <Card title="Orders" titleLevel={2}>
-          <p>Track purchases initiated by your agents.</p>
+        <Card title={t("orders.title")} titleLevel={2}>
+          <p>{t("orders.description")}</p>
           <StaleBadge
             family="orders"
             stale={ordersStale}
@@ -187,12 +189,12 @@ export function HomeContent() {
               ))}
             </ul>
           ) : (
-            <p className="stat-label">No orders yet.</p>
+            <p className="stat-label">{t("orders.empty")}</p>
           )}
         </Card>
 
-        <Card title="Wallet" titleLevel={2}>
-          <p>Connect your Stellar wallet.</p>
+        <Card title={t("wallet.title")} titleLevel={2}>
+          <p>{t("wallet.description")}</p>
           <WalletConnectButton showDetails={false} />
         </Card>
       </section>
