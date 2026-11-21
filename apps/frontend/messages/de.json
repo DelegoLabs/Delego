@@ -46,13 +46,96 @@
     "saving": "Wird gespeichert…",
     "submit": "Absenden",
     "close": "Schließen",
-    "loading": "Wird geladen…"
+    "loading": "Wird geladen…",
+    "required": "Erforderlich",
+    "optional": "Optional",
+    "errorGeneric": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+  },
+  "forms": {
+    "labelRequiredSuffix": "*",
+    "commaSeparatedHint": "Durch Kommas getrennt, leer lassen, um alle zu erlauben"
+  },
+  "filters": {
+    "copyLink": "Link zu dieser Ansicht kopieren",
+    "copied": "Link kopiert"
   },
   "delegations": {
     "wizard": {
       "title": "Neue Delegation erteilen",
+      "ariaLabel": "Delegation erstellen",
+      "agentId": {
+        "label": "Agenten-ID",
+        "hint": "Der KI-Agent, der diese Delegation erhält",
+        "placeholder": "agent-shopping-01"
+      },
+      "walletId": {
+        "label": "Wallet-ID",
+        "hint": "Die Stellar-Wallet, aus der diese Delegation ihre Ausgabenberechtigung bezieht",
+        "placeholder": "wallet-id"
+      },
+      "label": {
+        "label": "Bezeichnung",
+        "hint": "Ein kurzer Name zur Identifizierung dieser Delegation",
+        "placeholder": "Lebensmittel-Agent"
+      },
+      "permissionLevel": {
+        "label": "Berechtigungsstufe"
+      },
+      "maxPerTransaction": {
+        "label": "Maximal pro Transaktion"
+      },
+      "maxTotal": {
+        "label": "Maximale Gesamtausgaben"
+      },
+      "allowedMerchants": {
+        "label": "Erlaubte Händler",
+        "placeholder": "haendler-a, haendler-b"
+      },
+      "allowedCategories": {
+        "label": "Erlaubte Kategorien",
+        "placeholder": "Lebensmittel, Elektronik"
+      },
+      "expiresAt": {
+        "label": "Läuft ab",
+        "hint": "Optionales Ablaufdatum"
+      },
       "submit": "Delegation erstellen",
-      "submitting": "Wird erstellt…"
+      "submitting": "Wird erstellt…",
+      "errors": {
+        "missingFields": "Agent, Wallet und Bezeichnung sind erforderlich",
+        "invalidTotal": "Das Gesamtausgabenlimit muss größer als null sein",
+        "emptyWhitelist": "Wähle mindestens einen Händler aus oder aktiviere „Alle Händler erlauben“",
+        "createFailed": "Delegation konnte nicht erstellt werden"
+      },
+      "steps": {
+        "agent": {
+          "title": "Agent auswählen",
+          "scanQr": "QR-Code scannen",
+          "scanQrHint": "Scanne den QR-Code eines Agenten mit deiner Kamera oder füge oben seine ID ein",
+          "scanQrUnsupported": "QR-Scannen wird in diesem Browser nicht unterstützt – füge stattdessen die Agenten-ID ein",
+          "scanQrError": "Aus diesem Bild konnte kein Delegations-QR-Code gelesen werden"
+        },
+        "scope": {
+          "title": "Umfang"
+        },
+        "limits": {
+          "title": "Limits"
+        },
+        "review": {
+          "title": "Prüfen & bestätigen",
+          "summary": "{agentLabel} kann bis zu {maxTotal} {merchantScope} ausgeben, bis {expiry}",
+          "summaryNoExpiry": "kein Ablaufdatum",
+          "merchantScopeAll": "bei beliebigen Händlern",
+          "merchantScopeRestricted": "bei {count, plural, one {# erlaubten Händler} other {# erlaubten Händlern}}"
+        },
+        "next": "Weiter",
+        "back": "Zurück",
+        "stepOf": "Schritt {current} von {total}",
+        "cancelConfirm": "Diesen Delegationsentwurf verwerfen? Deine Änderungen gehen verloren.",
+        "resumeDraft": "Du hast einen unvollständigen Delegationsentwurf.",
+        "resumeDraftAction": "Fortsetzen",
+        "discardDraft": "Verwerfen"
+      }
     }
   },
   "settings": {
