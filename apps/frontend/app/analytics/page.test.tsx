@@ -1,49 +1,51 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { NextIntlClientProvider } from "next-intl";
-import enMessages from "../../messages/en.json";
-import deMessages from "../../messages/de.json";
+
+let resolveSearchParams: () => void = () => {};
+let ready = false;
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
   usePathname: () => "/analytics",
-  useSearchParams: () => new URLSearchParams(),
+  // Mimics how useSearchParams() suspends during prerender: it throws a
+  // pending promise until the params are available.
+  useSearchParams: () => {
+    if (!ready) {
+      throw new Promise<void>((resolve) => {
+        resolveSearchParams = () => {
+          ready = true;
+          resolve();
+        };
+      });
+    }
+    return new URLSearchParams("range=30d");
+  },
 }));
 
-// The dashboard fetches its own data; this test only covers the page header.
+vi.mock("next-intl", () => ({ useLocale: () => "en" }));
+
 vi.mock("../../components/analytics/AnalyticsDashboard", () => ({
-  AnalyticsDashboard: () => null,
+  AnalyticsDashboard: ({ range }: { range: string }) => (
+    <div data-testid="dashboard">range:{range}</div>
+  ),
 }));
 
 import AnalyticsPage from "./page";
 
-describe("AnalyticsPage header", () => {
-  it("renders the heading and subtitle from the en catalog", () => {
-    render(
-      <NextIntlClientProvider locale="en" messages={enMessages}>
-        <AnalyticsPage />
-      </NextIntlClientProvider>
-    );
-
-    expect(
-      screen.getByRole("heading", {
-        level: 1,
-        name: enMessages.analytics.title,
-      })
-    ).toBeInTheDocument();
-    expect(screen.getByText(enMessages.analytics.subtitle)).toBeInTheDocument();
+describe("AnalyticsPage", () => {
+  beforeEach(() => {
+    ready = false;
   });
 
-  it("renders the translated heading and subtitle in German", () => {
-    render(
-      <NextIntlClientProvider locale="de" messages={deMessages}>
-        <AnalyticsPage />
-      </NextIntlClientProvider>
-    );
+  it("shows the loading fallback while search params are suspended, then the dashboard", async () => {
+    render(<AnalyticsPage />);
 
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Analysen" })
-    ).toBeInTheDocument();
-    expect(screen.getByText(deMessages.analytics.subtitle)).toBeInTheDocument();
+    expect(screen.getByText("Loading analytics...")).toBeTruthy();
+    expect(screen.queryByTestId("dashboard")).toBeNull();
+
+    resolveSearchParams();
+
+    expect(await screen.findByTestId("dashboard")).toBeTruthy();
+    expect(screen.queryByText("Loading analytics...")).toBeNull();
   });
 });

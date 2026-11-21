@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
+import { Suspense, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale } from "next-intl";
+import AnalyticsLoading from "./loading";
 import { AnalyticsDashboard } from "../../components/analytics/AnalyticsDashboard";
 import { parseAnalyticsRange, type AnalyticsRange } from "../../lib/analytics";
 import {
@@ -14,7 +15,7 @@ import {
   type SpendingCategoryRange,
 } from "../../lib/spendingByCategory";
 
-export default function AnalyticsPage() {
+function AnalyticsContent() {
   const locale = useLocale();
   const t = useTranslations("analytics");
   const router = useRouter();
@@ -72,5 +73,15 @@ export default function AnalyticsPage() {
         onSpendingCategoryRangeChange={setSpendingCategoryRange}
       />
     </div>
+  );
+}
+
+export default function AnalyticsPage() {
+  // useSearchParams() opts the subtree into client-side rendering; without a
+  // Suspense boundary Next.js 15 bails out the whole page during prerender.
+  return (
+    <Suspense fallback={<AnalyticsLoading />}>
+      <AnalyticsContent />
+    </Suspense>
   );
 }
