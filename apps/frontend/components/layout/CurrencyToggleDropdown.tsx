@@ -23,6 +23,8 @@ export function CurrencyToggleDropdown() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isCryptoPrimary = preference.mode === "crypto_primary";
+  const targetFiat: FiatTarget = preference.targetFiat;
+  const targetFiatLabel = FIAT_LABELS[targetFiat];
 
   useEffect(() => {
     if (!open) return;
@@ -46,8 +48,8 @@ export function CurrencyToggleDropdown() {
   }, [open]);
 
   const summaryLabel = isCryptoPrimary
-    ? `Crypto · ${preference.targetFiat}`
-    : `${preference.targetFiat} (${FIAT_LABELS[preference.targetFiat].symbol}) · Crypto`;
+    ? `Crypto · ${targetFiat}`
+    : `${targetFiat} (${targetFiatLabel.symbol}) · Crypto`;
 
   return (
     <div
@@ -83,12 +85,12 @@ export function CurrencyToggleDropdown() {
             cursor: "pointer",
           }}
         >
-          {isCryptoPrimary ? "XLM/USDC" : FIAT_LABELS[preference.targetFiat].symbol}
+          {isCryptoPrimary ? "XLM/USDC" : targetFiatLabel.symbol}
         </button>
 
         <button
           type="button"
-          onClick={() => setOpen((prev) => !prev)}
+          onClick={() => setOpen((prev: boolean) => !prev)}
           className="currency-toggle-button focus-visible-ring"
           data-testid="currency-toggle-trigger"
           aria-haspopup="true"

@@ -230,7 +230,7 @@ export function BiometricCheckoutPrompt({
         aria-modal="true"
         aria-label="Biometric checkout"
         tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
         data-testid="biometric-checkout-modal"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
