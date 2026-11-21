@@ -1,4 +1,15 @@
 :root {
+  /* Shape tokens */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  /* Media preview tokens (storefront banner uploader) */
+  --color-media-backdrop: #111827;
+  --banner-preview-max-height: 260px;
+  --banner-aspect-landscape: 16 / 9;
+  --banner-aspect-panoramic: 3 / 1;
+
   /* Core structural colors */
   --color-bg-primary: #f9fafb;
   --color-bg-surface: #ffffff;
@@ -139,6 +150,36 @@
 .image-uploader-privacy-notice {
   color: var(--color-info-text);
   margin: 0;
+}
+
+/* Storefront banner uploader previews */
+.storefront-banner-preview {
+  display: block;
+  width: 100%;
+  max-height: var(--banner-preview-max-height);
+  aspect-ratio: var(--banner-aspect-landscape);
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+.storefront-banner-crop-frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: var(--banner-aspect-landscape);
+  border-radius: var(--radius-md);
+  background: var(--color-media-backdrop);
+}
+.storefront-banner-preview[data-aspect="panoramic"],
+.storefront-banner-crop-frame[data-aspect="panoramic"] {
+  aspect-ratio: var(--banner-aspect-panoramic);
+}
+.storefront-banner-crop-result {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.storefront-banner-crop-source {
+  position: absolute;
 }
 
 .image-uploader-count {
