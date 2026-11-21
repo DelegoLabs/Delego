@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { AnalyticsDashboard } from "../../components/analytics/AnalyticsDashboard";
 import { parseAnalyticsRange, type AnalyticsRange } from "../../lib/analytics";
 import {
@@ -16,6 +16,7 @@ import {
 
 export default function AnalyticsPage() {
   const locale = useLocale();
+  const t = useTranslations("analytics");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -57,8 +58,8 @@ export default function AnalyticsPage() {
   return (
     <div className="settings-page">
       <header className="header">
-        <h1>Analytics</h1>
-        <p>Compare delegation policies and view aggregate spending data</p>
+        <h1>{t("title")}</h1>
+        <p>{t("subtitle")}</p>
       </header>
 
       <AnalyticsDashboard

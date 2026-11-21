@@ -162,5 +162,9 @@
     },
     "recentErrorsButton": "Letzte Fehler",
     "recentErrorsTitle": "Letzte HTTP-Fehler"
+  },
+  "analytics": {
+    "title": "Analysen",
+    "subtitle": "Vergleiche Delegationsrichtlinien und sieh dir aggregierte Ausgabendaten an"
   }
 }

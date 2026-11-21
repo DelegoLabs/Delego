@@ -245,5 +245,9 @@
     },
     "recentErrorsButton": "Recent errors",
     "recentErrorsTitle": "Most recent HTTP errors"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "subtitle": "Compare delegation policies and view aggregate spending data"
   }
 }
