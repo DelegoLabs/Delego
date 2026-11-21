@@ -32,6 +32,13 @@
     "primaryNavigation": "Hauptnavigation",
     "skipToContent": "Zum Hauptinhalt springen"
   },
+  "footer": {
+    "copyright": "© {year} Delego",
+    "navigationLabel": "Rechtliche Hinweise und Dienste",
+    "privacy": "Datenschutz",
+    "terms": "Nutzungsbedingungen",
+    "status": "Status"
+  },
   "fab": {
     "label": "KI-Assistent öffnen",
     "badge": "{count, plural, one {# ungelesener Vorschlag} other {# ungelesene Vorschläge}}"

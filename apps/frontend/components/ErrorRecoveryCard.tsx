@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import * as Sentry from "@sentry/nextjs";
 
@@ -136,6 +136,49 @@ const secondaryActionStyle: CSSProperties = {
   textDecoration: "none",
 };
 
+type RecoveryLocale = "en" | "de";
+
+const recoveryCopy: Record<
+  RecoveryLocale,
+  {
+    title: string;
+    description: string;
+    errorReference: string;
+    tryAgain: string;
+    returnToDashboard: string;
+  }
+> = {
+  en: {
+    title: "Something went wrong",
+    description:
+      "An unexpected error stopped this page from loading. Nothing was lost — try again, or head back to the dashboard.",
+    errorReference: "Error reference:",
+    tryAgain: "Try Again",
+    returnToDashboard: "Return to Dashboard",
+  },
+  de: {
+    title: "Etwas ist schiefgelaufen",
+    description:
+      "Ein unerwarteter Fehler hat das Laden dieser Seite verhindert. Es ist nichts verloren gegangen — versuche es erneut oder kehre zum Dashboard zurück.",
+    errorReference: "Fehlerreferenz:",
+    tryAgain: "Erneut versuchen",
+    returnToDashboard: "Zurück zum Dashboard",
+  },
+};
+
+function getRecoveryLocale(boundary: string): RecoveryLocale {
+  const cookieLocale = document.cookie.match(
+    /(?:^|;\s*)delego_locale=([^;]+)/
+  )?.[1];
+  const documentLocale = document.documentElement.lang;
+  const language =
+    cookieLocale ??
+    (boundary === "global-error" && documentLocale === "en"
+      ? navigator.language
+      : documentLocale || navigator.language);
+  return language.toLowerCase().startsWith("de") ? "de" : "en";
+}
+
 /**
  * Resilient, dependency-free recovery card shared by the route and root error
  * boundaries (#747). Renders an `aria-live` alert with a working `Try Again`
@@ -148,11 +191,18 @@ export function ErrorRecoveryCard({
   dashboardHref = "/",
   boundary = "global-error",
 }: ErrorRecoveryCardProps) {
+  const [locale, setLocale] = useState<RecoveryLocale>("en");
+
   useEffect(() => {
     reportClientError(error, boundary);
   }, [error, boundary]);
 
+  useEffect(() => {
+    setLocale(getRecoveryLocale(boundary));
+  }, [boundary]);
+
   const digest = error.digest;
+  const copy = recoveryCopy[locale];
 
   return (
     <section
@@ -162,26 +212,23 @@ export function ErrorRecoveryCard({
       data-testid="error-recovery-card"
       style={cardStyle}
     >
-      <h1 style={titleStyle}>Something went wrong</h1>
-      <p style={descriptionStyle}>
-        An unexpected error stopped this page from loading. Nothing was lost —
-        try again, or head back to the dashboard.
-      </p>
+      <h1 style={titleStyle}>{copy.title}</h1>
+      <p style={descriptionStyle}>{copy.description}</p>
       {digest ? (
         <p style={referenceStyle}>
-          Error reference: <code style={codeStyle}>{digest}</code>
+          {copy.errorReference} <code style={codeStyle}>{digest}</code>
         </p>
       ) : null}
       <div style={actionsStyle}>
         <button type="button" onClick={reset} style={primaryActionStyle}>
-          Try Again
+          {copy.tryAgain}
         </button>
         {/* A plain anchor forces a full document reload, which clears any
             corrupted client state — and works even when the router itself is
             the thing that failed, unlike `next/link`. */}
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- error boundary must not depend on the client router */}
         <a href={dashboardHref} style={secondaryActionStyle}>
-          Return to Dashboard
+          {copy.returnToDashboard}
         </a>
       </div>
     </section>

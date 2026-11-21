@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import GlobalError from "./global-error";
 import {
@@ -40,6 +40,8 @@ describe("GlobalError recovery screen (#747)", () => {
   });
 
   afterEach(() => {
+    document.documentElement.lang = "en";
+    document.cookie = "delego_locale=; path=/; max-age=0";
     vi.restoreAllMocks();
   });
 
@@ -78,7 +80,9 @@ describe("GlobalError recovery screen (#747)", () => {
   });
 
   it("announces the failure through an aria-live alert region", () => {
-    render(<ErrorRecoveryCard error={makeError("digest-1")} reset={() => {}} />);
+    render(
+      <ErrorRecoveryCard error={makeError("digest-1")} reset={() => {}} />
+    );
 
     const alert = screen.getByRole("alert");
     expect(alert).toHaveAttribute("aria-live", "assertive");
@@ -95,7 +99,9 @@ describe("GlobalError recovery screen (#747)", () => {
   });
 
   it("offers a Return to Dashboard link back to the app root", () => {
-    render(<ErrorRecoveryCard error={makeError("digest-1")} reset={() => {}} />);
+    render(
+      <ErrorRecoveryCard error={makeError("digest-1")} reset={() => {}} />
+    );
 
     expect(
       screen.getByRole("link", { name: "Return to Dashboard" })
@@ -117,7 +123,9 @@ describe("GlobalError recovery screen (#747)", () => {
   });
 
   it("reports the digest to Sentry and logs only stack-free metadata", () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
     render(
       <ErrorRecoveryCard
@@ -133,7 +141,10 @@ describe("GlobalError recovery screen (#747)", () => {
         message: "database connection refused for internal table orders",
       })
     );
-    expect(sentry.setTag).toHaveBeenCalledWith("error.boundary", "global-error");
+    expect(sentry.setTag).toHaveBeenCalledWith(
+      "error.boundary",
+      "global-error"
+    );
     expect(sentry.setTag).toHaveBeenCalledWith("error.digest", "digest-xyz");
 
     const logged = consoleError.mock.calls
@@ -142,9 +153,9 @@ describe("GlobalError recovery screen (#747)", () => {
           .map((arg) =>
             typeof arg === "object" && arg !== null
               ? JSON.stringify(arg)
-              : String(arg),
+              : String(arg)
           )
-          .join(" "),
+          .join(" ")
       )
       .join("\n");
     expect(logged).toContain("[global-error] uncaught error");
@@ -156,5 +167,22 @@ describe("GlobalError recovery screen (#747)", () => {
     render(<ErrorRecoveryCard error={makeError()} reset={() => {}} />);
 
     expect(screen.queryByText(/error reference/i)).not.toBeInTheDocument();
+  });
+
+  it("localizes recovery copy from the locale cookie without an intl provider", async () => {
+    document.cookie = "delego_locale=de; path=/";
+    render(<ErrorRecoveryCard error={makeError()} reset={() => {}} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Etwas ist schiefgelaufen" })
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: "Erneut versuchen" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Zurück zum Dashboard" })
+    ).toBeInTheDocument();
   });
 });

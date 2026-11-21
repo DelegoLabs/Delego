@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useRef, useState } from "react";
 import { Button, Card } from "@delegolabs/ui";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { DelegationSkeleton } from "./DelegationSkeleton";
 import { ExpiryCountdown } from "./delegations/public";
 import { OrderSkeleton } from "./OrderSkeleton";
@@ -29,8 +29,19 @@ function KillSwitchModal({
   const [confirmation, setConfirmation] = useState("");
   const [revoking, setRevoking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const confirmationInputRef = useRef<HTMLInputElement>(null);
 
   const confirmed = confirmation === REVOKE_CONFIRMATION_WORD;
+
+  useFocusTrap({
+    containerRef: modalRef,
+    isActive: true,
+    initialFocusRef: confirmationInputRef,
+    onEscape: () => {
+      if (!revoking) onClose();
+    },
+  });
 
   async function handleConfirm() {
     if (!confirmed || revoking) {
@@ -49,9 +60,20 @@ function KillSwitchModal({
   }
 
   return (
-    <div className="kill-switch-modal" role="dialog" aria-modal="true">
-      <h2>{tModal("title")}</h2>
-      <p>{tModal("description", { count: activeDelegationCount })}</p>
+    <div
+      ref={modalRef}
+      className="kill-switch-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="kill-switch-modal-title"
+      tabIndex={-1}
+    >
+      <h2 id="kill-switch-modal-title">Revoke all delegations</h2>
+      <p>
+        This will immediately revoke all {activeDelegationCount} active AI agent
+        spending permission{activeDelegationCount === 1 ? "" : "s"} on-chain.
+        This action cannot be undone.
+      </p>
       <label htmlFor="kill-switch-confirmation">
         {tModal.rich("confirmLabel", {
           word: REVOKE_CONFIRMATION_WORD,
@@ -59,14 +81,21 @@ function KillSwitchModal({
         })}
       </label>
       <input
+        ref={confirmationInputRef}
         id="kill-switch-confirmation"
         type="text"
         value={confirmation}
         onChange={(event) => setConfirmation(event.target.value)}
         disabled={revoking}
         autoComplete="off"
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? "kill-switch-error" : undefined}
       />
-      {error ? <p className="stat-label">{error}</p> : null}
+      {error ? (
+        <p id="kill-switch-error" className="stat-label" role="alert">
+          {error}
+        </p>
+      ) : null}
       <div className="kill-switch-actions">
         <Button variant="secondary" onClick={onClose} disabled={revoking}>
           {tCommon("cancel")}
