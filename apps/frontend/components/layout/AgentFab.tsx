@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCopilotBubble } from "../chat/CopilotBubbleProvider";
 import { useShortcutHint } from "../../hooks/useShortcutHint";
+import { useReducedMotion } from "../../hooks/useReducedMotion";
 
 /** Props for the mobile floating action button that launches the AI assistant. */
 export interface FabButtonProps {
@@ -37,6 +38,8 @@ export function AgentFab({ unreadProposalsCount = 0, onClick }: FabButtonProps) 
   const tooltipId = useId();
   // ⌘J / Ctrl+J toggles the assistant drawer (see ChatDrawerProvider).
   const shortcut = useShortcutHint("j");
+  // Skip the reveal slide and attention pulse when reduced motion is requested.
+  const reducedMotion = useReducedMotion();
 
   /** Reveal the FAB once the user scrolls down. */
   useEffect(() => {
@@ -71,7 +74,11 @@ export function AgentFab({ unreadProposalsCount = 0, onClick }: FabButtonProps) 
   const badge = unreadProposalsCount > 0 ? unreadProposalsCount : null;
 
   return (
-    <div className={`agent-fab-shell${showFab ? " agent-fab-shell--visible" : ""}`}>
+    <div
+      className={`agent-fab-shell${showFab ? " agent-fab-shell--visible" : ""}${
+        reducedMotion ? " agent-fab-shell--reduced-motion" : ""
+      }`}
+    >
       {prompt ? (
         <div className="agent-fab-prompt" role="status" data-testid="copilot-bubble-prompt">
           <button
@@ -92,7 +99,13 @@ export function AgentFab({ unreadProposalsCount = 0, onClick }: FabButtonProps) 
       <div className="agent-fab__anchor">
         <button
           type="button"
-          className={`agent-fab${prompt ? " agent-fab--pulsing" : ""}`}
+          className={`agent-fab${
+            prompt
+              ? reducedMotion
+                ? " agent-fab--attention"
+                : " agent-fab--pulsing"
+              : ""
+          }`}
           aria-label={t("roster.fabAria")}
           aria-describedby={tooltipId}
           aria-keyshortcuts={shortcut.ariaKeyShortcuts}

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ProductCarousel } from "./ProductCarousel";
 import type { RecommendedProduct } from "./ProductCard";
+import { mockMatchMedia } from "../tests/fakeAudioContext";
 
 const mockProducts: RecommendedProduct[] = [
   {
@@ -183,5 +184,51 @@ describe("ProductCarousel", () => {
     const nextArrow = document.querySelector("button[aria-label='Next page']");
     expect(prevArrow).not.toBeNull();
     expect(nextArrow).not.toBeNull();
+  });
+
+  describe("prefers-reduced-motion", () => {
+    let restore: () => void;
+    afterEach(() => restore());
+
+    function renderCarousel() {
+      render(
+        <ProductCarousel
+          products={mockProducts}
+          onSelect={vi.fn()}
+          onQuickAdd={vi.fn()}
+        />
+      );
+      return document.querySelector<HTMLDivElement>(".product-carousel")!;
+    }
+
+    it("uses smooth scrolling by default", () => {
+      restore = mockMatchMedia(false);
+      const container = renderCarousel();
+      const scrollTo = vi.fn();
+      container.scrollTo = scrollTo;
+
+      expect(container.style.scrollBehavior).toBe("smooth");
+      fireEvent.click(screen.getByRole("button", { name: "Go to page 2" }));
+      expect(scrollTo).toHaveBeenCalledWith(
+        expect.objectContaining({ behavior: "smooth" })
+      );
+    });
+
+    it("switches to instant scrolling and drops transitions when reduced", () => {
+      restore = mockMatchMedia(true);
+      const container = renderCarousel();
+      const scrollTo = vi.fn();
+      container.scrollTo = scrollTo;
+
+      expect(container.style.scrollBehavior).toBe("auto");
+      expect(container).toHaveAttribute("data-reduced-motion", "true");
+      const dot = screen.getByRole("button", { name: "Go to page 2" });
+      expect(dot.style.transition).toBe("none");
+
+      fireEvent.click(dot);
+      expect(scrollTo).toHaveBeenCalledWith(
+        expect.objectContaining({ behavior: "auto" })
+      );
+    });
   });
 });

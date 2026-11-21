@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ProductCard } from "./ProductCard";
 import type { RecommendedProduct } from "./ProductCard";
+import { scrollBehaviorFor, useReducedMotion } from "../hooks/useReducedMotion";
 
 const CARDS_TO_SHOW = 3;
 const CARDS_PER_PAGE = CARDS_TO_SHOW;
@@ -33,7 +34,6 @@ const carouselContainerStyle: React.CSSProperties = {
   overflowX: "auto",
   scrollSnapType: "x mandatory",
   padding: "1rem 0",
-  scrollBehavior: "smooth",
   WebkitOverflowScrolling: "touch",
 };
 
@@ -83,6 +83,10 @@ export function ProductCarousel({
   const [visibleIndex, setVisibleIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  // Honour prefers-reduced-motion (and the in-app override): jump instead of
+  // smooth-scrolling and drop the dot colour transition.
+  const reducedMotion = useReducedMotion();
+  const scrollBehavior = scrollBehaviorFor(reducedMotion);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -112,7 +116,7 @@ export function ProductCarousel({
     const scrollPosition = index * cardWidth;
     containerRef.current.scrollTo({
       left: scrollPosition,
-      behavior: "smooth",
+      behavior: scrollBehavior,
     });
     setVisibleIndex(index);
   };
@@ -133,7 +137,8 @@ export function ProductCarousel({
     <div
       className="product-carousel"
       aria-label={ariaLabel}
-      style={carouselContainerStyle}
+      style={{ ...carouselContainerStyle, scrollBehavior }}
+      data-reduced-motion={reducedMotion}
       ref={containerRef}
     >
       {/* Prev Arrow */}
@@ -199,7 +204,7 @@ export function ProductCarousel({
           <button
             key={i}
             type="button"
-            style={dotStyle}
+            style={reducedMotion ? { ...dotStyle, transition: "none" } : dotStyle}
             className={i === visibleIndex ? "active" : ""}
             onClick={() => handlePageClick(i)}
             aria-label={`Go to page ${i + 1}`}

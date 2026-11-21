@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { AgentFab } from "./AgentFab";
+import { mockMatchMedia } from "../../tests/fakeAudioContext";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) =>
@@ -10,9 +11,12 @@ vi.mock("next-intl", () => ({
     })[key] ?? key,
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/store" }));
+const copilot = vi.hoisted(() => ({
+  prompt: null as null | { message: string; actionLabel: string },
+}));
 vi.mock("../chat/CopilotBubbleProvider", () => ({
   useCopilotBubble: () => ({
-    prompt: null,
+    prompt: copilot.prompt,
     openPrompt: vi.fn(),
     dismissPrompt: vi.fn(),
   }),
@@ -58,5 +62,31 @@ describe("AgentFab shortcut tooltip", () => {
     expect(tooltip).toHaveAttribute("data-open", "true");
     fireEvent.mouseLeave(fab);
     expect(tooltip).toHaveAttribute("data-open", "false");
+  });
+});
+
+describe("AgentFab reduced motion", () => {
+  let restore: () => void;
+  afterEach(() => {
+    restore();
+    copilot.prompt = null;
+  });
+
+  it("pulses and animates when motion is allowed", () => {
+    restore = mockMatchMedia(false);
+    copilot.prompt = { message: "Check this", actionLabel: "Ask" };
+    const { container } = render(<AgentFab />);
+    expect(screen.getByTestId("agent-fab")).toHaveClass("agent-fab--pulsing");
+    expect(container.firstChild).not.toHaveClass("agent-fab-shell--reduced-motion");
+  });
+
+  it("swaps the pulse for a static highlight and disables the reveal transition", () => {
+    restore = mockMatchMedia(true);
+    copilot.prompt = { message: "Check this", actionLabel: "Ask" };
+    const { container } = render(<AgentFab />);
+    const fab = screen.getByTestId("agent-fab");
+    expect(fab).not.toHaveClass("agent-fab--pulsing");
+    expect(fab).toHaveClass("agent-fab--attention");
+    expect(container.firstChild).toHaveClass("agent-fab-shell--reduced-motion");
   });
 });
