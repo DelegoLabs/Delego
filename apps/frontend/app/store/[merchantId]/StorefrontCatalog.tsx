@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatAmount } from "@delegolabs/ui";
+import { formatAmount, PolicyAccordion } from "@delegolabs/ui";
 import type { MerchantPolicyInfo } from "@delegolabs/types";
 import { StockDepletionPanel } from "../../../components/storefront/StockDepletionPanel";
 import { ImageLightboxModal } from "../../../components/storefront/ImageLightboxModal";
@@ -270,6 +270,7 @@ export function StorefrontCatalog({
   }
 
   const cartCount = summary.totalQuantity;
+  const policy = merchantPolicy ?? DEFAULT_MERCHANT_POLICY;
 
   return (
     <section
@@ -568,6 +569,16 @@ export function StorefrontCatalog({
         !isLoadingMore && (
           <p role="status">You&apos;ve reached the end of this catalog.</p>
         )}
+
+      {/* Shipping, returns and escrow terms shown before checkout (#1104). */}
+      <div data-testid="storefront-policy">
+        <PolicyAccordion
+          policy={policy}
+          merchantName={merchantName}
+          headingLevel={2}
+          ariaLabel={`${merchantName} store policies`}
+        />
+      </div>
       <ImageLightboxModal
         images={lightbox?.images ?? []}
         initialIndex={lightbox?.index ?? 0}
