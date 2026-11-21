@@ -39,7 +39,7 @@ export function Sep24InteractiveModal({
 
       if (result.status === "completed") {
         setIsCompleted(true);
-        setStatusText("Transfer completed successfully!");
+        setStatusText("Transfer completed.");
         if (onRefreshBalance) {
           await onRefreshBalance();
         }
