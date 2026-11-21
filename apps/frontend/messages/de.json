@@ -6,7 +6,15 @@
   "offline": {
     "banner": "Offline-Modus — Nur Browsen",
     "backOnline": "Wieder online",
-    "dismissBackOnline": "Schließen"
+    "dismissBackOnline": "Schließen",
+    "page": {
+      "title": "Du bist offline",
+      "description": "Delego kann das Netzwerk gerade nicht erreichen. Stelle die Verbindung wieder her und lade die Seite neu, um dort weiterzumachen, wo du aufgehört hast — bis dahin kannst du dir Folgendes ansehen.",
+      "availableTitle": "Offline verfügbar",
+      "checking": "Prüfe, was zwischengespeichert ist…",
+      "empty": "Noch nichts zwischengespeichert — besuche eine Seite, während du online bist, um sie hier zu speichern.",
+      "savedAt": "gespeichert am {time}"
+    }
   },
   "nav": {
     "dashboard": "Übersicht",
@@ -46,7 +54,8 @@
     "saving": "Wird gespeichert…",
     "submit": "Absenden",
     "close": "Schließen",
-    "loading": "Wird geladen…"
+    "loading": "Wird geladen…",
+    "tryAgain": "Erneut versuchen"
   },
   "delegations": {
     "wizard": {
@@ -162,5 +171,43 @@
     },
     "recentErrorsButton": "Letzte Fehler",
     "recentErrorsTitle": "Letzte HTTP-Fehler"
+  },
+  "analytics": {
+    "title": "Analysen",
+    "subtitle": "Vergleiche Delegationsrichtlinien und sieh dir aggregierte Ausgabendaten an"
+  },
+  "notFound": {
+    "description": "Die gesuchte Seite existiert nicht.",
+    "goHome": "Zur Startseite"
+  },
+  "home": {
+    "title": "Delego",
+    "subtitle": "KI-gestützter Handel mit Freigaben und Ausgabenkontrollen",
+    "killSwitch": {
+      "bannerTitle": "Not-Aus",
+      "bannerDescription": "Widerrufe sofort alle aktiven Ausgabeberechtigungen deiner KI-Agenten.",
+      "open": "Alle Delegationen widerrufen",
+      "title": "Alle Delegationen widerrufen",
+      "description": "Damit {count, plural, one {wird die # aktive Ausgabeberechtigung} other {werden alle # aktiven Ausgabeberechtigungen}} deiner KI-Agenten sofort on-chain widerrufen. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "confirmLabel": "Gib zur Bestätigung <strong>{word}</strong> ein",
+      "confirm": "Alle widerrufen",
+      "revoking": "Wird widerrufen…",
+      "errorFallback": "Delegationen konnten nicht widerrufen werden."
+    },
+    "delegations": {
+      "title": "Delegationen",
+      "description": "Gib KI-Agenten begrenzte Einkaufsbefugnisse.",
+      "empty": "Noch keine Delegationen.",
+      "create": "Delegation erstellen"
+    },
+    "orders": {
+      "title": "Bestellungen",
+      "description": "Verfolge Einkäufe, die deine Agenten ausgelöst haben.",
+      "empty": "Noch keine Bestellungen."
+    },
+    "wallet": {
+      "title": "Wallet",
+      "description": "Verbinde deine Stellar-Wallet."
+    }
   }
 }
