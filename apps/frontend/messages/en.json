@@ -24,6 +24,13 @@
     "primaryNavigation": "Primary navigation",
     "skipToContent": "Skip to main content"
   },
+  "footer": {
+    "copyright": "© {year} Delego",
+    "navigationLabel": "Legal and service links",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "status": "Status"
+  },
   "fab": {
     "label": "Open AI assistant",
     "badge": "{count, plural, one {# unread proposal} other {# unread proposals}}"
