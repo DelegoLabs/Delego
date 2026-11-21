@@ -17,6 +17,7 @@ import {
 
 function AnalyticsContent() {
   const locale = useLocale();
+  const t = useTranslations("analytics");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -58,8 +59,8 @@ function AnalyticsContent() {
   return (
     <div className="settings-page">
       <header className="header">
-        <h1>Analytics</h1>
-        <p>Compare delegation policies and view aggregate spending data</p>
+        <h1>{t("title")}</h1>
+        <p>{t("subtitle")}</p>
       </header>
 
       <AnalyticsDashboard

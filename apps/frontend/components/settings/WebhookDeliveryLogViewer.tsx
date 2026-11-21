@@ -162,7 +162,7 @@ export function WebhookDeliveryLogViewer({
                           disabled={retryingEventId === log.eventId}
                           onClick={() => handleRetry(log)}
                         >
-                          {retryingEventId === log.eventId ? "Retrying…" : "Retry"}
+                          {retryingEventId === log.eventId ? "Retrying…" : "Try again"}
                         </Button>
                       )}
                     </td>

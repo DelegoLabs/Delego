@@ -66,7 +66,7 @@ export default function WeeklyReportPage() {
           ))}
         </select>
         <Button variant="secondary" onClick={handleCopy}>
-          {copied ? "Copied!" : "Copy summary as text"}
+          {copied ? "Copied" : "Copy summary as text"}
         </Button>
         <Button variant="primary" onClick={() => window.print()}>
           Print

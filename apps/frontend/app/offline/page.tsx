@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button, Card } from "@delegolabs/ui";
 import { listCachedReads, type CachedRead } from "../../lib/offlineCache";
 
@@ -11,6 +12,8 @@ import { listCachedReads, type CachedRead } from "../../lib/offlineCache";
  * from Cache Storage so "offline" isn't a dead end.
  */
 export default function OfflinePage() {
+  const t = useTranslations("offline.page");
+  const tCommon = useTranslations("common");
   const [reads, setReads] = useState<CachedRead[] | null>(null);
 
   useEffect(() => {
@@ -20,19 +23,15 @@ export default function OfflinePage() {
   return (
     <div className="settings-page">
       <header className="header">
-        <h1>You&apos;re offline</h1>
-        <p>
-          Delego can&apos;t reach the network right now. Reconnect and reload
-          to pick up where you left off — in the meantime, here&apos;s what
-          you can still look at.
-        </p>
+        <h1>{t("title")}</h1>
+        <p>{t("description")}</p>
       </header>
 
-      <Card title="Available offline">
+      <Card title={t("availableTitle")}>
         {reads === null ? (
-          <p>Checking what&apos;s cached…</p>
+          <p>{t("checking")}</p>
         ) : reads.length === 0 ? (
-          <p>Nothing cached yet — visit a page while online to save it here.</p>
+          <p>{t("empty")}</p>
         ) : (
           <ul className="offline-cached-list">
             {reads.map((read) => (
@@ -40,7 +39,7 @@ export default function OfflinePage() {
                 <span className="offline-cached-label">{read.label}</span>
                 {read.cachedAt && (
                   <span className="offline-cached-time">
-                    saved {read.cachedAt.toLocaleString()}
+                    {t("savedAt", { time: read.cachedAt.toLocaleString() })}
                   </span>
                 )}
               </li>
@@ -49,7 +48,9 @@ export default function OfflinePage() {
         )}
       </Card>
 
-      <Button onClick={() => window.location.reload()}>Try again</Button>
+      <Button onClick={() => window.location.reload()}>
+        {tCommon("tryAgain")}
+      </Button>
     </div>
   );
 }

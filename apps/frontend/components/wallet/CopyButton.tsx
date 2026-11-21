@@ -43,7 +43,7 @@ export function CopyButton({
         aria-label={label}
         title={label}
       >
-        {copied ? "Copied!" : children}
+        {copied ? "Copied" : children}
       </button>
       {copied && (
         <span role="status" aria-live="polite" className="sr-only">
