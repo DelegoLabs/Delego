@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   registerMerchant: vi.fn(() => Promise.resolve({ transactionHash: "tx123" })),
   saveOnboardingState: vi.fn(),
   clearOnboardingState: vi.fn(),
+  loadWizardNavigationState: vi.fn<() => any>(() => null),
+  saveWizardNavigationState: vi.fn(),
+  clearWizardNavigationState: vi.fn(),
   signMessage: vi.fn(() =>
     Promise.resolve({
       signedMessage: "signed-message",
@@ -55,6 +58,9 @@ vi.mock("../../lib/merchantRegistration", () => ({
   loadOnboardingState: vi.fn(() => null),
   saveOnboardingState: mocks.saveOnboardingState,
   clearOnboardingState: mocks.clearOnboardingState,
+  loadWizardNavigationState: mocks.loadWizardNavigationState,
+  saveWizardNavigationState: mocks.saveWizardNavigationState,
+  clearWizardNavigationState: mocks.clearWizardNavigationState,
 }));
 
 vi.mock("../../lib/merchantDomainVerification", () => ({
@@ -247,11 +253,74 @@ describe("MerchantOnboardingWizard", () => {
 
   it("clears onboarding state when cancelled", async () => {
     const mockClear = mocks.clearOnboardingState;
+    const mockNavClear = mocks.clearWizardNavigationState;
     
     render(<MerchantOnboardingWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />);
     
     fireEvent.click(await screen.findByText("Cancel"));
     
     expect(mockClear).toHaveBeenCalled();
+    expect(mockNavClear).toHaveBeenCalled();
+  });
+
+  it("hydrates exact active step from valid sessionStorage navigation state (#959)", async () => {
+    mocks.loadWizardNavigationState.mockReturnValueOnce({
+      activeStep: 1,
+      completedSteps: [0],
+      canProceed: true,
+      stepData: {
+        storeName: "Restored Store",
+        storeSlug: "restored-store",
+        description: "Restored Description",
+        contactEmail: "restored@example.com",
+        payoutAddress: "GRESTOREDPAYOUT",
+        domainName: "",
+        isDomainVerified: false,
+        acceptedCurrencies: ["XLM"],
+      },
+    });
+
+    render(<MerchantOnboardingWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />);
+
+    // Should resume directly at Step 1 (Payout Address)
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Payout Address", level: 3 })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("textbox", { name: /stellar payout address/i })).toHaveValue("GRESTOREDPAYOUT");
+  });
+
+  it("falls back safely to step 0 when prerequisite steps are missing (#959)", async () => {
+    // Attempted leap to step 2 without prerequisite steps [0, 1] completed
+    mocks.loadWizardNavigationState.mockReturnValueOnce({
+      activeStep: 2,
+      completedSteps: [],
+      canProceed: true,
+      stepData: {},
+    });
+
+    render(<MerchantOnboardingWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />);
+
+    // Guard enforces fallback to Step 0 (Store Details)
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Store Details", level: 3 })).toBeInTheDocument();
+    });
+  });
+
+  it("persists structured wizard navigation state on step transitions (#959)", async () => {
+    const mockNavSave = mocks.saveWizardNavigationState;
+    render(<MerchantOnboardingWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />);
+
+    fillStoreDetails();
+    clickNext();
+
+    await waitFor(() => {
+      expect(mockNavSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          activeStep: 1,
+          completedSteps: expect.arrayContaining([0]),
+          canProceed: true,
+        })
+      );
+    });
   });
 });

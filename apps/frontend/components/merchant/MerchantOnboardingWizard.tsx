@@ -23,6 +23,10 @@ import {
   loadOnboardingState,
   saveOnboardingState,
   clearOnboardingState,
+  loadWizardNavigationState,
+  saveWizardNavigationState,
+  clearWizardNavigationState,
+  type WizardNavigationState,
   type MerchantOnboardingData,
   type MerchantRegistrationForm,
   type OnboardingStep,
@@ -55,6 +59,7 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
   const { address, isConnected, connect } = useWallet();
   const { network } = useNetwork();
   const [stepIndex, setStepIndex] = useState(0);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [formData, setFormData] = useState<MerchantOnboardingData>({
     storeName: "",
     storeSlug: "",
@@ -75,27 +80,56 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [loadingFromStorage, setLoadingFromStorage] = useState(true);
 
-  // Load persisted state on mount
+  // Load persisted state on mount (#959)
   useEffect(() => {
-    const persisted = loadOnboardingState();
-    if (persisted) {
-      setFormData(persisted);
-      // Determine which step to resume at
-      if (persisted.isDomainVerified) {
-        setStepIndex(3); // Verification complete
-      } else {
-        setStepIndex(2); // Contract binding
+    // 1. Try loading structured navigation state from sessionStorage
+    const navState = loadWizardNavigationState();
+    if (navState) {
+      // Step transition guards: cannot jump ahead before prerequisite steps are validated
+      let safeStep = navState.activeStep;
+      for (let i = 0; i < safeStep; i++) {
+        if (!navState.completedSteps.includes(i)) {
+          safeStep = 0;
+          break;
+        }
+      }
+      setStepIndex(safeStep);
+      setCompletedSteps(navState.completedSteps);
+
+      if (navState.stepData) {
+        setFormData((prev) => ({
+          ...prev,
+          ...(navState.stepData as Partial<MerchantOnboardingData>),
+        }));
+      }
+    } else {
+      // 2. Fallback to localStorage onboarding state
+      const persisted = loadOnboardingState();
+      if (persisted) {
+        setFormData(persisted);
+        if (persisted.isDomainVerified) {
+          setStepIndex(3);
+          setCompletedSteps([0, 1, 2]);
+        } else {
+          setStepIndex(0);
+        }
       }
     }
     setLoadingFromStorage(false);
   }, []);
 
-  // Save state whenever form changes
+  // Save state whenever form or navigation state changes (#959)
   useEffect(() => {
     if (!loadingFromStorage) {
       saveOnboardingState(formData);
+      saveWizardNavigationState({
+        activeStep: stepIndex,
+        completedSteps,
+        canProceed: true,
+        stepData: formData as unknown as Record<string, unknown>,
+      });
     }
-  }, [formData, loadingFromStorage]);
+  }, [formData, stepIndex, completedSteps, loadingFromStorage]);
 
   const currentStep = STEPS[stepIndex].id;
 
@@ -145,9 +179,11 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
   const handleNext = async () => {
     if (currentStep === "store_details") {
       if (!validateStoreDetails()) return;
+      setCompletedSteps((prev) => Array.from(new Set([...prev, 0])));
       setStepIndex((prev) => prev + 1);
     } else if (currentStep === "payout_address") {
       if (!validatePayoutAddress()) return;
+      setCompletedSteps((prev) => Array.from(new Set([...prev, 1])));
       setStepIndex((prev) => prev + 1);
     } else if (currentStep === "contract_binding") {
       await handleVerifyWallet();
@@ -169,12 +205,14 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
 
   const handleSkip = () => {
     if (stepIndex < STEPS.length - 1) {
+      setCompletedSteps((prev) => Array.from(new Set([...prev, stepIndex])));
       setStepIndex((prev) => prev + 1);
     }
   };
 
   const handleCancel = () => {
     clearOnboardingState();
+    clearWizardNavigationState();
     if (onCancel) onCancel();
   };
 
@@ -207,6 +245,7 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
             : Buffer.from(result.signedMessage).toString("base64"),
       });
       setVerifySuccess("Wallet verified successfully!");
+      setCompletedSteps((prev) => Array.from(new Set([...prev, 2])));
       setStepIndex((prev) => prev + 1);
     } catch (err) {
       if (isUserDeclined(err)) {
@@ -233,6 +272,7 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
       if (result.valid) {
         setFormData((prev) => ({ ...prev, isDomainVerified: true }));
         setVerifySuccess(`Domain verified! SIGNING_KEY: ${result.signingKey}`);
+        setCompletedSteps((prev) => Array.from(new Set([...prev, 3])));
         setStepIndex((prev) => prev + 1);
       } else {
         setVerifyError(result.error || "Domain verification failed.");
@@ -265,6 +305,8 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
       const result = await registerMerchant(registrationPayload, walletProof);
       setTransactionHash(result.transactionHash);
       clearOnboardingState();
+      clearWizardNavigationState();
+      setCompletedSteps((prev) => Array.from(new Set([...prev, 4])));
       setStepIndex((prev) => prev + 1);
     } catch (err) {
       setRegisterError(err instanceof Error ? err.message : "Registration failed.");

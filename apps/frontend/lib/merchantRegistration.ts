@@ -192,3 +192,72 @@ export function clearOnboardingState(): void {
     // Ignore cleanup failures
   }
 }
+
+export interface WizardNavigationState {
+  activeStep: number;
+  completedSteps: number[];
+  canProceed: boolean;
+  stepData: Record<string, unknown>;
+}
+
+export const WIZARD_SESSION_STORAGE_KEY = "delego_wizard_navigation_state";
+
+export function isValidWizardNavigationState(data: unknown): data is WizardNavigationState {
+  if (!data || typeof data !== "object") return false;
+  const s = data as Record<string, unknown>;
+  if (typeof s.activeStep !== "number" || Number.isNaN(s.activeStep) || s.activeStep < 0 || s.activeStep > 4) {
+    return false;
+  }
+  if (!Array.isArray(s.completedSteps) || !s.completedSteps.every((n) => typeof n === "number")) {
+    return false;
+  }
+  if (typeof s.canProceed !== "boolean") {
+    return false;
+  }
+  if (!s.stepData || typeof s.stepData !== "object" || Array.isArray(s.stepData)) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Loads and validates wizard navigation state from sessionStorage (#959).
+ */
+export function loadWizardNavigationState(): WizardNavigationState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(WIZARD_SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (isValidWizardNavigationState(parsed)) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persists wizard navigation state to sessionStorage (#959).
+ */
+export function saveWizardNavigationState(state: WizardNavigationState): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(WIZARD_SESSION_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore storage failures
+  }
+}
+
+/**
+ * Clears wizard navigation state from sessionStorage (#959).
+ */
+export function clearWizardNavigationState(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(WIZARD_SESSION_STORAGE_KEY);
+  } catch {
+    // Ignore cleanup failures
+  }
+}
