@@ -130,3 +130,51 @@ describe("StorefrontCatalog infinite scrolling", () => {
     );
   });
 });
+
+describe("StorefrontCatalog merchant policy", () => {
+  beforeEach(() => {
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    vi.stubGlobal("scrollTo", vi.fn());
+    sessionStorage.clear();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("renders the merchant's policy summary from the merchantPolicy prop", () => {
+    render(
+      <StorefrontCatalog
+        products={products}
+        merchantId="merchant"
+        merchantName="Merchant"
+        payoutAddress="GABC"
+        merchantPolicy={{
+          returnWindowDays: 14,
+          restockingFeePercent: 10,
+          freeShippingThresholdStroops: "50000000",
+          escrowProtectionNotice: "Custom escrow notice for this store.",
+        }}
+      />
+    );
+
+    expect(screen.getByTestId("policy-accordion")).toBeInTheDocument();
+    expect(
+      screen.getByText("Custom escrow notice for this store.")
+    ).toBeInTheDocument();
+    expect(screen.getByText("14-day window")).toBeInTheDocument();
+  });
+
+  it("falls back to the default policy when none is provided", () => {
+    render(
+      <StorefrontCatalog
+        products={products}
+        merchantId="merchant"
+        merchantName="Merchant"
+        payoutAddress="GABC"
+      />
+    );
+
+    expect(screen.getByText("30-day window")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Purchases are protected by Delego smart contract escrow/)
+    ).toBeInTheDocument();
+  });
+});
