@@ -122,13 +122,14 @@ export function StorefrontBannerUploader({ bannerUrl, onUpload, disabled = false
 
   const preview = savedPreviewUrl ?? bannerUrl ?? null;
   const cropWidthPercent = selected && crop ? Math.round((crop.width / selected.dimensions.width) * 100) : 100;
+  const aspect = aspectRatio === BANNER_ASPECT_RATIOS.panoramic ? "panoramic" : "landscape";
   return (
     <section aria-labelledby="storefront-banner-title" style={{ display: "grid", gap: "0.75rem" }}>
       <div>
         <h2 id="storefront-banner-title" style={{ margin: 0, fontSize: "1rem" }}>Storefront banner</h2>
         <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem", color: "#4b5563" }}>Upload an image at least 1200 × 400 pixels, then crop it to 16:9 or 3:1.</p>
       </div>
-      {preview && <img src={preview} alt="Current storefront banner preview" style={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: "0.5rem", aspectRatio: `${aspectRatio}` }} />}
+      {preview && <img src={preview} alt="Current storefront banner preview" className="storefront-banner-preview" data-aspect={aspect} />}
       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void selectFile(event.target.files?.[0])} style={{ display: "none" }} aria-label="Select storefront banner image" />
       <button ref={chooseButtonRef} type="button" disabled={disabled || processing} onClick={() => inputRef.current?.click()} style={buttonStyle}>
         {preview ? "Replace banner" : "Select banner image"}
@@ -145,15 +146,16 @@ export function StorefrontBannerUploader({ bannerUrl, onUpload, disabled = false
               <button type="button" onClick={() => changeAspectRatio(BANNER_ASPECT_RATIOS.panoramic)} aria-pressed={aspectRatio === BANNER_ASPECT_RATIOS.panoramic} style={buttonStyle}>3:1</button>
               <button type="button" onClick={() => inputRef.current?.click()} style={buttonStyle}>Choose another image</button>
             </div>
-            <div style={{ position: "relative", overflow: "hidden", background: "#111827", borderRadius: "0.5rem", aspectRatio: `${aspectRatio}` }}>
+            <div className="storefront-banner-crop-frame" data-aspect={aspect}>
               {processedPreviewUrl ? (
-                <img src={processedPreviewUrl} alt="Processed storefront banner preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={processedPreviewUrl} alt="Processed storefront banner preview" className="storefront-banner-crop-result" />
               ) : (
                 <img
                   src={selected.objectUrl}
                   alt="Selected banner crop preview"
+                  className="storefront-banner-crop-source"
+                  // Only the crop-dependent geometry stays inline; it changes with every slider move.
                   style={{
-                    position: "absolute",
                     width: `${(selected.dimensions.width / crop.width) * 100}%`,
                     height: `${(selected.dimensions.height / crop.height) * 100}%`,
                     left: `${-(crop.x / crop.width) * 100}%`,

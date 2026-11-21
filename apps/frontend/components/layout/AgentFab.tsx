@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCopilotBubble } from "../chat/CopilotBubbleProvider";
+import { useShortcutHint } from "../../hooks/useShortcutHint";
+import { useReducedMotion } from "../../hooks/useReducedMotion";
 
 /** Props for the mobile floating action button that launches the AI assistant. */
 export interface FabButtonProps {
@@ -31,7 +33,13 @@ export function AgentFab({ unreadProposalsCount = 0, onClick }: FabButtonProps) 
   const pathname = usePathname();
   const { prompt, openPrompt, dismissPrompt } = useCopilotBubble();
   const [visible, setVisible] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
   const rafNext = useRef(false);
+  const tooltipId = useId();
+  // ⌘J / Ctrl+J toggles the assistant drawer (see ChatDrawerProvider).
+  const shortcut = useShortcutHint("j");
+  // Skip the reveal slide and attention pulse when reduced motion is requested.
+  const reducedMotion = useReducedMotion();
 
   /** Reveal the FAB once the user scrolls down. */
   useEffect(() => {
@@ -66,7 +74,11 @@ export function AgentFab({ unreadProposalsCount = 0, onClick }: FabButtonProps) 
   const badge = unreadProposalsCount > 0 ? unreadProposalsCount : null;
 
   return (
-    <div className={`agent-fab-shell${showFab ? " agent-fab-shell--visible" : ""}`}>
+    <div
+      className={`agent-fab-shell${showFab ? " agent-fab-shell--visible" : ""}${
+        reducedMotion ? " agent-fab-shell--reduced-motion" : ""
+      }`}
+    >
       {prompt ? (
         <div className="agent-fab-prompt" role="status" data-testid="copilot-bubble-prompt">
           <button
@@ -84,27 +96,55 @@ export function AgentFab({ unreadProposalsCount = 0, onClick }: FabButtonProps) 
           </button>
         </div>
       ) : null}
-      <button
-        type="button"
-        className={`agent-fab${prompt ? " agent-fab--pulsing" : ""}`}
-        aria-label={t("roster.fabAria")}
-        data-testid="agent-fab"
-        data-visible={showFab}
-        onClick={handleClick}
-      >
-        <span aria-hidden="true" className="agent-fab__icon">
-          🤖
-        </span>
-        {badge !== null ? (
-          <span
-            className="agent-fab__badge"
-            data-testid="agent-fab-badge"
-            aria-label={t("roster.fabUnread", { count: badge })}
-          >
-            {badge > 99 ? "99+" : badge}
+      <div className="agent-fab__anchor">
+        <button
+          type="button"
+          className={`agent-fab${
+            prompt
+              ? reducedMotion
+                ? " agent-fab--attention"
+                : " agent-fab--pulsing"
+              : ""
+          }`}
+          aria-label={t("roster.fabAria")}
+          aria-describedby={tooltipId}
+          aria-keyshortcuts={shortcut.ariaKeyShortcuts}
+          data-testid="agent-fab"
+          data-visible={showFab}
+          onClick={handleClick}
+          onMouseEnter={() => setTooltipOpen(true)}
+          onMouseLeave={() => setTooltipOpen(false)}
+          onFocus={() => setTooltipOpen(true)}
+          onBlur={() => setTooltipOpen(false)}
+          onKeyDown={(event) => {
+            // WCAG 1.4.13: the tooltip must be dismissable without moving focus.
+            if (event.key === "Escape") setTooltipOpen(false);
+          }}
+        >
+          <span aria-hidden="true" className="agent-fab__icon">
+            🤖
           </span>
-        ) : null}
-      </button>
+          {badge !== null ? (
+            <span
+              className="agent-fab__badge"
+              data-testid="agent-fab-badge"
+              aria-label={t("roster.fabUnread", { count: badge })}
+            >
+              {badge > 99 ? "99+" : badge}
+            </span>
+          ) : null}
+        </button>
+        <span
+          id={tooltipId}
+          role="tooltip"
+          className="agent-fab__tooltip"
+          data-testid="agent-fab-tooltip"
+          data-open={tooltipOpen && showFab}
+        >
+          {t("roster.fabTooltip")}{" "}
+          <kbd className="agent-fab__kbd">{shortcut.label}</kbd>
+        </span>
+      </div>
     </div>
   );
 }

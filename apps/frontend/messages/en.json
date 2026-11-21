@@ -47,7 +47,8 @@
   "agent": {
     "roster": {
       "fabAria": "Open agent roster",
-      "fabUnread": "{count, plural, one {# unread proposal} other {# unread proposals}}"
+      "fabUnread": "{count, plural, one {# unread proposal} other {# unread proposals}}",
+      "fabTooltip": "Open assistant"
     }
   },
   "copilot": {
