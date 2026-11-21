@@ -31,7 +31,8 @@
   "agent": {
     "roster": {
       "fabAria": "Agentenliste öffnen",
-      "fabUnread": "{count, plural, one {# ungelesener Vorschlag} other {# ungelesene Vorschläge}}"
+      "fabUnread": "{count, plural, one {# ungelesener Vorschlag} other {# ungelesene Vorschläge}}",
+      "fabTooltip": "Assistent öffnen"
     }
   },
   "copilot": {

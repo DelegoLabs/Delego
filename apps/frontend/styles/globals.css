@@ -4404,6 +4404,45 @@ body.font-sans-system {
   box-shadow: 0 4px 16px rgb(0 0 0 / 22%);
   cursor: pointer;
 }
+.agent-fab__anchor {
+  position: relative;
+  display: inline-flex;
+}
+/* Shortcut hint tooltip (shown on hover/focus, dismissable with Escape). */
+.agent-fab__tooltip {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 0.5rem);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 2px 8px var(--color-shadow);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 120ms ease, visibility 120ms;
+}
+.agent-fab__tooltip[data-open="true"] {
+  visibility: visible;
+  opacity: 1;
+}
+.agent-fab__kbd {
+  font-family: inherit;
+  font-size: 0.6875rem;
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+}
 .agent-fab__icon {
   font-size: 1.5rem;
   line-height: 1;
@@ -4483,6 +4522,7 @@ body.font-sans-system {
 @media (prefers-reduced-motion: reduce) {
   .agent-fab-shell { transition: none; }
   .agent-fab--pulsing { animation: none; }
+  .agent-fab__tooltip { transition: none; }
 }
 
 /* ---------------------------------------------------------------------------
