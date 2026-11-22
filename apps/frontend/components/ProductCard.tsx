@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 
 /** Product data structure for agent recommendations */
 export interface RecommendedProduct {
@@ -59,12 +60,12 @@ export function ProductCard({
           overflow: "hidden",
         }}
       >
-        <img
+        <Image
           src={product.imageUrl}
           alt={product.title}
+          fill
+          sizes="(max-width: 768px) 100vw, 400px"
           style={{
-            width: "100%",
-            height: "100%",
             objectFit: "cover",
           }}
         />

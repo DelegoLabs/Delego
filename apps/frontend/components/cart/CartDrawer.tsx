@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useCart } from "../../hooks/useCart";
 import type { CartItem } from "../../lib/cart";
 import { MultiMerchantCheckout, type MultiMerchantCheckoutProps } from "./MultiMerchantCheckout";
@@ -376,13 +377,24 @@ export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheck
               >
                 {/* Thumbnail */}
                 {item.imageUrl && (
-                  <img
-                    src={item.imageUrl}
-                    alt={item.title}
-                    width={56}
-                    height={56}
-                    style={{ borderRadius: "0.5rem", objectFit: "cover", flexShrink: 0 }}
-                  />
+                  <div
+                    style={{
+                      width: "3.5rem",
+                      height: "3.5rem",
+                      position: "relative",
+                      borderRadius: "0.5rem",
+                      overflow: "hidden",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.title}
+                      fill
+                      sizes="3.5rem"
+                      style={{ objectFit: "cover" }}
+                    />
+                  </div>
                 )}
 
                 <div style={{ flex: 1, minWidth: 0 }}>

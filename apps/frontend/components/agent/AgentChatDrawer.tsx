@@ -12,7 +12,6 @@ import { DisputeQuickPrompts, type DisputeQuickPrompt } from "./DisputeQuickProm
 import { FilterPills } from "./FilterPills";
 import {
   CatalogFilterState,
-  hasActiveFilters,
   encodeFiltersToParams,
 } from "../../lib/catalogFilters";
 

@@ -23,37 +23,9 @@ import { MaxFeeCapCard } from "../../components/settings/MaxFeeCapCard";
 import { OfflineDataCard } from "../../components/settings/OfflineDataCard";
 import { AgentSettingsCard } from "../../components/settings/AgentSettingsCard";
 import { SpendVelocityGauge } from "../../components/settings/SpendVelocityGauge";
+import { useUserProfile, useSaveUserProfile } from "../../hooks/useUserProfile";
+import { useAgentConfig } from "../../hooks/useAgentConfig";
 import type { CategoryBudgetAllocation } from "../../components/settings/CategoryBudgetAllocationCard";
-import type { AgentPersonaConfig } from "../../lib/agentConfig";
-
-/**
- * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
- * TODO: replace with a `useUserProfile` hook backed by DelegoClient once the
- * user/preferences endpoints are implemented in @delegolabs/sdk.
- */
-const PLACEHOLDER_USER: User = {
-  id: "user-placeholder",
-  stellarAddress: "GB...PLACEHOLDER",
-  displayName: "",
-  email: "",
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
-
-/**
- * Placeholder agent config until the API exposes a GET counterpart to
- * `PUT /api/agent/config`. TODO: replace with a `useAgentConfig` hook once
- * that read endpoint exists.
- */
-const PLACEHOLDER_AGENT_CONFIG: AgentPersonaConfig = {
-  agentId: "agent-placeholder",
-  name: "Shopping Agent",
-  strategy: "balanced",
-  maxAutonomousBudgetStroops: "500000000",
-  negotiationAllowed: true,
-  preferredAsset: "USDC",
-  persona: "balanced",
-};
 
 /**
  * Secondary settings cards are code-split so their JavaScript only loads once
@@ -95,17 +67,6 @@ const DataErasureCard = dynamic(
 const KillSwitchCard = dynamic(
   () => import("../../components/settings/KillSwitchCard").then((m) => m.KillSwitchCard)
 );
-
-const PLACEHOLDER_PREFERENCES: UserPreferences = {
-  userId: "user-placeholder",
-  currency: "USD",
-  theme: "system",
-  notificationsEnabled: true,
-  defaultSpendingLimit: 0n,
-  requireApproval: true,
-  notificationEmail: true,
-  notificationPush: false,
-};
 
 /**
  * Placeholder category budget allocations until the API exposes a budget
@@ -300,14 +261,21 @@ function KillSwitchModal({
 
 /** Settings page that owns local profile and preference state. */
 export default function SettingsPage() {
-  const [user, setUser] = useState<User>(PLACEHOLDER_USER);
-  const [preferences, setPreferences] = useState<UserPreferences>(
-    PLACEHOLDER_PREFERENCES
-  );
+  const { user, preferences, isLoading: userLoading, error: userError } = useUserProfile();
+  const { config: agentConfig } = useAgentConfig();
+  const { saveUser, savePreferences } = useSaveUserProfile();
   const [isKillSwitchOpen, setIsKillSwitchOpen] = useState(false);
-  const [categoryBudgets, setCategoryBudgets] = useState<
-    CategoryBudgetAllocation[]
-  >(PLACEHOLDER_CATEGORY_BUDGETS);
+  const [categoryBudgets, setCategoryBudgets] = useState<CategoryBudgetAllocation[]>(
+    PLACEHOLDER_CATEGORY_BUDGETS
+  );
+  const [localUser, setLocalUser] = useState<User>(user);
+  const [localPreferences, setLocalPreferences] = useState<UserPreferences>(preferences);
+
+  // Sync local state when API data loads
+  useEffect(() => {
+    setLocalUser(user);
+    setLocalPreferences(preferences);
+  }, [user, preferences]);
 
   // Wire real data hooks
   const { activeCount: activeDelegationCount } = useDelegations();
@@ -320,11 +288,23 @@ export default function SettingsPage() {
     categoryBudgetData !== null ? categoryBudgetData : PLACEHOLDER_CATEGORY_BUDGETS;
 
   const handleSaveProfile = async (values: ProfileFormValues) => {
-    setUser((prev) => ({ ...prev, ...values, updatedAt: new Date() }));
+    const updated = { ...localUser, ...values, updatedAt: new Date() };
+    setLocalUser(updated);
+    try {
+      await saveUser(updated);
+    } catch {
+      // Keep local state even if save fails
+    }
   };
 
   const handleSavePreferences = async (values: PreferencesFormValues) => {
-    setPreferences((prev) => ({ ...prev, ...values }));
+    const updated = { ...localPreferences, ...values };
+    setLocalPreferences(updated);
+    try {
+      await savePreferences(updated);
+    } catch {
+      // Keep local state even if save fails
+    }
   };
 
   const handleSaveCategoryBudgets = async (
@@ -385,9 +365,9 @@ export default function SettingsPage() {
         />
       ) : null}
 
-      <ProfileForm user={user} onSave={handleSaveProfile} />
+      <ProfileForm user={localUser} onSave={handleSaveProfile} />
       <PreferencesForm
-        preferences={preferences}
+        preferences={localPreferences}
         onSave={handleSavePreferences}
       />
       <OfflineDataCard />
@@ -404,7 +384,7 @@ export default function SettingsPage() {
         allocations={effectiveCategoryBudgets}
         onSave={handleSaveCategoryBudgets}
       />
-      <AgentSettingsCard config={PLACEHOLDER_AGENT_CONFIG} />
+      <AgentSettingsCard config={agentConfig} />
       <AgentUserPreferencesList />
       <MerchantWebhookCard />
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>

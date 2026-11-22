@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@delegolabs/ui";
 
 export interface FilterPillsProps {
@@ -22,10 +21,6 @@ function FilterPills({
   onToggleMinRating,
   onClearFilters,
 }: FilterPillsProps) {
-  const [minPriceInput, setMinPriceInput] = useState(filters.minPrice ?? "");
-  const [maxPriceInput, setMaxPriceInput] = useState(filters.maxPrice ?? "");
-  const [minRatingValue, setMinRatingValue] = useState(filters.minRating ?? "");
-
   const hasActive =
     filters.categories.length > 0 ||
     filters.minPrice !== undefined ||

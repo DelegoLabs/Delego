@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type SyntheticEvent } from "react";
+import { useState, useCallback, type SyntheticEvent } from "react";
+import Image from "next/image";
 import { Amount, Badge, Button, Card } from "@delegolabs/ui";
 import { RestockNotifyPopover } from "../storefront/RestockNotifyPopover";
 import { PriceDisplay } from "../storefront/PriceDisplay";
@@ -57,15 +58,18 @@ export function InChatProductCard({
   onBuyNow,
 }: InChatProductCardProps) {
   const [status, setStatus] = useState<PurchaseStatus>("idle");
+  const [imgError, setImgError] = useState(false);
 
   const isOutOfStock = stockQuantity !== undefined && stockQuantity <= 0;
   const isBuying = status === "buying";
   const isOrdered = status === "ordered";
   const isDisabled = isOutOfStock || isBuying || isOrdered;
 
-  function handleImageError(event: SyntheticEvent<HTMLImageElement>) {
-    event.currentTarget.src = FALLBACK_IMAGE;
-  }
+  const handleImageError = useCallback(() => {
+    setImgError(true);
+  }, []);
+
+  const displayImage = imgError ? FALLBACK_IMAGE : imageUrl;
 
   async function handleBuyNow() {
     if (isDisabled) return;
@@ -87,22 +91,28 @@ export function InChatProductCard({
     >
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
         {/* ── Thumbnail ─────────────────────────────────────────────── */}
-        <img
-          src={imageUrl}
-          alt={title}
-          loading="lazy"
-          onError={handleImageError}
-          data-testid="in-chat-product-image"
+        <div
           style={{
             width: "5rem",
             height: "5rem",
-            objectFit: "cover",
+            position: "relative",
             borderRadius: "0.5rem",
             border: "1px solid #e5e7eb",
             flexShrink: 0,
+            overflow: "hidden",
             background: "#f9fafb",
           }}
-        />
+        >
+          <Image
+            src={displayImage}
+            alt={title}
+            fill
+            sizes="5rem"
+            onError={handleImageError}
+            data-testid="in-chat-product-image"
+            style={{ objectFit: "cover" }}
+          />
+        </div>
 
         {/* ── Details ───────────────────────────────────────────────── */}
         <div
