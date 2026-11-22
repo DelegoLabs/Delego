@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import type { User, UserPreferences } from "@delegolabs/types";
@@ -108,13 +108,6 @@ const PLACEHOLDER_PREFERENCES: UserPreferences = {
 };
 
 /**
- * Placeholder active delegation count until the API exposes a delegations
- * endpoint. TODO: replace with a `useActiveDelegations` hook once that read
- * endpoint exists in @delegolabs/sdk.
- */
-const PLACEHOLDER_ACTIVE_DELEGATION_COUNT = 3;
-
-/**
  * Placeholder category budget allocations until the API exposes a budget
  * allocation endpoint. TODO: replace with a `useCategoryBudgets` hook once
  * that read endpoint exists in @delegolabs/sdk.
@@ -126,6 +119,65 @@ const PLACEHOLDER_CATEGORY_BUDGETS: CategoryBudgetAllocation[] = [
   { category: "Entertainment", monthlyLimitStroops: 150000000n, currentSpentStroops: 40000000n },
   { category: "Utilities", monthlyLimitStroops: 250000000n, currentSpentStroops: 110000000n },
 ];
+
+/** Fetches active delegation count from the delegations endpoint. */
+function useDelegations() {
+  const [activeCount, setActiveCount] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchDelegations() {
+      try {
+        const response = await fetch("/api/v1/delegations");
+        if (!response.ok) {
+          throw new Error("Failed to fetch delegations");
+        }
+        const data = await response.json();
+        // Assume API returns { delegations: [...] } with active status
+        const activeDelegations = Array.isArray(data.delegations)
+          ? data.delegations.filter((d: { status: string }) => d.status === "active")
+          : [];
+        setActiveCount(activeDelegations.length);
+      } catch {
+        // API not available, return null to use placeholder
+        setActiveCount(null);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchDelegations();
+  }, []);
+
+  return { activeCount, isLoading };
+}
+
+/** Fetches category budget allocations from the budgets endpoint. */
+function useCategoryBudgets() {
+  const [budgets, setBudgets] = useState<CategoryBudgetAllocation[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchBudgets() {
+      try {
+        const response = await fetch("/api/v1/budgets");
+        if (!response.ok) {
+          throw new Error("Failed to fetch budgets");
+        }
+        const data = await response.json();
+        setBudgets(data.budgets ?? []);
+      } catch {
+        // API not available, return null to use placeholder
+        setBudgets(null);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchBudgets();
+  }, []);
+
+  return { budgets, isLoading };
+}
+
 /** Props for the emergency delegation kill-switch modal. */
 export interface KillSwitchModalProps {
   activeDelegationCount: number;
@@ -257,6 +309,16 @@ export default function SettingsPage() {
     CategoryBudgetAllocation[]
   >(PLACEHOLDER_CATEGORY_BUDGETS);
 
+  // Wire real data hooks
+  const { activeCount: activeDelegationCount } = useDelegations();
+  const { budgets: categoryBudgetData } = useCategoryBudgets();
+
+  // Use real data when available, fallback to placeholder
+  const effectiveDelegationCount =
+    activeDelegationCount !== null ? activeDelegationCount : 3;
+  const effectiveCategoryBudgets =
+    categoryBudgetData !== null ? categoryBudgetData : PLACEHOLDER_CATEGORY_BUDGETS;
+
   const handleSaveProfile = async (values: ProfileFormValues) => {
     setUser((prev) => ({ ...prev, ...values, updatedAt: new Date() }));
   };
@@ -318,7 +380,7 @@ export default function SettingsPage() {
 
       {isKillSwitchOpen ? (
         <KillSwitchModal
-          activeDelegationCount={PLACEHOLDER_ACTIVE_DELEGATION_COUNT}
+          activeDelegationCount={effectiveDelegationCount}
           onConfirmRevokeAll={handleConfirmRevokeAll}
         />
       ) : null}
@@ -339,7 +401,7 @@ export default function SettingsPage() {
       <ChatAudioSettingsCard />
       <NetworkContractsCard />
       <CategoryBudgetAllocationCard
-        allocations={categoryBudgets}
+        allocations={effectiveCategoryBudgets}
         onSave={handleSaveCategoryBudgets}
       />
       <AgentSettingsCard config={PLACEHOLDER_AGENT_CONFIG} />
@@ -356,7 +418,7 @@ export default function SettingsPage() {
       <ConsentSettingsCard />
       <PrivacyExportCard user={user} preferences={preferences} />
       <DataErasureCard />
-      <KillSwitchCard />
+      <KillSwitchCard activeDelegationCount={effectiveDelegationCount} />
     </div>
   );
 }
