@@ -22,12 +22,17 @@ import {
 
 type Step = "review" | "confirm";
 
+interface KillSwitchCardProps {
+  /** Number of active delegations to display in the confirmation. */
+  activeDelegationCount?: number;
+}
+
 /**
  * Settings → Danger zone → Emergency kill-switch (#719). Revokes every agent
  * spending key on-chain in one transaction, behind a double confirmation:
  * a review step, then typing REVOKE.
  */
-export function KillSwitchCard() {
+export function KillSwitchCard({ activeDelegationCount }: KillSwitchCardProps) {
   const { address } = useWallet();
   const { network, networkId } = useNetwork();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -117,7 +122,11 @@ export function KillSwitchCard() {
           <div className="settings-status success" role="status">
             {result.revokeTxHash && (
               <>
-                All delegations revoked (tx <code>{result.revokeTxHash.slice(0, 12)}…</code>).{" "}
+                {activeDelegationCount && activeDelegationCount > 0
+                  ? `All ${activeDelegationCount} `
+                  : "All "}
+                delegation{activeDelegationCount === 1 ? "" : "s"} revoked (tx{" "}
+                <code>{result.revokeTxHash.slice(0, 12)}…</code>).{" "}
               </>
             )}
             {result.cancelledOrders !== null &&
