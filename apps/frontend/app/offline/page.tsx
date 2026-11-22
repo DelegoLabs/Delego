@@ -2,8 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { Button, Card } from "@delegolabs/ui";
 import { listCachedReads, type CachedRead } from "../../lib/offlineCache";
+
+/**
+ * Formats a date as a locale-aware relative or short timestamp.
+ * Uses the active locale from the browser or falls back to 'en'.
+ */
+function formatCachedTime(date: Date, locale: string): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) {
+    return "Just now";
+  }
+  if (diffMins < 60) {
+    return `${diffMins}m ago`;
+  }
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+  if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  }
+  return date.toLocaleDateString(locale, { month: "short", day: "numeric" });
+}
 
 /**
  * Branded offline fallback — the service worker serves this for any
@@ -19,6 +46,8 @@ export default function OfflinePage() {
   useEffect(() => {
     listCachedReads().then(setReads);
   }, []);
+
+  const locale = typeof navigator !== "undefined" ? navigator.language : "en";
 
   return (
     <div className="settings-page">
@@ -36,12 +65,30 @@ export default function OfflinePage() {
           <ul className="offline-cached-list">
             {reads.map((read) => (
               <li key={read.url}>
-                <span className="offline-cached-label">{read.label}</span>
-                {read.cachedAt && (
-                  <span className="offline-cached-time">
-                    {t("savedAt", { time: read.cachedAt.toLocaleString() })}
-                  </span>
-                )}
+                <Link
+                  href={read.url}
+                  className="offline-cached-link"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.25rem",
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    textDecoration: "none",
+                    color: "inherit",
+                    transition: "background-color 0.15s ease",
+                  }}
+                >
+                  <span className="offline-cached-label">{read.label}</span>
+                  {read.cachedAt && (
+                    <span
+                      className="offline-cached-time"
+                      style={{ fontSize: "0.75rem", color: "#6b7280" }}
+                    >
+                      {t("savedAt", { time: formatCachedTime(read.cachedAt, locale) })}
+                    </span>
+                  )}
+                </Link>
               </li>
             ))}
           </ul>
