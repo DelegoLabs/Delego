@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button, Card } from "@delegolabs/ui";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { DelegationSkeleton } from "./DelegationSkeleton";
@@ -9,6 +10,8 @@ import { OrderSkeleton } from "./OrderSkeleton";
 import { WalletConnectButton } from "./wallet/public";
 import { useDelegations } from "../hooks/useDelegations";
 import { useOrders } from "../hooks/useOrders";
+import { useSubscriptions } from "../hooks/useSubscriptions";
+import { SubscriptionCard } from "./dashboard/SubscriptionCard";
 import { StaleBadge } from "./offline/StaleBadge";
 
 /** Typed confirmation token; kept out of the catalog so translations can't change it. */
@@ -129,6 +132,13 @@ export function HomeContent() {
     cachedAt: ordersCachedAt,
     ttlMs: ordersTtl,
   } = useOrders();
+  const {
+    subscriptions,
+    loading: subscriptionsLoading,
+    error: subscriptionsError,
+    pendingIds: subscriptionPendingIds,
+    runAction: runSubscriptionAction,
+  } = useSubscriptions();
 
   const [killSwitchOpen, setKillSwitchOpen] = useState(false);
 
@@ -221,6 +231,14 @@ export function HomeContent() {
             <p className="stat-label">{t("orders.empty")}</p>
           )}
         </Card>
+
+        <SubscriptionCard
+          subscriptions={subscriptions}
+          loading={subscriptionsLoading}
+          error={subscriptionsError}
+          pendingIds={subscriptionPendingIds}
+          onAction={runSubscriptionAction}
+        />
 
         <Card title={t("wallet.title")} titleLevel={2}>
           <p>{t("wallet.description")}</p>

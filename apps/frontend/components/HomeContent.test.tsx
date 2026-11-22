@@ -3,12 +3,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { NextIntlClientProvider } from "next-intl";
 import { HomeContent } from "./HomeContent";
+import enMessages from "../messages/en.json";
 import { useDelegations } from "../hooks/useDelegations";
 import { useOrders } from "../hooks/useOrders";
 
 vi.mock("../hooks/useDelegations", () => ({ useDelegations: vi.fn() }));
 vi.mock("../hooks/useOrders", () => ({ useOrders: vi.fn() }));
+vi.mock("../hooks/useSubscriptions", () => ({
+  useSubscriptions: () => ({
+    subscriptions: [],
+    loading: false,
+    error: null,
+    pendingIds: new Set(),
+    refresh: async () => {},
+    runAction: async () => true,
+  }),
+}));
 vi.mock("./wallet/public", () => ({ WalletConnectButton: () => null }));
 vi.mock("./offline/StaleBadge", () => ({ StaleBadge: () => null }));
 
@@ -61,7 +73,11 @@ function setup(onConfirmRevokeAll: () => Promise<void> = async () => {}) {
     rejectOrder: async () => null,
   });
 
-  return render(<HomeContent />);
+  return render(
+    <NextIntlClientProvider locale="en" messages={enMessages}>
+      <HomeContent />
+    </NextIntlClientProvider>
+  );
 }
 
 describe("HomeContent kill switch modal", () => {
