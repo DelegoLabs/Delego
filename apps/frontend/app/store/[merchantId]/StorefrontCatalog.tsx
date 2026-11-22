@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { formatAmount, PolicyAccordion } from "@delegolabs/ui";
 import type { MerchantPolicyInfo } from "@delegolabs/types";
 import { StockDepletionPanel } from "../../../components/storefront/StockDepletionPanel";
@@ -414,20 +415,17 @@ export function StorefrontCatalog({
                         background: "#fff",
                         cursor: "zoom-in",
                         overflow: "hidden",
+                        width: "6rem",
+                        height: "6rem",
+                        position: "relative",
                       }}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Image
                         src={image}
                         alt={`${product.name} ${index + 1}`}
-                        width={96}
-                        height={96}
-                        style={{
-                          display: "block",
-                          width: "6rem",
-                          height: "6rem",
-                          objectFit: "cover",
-                        }}
+                        fill
+                        sizes="6rem"
+                        style={{ objectFit: "cover" }}
                       />
                     </button>
                   ))}
