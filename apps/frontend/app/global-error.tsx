@@ -14,7 +14,7 @@ const bodyStyle: CSSProperties = {
   justifyContent: "center",
   padding: "3rem 1rem",
   boxSizing: "border-box",
-  background: "#f9fafb",
+  background: "var(--color-bg, #f9fafb)",
   fontFamily:
     "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
 };

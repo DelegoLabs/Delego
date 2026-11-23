@@ -71,8 +71,8 @@ const cardStyle: CSSProperties = {
   maxWidth: "32rem",
   padding: "2rem 1.5rem",
   borderRadius: "0.75rem",
-  border: "1px solid #e5e7eb",
-  background: "#ffffff",
+  border: "1px solid var(--color-border, #e5e7eb)",
+  background: "var(--color-card-bg, #ffffff)",
   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
   textAlign: "center",
 };
@@ -81,29 +81,29 @@ const titleStyle: CSSProperties = {
   margin: "0 0 0.5rem",
   fontSize: "1.25rem",
   fontWeight: 600,
-  color: "#111827",
+  color: "var(--color-text-primary, #111827)",
 };
 
 const descriptionStyle: CSSProperties = {
   margin: "0 0 1rem",
   fontSize: "0.9375rem",
   lineHeight: 1.5,
-  color: "#4b5563",
+  color: "var(--color-text-secondary, #4b5563)",
 };
 
 const referenceStyle: CSSProperties = {
   margin: "0 0 1.5rem",
   fontSize: "0.8125rem",
-  color: "#6b7280",
+  color: "var(--color-text-muted, #6b7280)",
 };
 
 const codeStyle: CSSProperties = {
   padding: "0.125rem 0.375rem",
   borderRadius: "0.25rem",
-  background: "#f3f4f6",
+  background: "var(--color-bg-subtle, #f3f4f6)",
   fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
   fontSize: "0.8125rem",
-  color: "#111827",
+  color: "var(--color-text-primary, #111827)",
 };
 
 const actionsStyle: CSSProperties = {
@@ -117,8 +117,8 @@ const primaryActionStyle: CSSProperties = {
   padding: "0.625rem 1.25rem",
   borderRadius: "0.375rem",
   border: "none",
-  background: "#2563eb",
-  color: "#ffffff",
+  background: "var(--color-primary, #2563eb)",
+  color: "var(--color-primary-fg, #ffffff)",
   fontWeight: 500,
   fontSize: "0.9375rem",
   cursor: "pointer",
@@ -128,12 +128,48 @@ const secondaryActionStyle: CSSProperties = {
   display: "inline-block",
   padding: "0.625rem 1.25rem",
   borderRadius: "0.375rem",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--color-border, #d1d5db)",
   background: "transparent",
-  color: "#111827",
+  color: "var(--color-text-primary, #111827)",
   fontWeight: 500,
   fontSize: "0.9375rem",
   textDecoration: "none",
+};
+
+const diagnosticStyle: CSSProperties = {
+  marginTop: "1.5rem",
+  padding: "1rem",
+  borderRadius: "0.5rem",
+  background: "var(--color-bg-subtle, #f3f4f6)",
+  border: "1px solid var(--color-border, #e5e7eb)",
+  textAlign: "left",
+};
+
+const diagnosticHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: "0.75rem",
+  fontSize: "0.8125rem",
+  fontWeight: 600,
+  color: "var(--color-text-primary, #111827)",
+};
+
+const diagnosticContentStyle: CSSProperties = {
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+  fontSize: "0.75rem",
+  color: "var(--color-text-secondary, #4b5563)",
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-all",
+};
+
+const collapseButtonStyle: CSSProperties = {
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  fontSize: "0.75rem",
+  color: "var(--color-primary, #2563eb)",
+  padding: 0,
 };
 
 type RecoveryLocale = "en" | "de";
@@ -192,6 +228,7 @@ export function ErrorRecoveryCard({
   boundary = "global-error",
 }: ErrorRecoveryCardProps) {
   const [locale, setLocale] = useState<RecoveryLocale>("en");
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   useEffect(() => {
     reportClientError(error, boundary);
@@ -203,6 +240,10 @@ export function ErrorRecoveryCard({
 
   const digest = error.digest;
   const copy = recoveryCopy[locale];
+  const isDev = process.env.NODE_ENV === "development";
+  const diagnosticInfo = isDev
+    ? `${error.name}: ${error.message}${error.stack ? `\n\n${error.stack}` : ""}`
+    : null;
 
   return (
     <section
@@ -231,6 +272,23 @@ export function ErrorRecoveryCard({
           {copy.returnToDashboard}
         </a>
       </div>
+      {isDev && diagnosticInfo && (
+        <div style={diagnosticStyle}>
+          <div style={diagnosticHeaderStyle}>
+            <span>Diagnostic Details</span>
+            <button
+              type="button"
+              style={collapseButtonStyle}
+              onClick={() => setShowDiagnostics(!showDiagnostics)}
+            >
+              {showDiagnostics ? "Hide" : "Show"}
+            </button>
+          </div>
+          {showDiagnostics && (
+            <div style={diagnosticContentStyle}>{diagnosticInfo}</div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
