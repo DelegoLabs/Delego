@@ -6,8 +6,6 @@ import type { RecommendedProduct } from "./ProductCard";
 import { scrollBehaviorFor, useReducedMotion } from "../hooks/useReducedMotion";
 
 const CARDS_TO_SHOW = 3;
-const CARDS_PER_PAGE = CARDS_TO_SHOW;
-const SCROLL_SPEED = 300;
 
 export interface ProductCarouselProps {
   products: RecommendedProduct[];
@@ -96,8 +94,9 @@ export function ProductCarousel({
       const visibleIndex = Math.round(scrollPosition / cardWidth);
       setVisibleIndex(Math.max(0, Math.min(visibleIndex, products.length - CARDS_TO_SHOW)));
     };
-    containerRef.current?.addEventListener("scroll", handleScroll);
-    return () => containerRef.current?.removeEventListener("scroll", handleScroll);
+    const container = containerRef.current;
+    container?.addEventListener("scroll", handleScroll);
+    return () => container?.removeEventListener("scroll", handleScroll);
   }, [products.length]);
 
   const handleSelect = (productId: string) => {
@@ -184,7 +183,6 @@ export function ProductCarousel({
           const startIndex = visibleIndex;
           const isVisible =
             index >= startIndex && index < startIndex + CARDS_TO_SHOW;
-          const cardIndex = isVisible ? index - startIndex : -1;
 
           return isVisible ? (
             <ProductCard
