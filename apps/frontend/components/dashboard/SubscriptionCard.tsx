@@ -4,7 +4,8 @@
  * SubscriptionCard Component
  * Dashboard card for managing agent-automated recurring orders
  *
- * TODO:
+ * - List active subscriptions
+ * - Pause/Resume/Cancel actions
  * - Edit interval modal
  * - Edit price ceiling modal
  */
@@ -14,10 +15,15 @@ import { Button } from "@delegolabs/ui";
 import {
   formatInterval,
   formatStroopsAsXlm,
+  validateIntervalDays,
+  validatePriceCeilingStroops,
+  MAX_INTERVAL_DAYS,
+  MIN_INTERVAL_DAYS,
   type SubscriptionAction,
   type SubscriptionPlan,
   type SubscriptionStatus,
 } from "../../lib/subscriptions";
+import { EditSubscriptionModal } from "./EditSubscriptionModal";
 
 interface SubscriptionCardProps {
   subscriptions: SubscriptionPlan[];
@@ -26,7 +32,11 @@ interface SubscriptionCardProps {
   /** Subscription IDs with an in-flight action request. */
   pendingIds?: Set<string>;
   onAction?: (subscriptionId: string, action: SubscriptionAction) => Promise<boolean> | void;
+  onUpdateInterval?: (subscriptionId: string, intervalDays: number) => void | Promise<void>;
+  onUpdatePriceCeiling?: (subscriptionId: string, priceCeilingStroops: string) => void | Promise<void>;
 }
+
+type EditTarget = { kind: "interval" | "ceiling"; subscription: SubscriptionPlan };
 
 const STATUS_LABELS: Record<SubscriptionStatus, string> = {
   active: "Active",
@@ -74,8 +84,11 @@ export function SubscriptionCard({
   error = null,
   pendingIds,
   onAction,
+  onUpdateInterval,
+  onUpdatePriceCeiling,
 }: SubscriptionCardProps) {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<EditTarget | null>(null);
 
   async function run(subscriptionId: string, action: SubscriptionAction) {
     await onAction?.(subscriptionId, action);
@@ -157,6 +170,20 @@ export function SubscriptionCard({
                       </div>
                     ) : (
                       <div className="subscription-actions">
+                        <Button
+                          variant="secondary"
+                          disabled={pending}
+                          onClick={() => setEditing({ kind: "interval", subscription: sub })}
+                        >
+                          Edit interval
+                        </Button>{" "}
+                        <Button
+                          variant="secondary"
+                          disabled={pending}
+                          onClick={() => setEditing({ kind: "ceiling", subscription: sub })}
+                        >
+                          Edit price ceiling
+                        </Button>{" "}
                         {sub.status === "active" ? (
                           <Button
                             variant="secondary"
@@ -194,8 +221,28 @@ export function SubscriptionCard({
         </>
       )}
 
-      {/* TODO: Add Edit interval modal */}
-      {/* TODO: Add Edit price ceiling modal */}
+      {editing?.kind === "interval" && (
+        <EditSubscriptionModal
+          title="Edit interval"
+          label="Interval (days)"
+          hint={`Whole days, ${MIN_INTERVAL_DAYS}–${MAX_INTERVAL_DAYS}.`}
+          initialValue={String(editing.subscription.intervalDays)}
+          validate={validateIntervalDays}
+          onSubmit={(v) => onUpdateInterval?.(editing.subscription.subscriptionId, Number(v))}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {editing?.kind === "ceiling" && (
+        <EditSubscriptionModal
+          title="Edit price ceiling"
+          label="Maximum price (stroops)"
+          hint="Whole number of stroops greater than zero."
+          initialValue={editing.subscription.priceCeilingStroops ?? editing.subscription.amountStroops}
+          validate={validatePriceCeilingStroops}
+          onSubmit={(v) => onUpdatePriceCeiling?.(editing.subscription.subscriptionId, v)}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }
