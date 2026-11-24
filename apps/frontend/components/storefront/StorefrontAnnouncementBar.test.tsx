@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import {
@@ -18,6 +18,10 @@ const announcement: StoreAnnouncement = {
 describe("StorefrontAnnouncementBar", () => {
   beforeEach(() => {
     window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("renders the message, link, and an accessible dismiss button", () => {
@@ -108,6 +112,28 @@ describe("StorefrontAnnouncementBar", () => {
     expect(
       screen.getByText("New: free shipping over 100 USDC")
     ).toBeInTheDocument();
+  });
+
+  it("clears the pending dismissal timer on unmount", () => {
+    vi.useFakeTimers();
+    const { unmount } = render(
+      <StorefrontAnnouncementBar
+        merchantId="merchant-1"
+        announcement={announcement}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Dismiss announcement" })
+    );
+    expect(vi.getTimerCount()).toBe(1);
+
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("does not render a CTA when the announcement has no link", () => {
