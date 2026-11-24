@@ -1243,6 +1243,46 @@ body.font-sans-system {
   gap: 12px;
 }
 
+.onboarding-wallet {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.onboarding-limits {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.onboarding-limit-field label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text, #111827);
+}
+
+.onboarding-step-content .onboarding-limit-hint {
+  font-size: 13px;
+  color: var(--color-text-secondary, #6b7280);
+  margin: 4px 0 8px;
+}
+
+.onboarding-limit-field input {
+  width: 100%;
+  padding: 10px 3rem 10px 12px;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: var(--radius-md, 0.5rem);
+  background: var(--color-bg-surface, #fff);
+  color: var(--color-text, #111827);
+}
+
+.onboarding-step-content .onboarding-limit-error {
+  color: var(--color-error-text, #b91c1c);
+  margin: 0;
+}
+
 /* ---------------------------------------------------------------------------
    Network toggle (header) — testnet / mainnet switcher
 --------------------------------------------------------------------------- */
