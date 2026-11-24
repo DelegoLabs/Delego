@@ -2238,6 +2238,18 @@ body.font-sans-system {
   opacity: 0.8;
 }
 
+.demo-scenario-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.demo-scenario-description {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.4;
+  opacity: 0.82;
+}
+
 /* ---------------------------------------------------------------------------
    Domain warning banner (#593)
    Anti-phishing: warns when the app is served from a host outside the
