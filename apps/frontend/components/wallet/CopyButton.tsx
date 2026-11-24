@@ -40,6 +40,7 @@ export function CopyButton({
       setCopied(true);
       if (resetTimer.current !== null) {
         clearTimeout(resetTimer.current);
+        resetTimer.current = null;
       }
       resetTimer.current = setTimeout(() => {
         resetTimer.current = null;
