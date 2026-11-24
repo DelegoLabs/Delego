@@ -119,6 +119,7 @@ export function SafeExternalLink({
       // target/rel are fixed here and must not be overridable by callers.
       target="_blank"
       rel="noopener noreferrer"
+      referrerPolicy="no-referrer"
       style={{
         display: "inline-flex",
         alignItems: "center",
