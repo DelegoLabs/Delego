@@ -2,15 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { Card, Button } from "@delegolabs/ui";
+import { useLocale } from "next-intl";
 import { useOrders } from "../../../hooks/useOrders";
+import { useNow } from "../../../hooks/useNow";
 import { useQueryParamState } from "../../../hooks/useQueryParamState";
 import { buildWeeklyReport, formatReportAsText } from "../../../lib/weeklyReport";
 import { formatXlm } from "../../../lib/orders";
 
 const WEEK_OPTIONS = [1, 2, 4, 8];
 
-function fmtDate(d: Date) {
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+function fmtDate(d: Date, locale: string) {
+  return d.toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" });
 }
 
 function pctLabel(p: number | null) {
@@ -19,6 +21,8 @@ function pctLabel(p: number | null) {
 }
 
 export default function WeeklyReportPage() {
+  const locale = useLocale();
+  const now = useNow();
   const { orders, loading } = useOrders();
   const [weekCount, setWeekCount] = useQueryParamState<number>({
     key: "weeks",
@@ -27,8 +31,8 @@ export default function WeeklyReportPage() {
   const [copied, setCopied] = useState(false);
 
   const report = useMemo(
-    () => buildWeeklyReport(orders, new Date(), weekCount),
-    [orders, weekCount]
+    () => buildWeeklyReport(orders, now, weekCount),
+    [orders, now, weekCount]
   );
 
   const handleCopy = async () => {
@@ -77,7 +81,7 @@ export default function WeeklyReportPage() {
         <div className="report-print-header">
           <h2>Weekly Report</h2>
           <p>
-            {fmtDate(report.periodStart)} – {fmtDate(report.periodEnd)}
+            {fmtDate(report.periodStart, locale)} – {fmtDate(report.periodEnd, locale)}
           </p>
         </div>
 
