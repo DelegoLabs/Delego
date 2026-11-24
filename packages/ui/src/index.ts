@@ -1,5 +1,10 @@
 export { Amount, type AmountProps } from "./Amount.js";
-export { PriceDisplay, type PriceDisplayProps } from "./PriceDisplay.js";
+export {
+  PriceDisplay,
+  type PriceDisplayProps,
+  type DisplayCurrencyMode,
+  type CurrencyPreference,
+} from "./PriceDisplay.js";
 export { Button, type ButtonProps } from "./Button.js";
 export { Card, type CardProps } from "./Card.js";
 export {
