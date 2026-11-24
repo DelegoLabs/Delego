@@ -281,7 +281,6 @@ html[data-underline-links="true"] a {
 }
 
 * {
-
   box-sizing: border-box;
 }
 
@@ -329,6 +328,58 @@ body.font-sans-system {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.escrow-summary {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.5fr) repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.escrow-summary-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 4.5rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.625rem;
+  background: var(--color-bg-secondary);
+}
+
+.escrow-summary-locked {
+  border-color: var(--color-status-active-text);
+  background: var(--color-status-active-bg);
+}
+
+.escrow-summary-label {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.escrow-summary-stat strong {
+  color: var(--color-text-primary);
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.escrow-summary-locked strong {
+  color: var(--color-status-active-text);
+}
+
+@media (max-width: 640px) {
+  .escrow-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .escrow-summary-locked {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -1264,7 +1315,9 @@ body.font-sans-system {
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .network-toggle-button:hover {
@@ -1706,7 +1759,6 @@ body.font-sans-system {
   border: 1px solid var(--color-accent, #2563eb);
 }
 
-
 .approval-price-hint {
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
@@ -2051,7 +2103,6 @@ body.font-sans-system {
   max-height: 14rem;
   overflow-y: auto;
 }
-
 
 .merchant-whitelist-no-results {
   padding: 0.5rem 0.75rem;
@@ -3371,7 +3422,6 @@ body.font-sans-system {
   text-align: right;
 }
 
-
 /* ---------------------------------------------------------------------------
    Theme transition crossfade (#639)
    Applied only when the JS theme engine triggers a mode switch.
@@ -4380,7 +4430,9 @@ body.font-sans-system {
   padding: 0;
   list-style: none;
   overflow-x: auto;
-  transition: opacity 0.25s ease, visibility 0.25s;
+  transition:
+    opacity 0.25s ease,
+    visibility 0.25s;
 }
 .prompt-chips--hidden {
   opacity: 0;
@@ -4522,7 +4574,10 @@ body.font-sans-system {
   visibility: hidden;
   opacity: 0;
   transform: translateY(0.5rem);
-  transition: opacity 180ms ease, transform 180ms ease, visibility 180ms;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 180ms;
   pointer-events: none;
 }
 .agent-fab-shell--visible {
@@ -4570,7 +4625,9 @@ body.font-sans-system {
   visibility: hidden;
   opacity: 0;
   transform: translateY(-50%);
-  transition: opacity 120ms ease, visibility 120ms;
+  transition:
+    opacity 120ms ease,
+    visibility 120ms;
 }
 .agent-fab__tooltip[data-open="true"] {
   visibility: visible;
@@ -4656,7 +4713,9 @@ body.font-sans-system {
 }
 /* Static, motion-free stand-in for the pulse when reduced motion is on. */
 .agent-fab--attention {
-  box-shadow: 0 4px 16px rgb(0 0 0 / 22%), 0 0 0 0.25rem rgb(18 102 91 / 35%);
+  box-shadow:
+    0 4px 16px rgb(0 0 0 / 22%),
+    0 0 0 0.25rem rgb(18 102 91 / 35%);
 }
 .agent-fab-shell--reduced-motion {
   transition: none;
@@ -4666,16 +4725,34 @@ body.font-sans-system {
   transition: none;
 }
 @keyframes copilot-bubble-pulse {
-  0%, 100% { box-shadow: 0 4px 16px rgb(0 0 0 / 22%), 0 0 0 0 rgb(18 102 91 / 38%); }
-  55% { box-shadow: 0 4px 16px rgb(0 0 0 / 22%), 0 0 0 0.65rem rgb(18 102 91 / 0%); }
+  0%,
+  100% {
+    box-shadow:
+      0 4px 16px rgb(0 0 0 / 22%),
+      0 0 0 0 rgb(18 102 91 / 38%);
+  }
+  55% {
+    box-shadow:
+      0 4px 16px rgb(0 0 0 / 22%),
+      0 0 0 0.65rem rgb(18 102 91 / 0%);
+  }
 }
 @media (min-width: 768px) {
-  .agent-fab-shell { display: none; }
+  .agent-fab-shell {
+    display: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .agent-fab-shell { transition: none; transform: none; }
-  .agent-fab--pulsing { animation: none; }
-  .agent-fab__tooltip { transition: none; }
+  .agent-fab-shell {
+    transition: none;
+    transform: none;
+  }
+  .agent-fab--pulsing {
+    animation: none;
+  }
+  .agent-fab__tooltip {
+    transition: none;
+  }
 }
 
 /* ---------------------------------------------------------------------------
