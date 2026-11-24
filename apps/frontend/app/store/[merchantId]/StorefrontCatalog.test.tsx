@@ -139,7 +139,7 @@ describe("StorefrontCatalog merchant policy", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("renders the merchant's policy summary from the merchantPolicy prop", () => {
+  it("renders merchant-provided shipping, return, and escrow policies", () => {
     render(
       <StorefrontCatalog
         products={products}
@@ -160,6 +160,23 @@ describe("StorefrontCatalog merchant policy", () => {
       screen.getByText("Custom escrow notice for this store.")
     ).toBeInTheDocument();
     expect(screen.getByText("14-day window")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Returns & Refund Policy/ })
+    );
+    expect(
+      screen.getByText("14 calendar days from product delivery.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("10% restocking fee applied on returned items.")
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Fulfillment & Shipping Terms/ })
+    );
+    expect(screen.getByTestId("accordion-panel-fulfillment")).toHaveTextContent(
+      /Free Shipping: Available on orders meeting or exceeding 5\.00 XLM\./
+    );
   });
 
   it("falls back to the default policy when none is provided", () => {
