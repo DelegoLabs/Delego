@@ -30,6 +30,7 @@ export function Sidebar() {
         <ul className="nav-list">
           {navItems.map((item) => {
             const isActive = item.href === activeNavHref(pathname);
+            const NavIcon = item.icon;
             return (
               <li key={item.href}>
                 <Link
@@ -43,7 +44,7 @@ export function Sidebar() {
                   data-nav={item.labelKey}
                 >
                   <span className="nav-icon" aria-hidden="true">
-                    {item.icon}
+                    <NavIcon size={18} />
                   </span>
                   {t(item.labelKey)}
                   {item.badge === "pendingApprovals" && <NavPendingBadge />}

@@ -439,6 +439,9 @@ body.font-sans-system {
 }
 
 .nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1.125rem;
   line-height: 1;
 }
@@ -756,6 +759,9 @@ body.font-sans-system {
 }
 
 .mobile-bottom-nav__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1.375rem;
   line-height: 1;
 }
