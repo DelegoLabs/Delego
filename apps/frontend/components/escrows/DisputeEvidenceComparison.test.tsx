@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
+import { server } from "../../mocks/server";
 import { DisputeEvidenceComparison } from "./DisputeEvidenceComparison";
 import type { DisputeEvidenceBundle } from "../../types/dispute-evidence";
 
@@ -10,6 +13,7 @@ describe("DisputeEvidenceComparison", () => {
     buyerImages: ["https://example.com/image1.jpg"],
     merchantStatement: "Item was delivered",
     merchantImages: ["https://example.com/proof1.jpg"],
+    resolutionDeadline: "2099-01-01T00:00:00.000Z",
     status: "under_review",
   };
 
@@ -29,14 +33,8 @@ describe("DisputeEvidenceComparison", () => {
   });
 
   it("renders countdown when deadline is provided", () => {
-    const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    render(
-      <DisputeEvidenceComparison 
-        evidence={mockEvidence} 
-        resolutionDeadline={futureDate}
-      />
-    );
-    
+    render(<DisputeEvidenceComparison evidence={mockEvidence} />);
+
     expect(screen.getByRole("timer")).toBeInTheDocument();
   });
 
@@ -45,15 +43,9 @@ describe("DisputeEvidenceComparison", () => {
       ...mockEvidence,
       status: "settled",
     };
-    const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    
-    render(
-      <DisputeEvidenceComparison 
-        evidence={settledEvidence} 
-        resolutionDeadline={futureDate}
-      />
-    );
-    
+
+    render(<DisputeEvidenceComparison evidence={settledEvidence} />);
+
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   });
 
@@ -76,16 +68,32 @@ describe("DisputeEvidenceComparison", () => {
       merchantStatement: undefined,
       merchantImages: undefined,
     };
-    const mockCallback = vi.fn();
-    
-    render(
-      <DisputeEvidenceComparison 
-        evidence={openEvidence}
-        onRequestMoreEvidence={mockCallback}
-      />
-    );
-    
+
+    render(<DisputeEvidenceComparison evidence={openEvidence} />);
+
     expect(screen.getByText("Request Merchant Response")).toBeInTheDocument();
+  });
+
+  it("requests more evidence and shows confirmation feedback", async () => {
+    const openEvidence: DisputeEvidenceBundle = {
+      ...mockEvidence,
+      status: "open",
+      merchantStatement: undefined,
+      merchantImages: undefined,
+    };
+    const requestMock = vi.fn();
+    server.use(
+      http.post("https://api.example.com/disputes/dispute-123/request-evidence", () => {
+        requestMock();
+        return HttpResponse.json({ data: { requested: true }, error: null });
+      })
+    );
+
+    render(<DisputeEvidenceComparison evidence={openEvidence} />);
+    await userEvent.click(screen.getByRole("button", { name: "Request Merchant Response" }));
+
+    expect(requestMock).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("Merchant response requested.")).toBeInTheDocument();
   });
 
   it("displays arbitrator verdict when available", () => {
