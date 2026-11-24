@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 
 /** Props accepted by the shared button component. */
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -10,11 +10,33 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   ariaLabel?: string;
 }
 
-const variantStyles: Record<NonNullable<ButtonProps["variant"]>, string> = {
-  primary: "background:var(--ui-button-primary-bg, #2563eb);color:var(--ui-button-primary-fg, #fff);border:none",
-  secondary: "background:var(--ui-button-secondary-bg, #e5e7eb);color:var(--ui-button-secondary-fg, #111);border:none",
-  ghost: "background:transparent;color:var(--ui-button-ghost-fg, #2563eb);border:1px solid var(--ui-button-ghost-border, #2563eb)",
-  destructive: "background:var(--ui-button-destructive-bg, #dc2626);color:var(--ui-button-destructive-fg, #fff);border:none",
+/*
+ * Theme tokens are exposed as CSS custom properties. Consumers (or a theme
+ * stylesheet toggled for `prefers-color-scheme: dark`, `[data-theme="dark"]`,
+ * or `prefers-contrast: more`) override the variables; the fallbacks below are
+ * the light-theme defaults so the component renders correctly with no theme.
+ */
+const variantStyles: Record<NonNullable<ButtonProps["variant"]>, CSSProperties> = {
+  primary: {
+    background: "var(--ui-button-primary-bg, #2563eb)",
+    color: "var(--ui-button-primary-fg, #fff)",
+    border: "none",
+  },
+  secondary: {
+    background: "var(--ui-button-secondary-bg, #e5e7eb)",
+    color: "var(--ui-button-secondary-fg, #111)",
+    border: "none",
+  },
+  ghost: {
+    background: "transparent",
+    color: "var(--ui-button-ghost-fg, #2563eb)",
+    border: "1px solid var(--ui-button-ghost-border, #2563eb)",
+  },
+  destructive: {
+    background: "var(--ui-button-destructive-bg, #dc2626)",
+    color: "var(--ui-button-destructive-fg, #fff)",
+    border: "none",
+  },
 };
 
 /** Base button component with accessibility support — themed via CSS custom properties */
@@ -38,15 +60,7 @@ export function Button({
         cursor: "pointer",
         fontWeight: 500,
         transition: "all 0.2s ease-in-out",
-        ...Object.fromEntries(
-          variantStyles[variant].split(";").map((s) => {
-            const [k, v] = s.split(":");
-            return [
-              k.trim().replace(/-([a-z])/g, (_, c) => c.toUpperCase()),
-              v?.trim(),
-            ];
-          }),
-        ),
+        ...variantStyles[variant],
         ...style,
       }}
       {...props}
