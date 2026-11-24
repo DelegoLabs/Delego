@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import type { Delegation, UpdateDelegationInput } from "@delegolabs/types";
 import { DelegationCard } from "./DelegationCard";
 
@@ -281,8 +281,11 @@ export function DelegationList({
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
 
   // Prune selection when visible delegations change (e.g. filter applied)
-  const visibleIds = new Set(delegations.map((d) => d.id));
-  const effectiveSelected = new Set([...selectedIds].filter((id) => visibleIds.has(id)));
+  const visibleIds = useMemo(() => new Set(delegations.map((d) => d.id)), [delegations]);
+  const effectiveSelected = useMemo(
+    () => new Set([...selectedIds].filter((id) => visibleIds.has(id))),
+    [selectedIds, visibleIds]
+  );
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
