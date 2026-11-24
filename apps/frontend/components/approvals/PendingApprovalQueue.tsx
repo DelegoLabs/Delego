@@ -11,6 +11,7 @@ import {
   type PendingApprovalUrgency,
 } from "../../lib/pendingApprovals";
 import { useCurrency } from "../../hooks/useCurrency";
+import { useOsNotifications } from "../../hooks/useOsNotifications";
 
 export interface PendingApprovalQueueProps {
   items: PendingApprovalItem[];
@@ -58,14 +59,40 @@ export function PendingApprovalQueue({
   onRetry,
 }: PendingApprovalQueueProps) {
   const { currencyId, rate } = useCurrency();
+  const {
+    supported: osNotificationsSupported,
+    permission: osNotificationPermission,
+    enabled: osNotificationsEnabled,
+    setEnabled: setOsNotificationsEnabled,
+    requestPermission: requestOsNotificationPermission,
+  } = useOsNotifications();
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [inFlightId, setInFlightId] = useState<string | null>(null);
+  const [urgentOnly, setUrgentOnly] = useState(false);
 
   const busyIds = new Set<string>([
     ...(signingIds ?? []),
     ...(inFlightId ? [inFlightId] : []),
   ]);
   const ordered = sortPendingApprovals(items);
+  const urgentItems = ordered.filter((item) => {
+    const urgency = pendingApprovalUrgency(item, now);
+    return urgency === "critical" || urgency === "warning";
+  });
+  const visible = urgentOnly ? urgentItems : ordered;
+
+  async function handleOsNotificationToggle(checked: boolean) {
+    if (!checked) {
+      setOsNotificationsEnabled(false);
+      return;
+    }
+    if (osNotificationPermission === "granted") {
+      setOsNotificationsEnabled(true);
+      return;
+    }
+    const result = await requestOsNotificationPermission();
+    setOsNotificationsEnabled(result === "granted");
+  }
 
   async function handleSign(orderId: string) {
     setInFlightId(orderId);
@@ -113,14 +140,63 @@ export function PendingApprovalQueue({
         </div>
       )}
 
+      <div className="pending-approvals-toolbar">
+        <button
+          type="button"
+          className={`pending-approvals-filter-chip focus-visible-ring${
+            urgentOnly ? " pending-approvals-filter-chip-active" : ""
+          }`}
+          aria-pressed={urgentOnly}
+          onClick={() => setUrgentOnly((prev) => !prev)}
+          data-testid="pending-approvals-urgent-filter"
+        >
+          Urgent / Expiring soon
+          {urgentItems.length > 0 && (
+            <span className="pending-approvals-filter-count">
+              {urgentItems.length}
+            </span>
+          )}
+        </button>
+
+        {osNotificationsSupported && (
+          <label
+            className="pending-approvals-notify-toggle"
+            data-testid="pending-approvals-os-notify-toggle"
+          >
+            <input
+              type="checkbox"
+              checked={osNotificationsEnabled && osNotificationPermission === "granted"}
+              disabled={osNotificationPermission === "denied"}
+              onChange={(e) => void handleOsNotificationToggle(e.target.checked)}
+            />
+            <span>
+              {osNotificationPermission === "denied"
+                ? "OS notifications (blocked in browser)"
+                : "OS notifications"}
+            </span>
+          </label>
+        )}
+      </div>
+
       {ordered.length === 0 ? (
         <p className="pending-approvals-empty" data-testid="pending-approvals-empty">
           Nothing is waiting on a second signature. High-value team requests that still need
           your approval will appear here.
         </p>
+      ) : visible.length === 0 ? (
+        <div className="pending-approvals-empty" data-testid="pending-approvals-urgent-empty">
+          <p style={{ margin: 0 }}>No urgent or expiring approvals right now.</p>
+          <button
+            type="button"
+            className="pending-approvals-filter-chip focus-visible-ring"
+            onClick={() => setUrgentOnly(false)}
+          >
+            Show all
+          </button>
+        </div>
       ) : (
         <ul className="pending-approvals-list">
-          {ordered.map((item) => {
+          {visible.map((item) => {
             const check = canSignPendingApproval(item, signerAddress, now);
             const urgency = pendingApprovalUrgency(item, now);
             const busy = busyIds.has(item.orderId);
