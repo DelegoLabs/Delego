@@ -15,17 +15,21 @@ export interface TokenAllowancesTableProps {
   disabled?: boolean;
 }
 
-export function formatStroopsToDecimal(stroops: string): string {
+export function formatStroopsToDecimal(
+  stroops: string,
+  locale: string = "en-US"
+): string {
   try {
+    const formatter = new Intl.NumberFormat(locale);
     const val = BigInt(stroops);
     const divisor = 10_000_000n;
     const whole = val / divisor;
     const fraction = val % divisor;
     if (fraction === 0n) {
-      return whole.toLocaleString();
+      return formatter.format(whole);
     }
     const fractionStr = fraction.toString().padStart(7, "0").replace(/0+$/, "");
-    return `${whole.toLocaleString()}.${fractionStr}`;
+    return `${formatter.format(whole)}.${fractionStr}`;
   } catch {
     return stroops;
   }
