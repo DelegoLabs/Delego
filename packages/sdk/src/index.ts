@@ -20,6 +20,35 @@ export interface DelegoClientConfig {
   onUnauthorized?: () => void;
 }
 
+export class DelegoApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly statusText: string,
+    public readonly body: unknown
+  ) {
+    super(
+      getErrorMessage(body) ??
+        (`${status} ${statusText}`.trim() || `HTTP ${status}`)
+    );
+    this.name = "DelegoApiError";
+  }
+}
+
+function getErrorMessage(body: unknown): string | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+
+  const record = body as Record<string, unknown>;
+  const error = record.error;
+  if (error && typeof error === "object" && !Array.isArray(error)) {
+    const message = (error as Record<string, unknown>).message;
+    if (typeof message === "string" && message.length > 0) return message;
+  }
+  if (typeof record.message === "string" && record.message.length > 0) {
+    return record.message;
+  }
+  return null;
+}
+
 export interface DelegoRequestOptions {
   signal?: AbortSignal;
   headers?: HeadersInit;
@@ -78,6 +107,17 @@ export class DelegoClient {
     const response = await this.protectedFetch(url, { ...init, headers });
 
     if (response.status === 401) this.onUnauthorized?.();
+    if (!response.ok) {
+      let body: unknown = null;
+      if (typeof response.json === "function") {
+        try {
+          body = await response.json();
+        } catch {
+          // Keep the HTTP failure actionable even when the response body is invalid JSON.
+        }
+      }
+      throw new DelegoApiError(response.status, response.statusText, body);
+    }
     if (response.status === 204 || typeof response.json !== "function") {
       return null;
     }
