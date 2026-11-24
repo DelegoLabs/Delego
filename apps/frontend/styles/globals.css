@@ -3668,6 +3668,12 @@ body.font-sans-system {
   font-size: 1.125rem;
 }
 
+.dispute-draft-saved {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
 .dispute-modal-field {
   margin-bottom: 1rem;
 }

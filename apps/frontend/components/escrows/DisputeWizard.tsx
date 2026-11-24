@@ -5,6 +5,7 @@ import { Button, Stepper } from "@delegolabs/ui";
 import { DisputeDropzone } from "./DisputeDropzone";
 import { blobToDataUrl, scrubExifMetadata } from "../../lib/exif";
 import { useDemoModeGuard } from "../../hooks/useDemoModeGuard";
+import { useDisputeWizardDraft } from "../../hooks/useDisputeWizardDraft";
 import {
   DISPUTE_WIZARD_OUTCOMES,
   DISPUTE_WIZARD_OUTCOME_LABELS,
@@ -13,7 +14,7 @@ import {
   DISPUTE_WIZARD_STEPS,
   MAX_DESCRIPTION_LENGTH,
   buildCreateDisputeInput,
-  createEmptyDisputeFormDraft,
+  formatDisputeDraftSavedTime,
   hasErrors,
   isDisputeFormComplete,
   validateDisputeStep,
@@ -23,6 +24,7 @@ import {
 
 export interface DisputeWizardProps {
   isOpen: boolean;
+  escrowId?: string;
   submitting?: boolean;
   error?: string | null;
   onSubmit: (input: ReturnType<typeof buildCreateDisputeInput>) => void | Promise<unknown>;
@@ -80,13 +82,14 @@ function OptionGroup<T extends string>({
  */
 export function DisputeWizard({
   isOpen,
+  escrowId,
   submitting = false,
   error,
   onSubmit,
   onClose,
 }: DisputeWizardProps) {
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState<DisputeFormDraft>(createEmptyDisputeFormDraft);
+  const { draft, savedAt, updateDraft, clearDraft, hydrated } = useDisputeWizardDraft(escrowId);
   const [errors, setErrors] = useState<DisputeFieldErrors>({});
   const [processing, setProcessing] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -98,7 +101,7 @@ export function DisputeWizard({
   const lastStep = DISPUTE_WIZARD_STEPS.length - 1;
 
   const update = (patch: Partial<DisputeFormDraft>) =>
-    setDraft((prev) => ({ ...prev, ...patch }));
+    updateDraft({ ...draft, ...patch });
 
   const goTo = (index: number) => {
     setErrors({});
@@ -127,7 +130,7 @@ export function DisputeWizard({
       }
       const result = await onSubmit(buildCreateDisputeInput(draft, photoDataUrls));
       if (result) {
-        setDraft(createEmptyDisputeFormDraft());
+        clearDraft();
         setErrors({});
         setStep(0);
       }
@@ -152,6 +155,12 @@ export function DisputeWizard({
         <div className="dispute-modal-header">
           <h2 id="dispute-wizard-title">Open dispute</h2>
         </div>
+
+        {hydrated && savedAt && (
+          <p className="dispute-draft-saved" role="status" aria-live="polite">
+            Draft saved at <time dateTime={savedAt}>{formatDisputeDraftSavedTime(savedAt)}</time>
+          </p>
+        )}
 
         <Stepper steps={[...DISPUTE_WIZARD_STEPS]} currentIndex={step} onStepSelect={goTo} />
 
@@ -214,31 +223,39 @@ export function DisputeWizard({
           )}
 
           {step === 3 && (
-            <>
+            <section aria-label="Review summary" data-testid="dispute-review-summary">
               <h3>Review your dispute</h3>
-              <dl style={{ margin: 0 }}>
-                <dt>Reason</dt>
-                <dd>{draft.reason ? DISPUTE_WIZARD_REASON_LABELS[draft.reason] : ""}</dd>
-                <dt>Description</dt>
-                <dd>{draft.description.trim()}</dd>
-                <dt>Photos</dt>
-                <dd>
-                  {draft.photoFiles.length === 0 ? (
-                    "None attached"
-                  ) : (
-                    <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
-                      {draft.photoFiles.map((file, index) => (
-                        <li key={`${file.name}-${index}`}>{file.name}</li>
-                      ))}
-                    </ul>
-                  )}
-                </dd>
-                <dt>Requested outcome</dt>
-                <dd>
-                  {draft.requestedOutcome ? DISPUTE_WIZARD_OUTCOME_LABELS[draft.requestedOutcome] : ""}
-                </dd>
+              <dl className="wallet-detail-list">
+                <div className="wallet-detail-row">
+                  <dt>Reason</dt>
+                  <dd>{draft.reason ? DISPUTE_WIZARD_REASON_LABELS[draft.reason] : ""}</dd>
+                </div>
+                <div className="wallet-detail-row">
+                  <dt>Description</dt>
+                  <dd>{draft.description.trim()}</dd>
+                </div>
+                <div className="wallet-detail-row">
+                  <dt>Photos</dt>
+                  <dd>
+                    {draft.photoFiles.length === 0 ? (
+                      "None attached"
+                    ) : (
+                      <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
+                        {draft.photoFiles.map((file, index) => (
+                          <li key={`${file.name}-${index}`}>{file.name}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </dd>
+                </div>
+                <div className="wallet-detail-row">
+                  <dt>Requested outcome</dt>
+                  <dd>
+                    {draft.requestedOutcome ? DISPUTE_WIZARD_OUTCOME_LABELS[draft.requestedOutcome] : ""}
+                  </dd>
+                </div>
               </dl>
-            </>
+            </section>
           )}
         </div>
 
