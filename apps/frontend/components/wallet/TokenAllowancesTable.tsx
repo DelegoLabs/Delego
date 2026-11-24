@@ -2,6 +2,8 @@
 
 import type { TokenAllowanceEntry } from "@delegolabs/types";
 import { Button } from "@delegolabs/ui";
+
+const ALLOWANCE_FORMAT_LOCALE = "en-US";
 import { explorerContractUrl } from "../../lib/contracts";
 import type { NetworkId } from "../../lib/networks";
 import { CopyButton } from "./CopyButton";
@@ -79,7 +81,8 @@ export function TokenAllowancesTable({
             const rowKey = `${entry.tokenAddress}-${entry.spenderAddress}`;
             const isRevoking = revokingSpenderKey === rowKey;
             const formattedAmount = formatStroopsToDecimal(
-              entry.allowedAmountStroops
+              entry.allowedAmountStroops,
+              ALLOWANCE_FORMAT_LOCALE
             );
 
             return (
