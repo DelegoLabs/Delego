@@ -152,5 +152,8 @@ describe("serialization", () => {
     expect(
       expenseReportFilename(report, "json", new Date("2026-02-03T12:00:00Z"))
     ).toBe("delego-expense-report-2026-02-03.json");
+    expect(
+      expenseReportFilename(report, "pdf", new Date("2026-02-03T12:00:00Z"))
+    ).toBe("delego-expense-report-2026-02-03.pdf");
   });
 });
