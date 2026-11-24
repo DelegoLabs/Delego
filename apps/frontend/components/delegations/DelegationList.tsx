@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useId } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { Delegation, UpdateDelegationInput } from "@delegolabs/types";
 import { DelegationCard } from "./DelegationCard";
 
@@ -30,7 +30,7 @@ function DelegationSkeletonCard() {
 }
 
 // ---------------------------------------------------------------------------
-// Bulk-action confirmation modal
+// Bulk-action confirmation modal (focus-managed)
 // ---------------------------------------------------------------------------
 
 type BulkAction = "pause" | "resume" | "revoke";
@@ -38,12 +38,14 @@ type BulkAction = "pause" | "resume" | "revoke";
 function BulkConfirmModal({
   action,
   count,
+  failedCount,
   onConfirm,
   onCancel,
   busy,
 }: {
   action: BulkAction;
   count: number;
+  failedCount?: number;
   onConfirm: () => void;
   onCancel: () => void;
   busy: boolean;
@@ -55,17 +57,59 @@ function BulkConfirmModal({
   };
   const { verb, color } = labels[action];
 
+  // Focus management: move focus into the modal on open, restore on close
+  const confirmBtnRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<Element | null>(null);
+
+  useEffect(() => {
+    // Save the element that triggered the modal
+    triggerRef.current = document.activeElement;
+    // Move focus to the confirm button
+    confirmBtnRef.current?.focus();
+
+    // Keyboard trap
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy) { onCancel(); return; }
+      if (e.key !== "Tab") return;
+      const modal = confirmBtnRef.current?.closest("[role='dialog']") as HTMLElement | null;
+      if (!modal) return;
+      const focusable = Array.from(
+        modal.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex='-1'])"
+        )
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      // Restore focus to the trigger when modal closes
+      if (triggerRef.current && typeof (triggerRef.current as HTMLElement).focus === "function") {
+        (triggerRef.current as HTMLElement).focus();
+      }
+    };
+  }, [busy, onCancel]);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Confirm bulk ${verb}`}
+      aria-labelledby="bulk-modal-title"
+      aria-describedby="bulk-modal-desc"
       style={{
         position: "fixed", inset: 0, zIndex: 50,
         display: "flex", alignItems: "center", justifyContent: "center",
         background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      onClick={(e) => { if (e.target === e.currentTarget && !busy) onCancel(); }}
     >
       <div
         style={{
@@ -74,28 +118,38 @@ function BulkConfirmModal({
           borderRadius: 12, padding: "24px 28px", maxWidth: 440, width: "90%",
         }}
       >
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--foreground, #e6edf3)" }}>
+        <h2
+          id="bulk-modal-title"
+          style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--foreground, #e6edf3)" }}
+        >
           {verb} {count} delegation{count !== 1 ? "s" : ""}?
         </h2>
-        <p style={{ margin: "8px 0 20px", fontSize: 14, color: "var(--muted, #8b949e)" }}>
+        <p
+          id="bulk-modal-desc"
+          style={{ margin: "8px 0 20px", fontSize: 14, color: "var(--muted, #8b949e)" }}
+        >
           {action === "revoke"
             ? "Revoked delegations cannot be re-activated. This action is permanent."
             : `This will ${verb.toLowerCase()} the selected delegations.`}
         </p>
+
+        {failedCount != null && failedCount > 0 && (
+          <p role="alert" style={{ margin: "0 0 16px", fontSize: 13, color: "#f85149" }}>
+            {failedCount} operation{failedCount !== 1 ? "s" : ""} failed. Failed items remain selected — retry or deselect them.
+          </p>
+        )}
+
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button
             type="button"
             onClick={onCancel}
             disabled={busy}
-            style={{
-              padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border, #30363d)",
-              background: "transparent", color: "var(--muted, #8b949e)",
-              cursor: busy ? "not-allowed" : "pointer", fontSize: 14,
-            }}
+            style={ghostBtnStyle}
           >
             Cancel
           </button>
           <button
+            ref={confirmBtnRef}
             type="button"
             onClick={onConfirm}
             disabled={busy}
@@ -113,6 +167,13 @@ function BulkConfirmModal({
     </div>
   );
 }
+
+const ghostBtnStyle: React.CSSProperties = {
+  padding: "8px 16px", borderRadius: 8,
+  border: "1px solid var(--border, #30363d)",
+  background: "transparent", color: "var(--muted, #8b949e)",
+  cursor: "pointer", fontSize: 14,
+};
 
 // ---------------------------------------------------------------------------
 // Bulk action toolbar
@@ -151,16 +212,16 @@ function BulkToolbar({
       </span>
 
       {selected < total ? (
-        <button type="button" onClick={onSelectAll}
-          style={btnStyle("var(--accent, #58a6ff)")}
-          disabled={busy}
+        <button type="button" onClick={onSelectAll} disabled={busy}
+          style={actionBtnStyle("var(--accent, #58a6ff)")}
+          aria-label="Select all visible delegations"
         >
           Select all
         </button>
       ) : (
-        <button type="button" onClick={onClearAll}
-          style={btnStyle("var(--muted, #8b949e)")}
-          disabled={busy}
+        <button type="button" onClick={onClearAll} disabled={busy}
+          style={actionBtnStyle("var(--muted, #8b949e)")}
+          aria-label="Clear selection"
         >
           Clear all
         </button>
@@ -169,19 +230,19 @@ function BulkToolbar({
       <div style={{ flex: 1 }} />
 
       <button type="button" onClick={() => onBulkAction("pause")}
-        style={btnStyle("#d29922")} disabled={busy || selected === 0}
+        style={actionBtnStyle("#d29922")} disabled={busy || selected === 0}
         aria-label={`Pause ${selected} selected delegations`}
       >
         Pause
       </button>
       <button type="button" onClick={() => onBulkAction("resume")}
-        style={btnStyle("#3fb950")} disabled={busy || selected === 0}
+        style={actionBtnStyle("#3fb950")} disabled={busy || selected === 0}
         aria-label={`Resume ${selected} selected delegations`}
       >
         Resume
       </button>
       <button type="button" onClick={() => onBulkAction("revoke")}
-        style={btnStyle("#f85149")} disabled={busy || selected === 0}
+        style={actionBtnStyle("#f85149")} disabled={busy || selected === 0}
         aria-label={`Revoke ${selected} selected delegations`}
       >
         Revoke
@@ -190,7 +251,7 @@ function BulkToolbar({
   );
 }
 
-function btnStyle(color: string): React.CSSProperties {
+function actionBtnStyle(color: string): React.CSSProperties {
   return {
     padding: "6px 14px", borderRadius: 8,
     border: `1px solid ${color}`,
@@ -213,9 +274,15 @@ export function DelegationList({
   onDuplicate,
   filtered = false,
 }: DelegationListProps) {
+  // selectedIds is always pruned to the currently visible delegations
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pendingAction, setPendingAction] = useState<BulkAction | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+
+  // Prune selection when visible delegations change (e.g. filter applied)
+  const visibleIds = new Set(delegations.map((d) => d.id));
+  const effectiveSelected = new Set([...selectedIds].filter((id) => visibleIds.has(id)));
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -233,6 +300,7 @@ export function DelegationList({
   const handleClearAll = useCallback(() => setSelectedIds(new Set()), []);
 
   const handleBulkAction = useCallback((action: BulkAction) => {
+    setFailedIds(new Set());
     setPendingAction(action);
   }, []);
 
@@ -240,24 +308,45 @@ export function DelegationList({
     if (!pendingAction) return;
     setBulkBusy(true);
     try {
-      const ids = Array.from(selectedIds);
-      await Promise.all(
+      // Operate only on IDs still visible in the current delegation list
+      const currentVisibleIds = new Set(delegations.map((d) => d.id));
+      const ids = Array.from(effectiveSelected).filter((id) => currentVisibleIds.has(id));
+
+      // Use Promise.allSettled so a partial failure does not abort remaining ops
+      const results = await Promise.allSettled(
         ids.map((id) => {
-          if (pendingAction === "revoke") return onRevoke(id);
-          return onUpdate(id, {
-            status: pendingAction === "pause" ? "paused" : "active",
-          } as UpdateDelegationInput);
+          if (pendingAction === "revoke") return Promise.resolve(onRevoke(id));
+          return Promise.resolve(
+            onUpdate(id, { status: pendingAction === "pause" ? "paused" : "active" } as UpdateDelegationInput)
+          );
         })
       );
-      setSelectedIds(new Set());
+
+      const newFailed = new Set<string>();
+      results.forEach((result, i) => {
+        if (result.status === "rejected") newFailed.add(ids[i]);
+      });
+
+      if (newFailed.size > 0) {
+        // Keep only failed IDs selected; show error state in modal
+        setSelectedIds(newFailed);
+        setFailedIds(newFailed);
+      } else {
+        // All succeeded — clear selection and close modal
+        setSelectedIds(new Set());
+        setFailedIds(new Set());
+        setPendingAction(null);
+      }
     } finally {
       setBulkBusy(false);
-      setPendingAction(null);
     }
-  }, [pendingAction, selectedIds, onRevoke, onUpdate]);
+  }, [pendingAction, effectiveSelected, delegations, onRevoke, onUpdate]);
 
   const handleCancel = useCallback(() => {
-    if (!bulkBusy) setPendingAction(null);
+    if (!bulkBusy) {
+      setPendingAction(null);
+      setFailedIds(new Set());
+    }
   }, [bulkBusy]);
 
   // ── Loading skeleton ──────────────────────────────────────────────────────
@@ -286,9 +375,8 @@ export function DelegationList({
 
   return (
     <>
-      {/* Bulk toolbar — always visible so users can select without scrolling */}
       <BulkToolbar
-        selected={selectedIds.size}
+        selected={effectiveSelected.size}
         total={delegations.length}
         onSelectAll={handleSelectAll}
         onClearAll={handleClearAll}
@@ -296,11 +384,9 @@ export function DelegationList({
         busy={bulkBusy}
       />
 
-      {/* Delegation grid */}
       <div className="grid">
         {delegations.map((delegation) => (
           <div key={delegation.id} style={{ position: "relative" }}>
-            {/* Checkbox overlay */}
             <label
               aria-label={`Select delegation ${delegation.label || delegation.id}`}
               style={{
@@ -310,17 +396,16 @@ export function DelegationList({
             >
               <input
                 type="checkbox"
-                checked={selectedIds.has(delegation.id)}
+                checked={effectiveSelected.has(delegation.id)}
                 onChange={() => toggleSelect(delegation.id)}
                 aria-label={`Select delegation ${delegation.label || delegation.id}`}
                 style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--accent, #58a6ff)" }}
               />
             </label>
 
-            {/* Card — slightly dimmed when unselected and others are selected */}
             <div
               style={{
-                opacity: selectedIds.size > 0 && !selectedIds.has(delegation.id) ? 0.6 : 1,
+                opacity: effectiveSelected.size > 0 && !effectiveSelected.has(delegation.id) ? 0.6 : 1,
                 transition: "opacity 0.15s",
               }}
             >
@@ -336,11 +421,11 @@ export function DelegationList({
         ))}
       </div>
 
-      {/* Bulk-action confirmation modal */}
       {pendingAction !== null && (
         <BulkConfirmModal
           action={pendingAction}
-          count={selectedIds.size}
+          count={effectiveSelected.size}
+          failedCount={failedIds.size}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
           busy={bulkBusy}
