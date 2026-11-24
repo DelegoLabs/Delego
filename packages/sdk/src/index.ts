@@ -65,7 +65,11 @@ export class DelegoClient {
     }
   }
 
-  /** Low-level request helper: joins the base URL, adds auth, parses JSON. */
+  /**
+   * Low-level request helper: joins the base URL, merges caller-supplied
+   * `init.headers` (e.g. from `DelegoRequestOptions.headers`) with the auth
+   * and content-type headers, then parses JSON.
+   */
   async request(path: string, init: RequestInit = {}): Promise<any> {
     const url = `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
     const headers = new Headers(init.headers ?? {});
