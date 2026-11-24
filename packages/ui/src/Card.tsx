@@ -17,7 +17,7 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   ariaDescribedBy?: string;
 }
 
-/** Simple card container with accessibility support — TODO: add variants and theming */
+/** Simple card container with accessibility support — themed via CSS custom properties */
 export function Card({
   title,
   children,
@@ -36,10 +36,11 @@ export function Card({
       aria-label={ariaLabel}
       aria-describedby={ariaDescribedBy}
       style={{
-        border: "1px solid #e5e7eb",
+        border: "1px solid var(--ui-card-border, #e5e7eb)",
         borderRadius: "0.5rem",
         padding: "1rem",
-        background: "#fff",
+        background: "var(--ui-card-bg, #fff)",
+        color: "var(--ui-card-fg, inherit)",
         ...style,
       }}
       {...props}

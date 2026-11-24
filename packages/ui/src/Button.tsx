@@ -11,13 +11,13 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<NonNullable<ButtonProps["variant"]>, string> = {
-  primary: "background:#2563eb;color:#fff;border:none",
-  secondary: "background:#e5e7eb;color:#111;border:none",
-  ghost: "background:transparent;color:#2563eb;border:1px solid #2563eb",
-  destructive: "background:#dc2626;color:#fff;border:none",
+  primary: "background:var(--ui-button-primary-bg, #2563eb);color:var(--ui-button-primary-fg, #fff);border:none",
+  secondary: "background:var(--ui-button-secondary-bg, #e5e7eb);color:var(--ui-button-secondary-fg, #111);border:none",
+  ghost: "background:transparent;color:var(--ui-button-ghost-fg, #2563eb);border:1px solid var(--ui-button-ghost-border, #2563eb)",
+  destructive: "background:var(--ui-button-destructive-bg, #dc2626);color:var(--ui-button-destructive-fg, #fff);border:none",
 };
 
-/** Base button component with accessibility support — TODO: migrate to design system tokens */
+/** Base button component with accessibility support — themed via CSS custom properties */
 export function Button({
   variant = "primary",
   children,
