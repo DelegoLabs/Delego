@@ -17,9 +17,12 @@ import {
   findNearMisses,
   getAddressBook,
   importAddressBook,
+  isValidFederationAddress,
+  isValidStellarAddress,
   levenshteinDistance,
   searchAddressBook,
   updateAddressEntry,
+  validateMemo,
 } from "./addressBook";
 
 // Clear localStorage between each test to ensure isolation.
@@ -28,6 +31,33 @@ beforeEach(() => {
 });
 afterEach(() => {
   localStorage.clear();
+});
+
+describe("Stellar address and memo validation", () => {
+  it("accepts account IDs and federation addresses", () => {
+    expect(
+      isValidStellarAddress(
+        "GB5XVAABEQMY63WTHDQ5RXADGYF345VWMNPTN2GFUDZT57D57ZQTJ7PS"
+      )
+    ).toBe(true);
+    expect(isValidFederationAddress("alice*example.com")).toBe(true);
+    expect(isValidStellarAddress("alice*example.com")).toBe(true);
+  });
+
+  it("rejects malformed federation addresses", () => {
+    expect(isValidFederationAddress("alice@example.com")).toBe(false);
+    expect(isValidFederationAddress("alice*example")).toBe(false);
+    expect(isValidFederationAddress("alice*example.com/path")).toBe(false);
+  });
+
+  it("enforces Stellar memo rules", () => {
+    expect(validateMemo("1234567890123456789012345678")).toBe(null);
+    expect(validateMemo("12345678901234567890123456789")).toContain("28 bytes");
+    expect(validateMemo("123", "id")).toBe(null);
+    expect(validateMemo("not-a-number", "id")).toContain("only digits");
+    expect(validateMemo("00".repeat(32), "hash")).toBe(null);
+    expect(validateMemo("00", "return")).toContain("32-byte");
+  });
 });
 
 // ─── levenshteinDistance ──────────────────────────────────────────────────
