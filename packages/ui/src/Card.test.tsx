@@ -1,5 +1,7 @@
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { Card } from "./Card.js";
 
@@ -50,6 +52,26 @@ describe("Card", () => {
       </Card>,
     );
     expect(document.getElementById("orders-card-title")?.tagName).toBe("H2");
+  });
+
+  it("keeps its generated ID stable during hydration", async () => {
+    const element = <Card title="Hydrated card">Content</Card>;
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(element);
+    const serverId = container.querySelector("[role='region']")?.id;
+    const recoverableErrors: Error[] = [];
+
+    let root: ReturnType<typeof hydrateRoot>;
+    await act(async () => {
+      root = hydrateRoot(container, element, {
+        onRecoverableError: (error) => recoverableErrors.push(error),
+      });
+    });
+
+    expect(container.querySelector("[role='region']")?.id).toBe(serverId);
+    expect(recoverableErrors).toHaveLength(0);
+
+    await act(async () => root.unmount());
   });
 
   it("applies custom styles", () => {
