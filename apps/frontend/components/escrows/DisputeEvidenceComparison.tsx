@@ -6,11 +6,12 @@ import type { BadgeTone } from "@delegolabs/ui";
 import type { DisputeEvidenceBundle } from "../../types/dispute-evidence";
 import { EvidenceLightbox } from "./EvidenceLightbox";
 import { ResolutionCountdown } from "./ResolutionCountdown";
+import { NetworkErrorBanner } from "../offline/NetworkErrorBanner";
 
 export interface DisputeEvidenceComparisonProps {
   evidence: DisputeEvidenceBundle;
   resolutionDeadline?: string; // ISO timestamp
-  onRequestMoreEvidence?: () => void;
+  onRequestMoreEvidence?: () => void | Promise<void>;
 }
 
 const STATUS_TONE: Record<DisputeEvidenceBundle["status"], BadgeTone> = {
@@ -37,6 +38,23 @@ export function DisputeEvidenceComparison({
 }: DisputeEvidenceComparisonProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [lightboxTitle, setLightboxTitle] = useState<string>("");
+  const [evidenceRequestError, setEvidenceRequestError] = useState<string | null>(null);
+  const [isRequestingEvidence, setIsRequestingEvidence] = useState(false);
+
+  const handleRequestMoreEvidence = async () => {
+    if (!onRequestMoreEvidence) return;
+    setIsRequestingEvidence(true);
+    setEvidenceRequestError(null);
+    try {
+      await onRequestMoreEvidence();
+    } catch (err) {
+      setEvidenceRequestError(
+        err instanceof Error ? err.message : "Failed to request more evidence."
+      );
+    } finally {
+      setIsRequestingEvidence(false);
+    }
+  };
 
   const openLightbox = (imageUrl: string, title: string) => {
     setLightboxImage(imageUrl);
@@ -50,6 +68,14 @@ export function DisputeEvidenceComparison({
 
   return (
     <div className="dispute-evidence-comparison">
+      <NetworkErrorBanner
+        error={evidenceRequestError}
+        isRetrying={isRequestingEvidence}
+        onRetry={handleRequestMoreEvidence}
+        onDismiss={() => setEvidenceRequestError(null)}
+        contextLabel="escrow evidence"
+      />
+
       <div className="dispute-evidence-header">
         <div className="dispute-evidence-status">
           <h2>Dispute Evidence</h2>
@@ -152,9 +178,10 @@ export function DisputeEvidenceComparison({
                   <button
                     type="button"
                     className="dispute-request-button"
-                    onClick={onRequestMoreEvidence}
+                    onClick={handleRequestMoreEvidence}
+                    disabled={isRequestingEvidence}
                   >
-                    Request Merchant Response
+                    {isRequestingEvidence ? "Requesting..." : "Request Merchant Response"}
                   </button>
                 )}
               </div>
