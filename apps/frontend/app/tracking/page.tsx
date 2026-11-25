@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
 import { isTerminal } from "../../lib/orders";
@@ -22,6 +22,7 @@ function formatUpdated(date: Date | null, locale: string): string {
 /** Order tracking dashboard with live-polling status timelines. */
 export default function TrackingPage() {
   const locale = useLocale();
+  const t = useTranslations("tracking");
   const { orders, loading, error, lastUpdated, refresh } = useOrders({
     pollIntervalMs: POLL_INTERVAL_MS,
   });
@@ -36,17 +37,21 @@ export default function TrackingPage() {
   return (
     <div className="settings-page">
       <header className="header">
-        <h1>Order Tracking</h1>
-        <p>Follow in-flight orders as their status updates in real time</p>
+        <h1>{t("title")}</h1>
+        <p>{t("subtitle")}</p>
       </header>
 
       <div className="tracking-toolbar">
         <span className="tracking-live" aria-live="polite">
           <span className="tracking-live-dot" aria-hidden="true" />
-          Live · updated {formatUpdated(lastUpdated, locale)}
+          {t("liveUpdated", { time: formatUpdated(lastUpdated, locale) })}
         </span>
-        <Button variant="secondary" onClick={() => refresh()} ariaLabel="Refresh now">
-          Refresh
+        <Button
+          variant="secondary"
+          onClick={() => refresh()}
+          ariaLabel={t("refreshAriaLabel")}
+        >
+          {t("refresh")}
         </Button>
       </div>
 
@@ -71,7 +76,7 @@ export default function TrackingPage() {
         </section>
       ) : active.length === 0 ? (
         <div className="card">
-          <p>No orders are currently in flight.</p>
+          <p>{t("empty")}</p>
         </div>
       ) : (
         <div className="grid">
@@ -89,7 +94,9 @@ export default function TrackingPage() {
               onClick={() => setShowCompleted((v) => !v)}
               aria-expanded={showCompleted}
             >
-              {showCompleted ? "Hide" : "Show"} completed ({completed.length})
+              {showCompleted
+                ? t("hideCompleted", { count: completed.length })
+                : t("showCompleted", { count: completed.length })}
             </Button>
           </div>
           {showCompleted && (
