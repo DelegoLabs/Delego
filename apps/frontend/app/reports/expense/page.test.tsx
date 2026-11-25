@@ -1,12 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import ExpenseReportPage from "./page";
 
-const { downloadCsvMock, downloadBlobMock } = vi.hoisted(() => ({
-  downloadCsvMock: vi.fn(),
-  downloadBlobMock: vi.fn(),
-}));
+const { downloadCsvMock, downloadBlobMock, generateExpenseReportPdfMock } =
+  vi.hoisted(() => ({
+    downloadCsvMock: vi.fn(),
+    downloadBlobMock: vi.fn(),
+    generateExpenseReportPdfMock: vi.fn(),
+  }));
 
 vi.mock("../../../hooks/useOrders", () => ({
   useOrders: () => ({
@@ -37,6 +39,9 @@ vi.mock("../../../hooks/useOrders", () => ({
 }));
 
 vi.mock("../../../lib/download", () => ({ downloadBlob: downloadBlobMock }));
+vi.mock("../../../lib/expenseReportPdf", () => ({
+  generateExpenseReportPdf: generateExpenseReportPdfMock,
+}));
 vi.mock("../../../lib/csv", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("../../../lib/csv")>();
@@ -48,6 +53,12 @@ describe("ExpenseReportPage", () => {
     render(<ExpenseReportPage />);
 
     expect(screen.getByText("Expense report")).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "Quick date ranges" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Download PDF" })
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("From")).toBeInTheDocument();
     expect(screen.getByLabelText("To")).toBeInTheDocument();
     expect(screen.getByLabelText("Format")).toHaveValue("csv");
@@ -93,5 +104,41 @@ describe("ExpenseReportPage", () => {
     await user.click(screen.getByRole("button", { name: /download json/i }));
 
     expect(downloadBlobMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies inclusive local-calendar date presets", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 4, 17, 12));
+      render(<ExpenseReportPage />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Last 7 days" }));
+      expect(screen.getByLabelText("From")).toHaveValue("2026-05-11");
+      expect(screen.getByLabelText("To")).toHaveValue("2026-05-17");
+
+      fireEvent.click(screen.getByRole("button", { name: "Last 30 days" }));
+      expect(screen.getByLabelText("From")).toHaveValue("2026-04-18");
+      expect(screen.getByLabelText("To")).toHaveValue("2026-05-17");
+
+      fireEvent.click(screen.getByRole("button", { name: "This Month" }));
+      expect(screen.getByLabelText("From")).toHaveValue("2026-05-01");
+      expect(screen.getByLabelText("To")).toHaveValue("2026-05-17");
+
+      fireEvent.click(screen.getByRole("button", { name: "Quarter-to-Date" }));
+      expect(screen.getByLabelText("From")).toHaveValue("2026-04-01");
+      expect(screen.getByLabelText("To")).toHaveValue("2026-05-17");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("exports the current report as PDF", async () => {
+    const user = userEvent.setup();
+    render(<ExpenseReportPage />);
+
+    await user.click(screen.getByRole("button", { name: "Download PDF" }));
+
+    expect(generateExpenseReportPdfMock).toHaveBeenCalledOnce();
+    expect(generateExpenseReportPdfMock.mock.calls[0][0].orderCount).toBe(2);
   });
 });

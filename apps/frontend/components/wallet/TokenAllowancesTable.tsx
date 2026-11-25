@@ -2,6 +2,8 @@
 
 import type { TokenAllowanceEntry } from "@delegolabs/types";
 import { Button } from "@delegolabs/ui";
+
+const ALLOWANCE_FORMAT_LOCALE = "en-US";
 import { explorerContractUrl } from "../../lib/contracts";
 import type { NetworkId } from "../../lib/networks";
 import { CopyButton } from "./CopyButton";
@@ -15,17 +17,21 @@ export interface TokenAllowancesTableProps {
   disabled?: boolean;
 }
 
-export function formatStroopsToDecimal(stroops: string): string {
+export function formatStroopsToDecimal(
+  stroops: string,
+  locale: string = "en-US"
+): string {
   try {
+    const formatter = new Intl.NumberFormat(locale);
     const val = BigInt(stroops);
     const divisor = 10_000_000n;
     const whole = val / divisor;
     const fraction = val % divisor;
     if (fraction === 0n) {
-      return whole.toLocaleString();
+      return formatter.format(whole);
     }
     const fractionStr = fraction.toString().padStart(7, "0").replace(/0+$/, "");
-    return `${whole.toLocaleString()}.${fractionStr}`;
+    return `${formatter.format(whole)}.${fractionStr}`;
   } catch {
     return stroops;
   }
@@ -75,7 +81,8 @@ export function TokenAllowancesTable({
             const rowKey = `${entry.tokenAddress}-${entry.spenderAddress}`;
             const isRevoking = revokingSpenderKey === rowKey;
             const formattedAmount = formatStroopsToDecimal(
-              entry.allowedAmountStroops
+              entry.allowedAmountStroops,
+              ALLOWANCE_FORMAT_LOCALE
             );
 
             return (
