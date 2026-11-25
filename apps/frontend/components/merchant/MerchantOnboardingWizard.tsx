@@ -31,6 +31,7 @@ import { verifyDomainOwnership, type DomainVerificationResult } from "../../lib/
 import { CopyButton } from "../wallet/CopyButton";
 import { truncateHash } from "../../lib/proofAttachments";
 import { resolveProofHashExplorerUrl } from "../../lib/proofAttachments";
+import { NetworkErrorBanner } from "../offline/NetworkErrorBanner";
 import {
   WALLET_CANCELLED_MESSAGE,
   WalletActionError,
@@ -442,11 +443,13 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
               </div>
             ) : null}
 
-            {verifyError && (
-              <div className="error-message" role="alert">
-                {verifyError}
-              </div>
-            )}
+            <NetworkErrorBanner
+              error={verifyError}
+              isRetrying={verifying}
+              onRetry={handleVerifyWallet}
+              onDismiss={() => setVerifyError(null)}
+              contextLabel="onboarding step"
+            />
 
             {verifySuccess && (
               <div className="success-message">
@@ -499,11 +502,13 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
               </div>
             ) : null}
 
-            {verifyError && (
-              <div className="error-message" role="alert">
-                {verifyError}
-              </div>
-            )}
+            <NetworkErrorBanner
+              error={verifyError}
+              isRetrying={verifying}
+              onRetry={handleNext}
+              onDismiss={() => setVerifyError(null)}
+              contextLabel="onboarding step"
+            />
 
             {verifySuccess && (
               <div className="success-message">
@@ -528,8 +533,17 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
         )}
 
         {/* Complete Step */}
-        {currentStep === "complete" && transactionHash && (
+        {currentStep === "complete" && (
           <div className="merchant-onboarding-step">
+            <NetworkErrorBanner
+              error={registerError}
+              isRetrying={registering}
+              onRetry={handleRegister}
+              onDismiss={() => setRegisterError(null)}
+              contextLabel="onboarding step"
+            />
+            {transactionHash && (
+            <>
             <div className="success-icon">🎉</div>
             <h2>Registration Successful!</h2>
             <p>{formData.storeName} has been registered on {network.label}.</p>
@@ -566,6 +580,8 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
                 Finish
               </Button>
             </div>
+            </>
+            )}
           </div>
         )}
       </Card>
