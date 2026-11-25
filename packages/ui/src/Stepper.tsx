@@ -55,7 +55,6 @@ const statusStyles: Record<StepStatus, StatusStyle> = {
 export function Stepper({ steps, currentIndex, onStepSelect }: StepperProps) {
   return (
     <ol
-      role="list"
       aria-label="Progress"
       style={{
         display: "flex",
