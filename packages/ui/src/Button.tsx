@@ -16,14 +16,36 @@ const sizeStyles: Record<NonNullable<ButtonProps["size"]>, CSSProperties> = {
   lg: { padding: "0.75rem 1.5rem", fontSize: "1.125rem" },
 };
 
-const variantStyles: Record<NonNullable<ButtonProps["variant"]>, string> = {
-  primary: "background:#2563eb;color:#fff;border:none",
-  secondary: "background:#e5e7eb;color:#111;border:none",
-  ghost: "background:transparent;color:#2563eb;border:1px solid #2563eb",
-  destructive: "background:#dc2626;color:#fff;border:none",
+/*
+ * Theme tokens are exposed as CSS custom properties. Consumers (or a theme
+ * stylesheet toggled for `prefers-color-scheme: dark`, `[data-theme="dark"]`,
+ * or `prefers-contrast: more`) override the variables; the fallbacks below are
+ * the light-theme defaults so the component renders correctly with no theme.
+ */
+const variantStyles: Record<NonNullable<ButtonProps["variant"]>, CSSProperties> = {
+  primary: {
+    background: "var(--ui-button-primary-bg, #2563eb)",
+    color: "var(--ui-button-primary-fg, #fff)",
+    border: "none",
+  },
+  secondary: {
+    background: "var(--ui-button-secondary-bg, #e5e7eb)",
+    color: "var(--ui-button-secondary-fg, #111)",
+    border: "none",
+  },
+  ghost: {
+    background: "transparent",
+    color: "var(--ui-button-ghost-fg, #2563eb)",
+    border: "1px solid var(--ui-button-ghost-border, #2563eb)",
+  },
+  destructive: {
+    background: "var(--ui-button-destructive-bg, #dc2626)",
+    color: "var(--ui-button-destructive-fg, #fff)",
+    border: "none",
+  },
 };
 
-/** Base button component with accessibility support — TODO: migrate to design system tokens */
+/** Base button component with accessibility support — themed via CSS custom properties */
 export function Button({
   variant = "primary",
   size = "md",
@@ -49,15 +71,7 @@ export function Button({
           fontWeight: 500,
           transition: "all 0.2s ease-in-out",
           ...sizeStyles[size],
-          ...Object.fromEntries(
-            variantStyles[variant].split(";").map((s) => {
-              const [k, v] = s.split(":");
-              return [
-                k.trim().replace(/-([a-z])/g, (_, c) => c.toUpperCase()),
-                v?.trim(),
-              ];
-            }),
-          ),
+          ...variantStyles[variant],
           ...style,
         }}
       >
