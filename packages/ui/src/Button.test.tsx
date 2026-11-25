@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { Button } from "./Button.js";
 
@@ -37,6 +37,42 @@ describe("Button", () => {
     expect(button?.style.background).toBe("rgb(220, 38, 38)");
   });
 
+  it.each([
+    ["sm", "0.25rem 0.5rem", "0.875rem"],
+    ["md", "0.5rem 1rem", ""],
+    ["lg", "0.75rem 1.5rem", "1.125rem"],
+  ] as const)("applies the %s size", (size, padding, fontSize) => {
+    render(<Button size={size}>Sized</Button>);
+    const button = screen.getByRole("button", { name: "Sized" });
+    expect(button.style.padding).toBe(padding);
+    expect(button.style.fontSize).toBe(fontSize);
+    expect(button).not.toHaveAttribute("size");
+  });
+
+  it("disables the button and announces its loading state", () => {
+    const onClick = vi.fn();
+    render(
+      <Button loading onClick={onClick}>
+        Save
+      </Button>,
+    );
+    const button = screen.getByRole("button", { name: "Save" });
+
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
+
+    fireEvent.click(button);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("does not mark non-loading buttons busy", () => {
+    render(<Button>Ready</Button>);
+    expect(screen.getByRole("button", { name: "Ready" })).not.toHaveAttribute(
+      "aria-busy",
+    );
+  });
+
   it("spreads additional props", () => {
     render(<Button data-testid="my-btn">Styled</Button>);
     expect(screen.getByTestId("my-btn")).toBeDefined();
@@ -56,6 +92,7 @@ describe("Button", () => {
           <Button variant="secondary">Secondary</Button>
           <Button variant="ghost">Ghost</Button>
           <Button disabled>Disabled</Button>
+          <Button loading>Loading</Button>
           <Button ariaLabel="Close dialog">X</Button>
         </>
       );
