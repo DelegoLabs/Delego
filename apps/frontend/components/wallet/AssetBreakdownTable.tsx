@@ -7,6 +7,7 @@
 
 "use client";
 
+import { useMemo, useState } from "react";
 import type { HorizonBalance } from "../../hooks/useBalanceHistory";
 import { useTomlCache } from "../../hooks/useTomlCache";
 
@@ -14,6 +15,83 @@ export interface AssetBreakdownTableProps {
   balances: HorizonBalance[];
   horizonUrl: string;
   isLiveNetwork: boolean;
+}
+
+type SortKey = "asset" | "balance" | "domain";
+type SortDirection = "asc" | "desc";
+
+interface AssetRow {
+  item: HorizonBalance;
+  /** Original position, used to keep equal values in a stable order. */
+  index: number;
+  isNative: boolean;
+  code: string;
+  issuer?: string;
+  domain: string;
+  balance: number;
+}
+
+const assetCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
+function compareRows(a: AssetRow, b: AssetRow, key: SortKey): number {
+  switch (key) {
+    case "asset":
+      return (
+        assetCollator.compare(a.code, b.code) ||
+        assetCollator.compare(a.issuer ?? "", b.issuer ?? "")
+      );
+    case "balance": {
+      const aIsValid = Number.isFinite(a.balance);
+      const bIsValid = Number.isFinite(b.balance);
+      if (!aIsValid || !bIsValid) {
+        return aIsValid === bIsValid ? 0 : aIsValid ? -1 : 1;
+      }
+      return a.balance - b.balance;
+    }
+    case "domain":
+      return assetCollator.compare(a.domain, b.domain);
+  }
+}
+
+interface SortableHeaderProps {
+  label: string;
+  column: SortKey;
+  sortKey: SortKey;
+  direction: SortDirection;
+  onSort: (key: SortKey) => void;
+}
+
+function SortableHeader({
+  label,
+  column,
+  sortKey,
+  direction,
+  onSort,
+}: SortableHeaderProps) {
+  const isActive = column === sortKey;
+
+  return (
+    <th
+      scope="col"
+      aria-sort={
+        isActive ? (direction === "asc" ? "ascending" : "descending") : "none"
+      }
+    >
+      <button
+        type="button"
+        className="asset-sort-button"
+        onClick={() => onSort(column)}
+      >
+        {label}
+        <span className="asset-sort-indicator" aria-hidden="true">
+          {isActive ? (direction === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
+  );
 }
 
 function getExplorerUrl(
@@ -38,12 +116,60 @@ export function AssetBreakdownTable({
   horizonUrl,
   isLiveNetwork,
 }: AssetBreakdownTableProps) {
+  const [sortKey, setSortKey] = useState<SortKey>("asset");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
   // Extract issuer IDs for non-native assets
   const issuerIds = balances
     .filter((b) => b.asset_type !== "native" && !!b.asset_issuer)
     .map((b) => b.asset_issuer!);
 
   const { getIssuerDomain } = useTomlCache(issuerIds, horizonUrl);
+
+  const rows = useMemo<AssetRow[]>(
+    () =>
+      balances.map((item, index) => {
+        const isNative = item.asset_type === "native";
+        const code = isNative ? "XLM" : (item.asset_code ?? "Unknown");
+        const issuer = item.asset_issuer;
+        const domain = isNative
+          ? "stellar.org"
+          : issuer
+            ? getIssuerDomain(issuer)
+            : "N/A";
+
+        return {
+          item,
+          index,
+          isNative,
+          code,
+          issuer,
+          domain,
+          balance: Number.parseFloat(item.balance),
+        };
+      }),
+    [balances, getIssuerDomain]
+  );
+
+  const sortedRows = useMemo(() => {
+    const directionMultiplier = sortDirection === "asc" ? 1 : -1;
+
+    return [...rows].sort((a, b) => {
+      const comparison = compareRows(a, b, sortKey);
+      return comparison === 0
+        ? a.index - b.index
+        : comparison * directionMultiplier;
+    });
+  }, [rows, sortKey, sortDirection]);
+
+  const handleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(key);
+    setSortDirection("asc");
+  };
 
   if (!balances || balances.length === 0) {
     return null;
@@ -54,24 +180,34 @@ export function AssetBreakdownTable({
       <table className="asset-table" aria-label="Asset balances breakdown">
         <thead>
           <tr>
-            <th scope="col">Asset</th>
-            <th scope="col">Balance</th>
-            <th scope="col">Issuer Domain</th>
+            <SortableHeader
+              label="Asset"
+              column="asset"
+              sortKey={sortKey}
+              direction={sortDirection}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              label="Balance"
+              column="balance"
+              sortKey={sortKey}
+              direction={sortDirection}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              label="Issuer Domain"
+              column="domain"
+              sortKey={sortKey}
+              direction={sortDirection}
+              onSort={handleSort}
+            />
             <th scope="col" className="text-right">
               Explorer
             </th>
           </tr>
         </thead>
         <tbody>
-          {balances.map((item, index) => {
-            const isNative = item.asset_type === "native";
-            const code = isNative ? "XLM" : (item.asset_code ?? "Unknown");
-            const issuer = item.asset_issuer;
-            const domain = isNative
-              ? "stellar.org"
-              : issuer
-                ? getIssuerDomain(issuer)
-                : "N/A";
+          {sortedRows.map(({ item, index, isNative, code, issuer, domain }) => {
             const explorerUrl = getExplorerUrl(
               item.asset_type,
               item.asset_code,

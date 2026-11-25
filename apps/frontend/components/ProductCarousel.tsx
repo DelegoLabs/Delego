@@ -87,14 +87,14 @@ export function ProductCarousel({
   const scrollBehavior = scrollBehaviorFor(reducedMotion);
 
   useEffect(() => {
+    const container = containerRef.current;
     const handleScroll = () => {
-      if (!containerRef.current) return;
-      const scrollPosition = containerRef.current.scrollLeft;
-      const cardWidth = containerRef.current.clientWidth / CARDS_TO_SHOW + 0.5;
+      if (!container) return;
+      const scrollPosition = container.scrollLeft;
+      const cardWidth = container.clientWidth / CARDS_TO_SHOW + 0.5;
       const visibleIndex = Math.round(scrollPosition / cardWidth);
       setVisibleIndex(Math.max(0, Math.min(visibleIndex, products.length - CARDS_TO_SHOW)));
     };
-    const container = containerRef.current;
     container?.addEventListener("scroll", handleScroll);
     return () => container?.removeEventListener("scroll", handleScroll);
   }, [products.length]);

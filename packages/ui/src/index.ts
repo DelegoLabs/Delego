@@ -1,5 +1,10 @@
 export { Amount, type AmountProps } from "./Amount.js";
-export { PriceDisplay, type PriceDisplayProps } from "./PriceDisplay.js";
+export {
+  PriceDisplay,
+  type PriceDisplayProps,
+  type DisplayCurrencyMode,
+  type CurrencyPreference,
+} from "./PriceDisplay.js";
 export { Button, type ButtonProps } from "./Button.js";
 export { Card, type CardProps } from "./Card.js";
 export {
@@ -63,7 +68,25 @@ export {
   type PathPaymentQuote,
   type LiquidityPoolReserves,
 } from "./PathPaymentWidget.js";
-export { Icon, type IconProps } from "./Icon.js";
+export {
+  Icon,
+  HomeIcon,
+  DelegationsIcon,
+  OrdersIcon,
+  ApprovalsIcon,
+  ApprovalsPendingIcon,
+  ApprovalsHistoryIcon,
+  TrackingIcon,
+  AnalyticsIcon,
+  WalletIcon,
+  SettingsIcon,
+  StoreIcon,
+  CartIcon,
+  AgentIcon,
+  type IconProps,
+  type NamedIconProps,
+  type IconComponent,
+} from "./Icon.js";
 export {
   PathPaymentSlippageSlider,
   calculateMinimumReceivedAmount,
@@ -78,7 +101,10 @@ export {
   type Currency,
 } from "./ProductCard.js";
 
-export { VerificationBadge, type VerificationBadgeProps } from "./VerificationBadge.js";
+export {
+  VerificationBadge,
+  type VerificationBadgeProps,
+} from "./VerificationBadge.js";
 export {
   PolicyAccordion,
   type PolicyAccordionProps,

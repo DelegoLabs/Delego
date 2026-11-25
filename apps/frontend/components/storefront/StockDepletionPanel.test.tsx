@@ -138,6 +138,28 @@ describe("StockDepletionPanel", () => {
       color: "#111827",
     });
   });
+
+  it("clears the countdown highlight timer on unmount", () => {
+    vi.useFakeTimers();
+    const { rerender, unmount } = render(
+      <StockDepletionPanel
+        merchantId="merchant"
+        stock={stock(4)}
+        mode="detail"
+      />
+    );
+    rerender(
+      <StockDepletionPanel
+        merchantId="merchant"
+        stock={stock(2)}
+        mode="detail"
+      />
+    );
+    expect(vi.getTimerCount()).toBe(1);
+
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });
 
 describe("catalog inventory loading", () => {
