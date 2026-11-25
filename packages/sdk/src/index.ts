@@ -7,7 +7,97 @@
  * so the small surface this app depends on is vendored here as a workspace
  * package. It mirrors the public shape — `DelegoClient` plus `health`/
  * `getToken`/REST helpers — so existing call sites and tests are unaffected.
+ *
+ * Issue #1194: typed methods for delegations, escrows, subscriptions, and
+ * user profile/preferences now replace the previous `[key: string]: any`
+ * escape hatch.
  */
+
+import type {
+  Delegation,
+  CreateDelegationInput,
+  UpdateDelegationInput,
+  Escrow,
+  User,
+  UserPreferences,
+  ApiResponse,
+} from "@delegolabs/types";
+
+export type {
+  Delegation,
+  CreateDelegationInput,
+  UpdateDelegationInput,
+  Escrow,
+  User,
+  UserPreferences,
+  ApiResponse,
+};
+
+// ─── Subscription types ───────────────────────────────────────────────────────
+
+export type SubscriptionStatus =
+  | "active"
+  | "paused"
+  | "cancelled"
+  | "expired"
+  | "trial";
+
+export type SubscriptionInterval = "daily" | "weekly" | "monthly" | "yearly";
+
+export interface Subscription {
+  id: string;
+  userId: string;
+  delegationId?: string;
+  merchantId: string;
+  label?: string;
+  status: SubscriptionStatus;
+  interval: SubscriptionInterval;
+  /** Amount in stroops (string to avoid bigint serialisation issues). */
+  amountStroops: string;
+  currency: string;
+  nextBillingAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateSubscriptionInput {
+  delegationId?: string;
+  merchantId: string;
+  label?: string;
+  interval: SubscriptionInterval;
+  amountStroops: string;
+  currency: string;
+  /** ISO-8601 timestamp of the first billing date. */
+  startAt?: string;
+}
+
+export interface UpdateSubscriptionInput {
+  status?: SubscriptionStatus;
+  label?: string;
+  interval?: SubscriptionInterval;
+  amountStroops?: string;
+}
+
+// ─── Profile update types ─────────────────────────────────────────────────────
+
+export interface UpdateProfileInput {
+  name?: string;
+  displayName?: string;
+  walletAddress?: string;
+  stellarAddress?: string;
+}
+
+export interface UpdatePreferencesInput {
+  currency?: string;
+  theme?: "light" | "dark" | "system";
+  notificationsEnabled?: boolean;
+  defaultSpendingLimit?: string | number;
+  requireApproval?: boolean;
+  notificationEmail?: boolean;
+  notificationPush?: boolean;
+}
+
+// ─── Client config / options ──────────────────────────────────────────────────
 
 const TOKEN_STORAGE_KEY = "delego.auth.token";
 
@@ -54,17 +144,12 @@ export interface DelegoRequestOptions {
   headers?: HeadersInit;
 }
 
+// ─── DelegoClient ─────────────────────────────────────────────────────────────
+
 export class DelegoClient {
   baseUrl: string;
   protectedFetch: typeof fetch;
   onUnauthorized?: () => void;
-
-  /**
-   * Call sites occasionally reach for gateway endpoints that are not modeled
-   * here yet (the app also talks to REST directly via `lib/apiFetch`). The
-   * index signature keeps those accesses type-safe at the call site.
-   */
-  [key: string]: any;
 
   constructor(config: DelegoClientConfig = {}) {
     this.baseUrl = (config.baseUrl ?? "").replace(/\/+$/, "");
@@ -72,6 +157,8 @@ export class DelegoClient {
       config.fetch ?? ((input, init) => fetch(input, init));
     this.onUnauthorized = config.onUnauthorized;
   }
+
+  // ── Auth ───────────────────────────────────────────────────────────────────
 
   /** Current auth token, or `null` when signed out. */
   getToken(): string | null {
@@ -94,12 +181,14 @@ export class DelegoClient {
     }
   }
 
+  // ── Core request helper ────────────────────────────────────────────────────
+
   /**
    * Low-level request helper: joins the base URL, merges caller-supplied
    * `init.headers` (e.g. from `DelegoRequestOptions.headers`) with the auth
    * and content-type headers, then parses JSON.
    */
-  async request(path: string, init: RequestInit = {}): Promise<any> {
+  async request<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
     const headers = new Headers(init.headers ?? {});
     const token = this.getToken();
@@ -123,12 +212,14 @@ export class DelegoClient {
       throw new DelegoApiError(response.status, response.statusText, body);
     }
     if (response.status === 204 || typeof response.json !== "function") {
-      return null;
+      return null as T;
     }
-    return response.json();
+    return response.json() as Promise<T>;
   }
 
-  health(options: DelegoRequestOptions = {}): Promise<any> {
+  // ── Health ─────────────────────────────────────────────────────────────────
+
+  health(options: DelegoRequestOptions = {}): Promise<{ status: string }> {
     return this.request("/health", {
       method: "GET",
       signal: options.signal,
@@ -136,7 +227,9 @@ export class DelegoClient {
     });
   }
 
-  getOrders(options: DelegoRequestOptions = {}): Promise<any> {
+  // ── Orders ─────────────────────────────────────────────────────────────────
+
+  getOrders(options: DelegoRequestOptions = {}): Promise<ApiResponse<import("@delegolabs/types").Order[]>> {
     return this.request("/orders", {
       method: "GET",
       signal: options.signal,
@@ -144,7 +237,7 @@ export class DelegoClient {
     });
   }
 
-  getOrder(id: string, options: DelegoRequestOptions = {}): Promise<any> {
+  getOrder(id: string, options: DelegoRequestOptions = {}): Promise<ApiResponse<import("@delegolabs/types").Order>> {
     return this.request(`/orders/${encodeURIComponent(id)}`, {
       method: "GET",
       signal: options.signal,
@@ -152,7 +245,7 @@ export class DelegoClient {
     });
   }
 
-  approveOrder(id: string, options: DelegoRequestOptions = {}): Promise<any> {
+  approveOrder(id: string, options: DelegoRequestOptions = {}): Promise<ApiResponse<import("@delegolabs/types").Order>> {
     return this.request(`/orders/${encodeURIComponent(id)}/approve`, {
       method: "POST",
       signal: options.signal,
@@ -163,7 +256,7 @@ export class DelegoClient {
   rejectOrder(
     id: string,
     options: { reason?: string; reasonCode?: string } & DelegoRequestOptions = {}
-  ): Promise<any> {
+  ): Promise<ApiResponse<import("@delegolabs/types").Order>> {
     const { reason, reasonCode, ...restOptions } = options;
     return this.request(`/orders/${encodeURIComponent(id)}/reject`, {
       method: "POST",
@@ -173,19 +266,36 @@ export class DelegoClient {
     });
   }
 
-  getDelegations(options: DelegoRequestOptions = {}): Promise<any> {
-    return this.request("/delegations", {
+  // ── Delegations ────────────────────────────────────────────────────────────
+
+  /** List all delegations for the authenticated user. */
+  getDelegations(
+    options: DelegoRequestOptions = {}
+  ): Promise<ApiResponse<Delegation[]>> {
+    return this.request<ApiResponse<Delegation[]>>("/delegations", {
       method: "GET",
       signal: options.signal,
       headers: options.headers,
     });
   }
 
-  createDelegation(
-    input: unknown,
+  /** Retrieve a single delegation by id. */
+  getDelegation(
+    id: string,
     options: DelegoRequestOptions = {}
-  ): Promise<any> {
-    return this.request("/delegations", {
+  ): Promise<ApiResponse<Delegation>> {
+    return this.request<ApiResponse<Delegation>>(
+      `/delegations/${encodeURIComponent(id)}`,
+      { method: "GET", signal: options.signal }
+    );
+  }
+
+  /** Create a new delegation. */
+  createDelegation(
+    input: CreateDelegationInput,
+    options: DelegoRequestOptions = {}
+  ): Promise<ApiResponse<Delegation>> {
+    return this.request<ApiResponse<Delegation>>("/delegations", {
       method: "POST",
       body: JSON.stringify(input),
       signal: options.signal,
@@ -193,40 +303,137 @@ export class DelegoClient {
     });
   }
 
+  /** Partially update an existing delegation. */
   updateDelegation(
     id: string,
-    input: unknown,
+    input: UpdateDelegationInput,
     options: DelegoRequestOptions = {}
-  ): Promise<any> {
-    return this.request(`/delegations/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      body: JSON.stringify(input),
-      signal: options.signal,
-      headers: options.headers,
-    });
+  ): Promise<ApiResponse<Delegation>> {
+    return this.request<ApiResponse<Delegation>>(
+      `/delegations/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(input),
+        signal: options.signal,
+        headers: options.headers,
+      }
+    );
   }
 
-  revokeDelegation(id: string, options: DelegoRequestOptions = {}): Promise<any> {
-    return this.request(`/delegations/${encodeURIComponent(id)}`, {
+  /** Revoke (delete) a delegation. Returns 204 — resolves to `null`. */
+  revokeDelegation(
+    id: string,
+    options: DelegoRequestOptions = {}
+  ): Promise<null> {
+    return this.request<null>(`/delegations/${encodeURIComponent(id)}`, {
       method: "DELETE",
       signal: options.signal,
       headers: options.headers,
     });
   }
 
-  getEscrows(options: DelegoRequestOptions = {}): Promise<any> {
-    return this.request("/escrows", {
+  // ── Escrows ────────────────────────────────────────────────────────────────
+
+  /** List all escrows for the authenticated user. */
+  getEscrows(
+    options: DelegoRequestOptions = {}
+  ): Promise<ApiResponse<Escrow[]>> {
+    return this.request<ApiResponse<Escrow[]>>("/escrows", {
       method: "GET",
       signal: options.signal,
       headers: options.headers,
     });
   }
 
-  updatePreferences(
-    input: unknown,
+  /** Retrieve a single escrow by id. */
+  getEscrow(
+    id: string,
     options: DelegoRequestOptions = {}
-  ): Promise<any> {
-    return this.request("/me/preferences", {
+  ): Promise<ApiResponse<Escrow>> {
+    return this.request<ApiResponse<Escrow>>(
+      `/escrows/${encodeURIComponent(id)}`,
+      { method: "GET", signal: options.signal }
+    );
+  }
+
+  // ── Subscriptions ──────────────────────────────────────────────────────────
+
+  /** List all subscriptions for the authenticated user. */
+  getSubscriptions(
+    options: DelegoRequestOptions = {}
+  ): Promise<ApiResponse<Subscription[]>> {
+    return this.request<ApiResponse<Subscription[]>>("/subscriptions", {
+      method: "GET",
+      signal: options.signal,
+    });
+  }
+
+  /** Retrieve a single subscription by id. */
+  getSubscription(
+    id: string,
+    options: DelegoRequestOptions = {}
+  ): Promise<ApiResponse<Subscription>> {
+    return this.request<ApiResponse<Subscription>>(
+      `/subscriptions/${encodeURIComponent(id)}`,
+      { method: "GET", signal: options.signal }
+    );
+  }
+
+  /** Create a new subscription. */
+  createSubscription(
+    input: CreateSubscriptionInput,
+    options: DelegoRequestOptions = {}
+  ): Promise<ApiResponse<Subscription>> {
+    return this.request<ApiResponse<Subscription>>("/subscriptions", {
+      method: "POST",
+      body: JSON.stringify(input),
+      signal: options.signal,
+    });
+  }
+
+  /** Partially update an existing subscription. */
+  updateSubscription(
+    id: string,
+    input: UpdateSubscriptionInput,
+    options: DelegoRequestOptions = {}
+  ): Promise<ApiResponse<Subscription>> {
+    return this.request<ApiResponse<Subscription>>(
+      `/subscriptions/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(input),
+        signal: options.signal,
+      }
+    );
+  }
+
+  /** Cancel a subscription. Returns 204 — resolves to `null`. */
+  cancelSubscription(
+    id: string,
+    options: DelegoRequestOptions = {}
+  ): Promise<null> {
+    return this.request<null>(`/subscriptions/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      signal: options.signal,
+    });
+  }
+
+  // ── User profile & preferences ─────────────────────────────────────────────
+
+  /** Retrieve the authenticated user's profile. */
+  getProfile(options: DelegoRequestOptions = {}): Promise<ApiResponse<User>> {
+    return this.request<ApiResponse<User>>("/me", {
+      method: "GET",
+      signal: options.signal,
+    });
+  }
+
+  /** Partially update the authenticated user's profile. */
+  updateProfile(
+    input: UpdateProfileInput,
+    options: DelegoRequestOptions = {}
+  ): Promise<ApiResponse<User>> {
+    return this.request<ApiResponse<User>>("/me", {
       method: "PATCH",
       body: JSON.stringify(input),
       signal: options.signal,
@@ -234,8 +441,22 @@ export class DelegoClient {
     });
   }
 
-  updateProfile(input: unknown, options: DelegoRequestOptions = {}): Promise<any> {
-    return this.request("/me", {
+  /** Retrieve the authenticated user's preferences. */
+  getPreferences(
+    options: DelegoRequestOptions = {}
+  ): Promise<ApiResponse<UserPreferences>> {
+    return this.request<ApiResponse<UserPreferences>>("/me/preferences", {
+      method: "GET",
+      signal: options.signal,
+    });
+  }
+
+  /** Partially update the authenticated user's preferences. */
+  updatePreferences(
+    input: UpdatePreferencesInput,
+    options: DelegoRequestOptions = {}
+  ): Promise<ApiResponse<UserPreferences>> {
+    return this.request<ApiResponse<UserPreferences>>("/me/preferences", {
       method: "PATCH",
       body: JSON.stringify(input),
       signal: options.signal,
