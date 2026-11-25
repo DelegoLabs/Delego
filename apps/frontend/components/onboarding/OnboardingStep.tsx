@@ -12,6 +12,7 @@ export interface OnboardingStepProps {
   onBack?: () => void;
   onSkip?: () => void;
   isLast?: boolean;
+  nextDisabled?: boolean;
 }
 
 export function OnboardingStep({
@@ -24,6 +25,7 @@ export function OnboardingStep({
   onBack,
   onSkip,
   isLast = false,
+  nextDisabled = false,
 }: OnboardingStepProps) {
   return (
     <div className="onboarding-step">
@@ -50,7 +52,7 @@ export function OnboardingStep({
             Skip
           </Button>
         )}
-        <Button variant="primary" onClick={onNext}>
+        <Button variant="primary" onClick={onNext} disabled={nextDisabled}>
           {isLast ? "Get Started" : "Next"}
         </Button>
       </div>

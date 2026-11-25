@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import { useId, type HTMLAttributes, type ReactNode } from "react";
 
 /** Props accepted by the shared card component. */
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
@@ -27,13 +27,15 @@ export function Card({
   ariaDescribedBy,
   ...props
 }: CardProps) {
-  const cardId = props.id || `card-${Math.random().toString(36).slice(2, 9)}`;
+  const generatedId = useId();
+  const cardId = props.id || `card-${generatedId}`;
 
   return (
     <div
       id={cardId}
       role="region"
       aria-label={ariaLabel}
+      aria-labelledby={!ariaLabel && title ? `${cardId}-title` : undefined}
       aria-describedby={ariaDescribedBy}
       style={{
         border: "1px solid var(--ui-card-border, #e5e7eb)",

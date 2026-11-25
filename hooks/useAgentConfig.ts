@@ -1,50 +1,30 @@
-import useSWR from 'swr';
+import useSWR from "swr";
 
 export interface AgentConfig {
   id: string;
   name: string;
-  model: string;
-  temperature: number;
-  maxTokens: number;
-  systemPrompt: string;
-  enabled: boolean;
+  description?: string;
+  model?: string;
+  systemPrompt?: string;
+  temperature?: number;
+  maxTokens?: number;
+  tools?: string[];
+  enabled?: boolean;
+  [key: string]: unknown;
 }
 
-export interface UseAgentConfigOptions {
-  agentId?: string;
-  endpoint?: string;
-  refreshInterval?: number;
-}
-
-const DEFAULT_ENDPOINT = '/api/agents';
-
-const fetchAgentConfig = async (url: string): Promise<AgentConfig> => {
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json' },
-    credentials: 'include',
-  });
-
+const fetcher = async (url: string): Promise<AgentConfig> => {
+  const res = await fetch(url, { credentials: "include" });
   if (!res.ok) {
-    const error = new Error(`Failed to load agent config (${res.status})`);
-    (error as Error & { status?: number }).status = res.status;
-    throw error;
+    throw new Error(`Failed to load agent config (${res.status})`);
   }
-
-  return (await res.json()) as AgentConfig;
+  return res.json() as Promise<AgentConfig>;
 };
 
-export function useAgentConfig(options: UseAgentConfigOptions = {}) {
-  const { agentId, endpoint = DEFAULT_ENDPOINT, refreshInterval = 0 } = options;
-
-  const key = agentId ? `${endpoint}/${encodeURIComponent(agentId)}` : null;
-
+export function useAgentConfig(agentId?: string) {
   const { data, error, isLoading, isValidating, mutate } = useSWR<AgentConfig>(
-    key,
-    fetchAgentConfig,
-    {
-      refreshInterval,
-      revalidateOnFocus: false,
-    },
+    agentId ? `/api/agents/${encodeURIComponent(agentId)}/config` : null,
+    fetcher,
   );
 
   return {
@@ -52,7 +32,7 @@ export function useAgentConfig(options: UseAgentConfigOptions = {}) {
     error,
     isLoading,
     isValidating,
-    refresh: () => mutate(),
+    mutate,
   };
 }
 

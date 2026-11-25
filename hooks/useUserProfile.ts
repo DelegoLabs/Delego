@@ -2,22 +2,24 @@ import useSWR from "swr";
 
 export interface UserProfile {
   id: string;
-  name: string;
-  email: string;
-  avatarUrl?: string | null;
+  name?: string;
+  email?: string;
+  avatarUrl?: string;
   [key: string]: unknown;
 }
 
-export function useUserProfile(userId?: string | null) {
+const fetcher = async (url: string): Promise<UserProfile> => {
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch user profile: ${res.status}`);
+  }
+  return res.json() as Promise<UserProfile>;
+};
+
+export function useUserProfile(userId?: string) {
   const { data, error, isLoading, mutate } = useSWR<UserProfile>(
     userId ? `/api/users/${encodeURIComponent(userId)}` : null,
-    async (url: string) => {
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`Failed to load user profile (${res.status})`);
-      }
-      return (await res.json()) as UserProfile;
-    },
+    fetcher
   );
 
   return {
@@ -27,3 +29,5 @@ export function useUserProfile(userId?: string | null) {
     refresh: mutate,
   };
 }
+
+export default useUserProfile;

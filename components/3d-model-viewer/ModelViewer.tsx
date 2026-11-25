@@ -1,6 +1,4 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 export interface ModelViewerProps {
   src: string;
@@ -9,12 +7,8 @@ export interface ModelViewerProps {
   autoRotate?: boolean;
   cameraControls?: boolean;
   onLoad?: () => void;
-  onError?: (error: Error) => void;
+  onError?: (error: Event) => void;
 }
-
-type ModelViewerElement = HTMLElement & {
-  loaded?: boolean;
-};
 
 export function ModelViewer({
   src,
@@ -26,13 +20,17 @@ export function ModelViewer({
   onError,
 }: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const el = document.createElement("model-viewer") as ModelViewerElement;
+    const el = document.createElement("model-viewer") as HTMLElement & {
+      src?: string;
+      alt?: string;
+      autoRotate?: boolean;
+      cameraControls?: boolean;
+    };
     el.setAttribute("src", src);
     el.setAttribute("alt", alt);
     if (autoRotate) el.setAttribute("auto-rotate", "");
@@ -40,33 +38,21 @@ export function ModelViewer({
     el.style.width = "100%";
     el.style.height = "100%";
 
-    const handleLoad = () => {
-      setReady(true);
-      onLoad?.();
-    };
-    const handleError = () => {
-      onError?.(new Error(`Failed to load model: ${src}`));
-    };
-
+    const handleLoad = () => onLoad?.();
+    const handleError = (event: Event) => onError?.(event);
     el.addEventListener("load", handleLoad);
     el.addEventListener("error", handleError);
+
     container.appendChild(el);
 
     return () => {
       el.removeEventListener("load", handleLoad);
       el.removeEventListener("error", handleError);
-      container.removeChild(el);
+      el.remove();
     };
   }, [src, alt, autoRotate, cameraControls, onLoad, onError]);
 
-  return (
-    <div
-      ref={containerRef}
-      className={className}
-      data-ready={ready ? "true" : "false"}
-      style={{ width: "100%", height: "100%", minHeight: 240 }}
-    />
-  );
+  return <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />;
 }
 
 export default ModelViewer;
