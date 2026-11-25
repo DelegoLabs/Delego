@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import {
+  fetchMerchantDirectory,
   filterMerchants,
   merchantDeliveryKey,
   type DirectoryMerchant,
@@ -53,5 +54,84 @@ describe("merchantDeliveryKey (#1005)", () => {
       { id: "merchant-d", name: "Delta", deliveryPublicKey: 42 },
     ] as unknown as DirectoryMerchant[];
     expect(merchantDeliveryKey(malformed, "merchant-d")).toBeUndefined();
+  });
+});
+
+describe("directory metadata", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("preserves valid metadata, delivery keys, and legacy rows", async () => {
+    const rows = [
+      {
+        id: "a",
+        name: "Acme",
+        category: " Food ",
+        description: " Fresh food ",
+        verificationTier: "gold",
+        reputationScore: 90,
+        totalOrdersCompleted: 12,
+        deliveryPublicKey: "key",
+      },
+      { id: "b", name: "Legacy" },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(rows)))
+    );
+    const result = await fetchMerchantDirectory();
+    expect(result.error).toBeNull();
+    expect(result.merchants[0]).toMatchObject({
+      ...rows[0],
+      category: "Food",
+      description: "Fresh food",
+    });
+    expect(result.merchants[1]).toMatchObject(rows[1]);
+    expect(result.merchants[1].reputationScore).toBeUndefined();
+  });
+
+  it.each([-1, 101, "95", null])(
+    "ignores invalid optional metadata (score %s)",
+    async (score) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify([
+              {
+                id: "a",
+                name: "Acme",
+                category: 42,
+                description: {},
+                verificationTier: "admin",
+                reputationScore: score,
+                totalOrdersCompleted: -1,
+              },
+            ])
+          )
+        )
+      );
+      const { merchants } = await fetchMerchantDirectory();
+      expect(merchants[0]).toMatchObject({ id: "a", name: "Acme" });
+      for (const field of [
+        "category",
+        "description",
+        "verificationTier",
+        "reputationScore",
+        "totalOrdersCompleted",
+      ] as const) {
+        expect(merchants[0][field]).toBeUndefined();
+      }
+    }
+  );
+
+  it("rejects invalid core rows", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify([{ id: "a" }])))
+    );
+    expect(await fetchMerchantDirectory()).toEqual({
+      merchants: [],
+      error: "Invalid merchant directory response",
+    });
   });
 });
