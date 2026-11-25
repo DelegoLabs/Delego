@@ -72,6 +72,50 @@ export const BEST_VALUE_WEIGHTS = {
   reputation: 0.3,
 } as const;
 
+export interface BestQuoteHighlights {
+  /** merchantIds with the lowest total cost (all ties included). */
+  bestPrice: Set<string>;
+  /** merchantIds with the shortest estimated delivery (all ties included). */
+  fastest: Set<string>;
+  /** merchantIds with the highest reputation score (all ties included). */
+  topRated: Set<string>;
+}
+
+/**
+ * Computes the "Best Price", "Fastest" and "Top Rated" merchantIds across the
+ * compared quotes. Every quote tied on a winning value is included, so a
+ * uniform quote set badges all quotes. Returns empty sets for no quotes.
+ */
+export function pickBestQuotes(
+  quotes: MerchantQuote[] | null | undefined
+): BestQuoteHighlights {
+  const result: BestQuoteHighlights = {
+    bestPrice: new Set<string>(),
+    fastest: new Set<string>(),
+    topRated: new Set<string>(),
+  };
+  const list = Array.isArray(quotes) ? quotes.filter(Boolean) : [];
+  if (list.length === 0) return result;
+
+  let minCost: bigint | null = null;
+  let minDays = Infinity;
+  let maxRep = -Infinity;
+  for (const q of list) {
+    const cost = totalCostStroops(q);
+    if (minCost === null || cost < minCost) minCost = cost;
+    if (q.estimatedDeliveryDays < minDays) minDays = q.estimatedDeliveryDays;
+    if (q.reputationScore > maxRep) maxRep = q.reputationScore;
+  }
+
+  for (const q of list) {
+    if (minCost !== null && totalCostStroops(q) === minCost)
+      result.bestPrice.add(q.merchantId);
+    if (q.estimatedDeliveryDays === minDays) result.fastest.add(q.merchantId);
+    if (q.reputationScore === maxRep) result.topRated.add(q.merchantId);
+  }
+  return result;
+}
+
 /**
  * Picks the agent's recommended best-value quote: a weighted blend of total
  * cost, delivery speed and reputation, each normalized across the quote set.

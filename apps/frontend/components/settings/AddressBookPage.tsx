@@ -2,15 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card } from "@delegolabs/ui";
-import { StrKey } from "@stellar/stellar-sdk/base";
 import type { NetworkId } from "../../lib/networks";
 import {
   addAddressEntry,
   deleteAddressEntry,
   exportAddressBook,
+  exportAddressBookCsv,
   importAddressBook,
+  isValidStellarAddress,
   searchAddressBook,
   updateAddressEntry,
+  validateMemo,
+  type AddressMemoType,
   type AddressEntry,
 } from "../../services/addressBook";
 
@@ -21,6 +24,8 @@ export interface AddressBookPageProps {
 const EMPTY_FORM = {
   label: "",
   address: "",
+  memo: "",
+  memoType: "text" as AddressMemoType,
   notes: "",
   verified: false,
 };
@@ -59,6 +64,8 @@ export function AddressBookPage({ networkId }: AddressBookPageProps) {
     setForm({
       label: entry.label,
       address: entry.address,
+      memo: entry.memo ?? "",
+      memoType: entry.memoType ?? "text",
       notes: entry.notes,
       verified: entry.verified,
     });
@@ -87,6 +94,7 @@ export function AddressBookPage({ networkId }: AddressBookPageProps) {
   };
 
   const handleExport = () => exportAddressBook(networkId);
+  const handleExportCsv = () => exportAddressBookCsv(networkId);
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -114,9 +122,12 @@ export function AddressBookPage({ networkId }: AddressBookPageProps) {
     e.target.value = "";
   };
 
-  const isValidAddress = !form.address.trim().startsWith("S") && StrKey.isValidEd25519PublicKey(form.address.trim());
+  const addressValue = form.address.trim();
+  const isSecretKey = addressValue.startsWith("S");
+  const isValidAddress = !isSecretKey && isValidStellarAddress(addressValue);
+  const memoError = validateMemo(form.memo, form.memoType);
   const isFormValid =
-    form.label.trim().length > 0 && isValidAddress;
+    form.label.trim().length > 0 && isValidAddress && !memoError;
 
   return (
     <section aria-labelledby="address-book-heading">
@@ -151,6 +162,9 @@ export function AddressBookPage({ networkId }: AddressBookPageProps) {
               </Button>
               <Button variant="secondary" onClick={handleExport}>
                 Export JSON
+              </Button>
+              <Button variant="secondary" onClick={handleExportCsv}>
+                Export CSV
               </Button>
               <label
                 className="address-book-import-label"
@@ -202,7 +216,9 @@ export function AddressBookPage({ networkId }: AddressBookPageProps) {
                 />
               </div>
               <div className="form-field">
-                <label htmlFor="ab-address">Stellar Address *</label>
+                <label htmlFor="ab-address">
+                  Stellar address or federation address *
+                </label>
                 <div style={{ position: "relative" }}>
                   <input
                     id="ab-address"
@@ -211,10 +227,14 @@ export function AddressBookPage({ networkId }: AddressBookPageProps) {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, address: e.target.value }))
                     }
-                    placeholder="G…"
+                    placeholder="G… or alice*example.com"
                     required
                     aria-required="true"
-                    style={{ fontFamily: "monospace", width: "100%", paddingRight: "30px" }}
+                    style={{
+                      fontFamily: "monospace",
+                      width: "100%",
+                      paddingRight: "30px",
+                    }}
                   />
                   {form.address.trim().length > 0 && (
                     <span
@@ -226,18 +246,74 @@ export function AddressBookPage({ networkId }: AddressBookPageProps) {
                         pointerEvents: "none",
                       }}
                     >
-                      {form.address.trim().startsWith("S") ? "❌" : StrKey.isValidEd25519PublicKey(form.address.trim()) ? "✅" : "❌"}
+                      {isSecretKey ? "❌" : isValidAddress ? "✅" : "❌"}
                     </span>
                   )}
                 </div>
-                {form.address.trim().startsWith("S") && (
-                  <p className="settings-status error" role="alert" style={{ marginTop: "4px" }}>
-                    <strong>Critical Warning:</strong> You pasted a secret key (starts with &lsquo;S&rsquo;). Never share or save your secret key!
+                {isSecretKey && (
+                  <p
+                    className="settings-status error"
+                    role="alert"
+                    style={{ marginTop: "4px" }}
+                  >
+                    <strong>Critical Warning:</strong> You pasted a secret key
+                    (starts with &lsquo;S&rsquo;). Never share or save your
+                    secret key!
                   </p>
                 )}
-                {!form.address.trim().startsWith("S") && form.address.trim().length > 0 && !StrKey.isValidEd25519PublicKey(form.address.trim()) && (
-                  <p className="settings-status error" role="alert" style={{ marginTop: "4px" }}>
-                    Invalid Stellar address.
+                {!isSecretKey && addressValue.length > 0 && !isValidAddress && (
+                  <p
+                    className="settings-status error"
+                    role="alert"
+                    style={{ marginTop: "4px" }}
+                  >
+                    {addressValue.includes("*")
+                      ? "Invalid federation address. Use the format name*domain.example."
+                      : "Invalid Stellar address or federation address."}
+                  </p>
+                )}
+              </div>
+              <div className="form-field">
+                <label htmlFor="ab-memo-type">Memo type</label>
+                <select
+                  id="ab-memo-type"
+                  value={form.memoType}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      memoType: e.target.value as AddressMemoType,
+                    }))
+                  }
+                >
+                  <option value="text">Text</option>
+                  <option value="id">ID</option>
+                  <option value="hash">Hash</option>
+                  <option value="return">Return hash</option>
+                </select>
+              </div>
+              <div className="form-field">
+                <label htmlFor="ab-memo">Memo</label>
+                <input
+                  id="ab-memo"
+                  type="text"
+                  value={form.memo}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, memo: e.target.value }))
+                  }
+                  placeholder={
+                    form.memoType === "text"
+                      ? "Optional memo (28 bytes max)"
+                      : "Optional memo value"
+                  }
+                  aria-invalid={Boolean(memoError)}
+                />
+                {memoError && (
+                  <p
+                    className="settings-status error"
+                    role="alert"
+                    style={{ marginTop: "4px" }}
+                  >
+                    {memoError}
                   </p>
                 )}
               </div>
@@ -331,6 +407,11 @@ export function AddressBookPage({ networkId }: AddressBookPageProps) {
                   </span>
                   {entry.notes && (
                     <p className="address-book-notes">{entry.notes}</p>
+                  )}
+                  {entry.memo && (
+                    <p className="address-book-notes">
+                      Memo ({entry.memoType ?? "text"}): {entry.memo}
+                    </p>
                   )}
                 </li>
               ))}

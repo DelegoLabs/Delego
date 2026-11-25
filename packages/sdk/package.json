@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Local workspace implementation of the Delego API client used by the web app",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -19,6 +22,7 @@
     "@delegolabs/types": "workspace:*"
   },
   "devDependencies": {
+    "typescript": "^5.7.0",
     "vitest": "^2.0.0"
   }
 }

@@ -1,3 +1,4 @@
+/// <reference path="./vitest-axe.d.ts" />
 import "@testing-library/jest-dom";
 import "fake-indexeddb/auto";
 import { afterAll, afterEach, beforeAll, expect } from "vitest";

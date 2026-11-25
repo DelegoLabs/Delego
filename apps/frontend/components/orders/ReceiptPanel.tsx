@@ -43,7 +43,7 @@ export function ReceiptPanel({ order, jurisdictionCode, category }: ReceiptPanel
   const tax = computeTaxBreakdown({
     subtotalStroops: subtotal,
     networkFeeStroops: fee,
-    category: category ?? (order as { category?: string | null }).category,
+    category: category ?? order.category ?? undefined,
     jurisdictionCode,
   });
 

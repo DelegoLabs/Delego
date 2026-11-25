@@ -49,6 +49,8 @@ vi.mock("../../components/orders/OrderTrackingCard", () => ({
   ),
 }));
 
+vi.mock("next-intl", () => ({ useLocale: () => "en-US" }));
+
 import TrackingPage from "./page";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────

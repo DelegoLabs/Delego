@@ -41,8 +41,7 @@ export interface CommandPaletteProps {
 
 /** A rendered row: either a runnable command or a recent-search suggestion. */
 type PaletteRow =
-  | { kind: "command"; command: Command }
-  | { kind: "term"; term: string };
+  { kind: "command"; command: Command } | { kind: "term"; term: string };
 
 interface ResultGroup {
   label: string;
@@ -260,6 +259,8 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
               {group.rows.map((row) => {
                 const index = flatRows.indexOf(row);
                 const isActive = index === activeIndex;
+                const CommandIcon =
+                  row.kind === "command" ? row.command.icon : undefined;
                 return (
                   <div
                     key={rowId(row, index)}
@@ -272,12 +273,16 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
                   >
                     {row.kind === "command" ? (
                       <>
-                        {row.command.icon && (
+                        {CommandIcon && (
                           <span
                             className="command-palette-item-icon"
                             aria-hidden="true"
                           >
-                            {row.command.icon}
+                            {typeof CommandIcon === "string" ? (
+                              CommandIcon
+                            ) : (
+                              <CommandIcon size={18} />
+                            )}
                           </span>
                         )}
                         <span className="command-palette-item-text">

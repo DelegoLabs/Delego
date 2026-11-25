@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useLocale } from "next-intl";
 import { Button } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
 import { isTerminal } from "../../lib/orders";
@@ -9,9 +10,9 @@ import { OrderTrackingCard } from "../../components/orders/OrderTrackingCard";
 /** How often to re-fetch orders for near-real-time status updates. */
 const POLL_INTERVAL_MS = 15_000;
 
-function formatUpdated(date: Date | null): string {
+function formatUpdated(date: Date | null, locale: string): string {
   if (!date) return "—";
-  return date.toLocaleTimeString(undefined, {
+  return date.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -38,11 +39,11 @@ function collectCarriers(orders: ReturnType<typeof useOrders>["orders"]): string
 
 /** Order tracking dashboard with live-polling status timelines. */
 export default function TrackingPage() {
+  const locale = useLocale();
   const [paused, setPaused] = useState(false);
   const [selectedCarriers, setSelectedCarriers] = useState<Set<string>>(
     new Set()
   );
-
   const { orders, loading, error, lastUpdated, refresh } = useOrders({
     // Pass undefined when paused so the hook clears the interval.
     pollIntervalMs: paused ? undefined : POLL_INTERVAL_MS,
@@ -104,12 +105,12 @@ export default function TrackingPage() {
             aria-live="polite"
           >
             <span className="tracking-live-dot" aria-hidden="true" />
-            Paused · last updated {formatUpdated(lastUpdated)}
+            Paused · last updated {formatUpdated(lastUpdated, locale)}
           </span>
         ) : (
           <span className="tracking-live" aria-live="polite">
             <span className="tracking-live-dot" aria-hidden="true" />
-            Live · updated {formatUpdated(lastUpdated)}
+            Live · updated {formatUpdated(lastUpdated, locale)}
           </span>
         )}
 
