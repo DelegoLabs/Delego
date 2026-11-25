@@ -28,24 +28,13 @@ export default async function DisputeEvidencePage({
       "https://images.unsplash.com/photo-1484788984921-03950022c9ef?w=800&q=80",
       "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&q=80",
     ],
+    resolutionDeadline: "2026-11-27T12:00:00.000Z",
     status: "under_review",
-  };
-
-  // Resolution deadline set to 3 days from now
-  const resolutionDeadline = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
-
-  const handleRequestMoreEvidence = () => {
-    console.log("Requesting more evidence from merchant");
-    // In production, this would trigger an API call to request additional evidence
   };
 
   return (
     <main style={{ padding: "2rem", maxWidth: "1400px", margin: "0 auto" }}>
-      <DisputeEvidenceComparison
-        evidence={mockEvidence}
-        resolutionDeadline={resolutionDeadline}
-        onRequestMoreEvidence={handleRequestMoreEvidence}
-      />
+      <DisputeEvidenceComparison evidence={mockEvidence} />
     </main>
   );
 }
