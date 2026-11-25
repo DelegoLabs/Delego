@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Badge, type BadgeTone } from "@delegolabs/ui";
 import {
@@ -37,6 +37,18 @@ const SEVERITY_LABEL: Record<AnnouncementSeverity, string> = {
 export function AnnouncementBanner() {
   const { announcements, dismiss } = useAnnouncements();
   const [closingId, setClosingId] = useState<string | null>(null);
+  const dismissTimer = useRef<ReturnType<typeof window.setTimeout> | null>(
+    null
+  );
+
+  useEffect(
+    () => () => {
+      if (dismissTimer.current !== null) {
+        window.clearTimeout(dismissTimer.current);
+      }
+    },
+    []
+  );
 
   const announcement = announcements[0];
   if (!announcement) return null;
@@ -47,7 +59,13 @@ export function AnnouncementBanner() {
     if (!announcement) return;
     setClosingId(announcement.id);
     // Let the collapse transition play before removing it from the DOM.
-    window.setTimeout(() => dismiss(announcement.id), 200);
+    if (dismissTimer.current !== null) {
+      window.clearTimeout(dismissTimer.current);
+    }
+    dismissTimer.current = window.setTimeout(() => {
+      dismissTimer.current = null;
+      dismiss(announcement.id);
+    }, 200);
   }
 
   return (
