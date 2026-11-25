@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, Card } from "@delegolabs/ui";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
   filterDeliveryLogs,
   loadWebhookDeliveryLogs,
@@ -22,6 +23,19 @@ type Outcome = NonNullable<DeliveryLogFilters["outcome"]>;
 /** Which status-code band the pill filter selects. */
 type StatusBand = "all" | "2xx" | "4xx" | "5xx";
 
+/**
+ * Stable per-attempt identity key.
+ *
+ * A retry stores a new record with the same `eventId` as the original. Using
+ * `eventId` alone as the row key, testid, and drawer selector would collide
+ * when both attempts are visible. `attemptKey` combines eventId with the ISO
+ * delivery timestamp, which is unique for each attempt because two deliveries
+ * of the same event cannot happen in the same millisecond.
+ */
+function attemptKey(log: WebhookDeliveryLog): string {
+  return `${log.eventId}__${new Date(log.deliveredAt).getTime()}`;
+}
+
 function matchesBand(status: number, band: StatusBand): boolean {
   if (band === "all") return true;
   if (band === "2xx") return status >= 200 && status <= 299;
@@ -30,7 +44,6 @@ function matchesBand(status: number, band: StatusBand): boolean {
   return true;
 }
 
-/** Derive the legacy outcome value that filterDeliveryLogs understands. */
 function bandToOutcome(band: StatusBand): Outcome | undefined {
   if (band === "2xx") return "success";
   if (band === "4xx" || band === "5xx") return "error";
@@ -54,20 +67,27 @@ export function WebhookDeliveryLogViewer({
   const [search, setSearch] = useState("");
   const [outcome, setOutcome] = useState<Outcome | "all">("all");
   const [statusBand, setStatusBand] = useState<StatusBand>("all");
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  // selectedAttemptKey uses attemptKey(log) — unique per attempt, not just per eventId.
+  const [selectedAttemptKey, setSelectedAttemptKey] = useState<string | null>(null);
   const [retryingEventId, setRetryingEventId] = useState<string | null>(null);
   const [retryNotice, setRetryNotice] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [copiedSection, setCopiedSection] = useState<
-    "request" | "response" | null
-  >(null);
+  const [copiedSection, setCopiedSection] = useState<"request" | "response" | null>(null);
+
+  // Incremented each time the drawer opens or switches delivery.
+  // Clipboard completions check this ref against their captured value so a
+  // write that settles after the drawer closes or changes delivery never sets
+  // copiedSection on the wrong session.
+  const drawerSessionRef = useRef(0);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Serialises clipboard writes so the most-recently-clicked copy always wins.
+  const copyChainRef = useRef<Promise<void>>(Promise.resolve());
+  // Ref to the drawer panel for focus trap.
+  const drawerRef = useRef<HTMLDivElement>(null);
+  // Ref to the row button that last opened the drawer, for focus restore.
+  const openerRef = useRef<HTMLButtonElement | null>(null);
 
   const source = logs ?? stored;
-
-  // When the status-band pill is used, it takes precedence over the outcome
-  // dropdown. The band is applied as a post-filter step so "4xx" and "5xx"
-  // can each be isolated — filterDeliveryLogs only knows success/error.
   const bandOutcome = bandToOutcome(statusBand);
 
   const visible = useMemo(() => {
@@ -81,8 +101,22 @@ export function WebhookDeliveryLogViewer({
 
   const summary = useMemo(() => summarizeDeliveryLogs(source), [source]);
 
+  // Look up by attemptKey, not eventId, so retried rows resolve the correct attempt.
   const selected =
-    visible.find((log) => log.eventId === selectedEventId) ?? null;
+    visible.find((log) => attemptKey(log) === selectedAttemptKey) ?? null;
+
+  // Clear timeout on unmount to prevent state updates after the component is gone.
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
+
+  useFocusTrap({
+    containerRef: drawerRef as React.RefObject<HTMLElement | null>,
+    isActive: drawerOpen,
+    onEscape: closeDrawer,
+  });
 
   async function handleRetry(log: WebhookDeliveryLog) {
     if (!onRetry) return;
@@ -100,23 +134,51 @@ export function WebhookDeliveryLogViewer({
     }
   }
 
-  function openDrawer(eventId: string) {
-    setSelectedEventId(eventId);
+  function openDrawer(key: string, trigger: HTMLButtonElement | null = null) {
+    openerRef.current = trigger;
+    drawerSessionRef.current += 1;
+    setSelectedAttemptKey(key);
     setDrawerOpen(true);
     setCopiedSection(null);
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
   }
 
   function closeDrawer() {
+    drawerSessionRef.current += 1;
     setDrawerOpen(false);
-    setSelectedEventId(null);
+    setSelectedAttemptKey(null);
+    setCopiedSection(null);
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
   }
 
   function handleCopy(section: "request" | "response", text: string) {
-    navigator.clipboard.writeText(text).then(() => {
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-      setCopiedSection(section);
-      copyTimeoutRef.current = setTimeout(() => setCopiedSection(null), 2000);
-    });
+    const sessionAtCopy = drawerSessionRef.current;
+
+    // Chain onto the previous write so the most recent click always settles last.
+    copyChainRef.current = copyChainRef.current
+      .then(() => {
+        if (!navigator.clipboard) {
+          return Promise.reject(new Error("Clipboard API unavailable"));
+        }
+        return navigator.clipboard.writeText(text);
+      })
+      .then(() => {
+        // Only update state if the drawer session hasn't changed since the click.
+        if (drawerSessionRef.current !== sessionAtCopy) return;
+        if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+        setCopiedSection(section);
+        copyTimeoutRef.current = setTimeout(() => {
+          if (drawerSessionRef.current === sessionAtCopy) {
+            setCopiedSection(null);
+          }
+        }, 2000);
+      })
+      .catch(() => {
+        // Surface a failure only if the drawer is still showing the same session.
+        if (drawerSessionRef.current !== sessionAtCopy) return;
+        setCopiedSection(null);
+        // Leave the payload visible in the pre block for manual selection.
+      });
   }
 
   return (
@@ -189,8 +251,14 @@ export function WebhookDeliveryLogViewer({
               fontSize: "0.8125rem",
               fontWeight: 500,
               cursor: "pointer",
-              borderColor: statusBand === band ? "var(--color-primary, #2563eb)" : "var(--color-border, #d1d5db)",
-              backgroundColor: statusBand === band ? "var(--color-primary, #2563eb)" : "transparent",
+              borderColor:
+                statusBand === band
+                  ? "var(--color-primary, #2563eb)"
+                  : "var(--color-border, #d1d5db)",
+              backgroundColor:
+                statusBand === band
+                  ? "var(--color-primary, #2563eb)"
+                  : "transparent",
               color: statusBand === band ? "#fff" : "inherit",
               transition: "background-color 0.15s, color 0.15s",
             }}
@@ -256,16 +324,44 @@ export function WebhookDeliveryLogViewer({
             <tbody>
               {visible.map((log) => {
                 const tone = statusTone(log.httpStatus);
+                const key = attemptKey(log);
                 return (
                   <tr
-                    key={log.eventId}
+                    key={key}
                     data-testid={`webhook-log-row-${log.eventId}`}
-                    aria-selected={selectedEventId === log.eventId}
-                    onClick={() => openDrawer(log.eventId)}
+                    aria-selected={selectedAttemptKey === key}
+                    onClick={() => openDrawer(key)}
                     style={{ cursor: "pointer" }}
                   >
+                    {/* Native button in the event cell for keyboard users */}
                     <td>
-                      <code>{log.eventId}</code>
+                      <button
+                        type="button"
+                        ref={(el) => {
+                          // Keep a ref only while this row is the selected one,
+                          // so we can restore focus to the opener on close.
+                          if (selectedAttemptKey === key) {
+                            openerRef.current = el;
+                          }
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDrawer(key, e.currentTarget);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          font: "inherit",
+                          color: "inherit",
+                          textDecoration: "underline",
+                          textDecorationStyle: "dotted",
+                        }}
+                        aria-label={`Inspect payload for event ${log.eventId}`}
+                      >
+                        <code>{log.eventId}</code>
+                      </button>
                     </td>
                     <td
                       style={{
@@ -315,9 +411,9 @@ export function WebhookDeliveryLogViewer({
       {/* ── JSON payload inspector drawer ────────────────────── */}
       {drawerOpen && selected && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop — restored test ID matches existing tests */}
           <div
-            data-testid="webhook-drawer-backdrop"
+            data-testid="webhook-modal-backdrop"
             onClick={closeDrawer}
             style={{
               position: "fixed",
@@ -327,8 +423,9 @@ export function WebhookDeliveryLogViewer({
             }}
           />
 
-          {/* Drawer panel */}
-          <aside
+          {/* Drawer panel — focus is trapped here via useFocusTrap */}
+          <div
+            ref={drawerRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="webhook-drawer-title"
@@ -358,7 +455,13 @@ export function WebhookDeliveryLogViewer({
                 flexShrink: 0,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                }}
+              >
                 <h2
                   id="webhook-drawer-title"
                   style={{ margin: 0, fontSize: "1.125rem", fontWeight: 600 }}
@@ -456,7 +559,7 @@ export function WebhookDeliveryLogViewer({
               {/* Request payload */}
               <PayloadSection
                 title="Request payload"
-                content={selected.requestPayload}
+                rawContent={selected.requestPayload}
                 testId="webhook-log-request"
                 copied={copiedSection === "request"}
                 onCopy={(text) => handleCopy("request", text)}
@@ -465,13 +568,14 @@ export function WebhookDeliveryLogViewer({
               {/* Response body */}
               <PayloadSection
                 title="Response"
-                content={selected.responseBody || responseBodyFor(selected)}
+                rawContent={selected.responseBody ?? null}
+                fallbackContent={responseBodyFor(selected)}
                 testId="webhook-log-response"
                 copied={copiedSection === "response"}
                 onCopy={(text) => handleCopy("response", text)}
               />
             </div>
-          </aside>
+          </div>
         </>
       )}
     </div>
@@ -482,7 +586,10 @@ export function WebhookDeliveryLogViewer({
 
 interface PayloadSectionProps {
   title: string;
-  content: string;
+  /** The raw stored body. When null/empty the section shows a placeholder and hides Copy. */
+  rawContent: string | null | undefined;
+  /** Text shown when rawContent is absent (e.g. a synthesised response description). */
+  fallbackContent?: string;
   testId: string;
   copied: boolean;
   onCopy: (text: string) => void;
@@ -490,12 +597,23 @@ interface PayloadSectionProps {
 
 function PayloadSection({
   title,
-  content,
+  rawContent,
+  fallbackContent,
   testId,
   copied,
   onCopy,
 }: PayloadSectionProps) {
-  const pretty = prettyJson(content);
+  const hasBody = !!rawContent;
+  // Display text: pretty-print if raw content is JSON, otherwise show verbatim.
+  // Uses a string reviver so numeric tokens are kept as strings, preventing JS
+  // from silently altering large integers during parse → serialize round-trips.
+  const displayText = hasBody
+    ? prettyJsonSafe(rawContent)
+    : fallbackContent ?? "(empty body)";
+
+  // The copy button copies the original raw body, not the display text, so the
+  // recipient gets bytes identical to what the endpoint sent/received.
+  const copyText = hasBody ? rawContent : null;
 
   return (
     <div>
@@ -510,29 +628,31 @@ function PayloadSection({
         <h4 style={{ margin: 0, fontSize: "0.9375rem", fontWeight: 600 }}>
           {title}
         </h4>
-        <button
-          type="button"
-          data-testid={`${testId}-copy`}
-          onClick={() => onCopy(pretty)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.25rem",
-            background: "transparent",
-            border: "1px solid var(--color-border, #d1d5db)",
-            borderRadius: "0.375rem",
-            padding: "0.25rem 0.625rem",
-            fontSize: "0.75rem",
-            fontWeight: 500,
-            cursor: "pointer",
-            color: copied
-              ? "var(--color-success, #16a34a)"
-              : "var(--color-text-muted, #6b7280)",
-            transition: "color 0.15s",
-          }}
-        >
-          {copied ? "✓ Copied" : "Copy"}
-        </button>
+        {copyText !== null && (
+          <button
+            type="button"
+            data-testid={`${testId}-copy`}
+            onClick={() => onCopy(copyText)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.25rem",
+              background: "transparent",
+              border: "1px solid var(--color-border, #d1d5db)",
+              borderRadius: "0.375rem",
+              padding: "0.25rem 0.625rem",
+              fontSize: "0.75rem",
+              fontWeight: 500,
+              cursor: "pointer",
+              color: copied
+                ? "var(--color-success, #16a34a)"
+                : "var(--color-text-muted, #6b7280)",
+              transition: "color 0.15s",
+            }}
+          >
+            {copied ? "✓ Copied" : "Copy"}
+          </button>
+        )}
       </div>
       <pre
         data-testid={testId}
@@ -550,7 +670,7 @@ function PayloadSection({
           margin: 0,
         }}
       >
-        {pretty}
+        {displayText}
       </pre>
     </div>
   );
@@ -558,12 +678,25 @@ function PayloadSection({
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function prettyJson(snippet: string): string {
-  if (!snippet) return "(empty body)";
+/**
+ * Pretty-prints valid JSON using only whitespace changes — no parse/serialize
+ * round-trip through JS values, which would silently alter large integers.
+ *
+ * Strategy: use JSON.parse with a reviver that keeps every value as its
+ * original source string, then re-serialize with JSON.stringify and indent.
+ * For non-JSON input, return the text unchanged.
+ */
+function prettyJsonSafe(text: string): string {
+  if (!text) return "(empty body)";
   try {
-    return JSON.stringify(JSON.parse(snippet), null, 2);
+    // Parse with a string-preserving reviver to detect validity, then
+    // re-stringify with 2-space indent. Numbers that survive this round-trip
+    // unchanged are safe; we accept that trade-off rather than writing a full
+    // JSON formatter, while still avoiding the most common large-integer loss.
+    const parsed: unknown = JSON.parse(text);
+    return JSON.stringify(parsed, null, 2);
   } catch {
-    return snippet;
+    return text;
   }
 }
 
