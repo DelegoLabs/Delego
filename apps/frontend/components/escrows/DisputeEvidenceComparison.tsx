@@ -11,6 +11,10 @@ import { ResolutionCountdown } from "./ResolutionCountdown";
 
 export interface DisputeEvidenceComparisonProps {
   evidence: DisputeEvidenceBundle;
+  /** Override the resolution deadline displayed in the countdown (defaults to evidence.resolutionDeadline). */
+  resolutionDeadline?: string;
+  /** External handler for the "Request Merchant Response" button; replaces the built-in apiFetch call. */
+  onRequestMoreEvidence?: () => void;
 }
 
 const STATUS_TONE: Record<DisputeEvidenceBundle["status"], BadgeTone> = {
@@ -24,12 +28,14 @@ const STATUS_TONE: Record<DisputeEvidenceBundle["status"], BadgeTone> = {
  * counter-proofs. Supports fullscreen lightbox for high-res photo inspection
  * and displays resolution countdown clock.
  */
-export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceComparisonProps) {
+export function DisputeEvidenceComparison({ evidence, resolutionDeadline, onRequestMoreEvidence }: DisputeEvidenceComparisonProps) {
   const t = useTranslations("disputeEvidence");
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [lightboxTitle, setLightboxTitle] = useState<string>("");
   const [requestStatus, setRequestStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [requestError, setRequestError] = useState<string | null>(null);
+
+  const effectiveDeadline = resolutionDeadline ?? evidence.resolutionDeadline;
 
   const openLightbox = (imageUrl: string, title: string) => {
     setLightboxImage(imageUrl);
@@ -42,6 +48,11 @@ export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceCompariso
   };
 
   async function requestMoreEvidence() {
+    if (onRequestMoreEvidence) {
+      onRequestMoreEvidence();
+      setRequestStatus("sent");
+      return;
+    }
     setRequestStatus("sending");
     setRequestError(null);
 
@@ -66,8 +77,8 @@ export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceCompariso
             {t(`status.${evidence.status}`)}
           </Badge>
         </div>
-        {evidence.resolutionDeadline && evidence.status !== "settled" && (
-          <ResolutionCountdown deadline={evidence.resolutionDeadline} />
+        {effectiveDeadline && evidence.status !== "settled" && (
+          <ResolutionCountdown deadline={effectiveDeadline} />
         )}
       </div>
 
