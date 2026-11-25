@@ -1,128 +1,251 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
   DeliveryEstimateBadge,
   addBusinessDays,
   calculateDeliveryEstimate,
-  formatDeliveryDate,
+  formatDeliveryWindow,
+  toIsoDate,
 } from "./DeliveryEstimateBadge";
 
+const MONDAY = "2026-10-19";
+const FRIDAY = "2026-10-23";
+const SATURDAY = "2026-10-24";
+
 describe("addBusinessDays", () => {
-  it("returns the same date when adding 0 business days", () => {
-    const monday = new Date(2026, 9, 19); // Oct 19, 2026 (Monday)
-    const result = addBusinessDays(monday, 0);
-    expect(result.getFullYear()).toBe(2026);
-    expect(result.getMonth()).toBe(9);
-    expect(result.getDate()).toBe(19);
+  it("returns the same date when adding zero business days", () => {
+    expect(toIsoDate(addBusinessDays(MONDAY, 0))).toBe(MONDAY);
   });
 
-  it("advances normally across weekdays", () => {
-    const monday = new Date(2026, 9, 19); // Oct 19 (Mon)
-    const result = addBusinessDays(monday, 3); // Oct 22 (Thu)
-    expect(result.getDate()).toBe(22);
-    expect(result.getDay()).toBe(4); // Thursday
+  it("advances across weekdays", () => {
+    expect(toIsoDate(addBusinessDays(MONDAY, 3))).toBe("2026-10-22");
   });
 
-  it("skips Saturday and Sunday when crossing a weekend", () => {
-    const friday = new Date(2026, 9, 23); // Oct 23, 2026 (Friday)
-    const mondayResult = addBusinessDays(friday, 1);
-    expect(mondayResult.getDate()).toBe(26); // Oct 26 (Monday)
-    expect(mondayResult.getDay()).toBe(1);
-
-    const tuesdayResult = addBusinessDays(friday, 2);
-    expect(tuesdayResult.getDate()).toBe(27); // Oct 27 (Tuesday)
-    expect(tuesdayResult.getDay()).toBe(2);
+  it("skips Saturday and Sunday", () => {
+    expect(toIsoDate(addBusinessDays(FRIDAY, 1))).toBe("2026-10-26");
+    expect(toIsoDate(addBusinessDays(FRIDAY, 2))).toBe("2026-10-27");
+    expect(toIsoDate(addBusinessDays(SATURDAY, 1))).toBe("2026-10-26");
   });
 
-  it("handles multiple weekends correctly", () => {
-    const monday = new Date(2026, 9, 19); // Oct 19 (Mon)
-    const twoWeeksLater = addBusinessDays(monday, 10); // 10 business days = 2 full weeks
-    expect(twoWeeksLater.getDate()).toBe(2); // Nov 2, 2026 (Monday)
-    expect(twoWeeksLater.getMonth()).toBe(10);
+  it("crosses multiple weekends", () => {
+    expect(toIsoDate(addBusinessDays(MONDAY, 10))).toBe("2026-11-02");
+  });
+
+  it("uses an injected non-business day predicate", () => {
+    const holiday = "2026-10-21";
+    const isBusinessDay = (date: Date) =>
+      date.getUTCDay() !== 0 &&
+      date.getUTCDay() !== 6 &&
+      toIsoDate(date) !== holiday;
+
+    expect(toIsoDate(addBusinessDays(MONDAY, 2, isBusinessDay))).toBe(
+      "2026-10-22"
+    );
   });
 });
 
 describe("calculateDeliveryEstimate", () => {
-  it("calculates earliest and latest arrival dates matching the schema", () => {
-    const monday = new Date(2026, 9, 19); // Oct 19 (Mon)
-    // 1 handling day + 3 to 5 transit days = 4 to 6 business days
-    // Mon + 4 biz days -> Fri Oct 23
-    // Mon + 6 biz days -> Tue Oct 27 (skips Sat/Sun)
-    const estimate = calculateDeliveryEstimate(1, 3, 5, monday);
+  it("calculates an ISO delivery window from handling and transit days", () => {
+    const estimate = calculateDeliveryEstimate({
+      handlingDays: 1,
+      transitDaysMin: 3,
+      transitDaysMax: 5,
+      baseDate: MONDAY,
+    });
 
-    expect(estimate.handlingDays).toBe(1);
-    expect(estimate.transitDaysMin).toBe(3);
-    expect(estimate.transitDaysMax).toBe(5);
-    expect(estimate.earliestArrivalDate).toBe(formatDeliveryDate(new Date(2026, 9, 23)));
-    expect(estimate.latestArrivalDate).toBe(formatDeliveryDate(new Date(2026, 9, 27)));
+    expect(estimate).toEqual({
+      handlingDays: 1,
+      transitDaysMin: 3,
+      transitDaysMax: 5,
+      earliestArrivalDate: "2026-10-23",
+      latestArrivalDate: "2026-10-27",
+    });
   });
 
-  it("accelerates transit calculation for express shipping", () => {
-    const monday = new Date(2026, 9, 19);
-    // Express caps transit window to 2-3 days
-    // 1 handling day + 2 express transit min = 3 biz days -> Thu Oct 22
-    // 1 handling day + 3 express transit max = 4 biz days -> Fri Oct 23
-    const estimate = calculateDeliveryEstimate(1, 4, 7, monday, true);
+  it("starts counting from the next business day on weekend orders", () => {
+    const estimate = calculateDeliveryEstimate({
+      handlingDays: 1,
+      transitDaysMin: 1,
+      transitDaysMax: 2,
+      baseDate: SATURDAY,
+    });
 
-    expect(estimate.transitDaysMin).toBeLessThanOrEqual(2);
-    expect(estimate.transitDaysMax).toBeLessThanOrEqual(3);
-    expect(estimate.earliestArrivalDate).toBe(formatDeliveryDate(new Date(2026, 9, 22)));
-    expect(estimate.latestArrivalDate).toBe(formatDeliveryDate(new Date(2026, 9, 23)));
+    expect(estimate.earliestArrivalDate).toBe("2026-10-28");
+    expect(estimate.latestArrivalDate).toBe("2026-10-29");
+  });
+
+  it("skips merchant holidays supplied as non-business days", () => {
+    const holiday = "2026-10-21";
+    const estimate = calculateDeliveryEstimate({
+      handlingDays: 1,
+      transitDaysMin: 1,
+      transitDaysMax: 1,
+      baseDate: MONDAY,
+      isBusinessDay: (date) =>
+        date.getUTCDay() !== 0 &&
+        date.getUTCDay() !== 6 &&
+        toIsoDate(date) !== holiday,
+    });
+
+    expect(estimate.earliestArrivalDate).toBe("2026-10-22");
+    expect(estimate.latestArrivalDate).toBe("2026-10-22");
+  });
+
+  it("normalizes reversed and invalid transit ranges", () => {
+    const estimate = calculateDeliveryEstimate({
+      handlingDays: -2,
+      transitDaysMin: 5,
+      transitDaysMax: 3,
+      baseDate: MONDAY,
+    });
+
+    expect(estimate.handlingDays).toBe(0);
+    expect(estimate.transitDaysMin).toBe(3);
+    expect(estimate.transitDaysMax).toBe(5);
+    expect(estimate.earliestArrivalDate).toBe("2026-10-22");
+    expect(estimate.latestArrivalDate).toBe("2026-10-26");
+  });
+
+  it("keeps positional express estimates backwards compatible", () => {
+    const estimate = calculateDeliveryEstimate(1, 4, 7, MONDAY, true);
+
+    expect(estimate.transitDaysMin).toBe(2);
+    expect(estimate.transitDaysMax).toBe(3);
+    expect(estimate.earliestArrivalDate).toBe("2026-10-22");
+    expect(estimate.latestArrivalDate).toBe("2026-10-23");
+  });
+
+  it("uses explicit express transit days when provided", () => {
+    const estimate = calculateDeliveryEstimate({
+      handlingDays: 1,
+      transitDaysMin: 4,
+      transitDaysMax: 7,
+      expressTransitDaysMin: 1,
+      expressTransitDaysMax: 2,
+      baseDate: MONDAY,
+      isExpress: true,
+    });
+
+    expect(estimate.earliestArrivalDate).toBe("2026-10-21");
+    expect(estimate.latestArrivalDate).toBe("2026-10-22");
+  });
+});
+
+describe("formatDeliveryWindow", () => {
+  it("formats a range", () => {
+    expect(
+      formatDeliveryWindow({
+        handlingDays: 1,
+        transitDaysMin: 3,
+        transitDaysMax: 5,
+        earliestArrivalDate: "2026-10-23",
+        latestArrivalDate: "2026-10-27",
+      })
+    ).toBe("Arrives between Oct 23 - Oct 27");
+  });
+
+  it("formats a single arrival day", () => {
+    expect(
+      formatDeliveryWindow({
+        handlingDays: 1,
+        transitDaysMin: 2,
+        transitDaysMax: 2,
+        earliestArrivalDate: "2026-10-22",
+        latestArrivalDate: "2026-10-22",
+      })
+    ).toBe("Arrives by Oct 22");
   });
 });
 
 describe("DeliveryEstimateBadge", () => {
-  it("renders the estimated arrival range correctly", () => {
-    const baseDate = new Date(2026, 9, 19); // Oct 19
+  it("renders the arrival range with machine-readable dates", () => {
     render(
       <DeliveryEstimateBadge
         handlingDays={1}
         transitDaysMin={3}
         transitDaysMax={5}
-        baseDate={baseDate}
+        baseDate={MONDAY}
       />
     );
 
-    expect(screen.getByRole("region", { name: /delivery estimate/i })).toBeInTheDocument();
-    expect(screen.getByText(/Arrives between/i)).toBeInTheDocument();
-    expect(screen.getByText(/\(1d handling\)/i)).toBeInTheDocument();
+    const badge = screen.getByRole("region", { name: "Delivery estimate" });
+    expect(within(badge).getByText(/Arrives between/i)).toBeInTheDocument();
+    expect(within(badge).getByText("Oct 23")).toHaveAttribute(
+      "dateTime",
+      "2026-10-23"
+    );
+    expect(within(badge).getByText("Oct 27")).toHaveAttribute(
+      "dateTime",
+      "2026-10-27"
+    );
+    expect(within(badge).getByText("(1d handling)")).toBeInTheDocument();
   });
 
-  it("highlights express shipping with an express badge", () => {
-    const baseDate = new Date(2026, 9, 19);
+  it("highlights express delivery with its own arrival dates", () => {
     render(
       <DeliveryEstimateBadge
         handlingDays={0}
         transitDaysMin={1}
         transitDaysMax={2}
-        baseDate={baseDate}
-        isExpress={true}
+        expressTransitDaysMin={1}
+        expressTransitDaysMax={1}
+        baseDate={MONDAY}
+        isExpress
       />
     );
 
-    expect(screen.getByText(/Express/i)).toBeInTheDocument();
-    expect(screen.getByText(/⚡/)).toBeInTheDocument();
+    const badge = screen.getByRole("region", {
+      name: "Express delivery estimate",
+    });
+    expect(within(badge).getByText("Express")).toBeInTheDocument();
+    expect(within(badge).getByText(/Arrives by Oct 20/i)).toBeInTheDocument();
   });
 
-  it("handles same earliest and latest date gracefully", () => {
-    const baseDate = new Date(2026, 9, 19);
+  it("shows standard and express option windows together", () => {
     render(
       <DeliveryEstimateBadge
         handlingDays={1}
-        transitDaysMin={2}
-        transitDaysMax={2}
-        baseDate={baseDate}
+        transitDaysMin={3}
+        transitDaysMax={5}
+        expressTransitDaysMin={1}
+        expressTransitDaysMax={2}
+        baseDate={MONDAY}
+        showExpress
       />
     );
 
-    expect(screen.getByText(/Arrives by/i)).toBeInTheDocument();
+    const badge = screen.getByTestId("delivery-estimate-badge");
+    expect(within(badge).getAllByText(/Arrives between/i)).toHaveLength(2);
+    expect(badge.textContent).toContain("Arrives between Oct 23 - Oct 27");
+    expect(badge.textContent).toContain(
+      "Express deliveryArrives between Oct 21 - Oct 22"
+    );
   });
 
-  it("applies custom className", () => {
-    const { container } = render(
-      <DeliveryEstimateBadge className="custom-test-class" />
+  it("hides extra detail in compact mode", () => {
+    render(
+      <DeliveryEstimateBadge
+        handlingDays={1}
+        transitDaysMin={3}
+        transitDaysMax={5}
+        expressTransitDaysMin={1}
+        expressTransitDaysMax={2}
+        baseDate={MONDAY}
+        showExpress
+        compact
+      />
     );
 
+    const badge = screen.getByTestId("delivery-estimate-badge");
+    expect(badge).toHaveClass("delivery-estimate-badge--compact");
+    expect(within(badge).queryByText(/handling/i)).not.toBeInTheDocument();
+    expect(within(badge).queryByText(/Express delivery/i)).not.toBeInTheDocument();
+  });
+
+  it("applies a custom className", () => {
+    const { container } = render(
+      <DeliveryEstimateBadge className="custom-test-class" baseDate={MONDAY} />
+    );
     expect(container.firstChild).toHaveClass("custom-test-class");
   });
 });

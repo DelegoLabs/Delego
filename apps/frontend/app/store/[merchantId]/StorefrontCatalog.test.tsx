@@ -18,6 +18,9 @@ vi.mock("../../../hooks/useCart", () => ({
 vi.mock("../../../components/storefront/StockDepletionPanel", () => ({
   StockDepletionPanel: () => null,
 }));
+vi.mock("../../../components/storefront/ProductQuestions", () => ({
+  ProductQuestions: () => null,
+}));
 
 class IntersectionObserverMock {
   static instances: IntersectionObserverMock[] = [];
@@ -176,5 +179,75 @@ describe("StorefrontCatalog merchant policy", () => {
     expect(
       screen.getByText(/Purchases are protected by Delego smart contract escrow/)
     ).toBeInTheDocument();
+  });
+});
+
+describe("StorefrontCatalog delivery estimates", () => {
+  const deliveryEstimate = {
+    handlingDays: 1,
+    transitDaysMin: 3,
+    transitDaysMax: 5,
+    expressTransitDaysMin: 1,
+    expressTransitDaysMax: 2,
+    expressAvailable: true,
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    vi.stubGlobal("scrollTo", vi.fn());
+    sessionStorage.clear();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("shows the delivery window on the product card and express details on expansion", () => {
+    render(
+      <StorefrontCatalog
+        products={[products[0]]}
+        merchantId="merchant"
+        merchantName="Merchant"
+        payoutAddress="GABC"
+        deliveryEstimate={deliveryEstimate}
+        referenceDate="2026-10-19"
+      />
+    );
+
+    const badges = screen.getAllByTestId("delivery-estimate-badge");
+    expect(badges).toHaveLength(1);
+    expect(badges[0].textContent).toContain("Arrives between Oct 23 - Oct 27");
+
+    fireEvent.click(screen.getByRole("button", { name: "View details" }));
+
+    const expandedBadges = screen.getAllByTestId("delivery-estimate-badge");
+    expect(expandedBadges).toHaveLength(2);
+    expect(expandedBadges[1].textContent).toContain("Express delivery");
+    expect(expandedBadges[1].textContent).toContain(
+      "Arrives between Oct 21 - Oct 22"
+    );
+  });
+
+  it("prefers product-specific delivery settings", () => {
+    render(
+      <StorefrontCatalog
+        products={[
+          {
+            ...products[0],
+            deliveryEstimate: {
+              handlingDays: 0,
+              transitDaysMin: 1,
+              transitDaysMax: 1,
+            },
+          },
+        ]}
+        merchantId="merchant"
+        merchantName="Merchant"
+        payoutAddress="GABC"
+        deliveryEstimate={deliveryEstimate}
+        referenceDate="2026-10-19"
+      />
+    );
+
+    expect(
+      screen.getByTestId("delivery-estimate-badge").textContent
+    ).toContain("Arrives by Oct 20");
   });
 });

@@ -1,136 +1,181 @@
 "use client";
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
+import {
+  calculateDeliveryEstimate,
+  formatDeliveryDate,
+  type BusinessDayPredicate,
+  type DeliveryDateInput,
+  type DeliveryEstimate,
+} from "../../lib/deliveryEstimate";
 
-export interface DeliveryEstimate {
-  handlingDays: number;
-  transitDaysMin: number;
-  transitDaysMax: number;
-  earliestArrivalDate: string;
-  latestArrivalDate: string;
-}
+export {
+  addBusinessDays,
+  calculateDeliveryEstimate,
+  formatDeliveryDate,
+  formatDeliveryWindow,
+  isWeekday,
+  toIsoDate,
+} from "../../lib/deliveryEstimate";
+export type {
+  BusinessDayPredicate,
+  DeliveryDateInput,
+  DeliveryEstimate,
+} from "../../lib/deliveryEstimate";
 
 export interface DeliveryEstimateBadgeProps {
-  /** Merchant handling time in business days. Default: 1 */
   handlingDays?: number;
-  /** Carrier transit minimum days. Default: 3 */
   transitDaysMin?: number;
-  /** Carrier transit maximum days. Default: 5 */
   transitDaysMax?: number;
-  /** Optional base reference date (defaults to current date). */
-  baseDate?: Date;
-  /** Flag to toggle express expedited shipping. */
+  expressTransitDaysMin?: number;
+  expressTransitDaysMax?: number;
+  baseDate?: DeliveryDateInput;
   isExpress?: boolean;
-  /** Optional styling class. */
+  showExpress?: boolean;
+  locale?: string;
+  isBusinessDay?: BusinessDayPredicate;
+  compact?: boolean;
   className?: string;
 }
 
-/**
- * Adds business days (skipping Saturday and Sunday) to a starting date.
- */
-export function addBusinessDays(startDate: Date, businessDaysToAdd: number): Date {
-  const result = new Date(startDate.getTime());
-  let daysRemaining = Math.max(0, businessDaysToAdd);
-
-  while (daysRemaining > 0) {
-    result.setDate(result.getDate() + 1);
-    const dayOfWeek = result.getDay();
-    // 0 is Sunday, 6 is Saturday
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      daysRemaining--;
-    }
-  }
-
-  return result;
-}
-
-/**
- * Formats a date object to "MMM d" (e.g. "Oct 24").
- */
-export function formatDeliveryDate(date: Date, locale = "en-US"): string {
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-  }).format(date);
-}
-
-/**
- * Calculates delivery estimates based on merchant handling days and transit times.
- */
-export function calculateDeliveryEstimate(
-  handlingDays = 1,
-  transitDaysMin = 3,
-  transitDaysMax = 5,
-  baseDate: Date = new Date(),
-  isExpress = false
-): DeliveryEstimate {
-  const effectiveMinTransit = isExpress ? Math.max(1, Math.min(2, transitDaysMin)) : transitDaysMin;
-  const effectiveMaxTransit = isExpress ? Math.max(effectiveMinTransit, Math.min(3, transitDaysMax)) : transitDaysMax;
-
-  const totalMinDays = handlingDays + effectiveMinTransit;
-  const totalMaxDays = handlingDays + effectiveMaxTransit;
-
-  const earliestDate = addBusinessDays(baseDate, totalMinDays);
-  const latestDate = addBusinessDays(baseDate, totalMaxDays);
-
-  return {
-    handlingDays,
-    transitDaysMin: effectiveMinTransit,
-    transitDaysMax: effectiveMaxTransit,
-    earliestArrivalDate: formatDeliveryDate(earliestDate),
-    latestArrivalDate: formatDeliveryDate(latestDate),
-  };
-}
-
-/**
- * Displays realistic estimated delivery date ranges on product detail views
- * based on merchant handling processing time and transit windows (#966).
- */
 export function DeliveryEstimateBadge({
   handlingDays = 1,
   transitDaysMin = 3,
   transitDaysMax = 5,
+  expressTransitDaysMin,
+  expressTransitDaysMax,
   baseDate,
   isExpress = false,
+  showExpress = false,
+  locale = "en-US",
+  isBusinessDay,
+  compact = false,
   className = "",
 }: DeliveryEstimateBadgeProps) {
-  const estimate = useMemo(() => {
-    return calculateDeliveryEstimate(
-      handlingDays,
-      transitDaysMin,
-      transitDaysMax,
-      baseDate || new Date(),
-      isExpress
-    );
-  }, [handlingDays, transitDaysMin, transitDaysMax, baseDate, isExpress]);
+  const standardEstimate = useMemo(
+    () =>
+      calculateDeliveryEstimate({
+        handlingDays,
+        transitDaysMin,
+        transitDaysMax,
+        baseDate,
+        isBusinessDay,
+      }),
+    [handlingDays, transitDaysMin, transitDaysMax, baseDate, isBusinessDay]
+  );
 
-  const isSameDate = estimate.earliestArrivalDate === estimate.latestArrivalDate;
-  const arrivalRangeText = isSameDate
-    ? `Arrives by ${estimate.earliestArrivalDate}`
-    : `Arrives between ${estimate.earliestArrivalDate} - ${estimate.latestArrivalDate}`;
+  const expressEstimate = useMemo(() => {
+    if (!showExpress && !isExpress) return null;
+    return calculateDeliveryEstimate({
+      handlingDays,
+      transitDaysMin: expressTransitDaysMin ?? transitDaysMin,
+      transitDaysMax: expressTransitDaysMax ?? transitDaysMax,
+      baseDate,
+      isExpress: true,
+      expressTransitDaysMin,
+      expressTransitDaysMax,
+      isBusinessDay,
+    });
+  }, [
+    handlingDays,
+    transitDaysMin,
+    transitDaysMax,
+    expressTransitDaysMin,
+    expressTransitDaysMax,
+    baseDate,
+    isExpress,
+    showExpress,
+    isBusinessDay,
+  ]);
+
+  const primaryEstimate =
+    isExpress && expressEstimate ? expressEstimate : standardEstimate;
+
+  function renderWindow(estimate: DeliveryEstimate) {
+    const earliest = formatDeliveryDate(estimate.earliestArrivalDate, locale);
+    const latest = formatDeliveryDate(estimate.latestArrivalDate, locale);
+    const sameDay = earliest === latest;
+
+    return (
+      <>
+        {sameDay ? "Arrives by " : "Arrives between "}
+        <time dateTime={estimate.earliestArrivalDate}>{earliest}</time>
+        {!sameDay && (
+          <>
+            {" - "}
+            <time dateTime={estimate.latestArrivalDate}>{latest}</time>
+          </>
+        )}
+      </>
+    );
+  }
+
+  const classes = [
+    "delivery-estimate-badge",
+    compact ? "delivery-estimate-badge--compact" : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div
+      data-testid="delivery-estimate-badge"
       role="region"
-      aria-label="Delivery estimate"
-      className={`delivery-estimate-badge inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium border ${
-        isExpress
-          ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-          : "bg-muted/50 text-foreground border-border"
-      } ${className}`}
+      aria-label={isExpress ? "Express delivery estimate" : "Delivery estimate"}
+      className={classes}
+      style={{
+        display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: compact ? 0 : "0.375rem",
+      }}
     >
-      <span className="estimate-icon" aria-hidden="true">
-        {isExpress ? "⚡" : "📦"}
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.375rem",
+          padding: "0.25rem 0.625rem",
+          borderRadius: "9999px",
+          border: `1px solid ${isExpress ? "#fcd34d" : "#bfdbfe"}`,
+          background: isExpress ? "#fffbeb" : "#eff6ff",
+          color: isExpress ? "#92400e" : "#1e40af",
+          fontSize: "0.75rem",
+          fontWeight: 600,
+          lineHeight: 1.4,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {isExpress && (
+          <strong style={{ textTransform: "uppercase", letterSpacing: "0.03em" }}>
+            Express
+          </strong>
+        )}
+        <span>{renderWindow(primaryEstimate)}</span>
       </span>
-      <span className="estimate-text font-semibold">{arrivalRangeText}</span>
-      {isExpress && (
-        <span className="rounded bg-amber-500/20 px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-500">
-          Express
-        </span>
+      {!compact && (
+        <>
+          <span style={{ color: "#6b7280", fontSize: "0.75rem" }}>
+            ({primaryEstimate.handlingDays}d handling)
+          </span>
+          {expressEstimate && !isExpress && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.375rem",
+                color: "#92400e",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+              }}
+            >
+              <strong>Express delivery</strong>
+              <span>{renderWindow(expressEstimate)}</span>
+            </span>
+          )}
+        </>
       )}
-      <span className="text-muted-foreground ml-1">
-        ({estimate.handlingDays}d handling)
-      </span>
     </div>
   );
 }

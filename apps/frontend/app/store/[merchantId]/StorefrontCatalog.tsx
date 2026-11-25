@@ -12,9 +12,12 @@ import type { MerchantPolicyInfo } from "@delegolabs/types";
 import { StockDepletionPanel } from "../../../components/storefront/StockDepletionPanel";
 import { ImageLightboxModal } from "../../../components/storefront/ImageLightboxModal";
 import { ProductQuestions } from "../../../components/storefront/ProductQuestions";
+import { DeliveryEstimateBadge } from "../../../components/storefront/DeliveryEstimateBadge";
 import {
+  DEFAULT_MERCHANT_DELIVERY_SETTINGS,
   DEFAULT_MERCHANT_POLICY,
   filterStoreProducts,
+  type MerchantDeliverySettings,
   type MerchantProduct,
 } from "../../../lib/storefront";
 import {
@@ -72,6 +75,8 @@ interface StorefrontCatalogProps {
   merchantName: string;
   payoutAddress: string;
   merchantPolicy?: MerchantPolicyInfo;
+  deliveryEstimate?: MerchantDeliverySettings;
+  referenceDate?: string;
 }
 
 export function StorefrontCatalog({
@@ -80,6 +85,8 @@ export function StorefrontCatalog({
   merchantName,
   payoutAddress,
   merchantPolicy,
+  deliveryEstimate,
+  referenceDate,
 }: StorefrontCatalogProps) {
   const [query, setQuery] = useState("");
   const [displayedCount, setDisplayedCount] = useState(CATALOG_PAGE_SIZE);
@@ -382,6 +389,10 @@ export function StorefrontCatalog({
         {displayedProducts.map((product) => {
           const stock = stockFor(product);
           const blocked = stock ? !canAddToCart(stock) : false;
+          const delivery =
+            product.deliveryEstimate ??
+            deliveryEstimate ??
+            DEFAULT_MERCHANT_DELIVERY_SETTINGS;
           return (
             <li
               key={product.id}
@@ -453,9 +464,24 @@ export function StorefrontCatalog({
                   flexWrap: "wrap",
                 }}
               >
-                <p style={{ margin: 0, fontWeight: 600 }}>
-                  {formatPrice(product.priceStroops)}
-                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.25rem",
+                  }}
+                >
+                  <p style={{ margin: 0, fontWeight: 600 }}>
+                    {formatPrice(product.priceStroops)}
+                  </p>
+                  <DeliveryEstimateBadge
+                    compact
+                    handlingDays={delivery.handlingDays}
+                    transitDaysMin={delivery.transitDaysMin}
+                    transitDaysMax={delivery.transitDaysMax}
+                    baseDate={referenceDate}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => handleAddToCart(product)}
@@ -505,6 +531,19 @@ export function StorefrontCatalog({
                       mode="detail"
                     />
                   )}
+                  <DeliveryEstimateBadge
+                    handlingDays={delivery.handlingDays}
+                    transitDaysMin={delivery.transitDaysMin}
+                    transitDaysMax={delivery.transitDaysMax}
+                    expressTransitDaysMin={delivery.expressTransitDaysMin}
+                    expressTransitDaysMax={delivery.expressTransitDaysMax}
+                    showExpress={
+                      delivery.expressAvailable ??
+                      (delivery.expressTransitDaysMin !== undefined ||
+                        delivery.expressTransitDaysMax !== undefined)
+                    }
+                    baseDate={referenceDate}
+                  />
                   <ProductQuestions
                     productId={product.id}
                     productName={product.name}
