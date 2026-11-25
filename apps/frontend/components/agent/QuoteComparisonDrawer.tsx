@@ -5,6 +5,7 @@ import { Badge, Button } from "@delegolabs/ui";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { stroopsToDecimal } from "../../lib/productForm";
 import {
+  pickBestQuotes,
   pickBestValueQuote,
   sortQuotes,
   totalCostStroops,
@@ -60,6 +61,7 @@ export function QuoteComparisonDrawer({
 
   const sorted = useMemo(() => sortQuotes(quotes, sortKey), [quotes, sortKey]);
   const best = useMemo(() => pickBestValueQuote(quotes), [quotes]);
+  const bestQuotes = useMemo(() => pickBestQuotes(quotes), [quotes]);
 
   if (!isOpen) return null;
 
@@ -213,6 +215,11 @@ export function QuoteComparisonDrawer({
               <tbody>
                 {sorted.map((q) => {
                   const isBest = best?.merchantId === q.merchantId;
+                  const isBestPrice = bestQuotes.bestPriceIds.has(
+                    q.merchantId,
+                  );
+                  const isFastest = bestQuotes.fastestIds.has(q.merchantId);
+                  const isTopRated = bestQuotes.topRatedIds.has(q.merchantId);
                   return (
                     <tr
                       key={q.merchantId}
@@ -245,6 +252,69 @@ export function QuoteComparisonDrawer({
                               style={{ alignSelf: "flex-start" }}
                             >
                               Agent&apos;s pick · best value
+                            </Badge>
+                          )}
+                          {isBestPrice && (
+                            <Badge
+                              tone="info"
+                              role="img"
+                              aria-label="Best Price: lowest total cost"
+                              style={{ alignSelf: "flex-start" }}
+                            >
+                              Best Price
+                              <span
+                                style={{
+                                  position: "absolute",
+                                  width: 1,
+                                  height: 1,
+                                  overflow: "hidden",
+                                  clip: "rect(0 0 0 0)",
+                                }}
+                              >
+                                Best Price: lowest total cost
+                              </span>
+                            </Badge>
+                          )}
+                          {isFastest && (
+                            <Badge
+                              tone="success"
+                              role="img"
+                              aria-label="Fastest: shortest delivery ETA"
+                              style={{ alignSelf: "flex-start" }}
+                            >
+                              Fastest
+                              <span
+                                style={{
+                                  position: "absolute",
+                                  width: 1,
+                                  height: 1,
+                                  overflow: "hidden",
+                                  clip: "rect(0 0 0 0)",
+                                }}
+                              >
+                                Fastest: shortest delivery ETA
+                              </span>
+                            </Badge>
+                          )}
+                          {isTopRated && (
+                            <Badge
+                              tone="warning"
+                              role="img"
+                              aria-label="Top Rated: highest merchant reputation"
+                              style={{ alignSelf: "flex-start" }}
+                            >
+                              Top Rated
+                              <span
+                                style={{
+                                  position: "absolute",
+                                  width: 1,
+                                  height: 1,
+                                  overflow: "hidden",
+                                  clip: "rect(0 0 0 0)",
+                                }}
+                              >
+                                Top Rated: highest merchant reputation
+                              </span>
                             </Badge>
                           )}
                         </div>
