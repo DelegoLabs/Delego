@@ -58,7 +58,7 @@ function endOfDay(date: Date): Date {
  * that, to `Uncategorized`.
  */
 export function orderCategory(order: Order): string {
-  const candidate = (order as { category?: unknown }).category;
+  const candidate = order.category;
   if (typeof candidate === "string" && candidate.trim()) {
     return candidate.trim();
   }
