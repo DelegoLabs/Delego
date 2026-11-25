@@ -35,6 +35,7 @@ export function Card({
       id={cardId}
       role="region"
       aria-label={ariaLabel}
+      aria-labelledby={!ariaLabel && title ? `${cardId}-title` : undefined}
       aria-describedby={ariaDescribedBy}
       style={{
         border: "1px solid #e5e7eb",
