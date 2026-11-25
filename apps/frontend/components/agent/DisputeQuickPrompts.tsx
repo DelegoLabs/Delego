@@ -1,8 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@delegolabs/ui";
-
 export interface DisputeQuickPrompt {
   id: string;
   label: string;
