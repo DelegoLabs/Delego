@@ -200,10 +200,17 @@ importers:
         version: 5.9.3
 
   packages/sdk:
+    dependencies:
+      '@delegolabs/types':
+        specifier: workspace:*
+        version: link:../types
     devDependencies:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@25.9.3)(jsdom@25.0.1)(msw@2.15.0(@types/node@25.9.3)(typescript@5.9.3))(terser@5.51.2)
 
   packages/types:
     dependencies:
