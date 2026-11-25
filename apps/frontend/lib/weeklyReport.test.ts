@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Order } from "@delegolabs/types";
-import { buildWeeklyReport, formatReportAsText } from "./weeklyReport";
+import { buildWeeklyReport, formatReportAsCsv, formatReportAsText, weeklyReportFilename } from "./weeklyReport";
 
 function makeOrder(overrides: Partial<Order> = {}): Order {
   return {
@@ -78,6 +78,27 @@ describe("buildWeeklyReport", () => {
     expect(report.topDelegations[1].delegationId).toBe("del-a");
   });
 
+  it("builds a zero-filled daily spend series for the full selected period", () => {
+    const orders = [
+      makeOrder({ id: "day-1", totalStroops: 10_000_000n, createdAt: new Date("2026-06-16T12:00:00Z") }),
+      makeOrder({ id: "day-6", totalStroops: 5_000_000n, createdAt: new Date("2026-06-21T12:00:00Z") }),
+      makeOrder({
+        id: "not-spend",
+        status: "pending_approval",
+        totalStroops: 99_000_000n,
+        createdAt: new Date("2026-06-17T12:00:00Z"),
+      }),
+    ];
+
+    const report = buildWeeklyReport(orders, PERIOD_END, 1);
+
+    expect(report.dailySpend).toHaveLength(7);
+    expect(report.dailySpend[0]).toEqual({ date: "2026-06-15", totalXlm: 0 });
+    expect(report.dailySpend[1]).toEqual({ date: "2026-06-16", totalXlm: 1 });
+    expect(report.dailySpend[6]).toEqual({ date: "2026-06-21", totalXlm: 0.5 });
+    expect(buildWeeklyReport([], PERIOD_END, 2).dailySpend).toHaveLength(14);
+  });
+
   it("surfaces disputed and rejected orders as notable events", () => {
     const orders = [
       makeOrder({ id: "d1", status: "disputed", createdAt: new Date("2026-06-18") }),
@@ -120,5 +141,26 @@ describe("formatReportAsText", () => {
 
     expect(text).toContain("Top delegations:\n  (none)");
     expect(text).toContain("Notable events:\n  (none)");
+  });
+});
+
+describe("formatReportAsCsv", () => {
+  it("exports summary, daily spend, delegations, and escaped event details", () => {
+    const report = buildWeeklyReport(
+      [
+        makeOrder({ id: "o1", delegationId: 'del, "A"', status: "settled", totalStroops: 10_000_000n, createdAt: new Date("2026-06-18") }),
+        makeOrder({ id: "r1", status: "rejected", rejectionReason: "too_expensive", rejectionNote: "over, budget", createdAt: new Date("2026-06-19") }),
+      ],
+      PERIOD_END,
+      1
+    );
+
+    const csv = formatReportAsCsv(report);
+
+    expect(csv).toContain("Section,Label,Value,Detail");
+    expect(csv).toContain("Daily spend,2026-06-18,1.00,");
+    expect(csv).toContain('"del, ""A"""');
+    expect(csv).toContain('"Too expensive: over, budget"');
+    expect(weeklyReportFilename(report)).toBe("delego-weekly-report-2026-06-22.csv");
   });
 });

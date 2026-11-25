@@ -53,6 +53,7 @@ export default async function StorePage({
 
   const store = await loadStorefront(merchantId);
   if (!store) notFound();
+  const referenceDate = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="settings-page">
@@ -84,6 +85,8 @@ export default async function StorePage({
         merchantName={store.storeName}
         payoutAddress={store.stellarAddress}
         merchantPolicy={store.policy}
+        deliveryEstimate={store.deliveryEstimate}
+        referenceDate={referenceDate}
       />
     </div>
   );

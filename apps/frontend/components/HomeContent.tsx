@@ -71,11 +71,11 @@ function KillSwitchModal({
       aria-labelledby="kill-switch-modal-title"
       tabIndex={-1}
     >
-      <h2 id="kill-switch-modal-title">Revoke all delegations</h2>
+      <h2 id="kill-switch-modal-title">{tModal("title")}</h2>
       <p>
-        This will immediately revoke all {activeDelegationCount} active AI agent
-        spending permission{activeDelegationCount === 1 ? "" : "s"} on-chain.
-        This action cannot be undone.
+        {tModal.rich("description", {
+          count: activeDelegationCount,
+        })}
       </p>
       <label htmlFor="kill-switch-confirmation">
         {tModal.rich("confirmLabel", {

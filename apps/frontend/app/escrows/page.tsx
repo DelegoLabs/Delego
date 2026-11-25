@@ -6,6 +6,7 @@ import { useEscrows } from "../../hooks/useEscrows";
 import { useQueryParamState } from "../../hooks/useQueryParamState";
 import { EscrowCard } from "../../components/escrows/EscrowCard";
 import { EscrowFilters } from "../../components/escrows/EscrowFilters";
+import { EscrowSummary } from "../../components/escrows/EscrowSummary";
 import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
 import { Button } from "@delegolabs/ui";
 
@@ -17,7 +18,9 @@ export default function EscrowsPage() {
     key: "q",
     defaultValue: "",
   });
-  const [selectedStatuses, setSelectedStatuses] = useQueryParamState<EscrowStatus[]>({
+  const [selectedStatuses, setSelectedStatuses] = useQueryParamState<
+    EscrowStatus[]
+  >({
     key: "status",
     defaultValue: [],
   });
@@ -32,7 +35,8 @@ export default function EscrowsPage() {
         escrow.buyer.toLowerCase().includes(term) ||
         escrow.seller.toLowerCase().includes(term);
       const matchesStatus =
-        selectedStatuses.length === 0 || selectedStatuses.includes(escrow.status);
+        selectedStatuses.length === 0 ||
+        selectedStatuses.includes(escrow.status);
       return matchesSearch && matchesStatus;
     });
   }, [escrows, search, selectedStatuses]);
@@ -52,12 +56,15 @@ export default function EscrowsPage() {
           <div>
             <h1>Escrows</h1>
             <p>
-              Track your active escrow agreements and monitor fund status on-chain.
+              Track your active escrow agreements and monitor fund status
+              on-chain.
             </p>
           </div>
           <CopyViewLinkButton />
         </div>
       </header>
+
+      {escrows.length > 0 && <EscrowSummary escrows={escrows} />}
 
       {escrows.length > 0 && (
         <EscrowFilters
@@ -70,11 +77,7 @@ export default function EscrowsPage() {
 
       {/* Loading skeleton */}
       {loading && (
-        <section
-          className="grid"
-          aria-busy="true"
-          aria-label="Loading escrows"
-        >
+        <section className="grid" aria-busy="true" aria-label="Loading escrows">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
@@ -103,13 +106,16 @@ export default function EscrowsPage() {
           <p style={{ margin: "0 0 1rem", fontWeight: 500 }}>
             Unable to load escrows
           </p>
-          <p style={{ margin: "0 0 1.5rem", fontSize: "0.875rem", color: "#6b7280" }}>
+          <p
+            style={{
+              margin: "0 0 1.5rem",
+              fontSize: "0.875rem",
+              color: "#6b7280",
+            }}
+          >
             {error}
           </p>
-          <Button
-            variant="secondary"
-            onClick={() => window.location.reload()}
-          >
+          <Button variant="secondary" onClick={() => window.location.reload()}>
             Try again
           </Button>
         </div>
@@ -123,8 +129,12 @@ export default function EscrowsPage() {
             padding: "3rem 1rem",
           }}
         >
-          <p style={{ margin: "0 0 0.5rem", fontWeight: 500, color: "#374151" }}>
-            {escrows.length === 0 ? "No active escrows" : "No escrows match the current filters"}
+          <p
+            style={{ margin: "0 0 0.5rem", fontWeight: 500, color: "#374151" }}
+          >
+            {escrows.length === 0
+              ? "No active escrows"
+              : "No escrows match the current filters"}
           </p>
           <p style={{ margin: 0, fontSize: "0.875rem", color: "#6b7280" }}>
             {escrows.length === 0
@@ -138,7 +148,11 @@ export default function EscrowsPage() {
       {!loading && !error && visibleEscrows.length > 0 && (
         <section className="grid" aria-label="Escrow list">
           {visibleEscrows.map((escrow) => (
-            <EscrowCard key={escrow.escrowId} escrow={escrow} href={`/escrows/${escrow.escrowId}`} />
+            <EscrowCard
+              key={escrow.escrowId}
+              escrow={escrow}
+              href={`/escrows/${escrow.escrowId}`}
+            />
           ))}
         </section>
       )}

@@ -5,17 +5,17 @@
   "type": "module",
   "description": "Shared React UI components for Delego apps",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "import": "./dist/index.js"
     }
   },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'TODO: add eslint'",
+    "lint": "eslint . --ext .ts,.tsx",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "check:no-coverage-ignores": "node scripts/check-no-coverage-ignores.mjs"
@@ -29,8 +29,15 @@
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.0",
     "@types/react": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "@vitest/coverage-v8": "^2.0.0",
     "axe-core": "^4.13.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "jsdom": "^25.0.0",
     "react": "^19.0.0",
     "typescript": "^5.7.0",

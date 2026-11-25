@@ -3,7 +3,7 @@ import { toCsv } from "./csv";
 
 /**
  * Custom expense reports for corporate buyers (#793): filter orders by date
- * range, category, and merchant, then export the rows as CSV or JSON. All
+ * range, category, and merchant, then export the rows as CSV, JSON, or PDF. All
  * computation is client-side from the orders already loaded via useOrders,
  * so no new endpoint is required.
  */
@@ -58,7 +58,7 @@ function endOfDay(date: Date): Date {
  * that, to `Uncategorized`.
  */
 export function orderCategory(order: Order): string {
-  const candidate = (order as { category?: unknown }).category;
+  const candidate = order.category;
   if (typeof candidate === "string" && candidate.trim()) {
     return candidate.trim();
   }
@@ -200,7 +200,7 @@ export function expenseReportToJson(report: ExpenseReport): string {
 /** Suggested download filename, e.g. `delego-expense-report-2026-01-31.csv`. */
 export function expenseReportFilename(
   report: ExpenseReport,
-  format: "csv" | "json" = report.format,
+  format: "csv" | "json" | "pdf" = report.format,
   now: Date = new Date()
 ): string {
   const stamp = now.toISOString().slice(0, 10);

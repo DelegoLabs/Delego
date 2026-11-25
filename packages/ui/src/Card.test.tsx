@@ -1,5 +1,7 @@
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { Card } from "./Card.js";
 
@@ -43,13 +45,37 @@ describe("Card", () => {
     expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
   });
 
-  it("gives the title the id its aria-labelled region points at", () => {
+  it("labels the region with its title when no aria-label is provided", () => {
     render(
       <Card title="Orders" titleLevel={2} id="orders-card">
         <p>Content</p>
       </Card>,
     );
-    expect(document.getElementById("orders-card-title")?.tagName).toBe("H2");
+    const region = screen.getByRole("region", { name: "Orders" });
+    const title = document.getElementById("orders-card-title");
+    expect(title?.tagName).toBe("H2");
+    expect(region.getAttribute("aria-labelledby")).toBe("orders-card-title");
+    expect(region.getAttribute("aria-label")).toBeNull();
+  });
+
+  it("keeps its generated ID stable during hydration", async () => {
+    const element = <Card title="Hydrated card">Content</Card>;
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(element);
+    const serverId = container.querySelector("[role='region']")?.id;
+    const recoverableErrors: Error[] = [];
+
+    let root: ReturnType<typeof hydrateRoot>;
+    await act(async () => {
+      root = hydrateRoot(container, element, {
+        onRecoverableError: (error) => recoverableErrors.push(error),
+      });
+    });
+
+    expect(container.querySelector("[role='region']")?.id).toBe(serverId);
+    expect(recoverableErrors).toHaveLength(0);
+
+    await act(async () => root.unmount());
   });
 
   it("applies custom styles", () => {
@@ -95,6 +121,16 @@ describe("Card", () => {
       expect(card).toBeDefined();
     });
 
+    it("prefers aria-label over the title for the region name", () => {
+      render(
+        <Card title="Orders" ariaLabel="All recent orders">
+          Content
+        </Card>,
+      );
+      const region = screen.getByRole("region", { name: "All recent orders" });
+      expect(region.getAttribute("aria-labelledby")).toBeNull();
+    });
+
     it("supports aria-describedby", () => {
       const { container } = render(
         <Card ariaDescribedBy="description-123">Content</Card>,
@@ -130,4 +166,3 @@ describe("Card", () => {
     });
   });
 });
-

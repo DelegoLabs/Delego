@@ -159,4 +159,80 @@ describe("ProductQuestions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
     expect(wallet.connect).toHaveBeenCalledTimes(1);
   });
+
+  it("sorts questions by Newest by default and supports Most Helpful sorting", async () => {
+    vi.mocked(fetchProductQuestions).mockResolvedValue([
+      {
+        id: "q-oldest-helpful",
+        productId: "product-1",
+        askerAddress: "GBUYER1",
+        questionText: "Does it come with a lid?",
+        helpfulCount: 12,
+        answers: [],
+        createdAt: "2026-10-18T12:00:00.000Z",
+      },
+      {
+        id: "q-newest",
+        productId: "product-1",
+        askerAddress: "GBUYER2",
+        questionText: "Is it dishwasher safe?",
+        helpfulCount: 1,
+        answers: [],
+        createdAt: "2026-10-25T12:00:00.000Z",
+      },
+      {
+        id: "q-middle-merchant",
+        productId: "product-1",
+        askerAddress: "GBUYER3",
+        questionText: "What is the capacity?",
+        helpfulCount: 5,
+        answers: [
+          {
+            authorAddress: "gmerchant",
+            isMerchant: false,
+            answerText: "350ml.",
+            answeredAt: "2026-10-21T12:00:00.000Z",
+          },
+        ],
+        createdAt: "2026-10-20T12:00:00.000Z",
+      },
+    ]);
+
+    render(
+      <ProductQuestions
+        productId="product-1"
+        productName="Blue Mug"
+        merchantAddress="GMERCHANT"
+      />
+    );
+
+    expect(
+      await screen.findByText("Is it dishwasher safe?")
+    ).toBeInTheDocument();
+
+    const getRenderedQuestionTexts = () =>
+      screen
+        .getAllByRole("listitem")
+        .map((item) => item.querySelector("p")?.textContent);
+
+    expect(getRenderedQuestionTexts()).toEqual([
+      "Is it dishwasher safe?",
+      "What is the capacity?",
+      "Does it come with a lid?",
+    ]);
+
+    expect(screen.getByTestId("verified-merchant-badge")).toHaveTextContent(
+      "Merchant Verified"
+    );
+
+    fireEvent.change(screen.getByLabelText("Sort questions"), {
+      target: { value: "helpful" },
+    });
+
+    expect(getRenderedQuestionTexts()).toEqual([
+      "Does it come with a lid?",
+      "What is the capacity?",
+      "Is it dishwasher safe?",
+    ]);
+  });
 });

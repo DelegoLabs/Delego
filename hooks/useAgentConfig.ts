@@ -3,19 +3,26 @@ import useSWR from "swr";
 export interface AgentConfig {
   id: string;
   name: string;
+  description?: string;
+  model?: string;
+  systemPrompt?: string;
+  temperature?: number;
+  maxTokens?: number;
+  tools?: string[];
+  enabled?: boolean;
   [key: string]: unknown;
 }
 
 const fetcher = async (url: string): Promise<AgentConfig> => {
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  const res = await fetch(url, { credentials: "include" });
   if (!res.ok) {
-    throw new Error(`Failed to fetch agent config: ${res.status}`);
+    throw new Error(`Failed to load agent config (${res.status})`);
   }
   return res.json() as Promise<AgentConfig>;
 };
 
 export function useAgentConfig(agentId?: string) {
-  const { data, error, isLoading, mutate } = useSWR<AgentConfig>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<AgentConfig>(
     agentId ? `/api/agents/${encodeURIComponent(agentId)}/config` : null,
     fetcher,
   );
@@ -24,6 +31,9 @@ export function useAgentConfig(agentId?: string) {
     config: data,
     error,
     isLoading,
-    refresh: mutate,
+    isValidating,
+    mutate,
   };
 }
+
+export default useAgentConfig;

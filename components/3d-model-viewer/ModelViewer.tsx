@@ -1,6 +1,4 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 export interface ModelViewerProps {
   src: string;
@@ -8,15 +6,9 @@ export interface ModelViewerProps {
   className?: string;
   autoRotate?: boolean;
   cameraControls?: boolean;
-  onError?: (error: Error) => void;
+  onLoad?: () => void;
+  onError?: (error: Event) => void;
 }
-
-type ModelViewerElement = HTMLElement & {
-  src?: string;
-  alt?: string;
-  autoRotate?: boolean;
-  cameraControls?: boolean;
-};
 
 export function ModelViewer({
   src,
@@ -24,45 +16,41 @@ export function ModelViewer({
   className,
   autoRotate = true,
   cameraControls = true,
+  onLoad,
   onError,
 }: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [loadError, setLoadError] = useState<Error | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const el = document.createElement("model-viewer") as ModelViewerElement;
-    el.src = src;
-    el.alt = alt;
-    el.autoRotate = autoRotate;
-    el.cameraControls = cameraControls;
+    const el = document.createElement("model-viewer") as HTMLElement & {
+      src?: string;
+      alt?: string;
+      autoRotate?: boolean;
+      cameraControls?: boolean;
+    };
+    el.setAttribute("src", src);
+    el.setAttribute("alt", alt);
+    if (autoRotate) el.setAttribute("auto-rotate", "");
+    if (cameraControls) el.setAttribute("camera-controls", "");
     el.style.width = "100%";
     el.style.height = "100%";
 
-    const handleError = () => {
-      const err = new Error(`Failed to load 3D model: ${src}`);
-      setLoadError(err);
-      onError?.(err);
-    };
-
+    const handleLoad = () => onLoad?.();
+    const handleError = (event: Event) => onError?.(event);
+    el.addEventListener("load", handleLoad);
     el.addEventListener("error", handleError);
+
     container.appendChild(el);
 
     return () => {
+      el.removeEventListener("load", handleLoad);
       el.removeEventListener("error", handleError);
       el.remove();
     };
-  }, [src, alt, autoRotate, cameraControls, onError]);
-
-  if (loadError) {
-    return (
-      <div className={className} role="alert">
-        {loadError.message}
-      </div>
-    );
-  }
+  }, [src, alt, autoRotate, cameraControls, onLoad, onError]);
 
   return <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />;
 }
