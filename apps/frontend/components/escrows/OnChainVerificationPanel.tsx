@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Card } from "@delegolabs/ui";
 import type { ReceiptKind } from "../../services/receiptGetters";
 import { useReceiptVerification } from "../../hooks/useReceiptVerification";
@@ -49,6 +49,7 @@ export function OnChainVerificationPanel({
 }: OnChainVerificationPanelProps) {
   const [showRawJson, setShowRawJson] = useState(false);
   const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { status, receipt, comparison, error, refresh } =
     useReceiptVerification(
       kind,
@@ -58,12 +59,27 @@ export function OnChainVerificationPanel({
       compareFields
     );
 
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        clearTimeout(copyTimerRef.current);
+        copyTimerRef.current = null;
+      }
+    };
+  }, []);
+
   async function handleCopyHash() {
     if (!receipt) return;
     try {
       await navigator.clipboard.writeText(JSON.stringify(receipt.data));
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      if (copyTimerRef.current !== null) {
+        clearTimeout(copyTimerRef.current);
+      }
+      copyTimerRef.current = setTimeout(() => {
+        copyTimerRef.current = null;
+        setCopied(false);
+      }, 1500);
     } catch {
       // Non-critical convenience action — no error surfacing needed.
     }
