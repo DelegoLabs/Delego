@@ -45,4 +45,27 @@ describe("LedgerConnectionWizard", () => {
       expect(defaultProps.onConnected).toHaveBeenCalled();
     });
   });
+
+  it("traps keyboard focus and closes on Escape", () => {
+    render(<LedgerConnectionWizard {...defaultProps} />);
+
+    const closeButton = screen.getByRole("button", { name: "Close Ledger wizard" });
+    const pathInput = screen.getByRole("textbox");
+    const cancelButton = screen.getByRole("button", { name: "Cancel" });
+    const connectButton = screen.getByRole("button", { name: "Connect Ledger" });
+
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(pathInput).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(cancelButton).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(connectButton).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+  });
 });

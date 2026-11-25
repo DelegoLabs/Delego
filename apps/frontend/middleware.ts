@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { sanitizeRedirectUrl } from "./lib/redirect";
 import { securityHeaders } from "./lib/securityHeaders";
-
-
-export const AUTH_TOKEN_COOKIE = "delego_auth_token";
+import { AUTH_TOKEN_COOKIE } from "./lib/authSession";
 
 const PROTECTED_ROUTES = ["/delegations", "/orders", "/wallet", "/settings"];
 
@@ -52,7 +50,10 @@ export function middleware(request: NextRequest) {
   const loginUrl = new URL("/login", request.url);
   // Sanitised on the way out as well as in: the login page must still call
   // sanitizeRedirectUrl on what it reads back, since the user can edit the URL.
-  loginUrl.searchParams.set("returnTo", sanitizeRedirectUrl(pathname));
+  loginUrl.searchParams.set(
+    "returnTo",
+    sanitizeRedirectUrl(`${pathname}${request.nextUrl.search}`)
+  );
   return withSecurityHeaders(NextResponse.redirect(loginUrl));
 }
 

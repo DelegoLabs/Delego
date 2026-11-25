@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useLocale } from "next-intl";
 import { Button } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
 import { isTerminal } from "../../lib/orders";
@@ -9,9 +10,9 @@ import { OrderTrackingCard } from "../../components/orders/OrderTrackingCard";
 /** How often to re-fetch orders for near-real-time status updates. */
 const POLL_INTERVAL_MS = 15_000;
 
-function formatUpdated(date: Date | null): string {
+function formatUpdated(date: Date | null, locale: string): string {
   if (!date) return "—";
-  return date.toLocaleTimeString(undefined, {
+  return date.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -20,6 +21,7 @@ function formatUpdated(date: Date | null): string {
 
 /** Order tracking dashboard with live-polling status timelines. */
 export default function TrackingPage() {
+  const locale = useLocale();
   const { orders, loading, error, lastUpdated, refresh } = useOrders({
     pollIntervalMs: POLL_INTERVAL_MS,
   });
@@ -41,7 +43,7 @@ export default function TrackingPage() {
       <div className="tracking-toolbar">
         <span className="tracking-live" aria-live="polite">
           <span className="tracking-live-dot" aria-hidden="true" />
-          Live · updated {formatUpdated(lastUpdated)}
+          Live · updated {formatUpdated(lastUpdated, locale)}
         </span>
         <Button variant="secondary" onClick={() => refresh()} ariaLabel="Refresh now">
           Refresh

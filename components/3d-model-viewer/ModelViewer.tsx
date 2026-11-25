@@ -1,31 +1,23 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 export interface ModelViewerProps {
-  /** URL of the 3D model to display (e.g. a .glb or .gltf file). */
   src: string;
-  /** Optional alt text for accessibility. */
   alt?: string;
-  /** Optional CSS class name applied to the wrapping element. */
   className?: string;
-  /** Optional inline styles applied to the wrapping element. */
-  style?: React.CSSProperties;
-  /** Whether the model should auto-rotate. Defaults to false. */
   autoRotate?: boolean;
-  /** Whether camera controls (orbit, zoom, pan) are enabled. Defaults to true. */
   cameraControls?: boolean;
+  onLoad?: () => void;
+  onError?: (error: Event) => void;
 }
 
-/**
- * Renders a 3D model using the <model-viewer> web component.
- * The element is created on the client so it is safe to render during SSR.
- */
 export function ModelViewer({
   src,
   alt = "3D model",
   className,
-  style,
-  autoRotate = false,
+  autoRotate = true,
   cameraControls = true,
+  onLoad,
+  onError,
 }: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -36,6 +28,8 @@ export function ModelViewer({
     const el = document.createElement("model-viewer") as HTMLElement & {
       src?: string;
       alt?: string;
+      autoRotate?: boolean;
+      cameraControls?: boolean;
     };
     el.setAttribute("src", src);
     el.setAttribute("alt", alt);
@@ -44,22 +38,21 @@ export function ModelViewer({
     el.style.width = "100%";
     el.style.height = "100%";
 
+    const handleLoad = () => onLoad?.();
+    const handleError = (event: Event) => onError?.(event);
+    el.addEventListener("load", handleLoad);
+    el.addEventListener("error", handleError);
+
     container.appendChild(el);
 
     return () => {
-      container.removeChild(el);
+      el.removeEventListener("load", handleLoad);
+      el.removeEventListener("error", handleError);
+      el.remove();
     };
-  }, [src, alt, autoRotate, cameraControls]);
+  }, [src, alt, autoRotate, cameraControls, onLoad, onError]);
 
-  return (
-    <div
-      ref={containerRef}
-      className={className}
-      style={{ width: "100%", height: "100%", ...style }}
-      role="img"
-      aria-label={alt}
-    />
-  );
+  return <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />;
 }
 
 export default ModelViewer;

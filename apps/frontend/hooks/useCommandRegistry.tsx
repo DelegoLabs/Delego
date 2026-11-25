@@ -9,15 +9,13 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import type { IconComponent } from "@delegolabs/ui";
 
 export type CommandGroup = "navigate" | "actions";
 
 /** High-level grouping surfaced in the palette (Issue #2). */
 export type CommandPaletteCategory =
-  | "navigation"
-  | "orders"
-  | "merchants"
-  | "settings";
+  "navigation" | "orders" | "merchants" | "settings";
 
 /** Display labels for each palette category. */
 export const COMMAND_CATEGORY_LABELS: Record<CommandPaletteCategory, string> = {
@@ -45,7 +43,8 @@ export interface Command {
   id: string;
   label: string;
   subtitle?: string;
-  icon?: string;
+  /** Emoji or design-system icon shown before the label. */
+  icon?: string | IconComponent;
   /** Extra terms matched against the search query alongside the label */
   keywords?: string[];
   group: CommandGroup;
