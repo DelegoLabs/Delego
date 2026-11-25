@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   StoreAnnouncement,
@@ -34,11 +34,23 @@ export function StorefrontAnnouncementBar({
   const fingerprint = announcementFingerprint(announcement);
   const [dismissed, setDismissed] = useState(false);
   const [closing, setClosing] = useState(false);
+  const dismissTimer = useRef<ReturnType<typeof window.setTimeout> | null>(
+    null
+  );
 
   useEffect(() => {
     setDismissed(readDismissed(merchantId) === fingerprint);
     setClosing(false);
   }, [merchantId, fingerprint]);
+
+  useEffect(
+    () => () => {
+      if (dismissTimer.current !== null) {
+        window.clearTimeout(dismissTimer.current);
+      }
+    },
+    []
+  );
 
   if (dismissed) return null;
 
@@ -46,7 +58,13 @@ export function StorefrontAnnouncementBar({
     saveDismissed(merchantId, fingerprint);
     setClosing(true);
     // Let the collapse transition finish before removing the banner.
-    window.setTimeout(() => setDismissed(true), 200);
+    if (dismissTimer.current !== null) {
+      window.clearTimeout(dismissTimer.current);
+    }
+    dismissTimer.current = window.setTimeout(() => {
+      dismissTimer.current = null;
+      setDismissed(true);
+    }, 200);
   }
 
   return (

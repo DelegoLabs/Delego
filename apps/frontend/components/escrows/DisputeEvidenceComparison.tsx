@@ -4,14 +4,12 @@ import { useState } from "react";
 import { Card, Badge } from "@delegolabs/ui";
 import type { BadgeTone } from "@delegolabs/ui";
 import type { DisputeEvidenceBundle } from "../../types/dispute-evidence";
+import { apiFetch } from "../../lib/apiFetch";
 import { EvidenceLightbox } from "./EvidenceLightbox";
 import { ResolutionCountdown } from "./ResolutionCountdown";
-import { NetworkErrorBanner } from "../offline/NetworkErrorBanner";
 
 export interface DisputeEvidenceComparisonProps {
   evidence: DisputeEvidenceBundle;
-  resolutionDeadline?: string; // ISO timestamp
-  onRequestMoreEvidence?: () => void | Promise<void>;
 }
 
 const STATUS_TONE: Record<DisputeEvidenceBundle["status"], BadgeTone> = {
@@ -31,30 +29,11 @@ const STATUS_LABELS: Record<DisputeEvidenceBundle["status"], string> = {
  * counter-proofs. Supports fullscreen lightbox for high-res photo inspection
  * and displays resolution countdown clock.
  */
-export function DisputeEvidenceComparison({
-  evidence,
-  resolutionDeadline,
-  onRequestMoreEvidence,
-}: DisputeEvidenceComparisonProps) {
+export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceComparisonProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [lightboxTitle, setLightboxTitle] = useState<string>("");
-  const [evidenceRequestError, setEvidenceRequestError] = useState<string | null>(null);
-  const [isRequestingEvidence, setIsRequestingEvidence] = useState(false);
-
-  const handleRequestMoreEvidence = async () => {
-    if (!onRequestMoreEvidence) return;
-    setIsRequestingEvidence(true);
-    setEvidenceRequestError(null);
-    try {
-      await onRequestMoreEvidence();
-    } catch (err) {
-      setEvidenceRequestError(
-        err instanceof Error ? err.message : "Failed to request more evidence."
-      );
-    } finally {
-      setIsRequestingEvidence(false);
-    }
-  };
+  const [requestStatus, setRequestStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [requestError, setRequestError] = useState<string | null>(null);
 
   const openLightbox = (imageUrl: string, title: string) => {
     setLightboxImage(imageUrl);
@@ -66,16 +45,24 @@ export function DisputeEvidenceComparison({
     setLightboxTitle("");
   };
 
+  async function requestMoreEvidence() {
+    setRequestStatus("sending");
+    setRequestError(null);
+
+    try {
+      const res = await apiFetch(`/disputes/${encodeURIComponent(evidence.disputeId)}/request-evidence`, {
+        method: "POST",
+      });
+      if (res.error) throw new Error(res.error.message);
+      setRequestStatus("sent");
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Failed to request more evidence.");
+      setRequestStatus("error");
+    }
+  }
+
   return (
     <div className="dispute-evidence-comparison">
-      <NetworkErrorBanner
-        error={evidenceRequestError}
-        isRetrying={isRequestingEvidence}
-        onRetry={handleRequestMoreEvidence}
-        onDismiss={() => setEvidenceRequestError(null)}
-        contextLabel="escrow evidence"
-      />
-
       <div className="dispute-evidence-header">
         <div className="dispute-evidence-status">
           <h2>Dispute Evidence</h2>
@@ -83,8 +70,8 @@ export function DisputeEvidenceComparison({
             {STATUS_LABELS[evidence.status]}
           </Badge>
         </div>
-        {resolutionDeadline && evidence.status !== "settled" && (
-          <ResolutionCountdown deadline={resolutionDeadline} />
+        {evidence.resolutionDeadline && evidence.status !== "settled" && (
+          <ResolutionCountdown deadline={evidence.resolutionDeadline} />
         )}
       </div>
 
@@ -174,16 +161,30 @@ export function DisputeEvidenceComparison({
             ) : (
               <div className="dispute-no-response">
                 <p>Merchant has not yet provided a response.</p>
-                {onRequestMoreEvidence && evidence.status === "open" && (
-                  <button
-                    type="button"
-                    className="dispute-request-button"
-                    onClick={handleRequestMoreEvidence}
-                    disabled={isRequestingEvidence}
-                  >
-                    {isRequestingEvidence ? "Requesting..." : "Request Merchant Response"}
-                  </button>
-                )}
+                {evidence.status === "open" &&
+                  (requestStatus === "sent" ? (
+                    <p className="dispute-request-success" role="status">
+                      Merchant response requested.
+                    </p>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="dispute-request-button"
+                        disabled={requestStatus === "sending"}
+                        onClick={requestMoreEvidence}
+                      >
+                        {requestStatus === "sending"
+                          ? "Requesting..."
+                          : "Request Merchant Response"}
+                      </button>
+                      {requestError && (
+                        <p className="dispute-request-error" role="alert">
+                          {requestError}
+                        </p>
+                      )}
+                    </>
+                  ))}
               </div>
             )}
           </div>
@@ -361,6 +362,21 @@ export function DisputeEvidenceComparison({
         .dispute-request-button:focus {
           outline: 2px solid #2563eb;
           outline-offset: 2px;
+        }
+
+        .dispute-request-button:disabled {
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        .dispute-request-success {
+          margin: 0;
+          color: #15803d;
+        }
+
+        .dispute-request-error {
+          margin: 0;
+          color: #dc2626;
         }
 
         .dispute-verdict {

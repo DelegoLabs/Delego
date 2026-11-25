@@ -21,6 +21,30 @@ const envSchema = z
 
 export type Env = z.infer<typeof envSchema>;
 
+const DEVELOPMENT_API_URL = "http://localhost:3000";
+
+function isProduction(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+function parseRawEnv(raw: Record<string, unknown>): Env {
+  const apiUrl = raw.NEXT_PUBLIC_API_URL;
+  if (isProduction() && (typeof apiUrl !== "string" || apiUrl.trim() === "")) {
+    throw new Error(
+      "Missing NEXT_PUBLIC_API_URL. Set it to the Delego API gateway URL before starting or building in production."
+    );
+  }
+  if (apiUrl === undefined || apiUrl === null || apiUrl === "") {
+    if (!isProduction()) {
+      return envSchema.parse({
+        ...raw,
+        NEXT_PUBLIC_API_URL: DEVELOPMENT_API_URL,
+      });
+    }
+  }
+  return envSchema.parse(raw);
+}
+
 /**
  * Raw environment values for one read of `env`.
  *
@@ -53,9 +77,9 @@ function readRawEnv(): Record<string, unknown> {
   };
 }
 
-// Validate eagerly so a missing or malformed NEXT_PUBLIC_API_URL fails the
-// moment the app boots, not at some later property read.
-envSchema.parse(readRawEnv());
+// Missing configuration gets a development-only local API fallback. Production
+// remains strict and fails with an actionable configuration error.
+parseRawEnv(readRawEnv());
 
 /**
  * Validated environment, resolved on each property read rather than
@@ -73,17 +97,17 @@ export const env: Env = new Proxy({} as Env, {
     if (typeof property !== "string") {
       return undefined;
     }
-    return envSchema.parse(readRawEnv())[property];
+    return parseRawEnv(readRawEnv())[property];
   },
   has(_target, property) {
-    return typeof property === "string" && property in envSchema.parse(readRawEnv());
+    return typeof property === "string" && property in parseRawEnv(readRawEnv());
   },
   ownKeys() {
-    return Reflect.ownKeys(envSchema.parse(readRawEnv()));
+    return Reflect.ownKeys(parseRawEnv(readRawEnv()));
   },
   getOwnPropertyDescriptor(_target, property) {
     if (typeof property !== "string") return undefined;
-    const parsed = envSchema.parse(readRawEnv()) as Record<string, unknown>;
+    const parsed = parseRawEnv(readRawEnv()) as unknown as Record<string, unknown>;
     if (!(property in parsed)) return undefined;
     return { configurable: true, enumerable: true, value: parsed[property] };
   },

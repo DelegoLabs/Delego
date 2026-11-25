@@ -362,10 +362,9 @@ export function TaxEnabledCheckoutFlow({
  * Provides utilities for working with tax-enhanced orders.
  */
 export function useTaxEnabledOrder(baseOrder: Order, postalCode?: string) {
-  const enhancedOrder = postalCode 
+  const enhancedOrder: TaxEnhancedOrder = postalCode
     ? enhanceOrderWithTax(baseOrder, postalCode)
-    : baseOrder as TaxEnhancedOrder;
-
+    : baseOrder;
   const effectivePostalCode = getTaxPostalCode(enhancedOrder);
   
   // Calculate subtotal from line items

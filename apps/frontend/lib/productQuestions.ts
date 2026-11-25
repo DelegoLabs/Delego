@@ -22,6 +22,7 @@ export interface ProductQuestion {
   questionText: string;
   answers: ProductAnswer[];
   createdAt: string;
+  helpfulCount?: number;
 }
 
 function questionsUrl(productId: string): string {
@@ -74,6 +75,10 @@ function parseQuestion(value: unknown): ProductQuestion | null {
           .filter((answer): answer is ProductAnswer => answer !== null)
       : [],
     createdAt: typeof question.createdAt === "string" ? question.createdAt : "",
+    ...(typeof question.helpfulCount === "number" &&
+    Number.isFinite(question.helpfulCount)
+      ? { helpfulCount: question.helpfulCount }
+      : {}),
   };
 }
 

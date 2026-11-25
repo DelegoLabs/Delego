@@ -12,6 +12,7 @@ const HEALTH_RESPONSE = {
 
 function mockFetchOnce(body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({
+    ok: true,
     status: 200,
     json: async () => body,
   });
@@ -64,6 +65,41 @@ describe("api client", () => {
       expect.anything()
     );
   });
+
+  it.each([
+    {
+      status: 403,
+      statusText: "Forbidden",
+      body: { error: { code: "forbidden", message: "Access denied" } },
+      message: "Access denied",
+    },
+    {
+      status: 500,
+      statusText: "Internal Server Error",
+      body: { message: "Service unavailable" },
+      message: "Service unavailable",
+    },
+  ])(
+    "throws a structured API error for HTTP $status",
+    async ({ status, statusText, body, message }) => {
+      const { DelegoApiError, DelegoClient } = await import("@delegolabs/sdk");
+      const client = new DelegoClient({
+        fetch: vi.fn().mockResolvedValue(
+          new Response(JSON.stringify(body), { status, statusText })
+        ),
+      });
+      const request = client.request("/orders");
+
+      await expect(request).rejects.toMatchObject({
+        name: "DelegoApiError",
+        status,
+        statusText,
+        body,
+        message,
+      });
+      await expect(request).rejects.toBeInstanceOf(DelegoApiError);
+    }
+  );
 
   it("retries transient GET failures without retrying POST requests", async () => {
     vi.useFakeTimers();

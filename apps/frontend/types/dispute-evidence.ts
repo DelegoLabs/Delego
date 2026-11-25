@@ -9,6 +9,7 @@ export interface DisputeEvidenceBundle {
   merchantStatement?: string;
   merchantImages?: string[];
   arbitratorVerdict?: string;
+  resolutionDeadline?: string;
   status: "open" | "under_review" | "settled";
 }
 

@@ -49,17 +49,20 @@ export const DelegationSchema = z.object({
 });
 
 export const OrderStatusSchema = z.enum([
+  "draft",
   "pending",
   "pending_approval",
   "approved",
   "rejected",
-  "completed",
-  "failed",
-  "canceled",
-  "draft",
   "escrowed",
   "fulfilled",
   "settled",
+  "completed",
+  "failed",
+  "canceled",
+  "cancelled",
+  "disputed",
+  "awaiting_countersign",
 ]);
 
 export const OrderItemSchema = z.object({
@@ -68,6 +71,7 @@ export const OrderItemSchema = z.object({
   price: z.number().optional(),
   unitPriceStroops: z.union([z.number(), z.bigint()]).optional(),
   quantity: z.number(),
+  category: z.string().optional(),
 });
 
 export const TrackingEventSchema = z.object({
@@ -116,7 +120,8 @@ export const OrderSchema = z.object({
   packages: z.array(PackageTrackingInfoSchema).optional(),
   escrowContractId: z.string().nullable().optional(),
   giftOptions: z.lazy(() => GiftOptionsSchema).optional(),
-  metadata: z.record(z.any()).optional(),
+  category: z.string().nullable().optional(),
+  metadata: z.record(z.unknown()).optional(),
 });
 
 export const GiftOptionsSchema = z.object({
