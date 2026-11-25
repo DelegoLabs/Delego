@@ -102,6 +102,7 @@ export function WalletPicker({
                       href={wallet.installUrl}
                       target="_blank"
                       rel="noopener noreferrer"
+                      referrerPolicy="no-referrer"
                       style={{ whiteSpace: "nowrap" }}
                     >
                       Install {wallet.name}
