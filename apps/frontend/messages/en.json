@@ -308,5 +308,44 @@
       "title": "Wallet",
       "description": "Connect your Stellar wallet."
     }
+  },
+  "tracking": {
+    "page": {
+      "title": "Order Tracking",
+      "description": "Follow in-flight orders as their status updates in real time",
+      "live": "Live",
+      "updated": "updated {time}",
+      "refresh": "Refresh",
+      "refreshAriaLabel": "Refresh now",
+      "noActiveOrders": "No orders are currently in flight.",
+      "showCompleted": "Show completed ({count})",
+      "hideCompleted": "Hide completed ({count})",
+      "errorAriaLabel": "Error loading orders"
+    }
+  },
+  "orderTracking": {
+    "card": {
+      "title": "Order {orderId}",
+      "ariaLabel": "Tracking for order {orderId}",
+      "progressAriaLabel": "Order progress",
+      "packages": "Packages ({count})",
+      "packageTab": "Package {index} · {carrier}",
+      "deliveryProgress": "Delivery progress",
+      "packageProgressAriaLabel": "Package {index} delivery progress",
+      "merchant": "Merchant",
+      "total": "Total",
+      "escrow": "Escrow",
+      "notYetEscrowed": "Not yet escrowed",
+      "completed": "Completed",
+      "lastUpdate": "Last update",
+      "notProvided": "Not provided"
+    },
+    "status": {
+      "label_created": "Label created",
+      "in_transit": "In transit",
+      "out_for_delivery": "Out for delivery",
+      "delivered": "Delivered",
+      "exception": "Exception"
+    }
   }
 }

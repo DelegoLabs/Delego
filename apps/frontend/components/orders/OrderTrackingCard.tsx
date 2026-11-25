@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ActivityTimeline, Amount, Card } from "@delegolabs/ui";
 import { ShipmentTracker, type TrackingMilestone } from "@delegolabs/ui";
+import { useTranslations } from "next-intl";
 import type {
   Order,
   PackageTrackingInfo,
@@ -26,18 +27,20 @@ function formatTime(date: Date | string | undefined): string {
 
 /** Live-tracking card: lifecycle timeline plus the latest known order details. */
 export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
+  const t = useTranslations("orderTracking.card");
+  const tStatus = useTranslations("orderTracking.status");
   const settled = isTerminal(order);
   const { currencyId, rate } = useCurrency();
   const [selectedPackage, setSelectedPackage] = useState(0);
 
   return (
     <Card
-      title={`Order ${order.id}`}
-      ariaLabel={`Tracking for order ${order.id}`}
+      title={t("title", { orderId: order.id })}
+      ariaLabel={t("ariaLabel", { orderId: order.id })}
     >
       <ActivityTimeline
         events={orderToTimelineEvents(order)}
-        ariaLabel="Order progress"
+        ariaLabel={t("progressAriaLabel")}
       />
 
       {order.packages && order.packages.length > 0 && (
@@ -51,11 +54,11 @@ export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
 
       <dl className="wallet-detail-list">
         <div className="wallet-detail-row">
-          <dt>Merchant</dt>
+          <dt>{t("merchant")}</dt>
           <dd>{order.merchantId}</dd>
         </div>
         <div className="wallet-detail-row">
-          <dt>Total</dt>
+          <dt>{t("total")}</dt>
           <dd>
             <Amount
               stroops={order.totalStroops}
@@ -65,11 +68,11 @@ export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
           </dd>
         </div>
         <div className="wallet-detail-row">
-          <dt>Escrow</dt>
-          <dd>{order.escrowContractId ?? "Not yet escrowed"}</dd>
+          <dt>{t("escrow")}</dt>
+          <dd>{order.escrowContractId ?? t("notYetEscrowed")}</dd>
         </div>
         <div className="wallet-detail-row">
-          <dt>{settled ? "Completed" : "Last update"}</dt>
+          <dt>{settled ? t("completed") : t("lastUpdate")}</dt>
           <dd>{formatTime(order.updatedAt)}</dd>
         </div>
       </dl>
@@ -84,10 +87,8 @@ const PACKAGE_STAGES: TrackingStatus[] = [
   "delivered",
 ];
 
-function statusLabel(status: TrackingStatus): string {
-  return status
-    .replace(/_/g, " ")
-    .replace(/^./, (letter) => letter.toUpperCase());
+function statusLabel(status: TrackingStatus, tStatus: ReturnType<typeof useTranslations>): string {
+  return tStatus(status);
 }
 
 interface PackageTrackingTabsProps {
@@ -103,6 +104,8 @@ function PackageTrackingTabs({
   selectedIndex,
   onSelect,
 }: PackageTrackingTabsProps) {
+  const t = useTranslations("orderTracking.card");
+  const tStatus = useTranslations("orderTracking.status");
   const activeIndex = Math.min(selectedIndex, packages.length - 1);
   const selected = packages[activeIndex];
   const latestKnownStage = [...selected.events]
@@ -130,7 +133,7 @@ function PackageTrackingTabs({
       className="mt-6 border-t border-gray-200 pt-5"
     >
       <h3 className="mb-3 text-base font-semibold">
-        Packages ({packages.length})
+        {t("packages", { count: packages.length })}
       </h3>
       <div
         role="tablist"
@@ -166,7 +169,7 @@ function PackageTrackingTabs({
             }}
             className="rounded-md border px-3 py-2 text-sm aria-selected:border-blue-600 aria-selected:bg-blue-50 aria-selected:text-blue-800"
           >
-            Package {index + 1} · {pkg.carrierName}
+            {t("packageTab", { index: index + 1, carrier: pkg.carrierName })}
           </button>
         ))}
       </div>
@@ -178,16 +181,16 @@ function PackageTrackingTabs({
       >
         <div>
           <div className="mb-2 flex justify-between gap-4 text-sm">
-            <span>Delivery progress</span>
-            <span aria-live="polite">{statusLabel(selected.status)}</span>
+            <span>{t("deliveryProgress")}</span>
+            <span aria-live="polite">{statusLabel(selected.status, tStatus)}</span>
           </div>
           <div
             role="progressbar"
-            aria-label={`Package ${activeIndex + 1} delivery progress`}
+            aria-label={t("packageProgressAriaLabel", { index: activeIndex + 1 })}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={progress}
-            aria-valuetext={statusLabel(selected.status)}
+            aria-valuetext={statusLabel(selected.status, tStatus)}
             className="h-2 overflow-hidden rounded-full bg-gray-200"
           >
             <div
@@ -197,7 +200,7 @@ function PackageTrackingTabs({
           </div>
           <ol className="mt-2 flex justify-between gap-2 text-xs text-gray-600">
             {PACKAGE_STAGES.map((stage) => (
-              <li key={stage}>{statusLabel(stage)}</li>
+              <li key={stage}>{statusLabel(stage, tStatus)}</li>
             ))}
           </ol>
         </div>
@@ -205,7 +208,7 @@ function PackageTrackingTabs({
           carrier={selected.carrierName}
           trackingNumber={selected.trackingNumber}
           milestones={milestones}
-          estimatedDelivery={selected.estimatedDelivery ?? "Not provided"}
+          estimatedDelivery={selected.estimatedDelivery ?? t("notProvided")}
         />
       </div>
     </section>

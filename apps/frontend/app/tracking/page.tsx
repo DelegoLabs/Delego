@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@delegolabs/ui";
+import { useTranslations } from "next-intl";
 import { useOrders } from "../../hooks/useOrders";
 import { isTerminal } from "../../lib/orders";
 import { OrderTrackingCard } from "../../components/orders/OrderTrackingCard";
@@ -20,6 +21,7 @@ function formatUpdated(date: Date | null): string {
 
 /** Order tracking dashboard with live-polling status timelines. */
 export default function TrackingPage() {
+  const t = useTranslations("tracking.page");
   const { orders, loading, error, lastUpdated, refresh } = useOrders({
     pollIntervalMs: POLL_INTERVAL_MS,
   });
@@ -34,22 +36,26 @@ export default function TrackingPage() {
   return (
     <div className="settings-page">
       <header className="header">
-        <h1>Order Tracking</h1>
-        <p>Follow in-flight orders as their status updates in real time</p>
+        <h1>{t("title")}</h1>
+        <p>{t("description")}</p>
       </header>
 
       <div className="tracking-toolbar">
         <span className="tracking-live" aria-live="polite">
           <span className="tracking-live-dot" aria-hidden="true" />
-          Live · updated {formatUpdated(lastUpdated)}
+          {t("live")} · {t("updated", { time: formatUpdated(lastUpdated) })}
         </span>
-        <Button variant="secondary" onClick={() => refresh()} ariaLabel="Refresh now">
-          Refresh
+        <Button
+          variant="secondary"
+          onClick={() => refresh()}
+          aria-label={t("refreshAriaLabel")}
+        >
+          {t("refresh")}
         </Button>
       </div>
 
       {error && (
-        <div className="settings-status error" role="alert">
+        <div className="settings-status error" role="alert" aria-label={t("errorAriaLabel")}>
           {error}
         </div>
       )}
@@ -69,7 +75,7 @@ export default function TrackingPage() {
         </section>
       ) : active.length === 0 ? (
         <div className="card">
-          <p>No orders are currently in flight.</p>
+          <p>{t("noActiveOrders")}</p>
         </div>
       ) : (
         <div className="grid">
@@ -87,7 +93,9 @@ export default function TrackingPage() {
               onClick={() => setShowCompleted((v) => !v)}
               aria-expanded={showCompleted}
             >
-              {showCompleted ? "Hide" : "Show"} completed ({completed.length})
+              {showCompleted
+                ? t("hideCompleted", { count: completed.length })
+                : t("showCompleted", { count: completed.length })}
             </Button>
           </div>
           {showCompleted && (

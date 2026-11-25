@@ -1,8 +1,12 @@
+// @vitest-environment jsdom
+
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
 import type { Order } from "@delegolabs/types";
 import { CurrencyProvider } from "../../hooks/useCurrency";
 import { OrderTrackingCard } from "./OrderTrackingCard";
+import enMessages from "../../messages/en.json";
 
 const order: Order = {
   id: "order-17",
@@ -51,13 +55,23 @@ const order: Order = {
   ],
 };
 
-describe("OrderTrackingCard multi-package tracking", () => {
-  it("shows separate package tabs, progress, events, and carrier links", () => {
-    render(
+function renderCard() {
+  return render(
+    <NextIntlClientProvider locale="en" messages={enMessages}>
       <CurrencyProvider>
         <OrderTrackingCard order={order} />
       </CurrencyProvider>
-    );
+    </NextIntlClientProvider>
+  );
+}
+
+describe("OrderTrackingCard multi-package tracking", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows separate package tabs, progress, events, and carrier links", () => {
+    renderCard();
 
     expect(
       screen.getByRole("tablist", { name: "Order packages" })
@@ -89,5 +103,43 @@ describe("OrderTrackingCard multi-package tracking", () => {
       "aria-valuetext",
       "Delivered"
     );
+  });
+
+  it("renders translated card title and aria labels", () => {
+    renderCard();
+    expect(screen.getByText("Order order-17")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tracking for order order-17" })).toBeInTheDocument();
+  });
+
+  it("renders translated package section heading", () => {
+    renderCard();
+    expect(screen.getByText("Packages (2)")).toBeInTheDocument();
+  });
+
+  it("renders translated detail labels", () => {
+    renderCard();
+    expect(screen.getByText("Merchant")).toBeInTheDocument();
+    expect(screen.getByText("Total")).toBeInTheDocument();
+    expect(screen.getByText("Escrow")).toBeInTheDocument();
+    expect(screen.getByText("Completed")).toBeInTheDocument();
+  });
+
+  it("renders translated status labels", () => {
+    renderCard();
+    expect(screen.getByText("Label created")).toBeInTheDocument();
+    expect(screen.getByText("In transit")).toBeInTheDocument();
+    expect(screen.getByText("Out for delivery")).toBeInTheDocument();
+    expect(screen.getByText("Delivered")).toBeInTheDocument();
+  });
+
+  it("renders translated delivery progress and progress bar labels", () => {
+    renderCard();
+    expect(screen.getByText("Delivery progress")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Package 1 delivery progress" })).toBeInTheDocument();
+  });
+
+  it("renders 'Not provided' for missing estimated delivery", () => {
+    renderCard();
+    expect(screen.getByText("Not provided")).toBeInTheDocument();
   });
 });
