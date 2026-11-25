@@ -279,6 +279,33 @@
     "description": "The page you're looking for doesn't exist.",
     "goHome": "Go home"
   },
+  "escrows": {
+    "pageTitle": "Escrows",
+    "pageDescription": "Track your active escrow agreements and monitor fund status on-chain.",
+    "filters": {
+      "searchPlaceholder": "Search by escrow, order, buyer, or seller",
+      "searchAriaLabel": "Search escrows",
+      "filterByStatus": "Filter by status"
+    },
+    "status": {
+      "Funded": "Funded",
+      "Released": "Released",
+      "Refunded": "Refunded",
+      "Disputed": "Disputed"
+    },
+    "loading": "Loading escrows",
+    "error": {
+      "title": "Unable to load escrows",
+      "tryAgain": "Try again"
+    },
+    "empty": {
+      "noEscrows": "No active escrows",
+      "noEscrowsDescription": "Escrow agreements will appear here once your agents initiate purchases on your behalf.",
+      "noResults": "No escrows match the current filters",
+      "noResultsDescription": "Try adjusting your search or status filters."
+    },
+    "list": "Escrow list"
+  },
   "home": {
     "title": "Delego",
     "subtitle": "AI commerce with approval and spending controls",
