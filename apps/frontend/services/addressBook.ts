@@ -15,8 +15,58 @@
  *   characters. A distance of exactly 0 means it's an exact match (safe).
  */
 
+import { StrKey } from "@stellar/stellar-sdk/base";
 import type { NetworkId } from "../lib/networks";
+import { downloadCsv, toCsv } from "../lib/csv";
 import { downloadBlob } from "../lib/download";
+
+export type AddressMemoType = "text" | "id" | "hash" | "return";
+
+const FEDERATION_ADDRESS_RE =
+  /^[A-Za-z0-9._-]{1,64}\*(?:(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)\.)+[A-Za-z]{2,63}$/;
+const HEX_MEMO_RE = /^[0-9a-fA-F]{64}$/;
+
+/** Returns true for a Stellar account ID or a syntactically valid federation address. */
+export function isValidStellarAddress(address: string): boolean {
+  const value = address.trim();
+  return (
+    StrKey.isValidEd25519PublicKey(value) || FEDERATION_ADDRESS_RE.test(value)
+  );
+}
+
+/** Returns true for a federation address before any optional server lookup. */
+export function isValidFederationAddress(address: string): boolean {
+  return FEDERATION_ADDRESS_RE.test(address.trim());
+}
+
+/** Returns an explanatory error, or null when the optional memo is valid. */
+export function validateMemo(
+  memo: string,
+  memoType: AddressMemoType = "text"
+): string | null {
+  const value = memo.trim();
+  if (!value) return null;
+  if (memoType === "text") {
+    if (new TextEncoder().encode(value).length > 28) {
+      return "Text memos must be at most 28 bytes.";
+    }
+    return null;
+  }
+  if (memoType === "id") {
+    if (!/^\d+$/.test(value)) return "ID memos must contain only digits.";
+    try {
+      if (BigInt(value) > 18446744073709551615n) {
+        return "ID memos must fit in an unsigned 64-bit integer.";
+      }
+    } catch {
+      return "ID memos must contain only digits.";
+    }
+    return null;
+  }
+  return HEX_MEMO_RE.test(value)
+    ? null
+    : `${memoType === "hash" ? "Hash" : "Return"} memos must be 32-byte hexadecimal values.`;
+}
 
 export interface AddressEntry {
   id: string; // uuid-ish — Date.now() + random hex
@@ -24,6 +74,10 @@ export interface AddressEntry {
   address: string;
   network: NetworkId;
   notes: string;
+  /** Optional memo to use with this contact; omitted on legacy entries. */
+  memo?: string;
+  /** Memo encoding; omitted legacy entries are treated as text. */
+  memoType?: AddressMemoType;
   /** Manual flag; can be supplemented by TOML/on-chain verification (future). */
   verified: boolean;
   createdAt: string; // ISO-8601
@@ -134,6 +188,7 @@ export function searchAddressBook(
     (e) =>
       e.label.toLowerCase().includes(q) ||
       e.address.toLowerCase().includes(q) ||
+      e.memo?.toLowerCase().includes(q) ||
       e.notes.toLowerCase().includes(q)
   );
 }
@@ -147,6 +202,36 @@ export function exportAddressBook(networkId: NetworkId): void {
     type: "application/json",
   });
   downloadBlob(`delego-address-book-${networkId}-${Date.now()}.json`, blob);
+}
+
+/** Export the address book for a network as an RFC 4180 CSV file. */
+export function exportAddressBookCsv(networkId: NetworkId): void {
+  const entries = loadEntries(networkId);
+  const csv = toCsv(
+    [
+      "Label",
+      "Address",
+      "Memo type",
+      "Memo",
+      "Notes",
+      "Verified",
+      "Network",
+      "Created at",
+      "Updated at",
+    ],
+    entries.map((entry) => [
+      entry.label,
+      entry.address,
+      entry.memoType ?? "",
+      entry.memo ?? "",
+      entry.notes,
+      entry.verified ? "true" : "false",
+      entry.network,
+      entry.createdAt,
+      entry.updatedAt,
+    ])
+  );
+  downloadCsv(`delego-address-book-${networkId}-${Date.now()}.csv`, csv);
 }
 
 /**

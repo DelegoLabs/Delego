@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { DisputeWizard } from "./DisputeWizard";
 
 const mockScrub = vi.fn();
@@ -60,6 +60,7 @@ function goToReview(withPhoto = true) {
 
 describe("DisputeWizard (#783)", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     let counter = 0;
     URL.createObjectURL = vi.fn(() => `blob:preview-${++counter}`);
     URL.revokeObjectURL = vi.fn();
@@ -161,5 +162,73 @@ describe("DisputeWizard (#783)", () => {
     render(<DisputeWizard isOpen onSubmit={vi.fn()} onClose={onClose} />);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a draft-saved timestamp and persists edits for the escrow", async () => {
+    render(<DisputeWizard isOpen escrowId="escrow-a" onSubmit={vi.fn()} onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText("Item arrived damaged"));
+
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent(/^Draft saved at \d{1,2}:\d{2}$/);
+    const stored = JSON.parse(
+      window.sessionStorage.getItem("delego_dispute_wizard_draft:escrow-a") ?? "null"
+    );
+    expect(stored).toMatchObject({ reason: "damaged", description: "", requestedOutcome: null });
+    expect(Number.isFinite(Date.parse(stored.savedAt))).toBe(true);
+    expect(status.querySelector("time")).toHaveAttribute("datetime", stored.savedAt);
+  });
+
+  it("restores a saved draft with its timestamp", async () => {
+    window.sessionStorage.setItem(
+      "delego_dispute_wizard_draft:escrow-a",
+      JSON.stringify({
+        reason: "not_as_described",
+        description: "Wrong colour",
+        requestedOutcome: "full_refund",
+        savedAt: "2026-11-24T12:34:56.000Z",
+      })
+    );
+
+    render(<DisputeWizard isOpen escrowId="escrow-a" onSubmit={vi.fn()} onClose={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByLabelText("Item not as described")).toBeChecked());
+    expect(screen.getByRole("status")).toHaveTextContent(/^Draft saved at \d{1,2}:\d{2}$/);
+    expect(screen.getByRole("status").querySelector("time")).toHaveAttribute(
+      "datetime",
+      "2026-11-24T12:34:56.000Z"
+    );
+  });
+
+  it("renders a read-only review summary of all prior steps", () => {
+    render(<DisputeWizard isOpen onSubmit={vi.fn()} onClose={vi.fn()} />);
+    goToReview();
+
+    const summary = screen.getByTestId("dispute-review-summary");
+    expect(within(summary).getByText("Reason")).toBeInTheDocument();
+    expect(within(summary).getByText("Item arrived damaged")).toBeInTheDocument();
+    expect(within(summary).getByText("Description")).toBeInTheDocument();
+    expect(within(summary).getByText(DESCRIPTION)).toBeInTheDocument();
+    expect(within(summary).getByText("Photos")).toBeInTheDocument();
+    expect(within(summary).getByText("crack.png")).toBeInTheDocument();
+    expect(within(summary).getByText("Requested outcome")).toBeInTheDocument();
+    expect(within(summary).getByText("Replacement")).toBeInTheDocument();
+    expect(within(summary).queryByRole("textbox")).toBeNull();
+    expect(within(summary).queryByRole("radio")).toBeNull();
+  });
+
+  it("clears the persisted draft after a successful submission", async () => {
+    const onSubmit = vi.fn().mockResolvedValue({ id: "d1" });
+    render(<DisputeWizard isOpen escrowId="escrow-a" onSubmit={onSubmit} onClose={vi.fn()} />);
+    goToReview();
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit dispute" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "What went wrong?" })).toBeInTheDocument()
+    );
+
+    expect(window.sessionStorage.getItem("delego_dispute_wizard_draft:escrow-a")).toBeNull();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

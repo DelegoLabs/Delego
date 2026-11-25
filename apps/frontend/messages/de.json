@@ -32,6 +32,14 @@
     "primaryNavigation": "Hauptnavigation",
     "skipToContent": "Zum Hauptinhalt springen"
   },
+  "mobileBottomNav": {
+    "ariaLabel": "Mobile Navigation",
+    "store": "Shop",
+    "orders": "Bestellungen",
+    "cart": "Warenkorb",
+    "cartWithCount": "{count, plural, one {Warenkorb, # Artikel} other {Warenkorb, # Artikel}}",
+    "copilot": "Copilot"
+  },
   "footer": {
     "copyright": "© {year} Delego",
     "navigationLabel": "Rechtliche Hinweise und Dienste",

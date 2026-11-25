@@ -1,4 +1,9 @@
-import type { LabelHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import {
+  useId,
+  type LabelHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+} from "react";
 
 /** Props accepted by the shared form-field wrapper. */
 export interface FormFieldProps extends Omit<
@@ -31,8 +36,8 @@ export function FormField({
   required,
   ...props
 }: FormFieldProps) {
-  const inputId =
-    inputProps.id || `field-${Math.random().toString(36).slice(2, 9)}`;
+  const generatedId = useId();
+  const inputId = inputProps.id || `field-${generatedId}`;
   const hintId = `${inputId}-hint`;
   const errorId = `${inputId}-error`;
 

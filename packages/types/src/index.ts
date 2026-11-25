@@ -204,7 +204,7 @@ export interface Order {
   /** Metadata payload associated with the order. */
   metadata?: {
     giftOptions?: GiftOptions;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   /**
    * Product category the order was placed in (#989). Optional — orders
@@ -212,7 +212,7 @@ export interface Order {
    * analytics fall back to the first line item's category (see
    * `orderCategory` in the web app).
    */
-  category?: string;
+  category?: string | null;
   createdAt: Date | string;
   updatedAt?: Date | string;
 }
