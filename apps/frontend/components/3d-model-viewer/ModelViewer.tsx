@@ -101,7 +101,7 @@ export function ModelViewer({
       {!posterImageUrl && !webglError && (
         // @ts-ignore - model-viewer web component type not recognized
         <model-viewer
-          ref={(el) => {
+          ref={(el: Element | null) => {
             if (el) modelViewerRef.current = el;
           }}
           src={modelUrl}

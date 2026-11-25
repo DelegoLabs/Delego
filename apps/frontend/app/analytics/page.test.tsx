@@ -22,7 +22,10 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-vi.mock("next-intl", () => ({ useLocale: () => "en" }));
+vi.mock("next-intl", () => ({
+  useLocale: () => "en",
+  useTranslations: () => (key: string) => key,
+}));
 
 vi.mock("../../components/analytics/AnalyticsDashboard", () => ({
   AnalyticsDashboard: ({ range }: { range: string }) => (

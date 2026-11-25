@@ -25,7 +25,7 @@ import { AgentSettingsCard } from "../../components/settings/AgentSettingsCard";
 import { SpendVelocityGauge } from "../../components/settings/SpendVelocityGauge";
 import { useUserProfile, useSaveUserProfile } from "../../hooks/useUserProfile";
 import { useAgentConfig } from "../../hooks/useAgentConfig";
-import type { CategoryBudgetAllocation } from "../../components/settings/CategoryBudgetAllocationCard";
+import { useCategoryBudgets } from "../../hooks/useCategoryBudgets";
 
 /**
  * Secondary settings cards are code-split so their JavaScript only loads once
@@ -68,19 +68,6 @@ const KillSwitchCard = dynamic(
   () => import("../../components/settings/KillSwitchCard").then((m) => m.KillSwitchCard)
 );
 
-/**
- * Placeholder category budget allocations until the API exposes a budget
- * allocation endpoint. TODO: replace with a `useCategoryBudgets` hook once
- * that read endpoint exists in @delegolabs/sdk.
- */
-const PLACEHOLDER_CATEGORY_BUDGETS: CategoryBudgetAllocation[] = [
-  { category: "Groceries", monthlyLimitStroops: 500000000n, currentSpentStroops: 320000000n },
-  { category: "Dining", monthlyLimitStroops: 300000000n, currentSpentStroops: 285000000n },
-  { category: "Transport", monthlyLimitStroops: 200000000n, currentSpentStroops: 90000000n },
-  { category: "Entertainment", monthlyLimitStroops: 150000000n, currentSpentStroops: 40000000n },
-  { category: "Utilities", monthlyLimitStroops: 250000000n, currentSpentStroops: 110000000n },
-];
-
 /** Fetches active delegation count from the delegations endpoint. */
 function useDelegations() {
   const [activeCount, setActiveCount] = useState<number | null>(null);
@@ -110,33 +97,6 @@ function useDelegations() {
   }, []);
 
   return { activeCount, isLoading };
-}
-
-/** Fetches category budget allocations from the budgets endpoint. */
-function useCategoryBudgets() {
-  const [budgets, setBudgets] = useState<CategoryBudgetAllocation[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchBudgets() {
-      try {
-        const response = await fetch("/api/v1/budgets");
-        if (!response.ok) {
-          throw new Error("Failed to fetch budgets");
-        }
-        const data = await response.json();
-        setBudgets(data.budgets ?? []);
-      } catch {
-        // API not available, return null to use placeholder
-        setBudgets(null);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchBudgets();
-  }, []);
-
-  return { budgets, isLoading };
 }
 
 /** Props for the emergency delegation kill-switch modal. */
@@ -261,13 +221,17 @@ function KillSwitchModal({
 
 /** Settings page that owns local profile and preference state. */
 export default function SettingsPage() {
-  const { user, preferences, isLoading: userLoading, error: userError } = useUserProfile();
+  const { user, preferences } = useUserProfile();
   const { config: agentConfig } = useAgentConfig();
   const { saveUser, savePreferences } = useSaveUserProfile();
   const [isKillSwitchOpen, setIsKillSwitchOpen] = useState(false);
-  const [categoryBudgets, setCategoryBudgets] = useState<CategoryBudgetAllocation[]>(
-    PLACEHOLDER_CATEGORY_BUDGETS
-  );
+  const {
+    budgets: categoryBudgets,
+    isLoading: categoryBudgetsLoading,
+    error: categoryBudgetsError,
+    refresh: refreshCategoryBudgets,
+    saveBudgets: saveCategoryBudgets,
+  } = useCategoryBudgets();
   const [localUser, setLocalUser] = useState<User>(user);
   const [localPreferences, setLocalPreferences] = useState<UserPreferences>(preferences);
 
@@ -279,13 +243,8 @@ export default function SettingsPage() {
 
   // Wire real data hooks
   const { activeCount: activeDelegationCount } = useDelegations();
-  const { budgets: categoryBudgetData } = useCategoryBudgets();
-
-  // Use real data when available, fallback to placeholder
   const effectiveDelegationCount =
     activeDelegationCount !== null ? activeDelegationCount : 3;
-  const effectiveCategoryBudgets =
-    categoryBudgetData !== null ? categoryBudgetData : PLACEHOLDER_CATEGORY_BUDGETS;
 
   const handleSaveProfile = async (values: ProfileFormValues) => {
     const updated = { ...localUser, ...values, updatedAt: new Date() };
@@ -307,11 +266,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveCategoryBudgets = async (
-    allocations: CategoryBudgetAllocation[]
-  ) => {
-    setCategoryBudgets(allocations);
-  };
   const handleConfirmRevokeAll = async () => {
     setIsKillSwitchOpen(false);
   };
@@ -380,10 +334,31 @@ export default function SettingsPage() {
       <MaxFeeCapCard />
       <ChatAudioSettingsCard />
       <NetworkContractsCard />
-      <CategoryBudgetAllocationCard
-        allocations={effectiveCategoryBudgets}
-        onSave={handleSaveCategoryBudgets}
-      />
+      {categoryBudgetsLoading ? (
+        <p role="status" aria-live="polite">
+          Loading category budgets…
+        </p>
+      ) : (
+        <>
+          {categoryBudgetsError ? (
+            <div role="alert" style={{ marginBottom: "0.75rem" }}>
+              <p style={{ color: "#b91c1c", marginBottom: "0.5rem" }}>
+                Couldn&apos;t load category budgets: {categoryBudgetsError}
+              </p>
+              <Button
+                variant="secondary"
+                onClick={() => void refreshCategoryBudgets()}
+              >
+                Retry
+              </Button>
+            </div>
+          ) : null}
+          <CategoryBudgetAllocationCard
+            allocations={categoryBudgets}
+            onSave={saveCategoryBudgets}
+          />
+        </>
+      )}
       <AgentSettingsCard config={agentConfig} />
       <AgentUserPreferencesList />
       <MerchantWebhookCard />

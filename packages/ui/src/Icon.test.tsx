@@ -1,6 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
-import { Icon } from "./Icon";
+import {
+  Icon,
+  HomeIcon,
+  DelegationsIcon,
+  OrdersIcon,
+  ApprovalsIcon,
+  ApprovalsPendingIcon,
+  ApprovalsHistoryIcon,
+  TrackingIcon,
+  AnalyticsIcon,
+  WalletIcon,
+  SettingsIcon,
+  StoreIcon,
+  CartIcon,
+  AgentIcon,
+  type IconComponent,
+} from "./Icon";
 
 describe("Icon", () => {
   it("renders an svg with a 24x24 box by default", () => {
@@ -42,9 +58,9 @@ describe("Icon", () => {
 
   it("reserves layout space by default and can opt out", () => {
     const reserved = render(<Icon />).container.querySelector("svg")!;
-    const notReserved = render(<Icon reserveLayoutSpace={false} />).container.querySelector(
-      "svg",
-    )!;
+    const notReserved = render(
+      <Icon reserveLayoutSpace={false} />,
+    ).container.querySelector("svg")!;
 
     expect(reserved.style.display).toBe("inline-block");
     expect(notReserved.style.display).toBe("");
@@ -58,7 +74,9 @@ describe("Icon", () => {
   });
 
   it("forwards extra svg props to the element", () => {
-    const { container } = render(<Icon className="icon--close" focusable="false" />);
+    const { container } = render(
+      <Icon className="icon--close" focusable="false" />,
+    );
     const svg = container.querySelector("svg")!;
 
     expect(svg.getAttribute("class")).toBe("icon--close");
@@ -72,6 +90,53 @@ describe("Icon", () => {
       </Icon>,
     );
 
-    expect(container.querySelector('[data-testid="artwork"]')).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-testid="artwork"]'),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("navigation icons", () => {
+  const navigationIcons: Array<[string, IconComponent]> = [
+    ["HomeIcon", HomeIcon],
+    ["DelegationsIcon", DelegationsIcon],
+    ["OrdersIcon", OrdersIcon],
+    ["ApprovalsIcon", ApprovalsIcon],
+    ["ApprovalsPendingIcon", ApprovalsPendingIcon],
+    ["ApprovalsHistoryIcon", ApprovalsHistoryIcon],
+    ["TrackingIcon", TrackingIcon],
+    ["AnalyticsIcon", AnalyticsIcon],
+    ["WalletIcon", WalletIcon],
+    ["SettingsIcon", SettingsIcon],
+    ["StoreIcon", StoreIcon],
+    ["CartIcon", CartIcon],
+    ["AgentIcon", AgentIcon],
+  ];
+
+  it.each(navigationIcons)(
+    "%s renders svg artwork that is hidden from assistive tech",
+    (_name, NavIcon) => {
+      const { container } = render(<NavIcon />);
+      const svg = container.querySelector("svg")!;
+
+      expect(svg).toBeInTheDocument();
+      expect(svg.getAttribute("viewBox")).toBe("0 0 24 24");
+      expect(svg.getAttribute("aria-hidden")).toBe("true");
+      expect(
+        svg.querySelectorAll("path, circle, rect, polyline").length,
+      ).toBeGreaterThan(0);
+    },
+  );
+
+  it("accepts the same size and styling props as the base Icon", () => {
+    const { container } = render(
+      <HomeIcon size={16} className="nav-icon--home" ariaLabel="Home" />,
+    );
+    const svg = container.querySelector("svg")!;
+
+    expect(svg.getAttribute("width")).toBe("16");
+    expect(svg.getAttribute("height")).toBe("16");
+    expect(svg.getAttribute("class")).toBe("nav-icon--home");
+    expect(svg.getAttribute("aria-label")).toBe("Home");
   });
 });

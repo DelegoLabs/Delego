@@ -15,11 +15,13 @@ import * as Sentry from "@sentry/nextjs";
  */
 export function WebVitalsReporter() {
   useReportWebVitals((metric) => {
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV === "development") {
       // eslint-disable-next-line no-console -- intentional dev-only vitals feedback
       console.log(`[web-vitals] ${metric.name}`, metric.value, metric);
       return;
     }
+
+    if (process.env.NODE_ENV !== "production") return;
 
     Sentry.setMeasurement(
       metric.name,

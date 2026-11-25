@@ -61,6 +61,74 @@ export function createEmptyDisputeFormDraft(): DisputeFormDraft {
   return { reason: null, description: "", photoFiles: [], requestedOutcome: null };
 }
 
+/** Serializable subset of the wizard draft kept in sessionStorage (#1227). */
+export interface DisputeWizardPersistedDraft {
+  reason: DisputeWizardReason | null;
+  description: string;
+  requestedOutcome: DisputeWizardOutcome | null;
+  savedAt?: string;
+}
+
+/** File objects cannot be persisted; photos must be re-attached after refresh. */
+export function toPersistedDisputeDraft(
+  draft: Pick<DisputeFormDraft, "reason" | "description" | "requestedOutcome">,
+  savedAt?: string
+): DisputeWizardPersistedDraft {
+  return {
+    reason: draft.reason,
+    description: draft.description,
+    requestedOutcome: draft.requestedOutcome,
+    savedAt,
+  };
+}
+
+/** Rebuilds an in-memory form draft from validated persisted fields. */
+export function toDisputeFormDraft(
+  persisted: DisputeWizardPersistedDraft
+): DisputeFormDraft {
+  return {
+    reason: persisted.reason,
+    description: persisted.description,
+    requestedOutcome: persisted.requestedOutcome,
+    photoFiles: [],
+  };
+}
+
+function isSavedAt(value: unknown): value is string {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+/** Local HH:MM label for the saved-indicator's machine-readable timestamp. */
+export function formatDisputeDraftSavedTime(savedAt: string): string {
+  const date = new Date(savedAt);
+  if (!Number.isFinite(date.getTime())) return "";
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+/** Guards values read back from sessionStorage against corrupt/foreign data. */
+export function normalizeDisputeWizardPersistedDraft(
+  value: unknown
+): DisputeWizardPersistedDraft | null {
+  if (typeof value !== "object" || value === null) return null;
+  const candidate = value as Partial<DisputeWizardPersistedDraft>;
+  if (candidate.reason !== null && !isReason(candidate.reason)) return null;
+  if (candidate.requestedOutcome !== null && !isOutcome(candidate.requestedOutcome)) {
+    return null;
+  }
+  if (typeof candidate.description !== "string") return null;
+
+  return {
+    reason: candidate.reason ?? null,
+    description: candidate.description,
+    requestedOutcome: candidate.requestedOutcome ?? null,
+    ...(isSavedAt(candidate.savedAt) ? { savedAt: candidate.savedAt } : {}),
+  };
+}
+
 function isReason(value: unknown): value is DisputeWizardReason {
   return (DISPUTE_WIZARD_REASONS as readonly unknown[]).includes(value);
 }
