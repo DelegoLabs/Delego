@@ -19,19 +19,77 @@ function formatUpdated(date: Date | null, locale: string): string {
   });
 }
 
+/**
+ * Collect every unique carrier name appearing across all packages in the
+ * given order list, returned in sorted order. Orders without packages are
+ * represented by the synthetic "No carrier" label so they still appear when
+ * no carrier filter is active.
+ */
+function collectCarriers(orders: ReturnType<typeof useOrders>["orders"]): string[] {
+  const carriers = new Set<string>();
+  for (const order of orders) {
+    if (order.packages && order.packages.length > 0) {
+      for (const pkg of order.packages) {
+        if (pkg.carrierName) carriers.add(pkg.carrierName);
+      }
+    }
+  }
+  return [...carriers].sort();
+}
+
 /** Order tracking dashboard with live-polling status timelines. */
 export default function TrackingPage() {
   const locale = useLocale();
+  const [paused, setPaused] = useState(false);
+  const [selectedCarriers, setSelectedCarriers] = useState<Set<string>>(
+    new Set()
+  );
   const { orders, loading, error, lastUpdated, refresh } = useOrders({
-    pollIntervalMs: POLL_INTERVAL_MS,
+    // Pass undefined when paused so the hook clears the interval.
+    pollIntervalMs: paused ? undefined : POLL_INTERVAL_MS,
   });
+
   const [showCompleted, setShowCompleted] = useState(false);
 
+  const carriers = useMemo(() => collectCarriers(orders), [orders]);
+
+  /** Toggle a carrier in/out of the active filter set. */
+  function toggleCarrier(carrier: string) {
+    setSelectedCarriers((prev) => {
+      const next = new Set(prev);
+      if (next.has(carrier)) {
+        next.delete(carrier);
+      } else {
+        next.add(carrier);
+      }
+      return next;
+    });
+  }
+
+  /**
+   * Whether an order passes the current carrier filter.
+   * When no carriers are selected the filter is inactive and every order passes.
+   */
+  function matchesCarrierFilter(
+    order: ReturnType<typeof useOrders>["orders"][number]
+  ): boolean {
+    if (selectedCarriers.size === 0) return true;
+    if (!order.packages || order.packages.length === 0) return false;
+    return order.packages.some(
+      (pkg) => pkg.carrierName && selectedCarriers.has(pkg.carrierName)
+    );
+  }
+
   const { active, completed } = useMemo(() => {
-    const active = orders.filter((order) => !isTerminal(order));
-    const completed = orders.filter((order) => isTerminal(order));
+    const active = orders
+      .filter((order) => !isTerminal(order))
+      .filter(matchesCarrierFilter);
+    const completed = orders
+      .filter((order) => isTerminal(order))
+      .filter(matchesCarrierFilter);
     return { active, completed };
-  }, [orders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, selectedCarriers]);
 
   return (
     <div className="settings-page">
@@ -41,14 +99,75 @@ export default function TrackingPage() {
       </header>
 
       <div className="tracking-toolbar">
-        <span className="tracking-live" aria-live="polite">
-          <span className="tracking-live-dot" aria-hidden="true" />
-          Live · updated {formatUpdated(lastUpdated, locale)}
-        </span>
-        <Button variant="secondary" onClick={() => refresh()} ariaLabel="Refresh now">
-          Refresh
-        </Button>
+        {paused ? (
+          <span
+            className="tracking-live tracking-live--paused"
+            aria-live="polite"
+          >
+            <span className="tracking-live-dot" aria-hidden="true" />
+            Paused · last updated {formatUpdated(lastUpdated, locale)}
+          </span>
+        ) : (
+          <span className="tracking-live" aria-live="polite">
+            <span className="tracking-live-dot" aria-hidden="true" />
+            Live · updated {formatUpdated(lastUpdated, locale)}
+          </span>
+        )}
+
+        <div className="tracking-toolbar-actions">
+          <Button
+            variant="secondary"
+            onClick={() => setPaused((v) => !v)}
+            aria-pressed={paused}
+            ariaLabel={paused ? "Resume live updates" : "Pause live updates"}
+          >
+            {paused ? "Resume live updates" : "Pause live updates"}
+          </Button>
+
+          <Button
+            variant="secondary"
+            onClick={() => refresh()}
+            ariaLabel="Refresh now"
+          >
+            Refresh
+          </Button>
+        </div>
       </div>
+
+      {carriers.length > 0 && (
+        <div
+          className="tracking-carrier-filters"
+          role="group"
+          aria-label="Filter by carrier"
+        >
+          {carriers.map((carrier) => {
+            const active = selectedCarriers.has(carrier);
+            return (
+              <button
+                key={carrier}
+                type="button"
+                role="checkbox"
+                aria-checked={active}
+                onClick={() => toggleCarrier(carrier)}
+                className={`tracking-carrier-chip${active ? " tracking-carrier-chip--active" : ""}`}
+                data-testid={`carrier-chip-${carrier}`}
+              >
+                {carrier}
+              </button>
+            );
+          })}
+          {selectedCarriers.size > 0 && (
+            <button
+              type="button"
+              className="tracking-carrier-chip-clear"
+              onClick={() => setSelectedCarriers(new Set())}
+              aria-label="Clear carrier filter"
+            >
+              Clear filter
+            </button>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="settings-status error" role="alert">
@@ -71,7 +190,11 @@ export default function TrackingPage() {
         </section>
       ) : active.length === 0 ? (
         <div className="card">
-          <p>No orders are currently in flight.</p>
+          <p>
+            {selectedCarriers.size > 0
+              ? "No in-flight orders match the selected carrier."
+              : "No orders are currently in flight."}
+          </p>
         </div>
       ) : (
         <div className="grid">

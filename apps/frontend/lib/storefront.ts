@@ -15,6 +15,21 @@ export const DEFAULT_MERCHANT_POLICY: MerchantPolicyInfo = {
     "Purchases are protected by Delego smart contract escrow. Funds are securely locked until delivery is confirmed.",
 };
 
+export interface MerchantDeliverySettings {
+  handlingDays: number;
+  transitDaysMin: number;
+  transitDaysMax: number;
+  expressTransitDaysMin?: number;
+  expressTransitDaysMax?: number;
+  expressAvailable?: boolean;
+}
+
+export const DEFAULT_MERCHANT_DELIVERY_SETTINGS: MerchantDeliverySettings = {
+  handlingDays: 1,
+  transitDaysMin: 3,
+  transitDaysMax: 5,
+};
+
 export interface MerchantProduct {
   id: string;
   name: string;
@@ -26,6 +41,7 @@ export interface MerchantProduct {
   images?: string[];
   stock?: StockDepletionInfo;
   policy?: MerchantPolicyInfo;
+  deliveryEstimate?: MerchantDeliverySettings;
 }
 
 export type StoreAnnouncementType = "info" | "warning" | "promotion";
@@ -45,6 +61,7 @@ export interface StorefrontData {
   stellarAddress: string;
   reputationScore: number;
   policy: MerchantPolicyInfo;
+  deliveryEstimate?: MerchantDeliverySettings;
   products: MerchantProduct[];
   announcement: StoreAnnouncement | null;
 }
@@ -68,6 +85,125 @@ function asNumber(value: unknown): number {
     return Number(value);
   }
   return 0;
+}
+
+const DELIVERY_SETTING_KEYS = [
+  "handlingDays",
+  "handling_days",
+  "processingDays",
+  "processing_days",
+  "transitDaysMin",
+  "transit_days_min",
+  "transitDaysMax",
+  "transit_days_max",
+  "expressTransitDaysMin",
+  "express_transit_days_min",
+  "expressTransitDaysMax",
+  "express_transit_days_max",
+  "expressAvailable",
+  "express_available",
+  "hasExpressShipping",
+  "has_express_shipping",
+];
+
+function asBusinessDayCount(value: unknown, fallback: number): number {
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0
+  ) {
+    return Math.floor(value);
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed >= 0) return Math.floor(parsed);
+  }
+  return fallback;
+}
+
+function parseDeliverySettings(
+  value: unknown,
+  fallback: MerchantDeliverySettings = DEFAULT_MERCHANT_DELIVERY_SETTINGS
+): MerchantDeliverySettings | null {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  const nested =
+    record.deliveryEstimate ??
+    record.delivery_estimate ??
+    record.shipping ??
+    record.fulfillment;
+  const nestedRecord = asRecord(nested);
+  const settings = nestedRecord ? { ...record, ...nestedRecord } : record;
+
+  const hasSetting = DELIVERY_SETTING_KEYS.some(
+    (key) => settings[key] !== undefined
+  );
+  if (!hasSetting) return null;
+
+  const handlingDays = asBusinessDayCount(
+    settings.handlingDays ??
+      settings.handling_days ??
+      settings.processingDays ??
+      settings.processing_days,
+    fallback.handlingDays
+  );
+  const transitDaysMin = asBusinessDayCount(
+    settings.transitDaysMin ?? settings.transit_days_min,
+    fallback.transitDaysMin
+  );
+  const transitDaysMax = Math.max(
+    transitDaysMin,
+    asBusinessDayCount(
+      settings.transitDaysMax ?? settings.transit_days_max,
+      fallback.transitDaysMax
+    )
+  );
+
+  const expressMinValue =
+    settings.expressTransitDaysMin ?? settings.express_transit_days_min;
+  const expressMaxValue =
+    settings.expressTransitDaysMax ?? settings.express_transit_days_max;
+  const expressTransitDaysMin =
+    expressMinValue === undefined
+      ? undefined
+      : asBusinessDayCount(
+          expressMinValue,
+          fallback.expressTransitDaysMin ?? 1
+        );
+  const expressTransitDaysMax =
+    expressMaxValue === undefined
+      ? undefined
+      : Math.max(
+          expressTransitDaysMin ?? 0,
+          asBusinessDayCount(
+            expressMaxValue,
+            fallback.expressTransitDaysMax ?? expressTransitDaysMin ?? 2
+          )
+        );
+  const expressFlag =
+    settings.expressAvailable ??
+    settings.express_available ??
+    settings.hasExpressShipping ??
+    settings.has_express_shipping;
+  const expressAvailable =
+    expressFlag === true ||
+    expressFlag === "true" ||
+    expressMinValue !== undefined ||
+    expressMaxValue !== undefined;
+
+  return {
+    handlingDays,
+    transitDaysMin,
+    transitDaysMax,
+    ...(expressTransitDaysMin === undefined
+      ? {}
+      : { expressTransitDaysMin }),
+    ...(expressTransitDaysMax === undefined
+      ? {}
+      : { expressTransitDaysMax }),
+    expressAvailable,
+  };
 }
 
 function parseProduct(value: unknown): MerchantProduct | null {
@@ -107,6 +243,7 @@ function parseProduct(value: unknown): MerchantProduct | null {
     )
   );
   const assetCode = record.assetCode ?? record.asset_code;
+  const deliveryEstimate = parseDeliverySettings(record);
   return {
     id: record.id,
     name: record.name,
@@ -120,6 +257,7 @@ function parseProduct(value: unknown): MerchantProduct | null {
     active: record.active !== false,
     ...(images.length > 0 ? { images } : {}),
     ...(stock ? { stock } : {}),
+    ...(deliveryEstimate ? { deliveryEstimate } : {}),
   };
 }
 
@@ -220,6 +358,14 @@ export function parseStorefront(
       typeof body.stellarAddress === "string" ? body.stellarAddress : "",
     reputationScore: asNumber(body.reputationScore),
     policy: parsePolicy(body.policy) ?? DEFAULT_MERCHANT_POLICY,
+    deliveryEstimate:
+      parseDeliverySettings(
+        body.deliveryEstimate ??
+          body.delivery_estimate ??
+          body.shipping ??
+          body.fulfillment ??
+          body
+      ) ?? DEFAULT_MERCHANT_DELIVERY_SETTINGS,
     products,
     announcement,
   };

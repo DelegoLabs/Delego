@@ -15,11 +15,48 @@ import {
   expenseReportToJson,
   type ExpenseReportFilter,
 } from "../../../lib/expenseReportBuilder";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { generateExpenseReportPdf } from "../../../lib/expenseReportPdf";
 
 function toDateInputValue(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+type DateRangePreset =
+  | "last-7-days"
+  | "last-30-days"
+  | "this-month"
+  | "quarter-to-date";
+
+function getDateRange(preset: DateRangePreset, now = new Date()) {
+  const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let startDate = new Date(endDate);
+
+  switch (preset) {
+    case "last-7-days":
+      startDate.setDate(startDate.getDate() - 6);
+      break;
+    case "last-30-days":
+      startDate.setDate(startDate.getDate() - 29);
+      break;
+    case "this-month":
+      startDate = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+      break;
+    case "quarter-to-date":
+      startDate = new Date(
+        endDate.getFullYear(),
+        Math.floor(endDate.getMonth() / 3) * 3,
+        1
+      );
+      break;
+  }
+
+  return {
+    startDate: toDateInputValue(startDate),
+    endDate: toDateInputValue(endDate),
+  };
 }
 
 function toggleValue(list: string[], value: string): string[] {
@@ -31,18 +68,21 @@ function toggleValue(list: string[], value: string): string[] {
 /**
  * Custom expense report builder for corporate buyers (#793). Filters the
  * loaded orders by date range, category, and merchant, previews the matching
- * rows, and downloads the result as a client-side generated CSV or JSON file.
+ * rows, and downloads the result as a client-side generated CSV, JSON, or PDF.
  */
 export default function ExpenseReportPage() {
   const { orders, loading } = useOrders();
-  const [startDate, setStartDate] = useState(() =>
-    toDateInputValue(new Date(Date.now() - 29 * DAY_MS))
-  );
+  const [startDate, setStartDate] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 29);
+    return toDateInputValue(date);
+  });
   const [endDate, setEndDate] = useState(() => toDateInputValue(new Date()));
   const [format, setFormat] = useState<"csv" | "json">("csv");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedMerchants, setSelectedMerchants] = useState<string[]>([]);
   const [downloaded, setDownloaded] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
 
   const categories = useMemo(() => availableCategories(orders), [orders]);
   const merchants = useMemo(() => availableMerchants(orders), [orders]);
@@ -64,6 +104,7 @@ export default function ExpenseReportPage() {
   );
 
   function handleDownload() {
+    setDownloadError("");
     const filename = expenseReportFilename(report, format);
     if (format === "json") {
       downloadBlob(
@@ -77,6 +118,23 @@ export default function ExpenseReportPage() {
     setTimeout(() => setDownloaded(false), 2000);
   }
 
+  async function handleDownloadPdf() {
+    setDownloadError("");
+    try {
+      await generateExpenseReportPdf(report);
+      setDownloaded(true);
+      setTimeout(() => setDownloaded(false), 2000);
+    } catch {
+      setDownloadError("Unable to generate the PDF. Please try again.");
+    }
+  }
+
+  function applyDateRange(preset: DateRangePreset) {
+    const range = getDateRange(preset);
+    setStartDate(range.startDate);
+    setEndDate(range.endDate);
+  }
+
   if (loading) {
     return <div className="settings-page">Loading…</div>;
   }
@@ -87,9 +145,44 @@ export default function ExpenseReportPage() {
         <h1>Expense report</h1>
         <p>
           Build a custom report for a date range, categories, and merchants —
-          then download it as CSV or JSON.
+          then download it as CSV, JSON, or PDF.
         </p>
       </header>
+
+      <div
+        className="expense-report-presets no-print"
+        role="group"
+        aria-label="Quick date ranges"
+      >
+        <Button
+          variant="secondary"
+          type="button"
+          onClick={() => applyDateRange("last-7-days")}
+        >
+          Last 7 days
+        </Button>
+        <Button
+          variant="secondary"
+          type="button"
+          onClick={() => applyDateRange("last-30-days")}
+        >
+          Last 30 days
+        </Button>
+        <Button
+          variant="secondary"
+          type="button"
+          onClick={() => applyDateRange("this-month")}
+        >
+          This Month
+        </Button>
+        <Button
+          variant="secondary"
+          type="button"
+          onClick={() => applyDateRange("quarter-to-date")}
+        >
+          Quarter-to-Date
+        </Button>
+      </div>
 
       <div className="report-controls no-print">
         <div className="expense-report-field">
@@ -128,9 +221,17 @@ export default function ExpenseReportPage() {
         <Button variant="primary" type="button" onClick={handleDownload}>
           {`Download ${format.toUpperCase()}`}
         </Button>
+        <Button variant="secondary" type="button" onClick={handleDownloadPdf}>
+          Download PDF
+        </Button>
         <span role="status" aria-live="polite" className="sr-only">
           {downloaded ? "Report downloaded." : ""}
         </span>
+        {downloadError && (
+          <span role="alert" className="expense-report-error">
+            {downloadError}
+          </span>
+        )}
       </div>
 
       <div className="expense-report-filters no-print">

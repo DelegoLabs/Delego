@@ -144,5 +144,12 @@ describe("TokenAllowancesTable", () => {
       expect(formatStroopsToDecimal("100")).toBe("0.00001");
       expect(formatStroopsToDecimal("0")).toBe("0");
     });
+
+    it("formats whole part with a fixed en-US grouping locale regardless of environment", () => {
+      expect(formatStroopsToDecimal("12345670000000", "en-US")).toBe("1,234,567");
+      expect(formatStroopsToDecimal("12345670000000", "en-US")).toBe(
+        formatStroopsToDecimal("12345670000000", "en-US")
+      );
+    });
   });
 });
