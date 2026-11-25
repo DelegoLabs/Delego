@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@delegolabs/ui";
 
@@ -14,12 +14,28 @@ const RESET_DELAY_MS = 2000;
 export function CopyViewLinkButton() {
   const t = useTranslations("filters");
   const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resetTimer.current !== null) {
+        clearTimeout(resetTimer.current);
+        resetTimer.current = null;
+      }
+    };
+  }, []);
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
-      setTimeout(() => setCopied(false), RESET_DELAY_MS);
+      if (resetTimer.current !== null) {
+        clearTimeout(resetTimer.current);
+      }
+      resetTimer.current = setTimeout(() => {
+        resetTimer.current = null;
+        setCopied(false);
+      }, RESET_DELAY_MS);
     } catch {
       // Clipboard access may be denied — silently no-op, nothing to recover.
     }

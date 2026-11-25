@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef } from "react";
 
 export interface ModelViewerProps {
@@ -8,32 +6,53 @@ export interface ModelViewerProps {
   className?: string;
   autoRotate?: boolean;
   cameraControls?: boolean;
+  onLoad?: () => void;
+  onError?: (error: Event) => void;
 }
 
-export default function ModelViewer({
+export function ModelViewer({
   src,
   alt = "3D model",
   className,
   autoRotate = true,
   cameraControls = true,
+  onLoad,
+  onError,
 }: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const el: HTMLElement | null = containerRef.current;
-    if (!el) return;
-    el.setAttribute("data-model-src", src);
-    el.setAttribute("aria-label", alt);
-  }, [src, alt]);
+    const container = containerRef.current;
+    if (!container) return;
 
-  return (
-    <div
-      ref={containerRef}
-      className={className}
-      role="img"
-      aria-label={alt}
-      data-auto-rotate={autoRotate ? "true" : "false"}
-      data-camera-controls={cameraControls ? "true" : "false"}
-    />
-  );
+    const el = document.createElement("model-viewer") as HTMLElement & {
+      src?: string;
+      alt?: string;
+      autoRotate?: boolean;
+      cameraControls?: boolean;
+    };
+    el.setAttribute("src", src);
+    el.setAttribute("alt", alt);
+    if (autoRotate) el.setAttribute("auto-rotate", "");
+    if (cameraControls) el.setAttribute("camera-controls", "");
+    el.style.width = "100%";
+    el.style.height = "100%";
+
+    const handleLoad = () => onLoad?.();
+    const handleError = (event: Event) => onError?.(event);
+    el.addEventListener("load", handleLoad);
+    el.addEventListener("error", handleError);
+
+    container.appendChild(el);
+
+    return () => {
+      el.removeEventListener("load", handleLoad);
+      el.removeEventListener("error", handleError);
+      el.remove();
+    };
+  }, [src, alt, autoRotate, cameraControls, onLoad, onError]);
+
+  return <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />;
 }
+
+export default ModelViewer;

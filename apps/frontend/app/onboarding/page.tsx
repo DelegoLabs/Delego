@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@delegolabs/ui";
+import { StroopsInput } from "@delegolabs/ui";
 import { OnboardingStep } from "../../components/onboarding/OnboardingStep";
 import { StepIndicator } from "../../components/onboarding/StepIndicator";
+import { WalletConnectButton } from "../../components/wallet/public";
+import {
+  DEFAULT_ONBOARDING_LIMITS,
+  readOnboardingLimits,
+  writeOnboardingLimits,
+  type OnboardingSpendingLimits,
+} from "../../lib/onboardingLimits";
 
 const STEPS = [
   {
@@ -28,13 +35,29 @@ const STEPS = [
 export default function OnboardingPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
+  const [limits, setLimits] = useState<OnboardingSpendingLimits>({
+    ...DEFAULT_ONBOARDING_LIMITS,
+  });
+
+  useEffect(() => {
+    setLimits(readOnboardingLimits());
+  }, []);
+
+  const perTransactionLimit = BigInt(limits.maxPerTransactionStroops);
+  const dailyLimit = BigInt(limits.dailyLimitStroops);
+  const limitsValid = perTransactionLimit > 0n && dailyLimit >= perTransactionLimit;
+
+  const completeOnboarding = () => {
+    writeOnboardingLimits(limits);
+    localStorage.setItem("delego_onboarding_complete", "true");
+    router.push("/");
+  };
 
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {
       setCurrentStep((prev) => prev + 1);
     } else {
-      localStorage.setItem("delego_onboarding_complete", "true");
-      router.push("/");
+      completeOnboarding();
     }
   };
 
@@ -45,8 +68,7 @@ export default function OnboardingPage() {
   };
 
   const handleSkip = () => {
-    localStorage.setItem("delego_onboarding_complete", "true");
-    router.push("/");
+    completeOnboarding();
   };
 
   return (
@@ -62,6 +84,7 @@ export default function OnboardingPage() {
         onBack={currentStep > 0 ? handleBack : undefined}
         onSkip={currentStep < STEPS.length - 1 ? handleSkip : undefined}
         isLast={currentStep === STEPS.length - 1}
+        nextDisabled={currentStep === 2 && !limitsValid}
       >
         {currentStep === 0 && (
           <div className="onboarding-welcome">
@@ -78,9 +101,7 @@ export default function OnboardingPage() {
               Connect your Stellar wallet to authorize spending and receive
               delegated purchases. Your keys never leave your wallet.
             </p>
-            <Button variant="primary" onClick={() => {}}>
-              Connect Wallet
-            </Button>
+            <WalletConnectButton />
           </div>
         )}
         {currentStep === 2 && (
@@ -90,6 +111,55 @@ export default function OnboardingPage() {
               agents stay within budget. You can adjust these anytime from
               Settings.
             </p>
+            <div className="onboarding-limit-field">
+              <label htmlFor="onboarding-per-transaction-limit">
+                Per-transaction limit
+              </label>
+              <p
+                id="onboarding-per-transaction-limit-hint"
+                className="onboarding-limit-hint"
+              >
+                Maximum an agent may spend on a single purchase.
+              </p>
+              <StroopsInput
+                id="onboarding-per-transaction-limit"
+                aria-label="Per-transaction limit"
+                aria-describedby="onboarding-per-transaction-limit-hint"
+                value={perTransactionLimit}
+                onChange={(value) =>
+                  setLimits((prev) => ({
+                    ...prev,
+                    maxPerTransactionStroops: value.toString(),
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </div>
+            <div className="onboarding-limit-field">
+              <label htmlFor="onboarding-daily-limit">Daily spending limit</label>
+              <p id="onboarding-daily-limit-hint" className="onboarding-limit-hint">
+                Total your agents may spend in a 24-hour window.
+              </p>
+              <StroopsInput
+                id="onboarding-daily-limit"
+                aria-label="Daily spending limit"
+                aria-describedby="onboarding-daily-limit-hint"
+                value={dailyLimit}
+                onChange={(value) =>
+                  setLimits((prev) => ({
+                    ...prev,
+                    dailyLimitStroops: value.toString(),
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </div>
+            {!limitsValid && (
+              <p className="onboarding-limit-error" role="alert">
+                The daily limit must be at least as large as the per-transaction
+                limit.
+              </p>
+            )}
           </div>
         )}
         {currentStep === 3 && (

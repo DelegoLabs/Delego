@@ -4,13 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
+import {
+  AgentIcon,
+  CartIcon,
+  OrdersIcon,
+  StoreIcon,
+  type IconComponent,
+} from "@delegolabs/ui";
 import { useCart } from "../../hooks/useCart";
 import { NavPendingBadge } from "./NavPendingBadge";
 import { activeNavHref } from "./navItems";
 
 export interface MobileNavItem {
   label: string;
-  icon: string;
+  icon: IconComponent;
   route: string;
   badgeCount?: number;
   isActive: boolean;
@@ -57,7 +64,7 @@ export function MobileBottomNav() {
         data-testid="mobile-bottom-nav-store"
       >
         <span className="mobile-bottom-nav__icon" aria-hidden="true">
-          🏪
+          <StoreIcon size={22} />
         </span>
         <span className="mobile-bottom-nav__label">{t("store")}</span>
       </Link>
@@ -71,7 +78,9 @@ export function MobileBottomNav() {
         data-testid="mobile-bottom-nav-orders"
       >
         <span className="mobile-bottom-nav__icon-wrap" aria-hidden="true">
-          <span className="mobile-bottom-nav__icon">📦</span>
+          <span className="mobile-bottom-nav__icon">
+            <OrdersIcon size={22} />
+          </span>
           {/* Re-uses the same live pending-approval count the sidebar badge shows */}
           <NavPendingBadge />
         </span>
@@ -84,14 +93,14 @@ export function MobileBottomNav() {
         className={`mobile-bottom-nav__item focus-visible-ring${activeHref === "/cart" ? " mobile-bottom-nav__item--active" : ""}`}
         onClick={openDrawer}
         aria-label={
-          cartCount > 0
-            ? t("cartWithCount", { count: cartCount })
-            : t("cart")
+          cartCount > 0 ? t("cartWithCount", { count: cartCount }) : t("cart")
         }
         data-testid="mobile-bottom-nav-cart"
       >
         <span className="mobile-bottom-nav__icon-wrap" aria-hidden="true">
-          <span className="mobile-bottom-nav__icon">🛒</span>
+          <span className="mobile-bottom-nav__icon">
+            <CartIcon size={22} />
+          </span>
           {cartCount > 0 && (
             <span
               className="mobile-bottom-nav__badge"
@@ -114,7 +123,7 @@ export function MobileBottomNav() {
         data-testid="mobile-bottom-nav-copilot"
       >
         <span className="mobile-bottom-nav__icon" aria-hidden="true">
-          🤖
+          <AgentIcon size={22} />
         </span>
         <span className="mobile-bottom-nav__label">{t("copilot")}</span>
       </button>

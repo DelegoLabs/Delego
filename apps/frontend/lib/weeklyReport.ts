@@ -1,4 +1,5 @@
 import type { Order } from "@delegolabs/types";
+import { toCsv } from "./csv";
 import { rejectionReasonLabel } from "./rejectionReasons";
 
 /**
@@ -9,6 +10,7 @@ import { rejectionReasonLabel } from "./rejectionReasons";
  */
 
 const STROOPS_PER_XLM = 10_000_000n;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** An order counts as spend once it's past pending_approval, matching lib/analytics.ts's isSpend threshold. */
 const SPEND_STATUSES = new Set<Order["status"]>([
@@ -49,12 +51,18 @@ export interface NotableEvent {
   timestamp: string;
 }
 
+export interface DailySpendPoint {
+  date: string;
+  totalXlm: number;
+}
+
 export interface WeeklyReport {
   periodStart: Date;
   periodEnd: Date;
   weekCount: number;
   totalSpendStroops: KpiDelta & { unit: "stroops" };
   orderCount: KpiDelta;
+  dailySpend: DailySpendPoint[];
   topDelegations: DelegationSpendRow[];
   notableEvents: NotableEvent[];
 }
@@ -62,6 +70,28 @@ export interface WeeklyReport {
 function percentChange(current: number, previous: number): number | null {
   if (previous === 0) return current === 0 ? 0 : null;
   return ((current - previous) / previous) * 100;
+}
+
+function buildDailySpend(
+  orders: Order[],
+  periodStart: Date,
+  dayCount: number
+): DailySpendPoint[] {
+  const totals = new Array<bigint>(dayCount).fill(0n);
+  for (const order of orders) {
+    const dayIndex = Math.floor(
+      (orderTimestamp(order) - periodStart.getTime()) / DAY_MS
+    );
+    if (dayIndex < 0 || dayIndex >= dayCount) continue;
+    totals[dayIndex] += BigInt(order.totalStroops ?? 0);
+  }
+
+  return totals.map((stroops, dayIndex) => ({
+    date: new Date(periodStart.getTime() + dayIndex * DAY_MS)
+      .toISOString()
+      .slice(0, 10),
+    totalXlm: Number(stroops) / Number(STROOPS_PER_XLM),
+  }));
 }
 
 /**
@@ -73,7 +103,7 @@ export function buildWeeklyReport(
   periodEnd: Date,
   weekCount: number
 ): WeeklyReport {
-  const periodMs = weekCount * 7 * 24 * 60 * 60 * 1000;
+  const periodMs = weekCount * 7 * DAY_MS;
   const periodStart = new Date(periodEnd.getTime() - periodMs);
   const previousPeriodStart = new Date(periodStart.getTime() - periodMs);
 
@@ -147,6 +177,11 @@ export function buildWeeklyReport(
       previous: previousOrders.length,
       percentChange: percentChange(currentOrders.length, previousOrders.length),
     },
+    dailySpend: buildDailySpend(
+      currentOrders.filter(isSpendOrder),
+      periodStart,
+      weekCount * 7
+    ),
     topDelegations,
     notableEvents,
   };
@@ -188,4 +223,61 @@ export function formatReportAsText(report: WeeklyReport): string {
   }
 
   return lines.join("\n");
+}
+
+export function formatReportAsCsv(report: WeeklyReport): string {
+  const pct = (delta: KpiDelta) =>
+    delta.percentChange === null
+      ? "n/a"
+      : `${delta.percentChange >= 0 ? "+" : ""}${delta.percentChange.toFixed(1)}%`;
+  const xlm = (stroops: bigint) =>
+    (Number(stroops) / Number(STROOPS_PER_XLM)).toFixed(2);
+
+  const rows: string[][] = [
+    [
+      "Summary",
+      "Period",
+      `${report.periodStart.toISOString()} to ${report.periodEnd.toISOString()}`,
+      "",
+    ],
+    [
+      "Summary",
+      "Total spend (XLM)",
+      report.totalSpendStroops.current.toFixed(2),
+      `${pct(report.totalSpendStroops)} vs prior period`,
+    ],
+    [
+      "Summary",
+      "Orders",
+      String(report.orderCount.current),
+      `${pct(report.orderCount)} vs prior period`,
+    ],
+    ["Daily spend", "Date", "Spend (XLM)", ""],
+    ...report.dailySpend.map((point) => [
+      "Daily spend",
+      point.date,
+      point.totalXlm.toFixed(2),
+      "",
+    ]),
+    ["Top delegations", "Delegation", "Spend (XLM)", "Orders"],
+    ...report.topDelegations.map((row) => [
+      "Top delegations",
+      row.delegationId,
+      xlm(row.totalStroops),
+      String(row.orderCount),
+    ]),
+    ["Notable events", "Order", "Type", "Detail"],
+    ...report.notableEvents.map((event) => [
+      "Notable events",
+      event.orderId,
+      event.type,
+      event.detail,
+    ]),
+  ];
+
+  return toCsv(["Section", "Label", "Value", "Detail"], rows);
+}
+
+export function weeklyReportFilename(report: WeeklyReport): string {
+  return `delego-weekly-report-${report.periodEnd.toISOString().slice(0, 10)}.csv`;
 }

@@ -5,36 +5,25 @@ export interface AgentConfig {
   name: string;
   description?: string;
   model?: string;
+  systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
-  systemPrompt?: string;
+  tools?: string[];
   enabled?: boolean;
   [key: string]: unknown;
 }
 
-export interface UseAgentConfigResult {
-  config: AgentConfig | undefined;
-  error: Error | undefined;
-  isLoading: boolean;
-  isValidating: boolean;
-  mutate: () => Promise<AgentConfig | undefined>;
-}
-
 const fetcher = async (url: string): Promise<AgentConfig> => {
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-  });
+  const res = await fetch(url, { credentials: "include" });
   if (!res.ok) {
-    throw new Error(`Failed to fetch agent config: ${res.status} ${res.statusText}`);
+    throw new Error(`Failed to load agent config (${res.status})`);
   }
-  return (await res.json()) as AgentConfig;
+  return res.json() as Promise<AgentConfig>;
 };
 
-export function useAgentConfig(agentId: string | null | undefined): UseAgentConfigResult {
-  const key = agentId ? `/api/agents/${encodeURIComponent(agentId)}/config` : null;
-
-  const { data, error, isLoading, isValidating, mutate } = useSWR<AgentConfig, Error>(
-    key,
+export function useAgentConfig(agentId?: string) {
+  const { data, error, isLoading, isValidating, mutate } = useSWR<AgentConfig>(
+    agentId ? `/api/agents/${encodeURIComponent(agentId)}/config` : null,
     fetcher,
   );
 
@@ -43,7 +32,7 @@ export function useAgentConfig(agentId: string | null | undefined): UseAgentConf
     error,
     isLoading,
     isValidating,
-    mutate: () => mutate(),
+    mutate,
   };
 }
 

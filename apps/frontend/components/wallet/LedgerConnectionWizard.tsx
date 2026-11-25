@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import type { LedgerConnectionState } from "@delegolabs/types";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { ledgerAdapter, DEFAULT_LEDGER_BIP32_PATH } from "../../lib/wallet/ledgerAdapter";
 
 export interface LedgerConnectionWizardProps {
@@ -23,6 +24,9 @@ export function LedgerConnectionWizard({
     bip32Path: DEFAULT_LEDGER_BIP32_PATH,
     isAppOpen: false,
   });
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap({ containerRef: dialogRef, isActive: isOpen, onEscape: onClose });
 
   if (!isOpen) return null;
 
@@ -44,6 +48,7 @@ export function LedgerConnectionWizard({
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       role="dialog"
       aria-modal="true"

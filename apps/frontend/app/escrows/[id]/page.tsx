@@ -263,6 +263,7 @@ export default function EscrowDetailPage() {
 
       <DisputeWizard
         isOpen={showDisputeModal}
+        escrowId={escrowId}
         submitting={submitting}
         error={error}
         onSubmit={async (input) => {

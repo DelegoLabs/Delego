@@ -1,5 +1,7 @@
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { FormField } from "./FormField.js";
 
@@ -87,6 +89,26 @@ describe("FormField", () => {
       );
       const inputs = container.querySelectorAll("input");
       expect(inputs[0].id).not.toBe(inputs[1].id);
+    });
+
+    it("keeps its generated ID stable during hydration", async () => {
+      const element = <FormField label="Hydrated field" />;
+      const container = document.createElement("div");
+      container.innerHTML = renderToString(element);
+      const serverId = container.querySelector("input")?.id;
+      const recoverableErrors: Error[] = [];
+
+      let root: ReturnType<typeof hydrateRoot>;
+      await act(async () => {
+        root = hydrateRoot(container, element, {
+          onRecoverableError: (error) => recoverableErrors.push(error),
+        });
+      });
+
+      expect(container.querySelector("input")?.id).toBe(serverId);
+      expect(recoverableErrors).toHaveLength(0);
+
+      await act(async () => root.unmount());
     });
 
     it("connects aria-describedby to hint when present", () => {

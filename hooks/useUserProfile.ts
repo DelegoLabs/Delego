@@ -2,51 +2,31 @@ import useSWR from "swr";
 
 export interface UserProfile {
   id: string;
-  displayName: string;
+  name?: string;
   email?: string;
   avatarUrl?: string;
-  walletAddress?: string;
-  createdAt: string;
-  updatedAt: string;
+  [key: string]: unknown;
 }
 
-export interface UseUserProfileResult {
-  profile: UserProfile | undefined;
-  isLoading: boolean;
-  isError: boolean;
-  error: unknown;
-  mutate: () => Promise<UserProfile | undefined>;
-}
-
-const PROFILE_ENDPOINT = "/api/user/profile";
-
-async function profileFetcher(url: string): Promise<UserProfile> {
-  const response = await fetch(url, {
-    method: "GET",
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to load user profile (HTTP ${response.status})`);
+const fetcher = async (url: string): Promise<UserProfile> => {
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch user profile: ${res.status}`);
   }
+  return res.json() as Promise<UserProfile>;
+};
 
-  return (await response.json()) as UserProfile;
-}
-
-export function useUserProfile(): UseUserProfileResult {
+export function useUserProfile(userId?: string) {
   const { data, error, isLoading, mutate } = useSWR<UserProfile>(
-    PROFILE_ENDPOINT,
-    profileFetcher,
-    { revalidateOnFocus: false },
+    userId ? `/api/users/${encodeURIComponent(userId)}` : null,
+    fetcher
   );
 
   return {
     profile: data,
-    isLoading,
-    isError: Boolean(error),
     error,
-    mutate: () => mutate(),
+    isLoading,
+    refresh: mutate,
   };
 }
 
