@@ -39,9 +39,13 @@ export interface MobileNavItem {
 export function MobileBottomNav() {
   const pathname = usePathname();
   const t = useTranslations("mobileBottomNav");
-  const { summary, openDrawer } = useCart();
+  const { summary, openDrawer, drawerOpen } = useCart();
 
   const activeHref = activeNavHref(pathname);
+  const isStoreActive =
+    pathname === "/store" || pathname.startsWith("/store/");
+  const isOrdersActive = activeHref === "/orders";
+  const isCartActive = drawerOpen;
 
   const handleAgentClick = useCallback(() => {
     window.dispatchEvent(new CustomEvent("open-agent"));
@@ -59,8 +63,8 @@ export function MobileBottomNav() {
       <Link
         href="/store"
         prefetch
-        className={`mobile-bottom-nav__item focus-visible-ring${activeHref === "/store" ? " mobile-bottom-nav__item--active" : ""}`}
-        aria-current={activeHref === "/store" ? "page" : undefined}
+        className={`mobile-bottom-nav__item focus-visible-ring${isStoreActive ? " mobile-bottom-nav__item--active" : ""}`}
+        aria-current={isStoreActive ? "page" : undefined}
         data-testid="mobile-bottom-nav-store"
       >
         <span className="mobile-bottom-nav__icon" aria-hidden="true">
@@ -73,8 +77,8 @@ export function MobileBottomNav() {
       <Link
         href="/orders"
         prefetch
-        className={`mobile-bottom-nav__item focus-visible-ring${activeHref === "/orders" ? " mobile-bottom-nav__item--active" : ""}`}
-        aria-current={activeHref === "/orders" ? "page" : undefined}
+        className={`mobile-bottom-nav__item focus-visible-ring${isOrdersActive ? " mobile-bottom-nav__item--active" : ""}`}
+        aria-current={isOrdersActive ? "page" : undefined}
         data-testid="mobile-bottom-nav-orders"
       >
         <span className="mobile-bottom-nav__icon-wrap" aria-hidden="true">
@@ -90,7 +94,7 @@ export function MobileBottomNav() {
       {/* Cart — badge shows total item quantity */}
       <button
         type="button"
-        className={`mobile-bottom-nav__item focus-visible-ring${activeHref === "/cart" ? " mobile-bottom-nav__item--active" : ""}`}
+        className={`mobile-bottom-nav__item focus-visible-ring${isCartActive ? " mobile-bottom-nav__item--active" : ""}`}
         onClick={openDrawer}
         aria-label={
           cartCount > 0 ? t("cartWithCount", { count: cartCount }) : t("cart")

@@ -15,8 +15,13 @@ vi.mock("next/navigation", () => ({
 
 const mockOpenDrawer = vi.fn();
 const mockSummary = { totalQuantity: 0 };
+let mockDrawerOpen = false;
 vi.mock("../../hooks/useCart", () => ({
-  useCart: () => ({ summary: mockSummary, openDrawer: mockOpenDrawer }),
+  useCart: () => ({
+    summary: mockSummary,
+    openDrawer: mockOpenDrawer,
+    drawerOpen: mockDrawerOpen,
+  }),
 }));
 
 // NavPendingBadge reads from usePendingApprovalBadge — keep it silent.
@@ -44,6 +49,7 @@ describe("MobileBottomNav", () => {
   beforeEach(() => {
     mockPathname.mockReturnValue("/");
     mockSummary.totalQuantity = 0;
+    mockDrawerOpen = false;
     mockOpenDrawer.mockReset();
   });
 
@@ -61,6 +67,22 @@ describe("MobileBottomNav", () => {
     const storeLink = screen.getByTestId("mobile-bottom-nav-store");
     expect(storeLink).toHaveClass("mobile-bottom-nav__item--active");
     expect(storeLink).toHaveAttribute("aria-current", "page");
+  });
+
+  it("marks the Store link active on a nested /store/* route", () => {
+    mockPathname.mockReturnValue("/store/merchant-1");
+    renderNav();
+    const storeLink = screen.getByTestId("mobile-bottom-nav-store");
+    expect(storeLink).toHaveClass("mobile-bottom-nav__item--active");
+    expect(storeLink).toHaveAttribute("aria-current", "page");
+  });
+
+  it("marks the Cart button active when the cart drawer is open", () => {
+    mockDrawerOpen = true;
+    renderNav();
+    expect(screen.getByTestId("mobile-bottom-nav-cart")).toHaveClass(
+      "mobile-bottom-nav__item--active"
+    );
   });
 
   it("marks the Orders link active when pathname is /orders", () => {
@@ -86,6 +108,9 @@ describe("MobileBottomNav", () => {
       "mobile-bottom-nav__item--active"
     );
     expect(screen.getByTestId("mobile-bottom-nav-orders")).not.toHaveClass(
+      "mobile-bottom-nav__item--active"
+    );
+    expect(screen.getByTestId("mobile-bottom-nav-cart")).not.toHaveClass(
       "mobile-bottom-nav__item--active"
     );
   });
