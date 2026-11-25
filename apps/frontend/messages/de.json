@@ -279,6 +279,56 @@
     "description": "Die gesuchte Seite existiert nicht.",
     "goHome": "Zur Startseite"
   },
+  "disputeEvidence": {
+    "heading": "Streitbeweis",
+    "status": {
+      "open": "Offen",
+      "under_review": "In Prüfung",
+      "settled": "Abgeschlossen"
+    },
+    "buyerClaim": {
+      "cardTitle": "Käuferanspruch",
+      "cardAriaLabel": "Käuferbeweis für Streitfall {disputeId}",
+      "statementLabel": "Aussage",
+      "photosLabel": "Beweisfotos ({count})",
+      "photoAlt": "Käuferbeweis {index}",
+      "photoAriaLabel": "Käuferbeweisfoto {index} anzeigen"
+    },
+    "merchantResponse": {
+      "cardTitle": "Händlerantwort",
+      "cardAriaLabel": "Händler-Gegenbeweis für Streitfall {disputeId}",
+      "counterStatementLabel": "Gegenaussage",
+      "shippingProofLabel": "Versandnachweis ({count})",
+      "proofAlt": "Händlernachweis {index}",
+      "proofAriaLabel": "Händlernachweisfoto {index} anzeigen",
+      "noResponse": "Der Händler hat noch keine Antwort eingereicht.",
+      "requestButton": "Händlerantwort anfordern",
+      "requesting": "Wird angefordert...",
+      "requestSuccess": "Händlerantwort angefordert.",
+      "requestError": "Weitere Beweise konnten nicht angefordert werden."
+    },
+    "arbitratorVerdict": {
+      "cardTitle": "Schiedsspruch",
+      "cardAriaLabel": "Schiedsspruch für Streitfall {disputeId}"
+    }
+  },
+  "tokenAllowances": {
+    "empty": "Keine aktiven Soroban-Token-Freigaben für dieses Konto gefunden.",
+    "tableAriaLabel": "Aktive Token-Freigaben",
+    "columns": {
+      "spender": "Begünstigter",
+      "token": "Token",
+      "allowance": "Freigabe",
+      "expiryLedger": "Ablauf-Ledger",
+      "action": "Aktion"
+    },
+    "noExpiry": "Kein Ablauf",
+    "copyAddressLabel": "{label}-Adresse kopieren",
+    "viewOnExplorer": "Vertrag im Explorer anzeigen",
+    "revoke": "Widerrufen",
+    "revoking": "Wird widerrufen…",
+    "revokeAriaLabel": "Freigabe für {label} widerrufen"
+  },
   "home": {
     "title": "Delego",
     "subtitle": "KI-gestützter Handel mit Freigaben und Ausgabenkontrollen",

@@ -1,10 +1,20 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { NextIntlClientProvider } from "next-intl";
 import { http, HttpResponse } from "msw";
 import { server } from "../../mocks/server";
 import { DisputeEvidenceComparison } from "./DisputeEvidenceComparison";
 import type { DisputeEvidenceBundle } from "../../types/dispute-evidence";
+import messages from "../../messages/en.json";
+
+function renderWithIntl(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      {ui}
+    </NextIntlClientProvider>
+  );
+}
 
 describe("DisputeEvidenceComparison", () => {
   const mockEvidence: DisputeEvidenceBundle = {
@@ -18,7 +28,7 @@ describe("DisputeEvidenceComparison", () => {
   };
 
   it("renders buyer and merchant evidence sections", () => {
-    render(<DisputeEvidenceComparison evidence={mockEvidence} />);
+    renderWithIntl(<DisputeEvidenceComparison evidence={mockEvidence} />);
     
     expect(screen.getByText("Buyer Claim")).toBeInTheDocument();
     expect(screen.getByText("Merchant Response")).toBeInTheDocument();
@@ -27,13 +37,13 @@ describe("DisputeEvidenceComparison", () => {
   });
 
   it("displays status badge", () => {
-    render(<DisputeEvidenceComparison evidence={mockEvidence} />);
+    renderWithIntl(<DisputeEvidenceComparison evidence={mockEvidence} />);
     
     expect(screen.getByText("Under Review")).toBeInTheDocument();
   });
 
   it("renders countdown when deadline is provided", () => {
-    render(<DisputeEvidenceComparison evidence={mockEvidence} />);
+    renderWithIntl(<DisputeEvidenceComparison evidence={mockEvidence} />);
 
     expect(screen.getByRole("timer")).toBeInTheDocument();
   });
@@ -44,7 +54,7 @@ describe("DisputeEvidenceComparison", () => {
       status: "settled",
     };
 
-    render(<DisputeEvidenceComparison evidence={settledEvidence} />);
+    renderWithIntl(<DisputeEvidenceComparison evidence={settledEvidence} />);
 
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   });
@@ -56,7 +66,7 @@ describe("DisputeEvidenceComparison", () => {
       merchantImages: undefined,
     };
     
-    render(<DisputeEvidenceComparison evidence={noResponseEvidence} />);
+    renderWithIntl(<DisputeEvidenceComparison evidence={noResponseEvidence} />);
     
     expect(screen.getByText("Merchant has not yet provided a response.")).toBeInTheDocument();
   });
@@ -69,7 +79,7 @@ describe("DisputeEvidenceComparison", () => {
       merchantImages: undefined,
     };
 
-    render(<DisputeEvidenceComparison evidence={openEvidence} />);
+    renderWithIntl(<DisputeEvidenceComparison evidence={openEvidence} />);
 
     expect(screen.getByText("Request Merchant Response")).toBeInTheDocument();
   });
@@ -89,7 +99,7 @@ describe("DisputeEvidenceComparison", () => {
       })
     );
 
-    render(<DisputeEvidenceComparison evidence={openEvidence} />);
+    renderWithIntl(<DisputeEvidenceComparison evidence={openEvidence} />);
     await userEvent.click(screen.getByRole("button", { name: "Request Merchant Response" }));
 
     expect(requestMock).toHaveBeenCalledTimes(1);
@@ -103,21 +113,21 @@ describe("DisputeEvidenceComparison", () => {
       status: "settled",
     };
     
-    render(<DisputeEvidenceComparison evidence={evidenceWithVerdict} />);
+    renderWithIntl(<DisputeEvidenceComparison evidence={evidenceWithVerdict} />);
     
     expect(screen.getByText("Arbitrator Verdict")).toBeInTheDocument();
     expect(screen.getByText("Ruling in favor of buyer")).toBeInTheDocument();
   });
 
   it("renders image thumbnails for buyer evidence", () => {
-    render(<DisputeEvidenceComparison evidence={mockEvidence} />);
+    renderWithIntl(<DisputeEvidenceComparison evidence={mockEvidence} />);
     
     const buyerImages = screen.getAllByAltText(/Buyer evidence/);
     expect(buyerImages).toHaveLength(1);
   });
 
   it("renders image thumbnails for merchant evidence", () => {
-    render(<DisputeEvidenceComparison evidence={mockEvidence} />);
+    renderWithIntl(<DisputeEvidenceComparison evidence={mockEvidence} />);
     
     const merchantImages = screen.getAllByAltText(/Merchant proof/);
     expect(merchantImages).toHaveLength(1);

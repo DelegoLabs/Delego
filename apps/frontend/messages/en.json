@@ -279,6 +279,56 @@
     "description": "The page you're looking for doesn't exist.",
     "goHome": "Go home"
   },
+  "disputeEvidence": {
+    "heading": "Dispute Evidence",
+    "status": {
+      "open": "Open",
+      "under_review": "Under Review",
+      "settled": "Settled"
+    },
+    "buyerClaim": {
+      "cardTitle": "Buyer Claim",
+      "cardAriaLabel": "Buyer evidence for dispute {disputeId}",
+      "statementLabel": "Statement",
+      "photosLabel": "Evidence Photos ({count})",
+      "photoAlt": "Buyer evidence {index}",
+      "photoAriaLabel": "View buyer evidence photo {index}"
+    },
+    "merchantResponse": {
+      "cardTitle": "Merchant Response",
+      "cardAriaLabel": "Merchant counter-evidence for dispute {disputeId}",
+      "counterStatementLabel": "Counter Statement",
+      "shippingProofLabel": "Shipping Proof ({count})",
+      "proofAlt": "Merchant proof {index}",
+      "proofAriaLabel": "View merchant proof photo {index}",
+      "noResponse": "Merchant has not yet provided a response.",
+      "requestButton": "Request Merchant Response",
+      "requesting": "Requesting...",
+      "requestSuccess": "Merchant response requested.",
+      "requestError": "Failed to request more evidence."
+    },
+    "arbitratorVerdict": {
+      "cardTitle": "Arbitrator Verdict",
+      "cardAriaLabel": "Arbitrator verdict for dispute {disputeId}"
+    }
+  },
+  "tokenAllowances": {
+    "empty": "No active Soroban token allowances found for this account.",
+    "tableAriaLabel": "Active token allowances",
+    "columns": {
+      "spender": "Spender",
+      "token": "Token",
+      "allowance": "Allowance",
+      "expiryLedger": "Expiry Ledger",
+      "action": "Action"
+    },
+    "noExpiry": "No expiry",
+    "copyAddressLabel": "Copy {label} address",
+    "viewOnExplorer": "View contract on explorer",
+    "revoke": "Revoke",
+    "revoking": "Revoking…",
+    "revokeAriaLabel": "Revoke allowance for {label}"
+  },
   "home": {
     "title": "Delego",
     "subtitle": "AI commerce with approval and spending controls",

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { TokenAllowanceEntry } from "@delegolabs/types";
 import { Button } from "@delegolabs/ui";
 
@@ -45,6 +46,8 @@ export function TokenAllowancesTable({
   networkId,
   disabled = false,
 }: TokenAllowancesTableProps) {
+  const t = useTranslations("tokenAllowances");
+
   if (loading && allowances.length === 0) {
     return (
       <div className="skeleton-form" data-testid="allowances-loading">
@@ -57,22 +60,22 @@ export function TokenAllowancesTable({
   if (allowances.length === 0) {
     return (
       <p className="settings-toggle-hint" data-testid="allowances-empty">
-        No active Soroban token allowances found for this account.
+        {t("empty")}
       </p>
     );
   }
 
   return (
     <div className="asset-table-wrap" data-testid="token-allowances-table-wrap">
-      <table className="asset-table" aria-label="Active token allowances">
+      <table className="asset-table" aria-label={t("tableAriaLabel")}>
         <thead>
           <tr>
-            <th scope="col">Spender</th>
-            <th scope="col">Token</th>
-            <th scope="col">Allowance</th>
-            <th scope="col">Expiry Ledger</th>
+            <th scope="col">{t("columns.spender")}</th>
+            <th scope="col">{t("columns.token")}</th>
+            <th scope="col">{t("columns.allowance")}</th>
+            <th scope="col">{t("columns.expiryLedger")}</th>
             <th scope="col" className="text-right">
-              Action
+              {t("columns.action")}
             </th>
           </tr>
         </thead>
@@ -107,7 +110,7 @@ export function TokenAllowancesTable({
                       </span>
                       <CopyButton
                         value={entry.spenderAddress}
-                        label={`Copy ${entry.spenderLabel} address`}
+                        label={t("copyAddressLabel", { label: entry.spenderLabel })}
                       >
                         Copy
                       </CopyButton>
@@ -116,7 +119,7 @@ export function TokenAllowancesTable({
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ marginLeft: "0.25rem", fontSize: "0.75rem" }}
-                        title="View contract on explorer"
+                        title={t("viewOnExplorer")}
                       >
                         ↗
                       </a>
@@ -134,7 +137,7 @@ export function TokenAllowancesTable({
                     <span className="font-mono">#{entry.expirationLedger}</span>
                   ) : (
                     <span className="settings-toggle-hint" style={{ margin: 0 }}>
-                      No expiry
+                      {t("noExpiry")}
                     </span>
                   )}
                 </td>
@@ -144,10 +147,10 @@ export function TokenAllowancesTable({
                     type="button"
                     disabled={disabled || isRevoking}
                     onClick={() => onRevoke(entry)}
-                    aria-label={`Revoke allowance for ${entry.spenderLabel}`}
+                    aria-label={t("revokeAriaLabel", { label: entry.spenderLabel })}
                     data-testid={`revoke-btn-${entry.spenderAddress}`}
                   >
-                    {isRevoking ? "Revoking…" : "Revoke"}
+                    {isRevoking ? t("revoking") : t("revoke")}
                   </Button>
                 </td>
               </tr>
