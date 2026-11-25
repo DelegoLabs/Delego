@@ -312,14 +312,7 @@ export function useDelegations(): UseDelegationsResult {
       setPending(id, true);
       setDelegations((prev) => prev.filter((d) => d.id !== id));
       try {
-        const res: ApiResponse<{ id: string; status: string }> | null =
-          await api.revokeDelegation(id);
-        if (!res || res.error || !res.data) {
-          setError((res && res.error?.message) ?? "Failed to revoke delegation");
-          setDelegations(original);
-          setPending(id, false);
-          return false;
-        }
+        await api.revokeDelegation(id);
         setPending(id, false);
         return true;
       } catch {

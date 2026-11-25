@@ -215,11 +215,11 @@ export function QuoteComparisonDrawer({
               <tbody>
                 {sorted.map((q) => {
                   const isBest = best?.merchantId === q.merchantId;
-                  const isBestPrice = bestQuotes.bestPriceIds.has(
+                  const isBestPrice = bestQuotes.bestPrice.has(
                     q.merchantId,
                   );
-                  const isFastest = bestQuotes.fastestIds.has(q.merchantId);
-                  const isTopRated = bestQuotes.topRatedIds.has(q.merchantId);
+                  const isFastest = bestQuotes.fastest.has(q.merchantId);
+                  const isTopRated = bestQuotes.topRated.has(q.merchantId);
                   return (
                     <tr
                       key={q.merchantId}
