@@ -2,6 +2,16 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import WeeklyReportPage from "./page";
 
+const { reportNow } = vi.hoisted(() => ({
+  reportNow: new Date("2026-06-22T12:00:00Z"),
+}));
+
+vi.mock("next-intl", () => ({ useLocale: () => "en-GB" }));
+
+vi.mock("../../../hooks/useNow", () => ({
+  useNow: () => reportNow,
+}));
+
 vi.mock("../../../hooks/useOrders", () => ({
   useOrders: () => ({
     orders: [
@@ -11,11 +21,7 @@ vi.mock("../../../hooks/useOrders", () => ({
         status: "settled",
         lineItems: [],
         totalStroops: 10_000_000n,
-        // The report window is `[now - 7d, now)` with an exclusive upper
-        // bound, so an order created at exactly `now` drops out whenever the
-        // page's clock and this factory land in the same millisecond. An hour
-        // old keeps the order firmly inside the window.
-        createdAt: new Date(Date.now() - 60 * 60 * 1000),
+        createdAt: new Date("2026-06-21T12:00:00Z"),
       },
     ],
     loading: false,
@@ -33,5 +39,11 @@ describe("WeeklyReportPage", () => {
     expect(screen.getByText("Total spend")).toBeDefined();
     expect(screen.getAllByText("1.00 XLM").length).toBeGreaterThan(0);
     expect(screen.getByText("del-1")).toBeDefined();
+  });
+
+  it("formats the report period using the active locale", () => {
+    render(<WeeklyReportPage />);
+
+    expect(screen.getByText("15 Jun 2026 – 22 Jun 2026")).toBeDefined();
   });
 });
