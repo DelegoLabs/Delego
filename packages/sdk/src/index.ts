@@ -94,7 +94,11 @@ export class DelegoClient {
     }
   }
 
-  /** Low-level request helper: joins the base URL, adds auth, parses JSON. */
+  /**
+   * Low-level request helper: joins the base URL, merges caller-supplied
+   * `init.headers` (e.g. from `DelegoRequestOptions.headers`) with the auth
+   * and content-type headers, then parses JSON.
+   */
   async request(path: string, init: RequestInit = {}): Promise<any> {
     const url = `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
     const headers = new Headers(init.headers ?? {});
@@ -125,17 +129,26 @@ export class DelegoClient {
   }
 
   health(options: DelegoRequestOptions = {}): Promise<any> {
-    return this.request("/health", { method: "GET", signal: options.signal });
+    return this.request("/health", {
+      method: "GET",
+      signal: options.signal,
+      headers: options.headers,
+    });
   }
 
   getOrders(options: DelegoRequestOptions = {}): Promise<any> {
-    return this.request("/orders", { method: "GET", signal: options.signal });
+    return this.request("/orders", {
+      method: "GET",
+      signal: options.signal,
+      headers: options.headers,
+    });
   }
 
   getOrder(id: string, options: DelegoRequestOptions = {}): Promise<any> {
     return this.request(`/orders/${encodeURIComponent(id)}`, {
       method: "GET",
       signal: options.signal,
+      headers: options.headers,
     });
   }
 
@@ -143,6 +156,7 @@ export class DelegoClient {
     return this.request(`/orders/${encodeURIComponent(id)}/approve`, {
       method: "POST",
       signal: options.signal,
+      headers: options.headers,
     });
   }
 
@@ -155,6 +169,7 @@ export class DelegoClient {
       method: "POST",
       body: JSON.stringify({ reason, reasonCode }),
       signal: restOptions.signal,
+      headers: restOptions.headers,
     });
   }
 
@@ -162,6 +177,7 @@ export class DelegoClient {
     return this.request("/delegations", {
       method: "GET",
       signal: options.signal,
+      headers: options.headers,
     });
   }
 
@@ -173,6 +189,7 @@ export class DelegoClient {
       method: "POST",
       body: JSON.stringify(input),
       signal: options.signal,
+      headers: options.headers,
     });
   }
 
@@ -185,6 +202,7 @@ export class DelegoClient {
       method: "PATCH",
       body: JSON.stringify(input),
       signal: options.signal,
+      headers: options.headers,
     });
   }
 
@@ -192,11 +210,16 @@ export class DelegoClient {
     return this.request(`/delegations/${encodeURIComponent(id)}`, {
       method: "DELETE",
       signal: options.signal,
+      headers: options.headers,
     });
   }
 
   getEscrows(options: DelegoRequestOptions = {}): Promise<any> {
-    return this.request("/escrows", { method: "GET", signal: options.signal });
+    return this.request("/escrows", {
+      method: "GET",
+      signal: options.signal,
+      headers: options.headers,
+    });
   }
 
   updatePreferences(
@@ -207,6 +230,7 @@ export class DelegoClient {
       method: "PATCH",
       body: JSON.stringify(input),
       signal: options.signal,
+      headers: options.headers,
     });
   }
 
@@ -215,6 +239,7 @@ export class DelegoClient {
       method: "PATCH",
       body: JSON.stringify(input),
       signal: options.signal,
+      headers: options.headers,
     });
   }
 }
