@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Card } from "@delegolabs/ui";
 import { useOrders } from "../../../hooks/useOrders";
 import { formatXlm } from "../../../lib/orders";
@@ -83,6 +83,17 @@ export default function ExpenseReportPage() {
   const [selectedMerchants, setSelectedMerchants] = useState<string[]>([]);
   const [downloaded, setDownloaded] = useState(false);
   const [downloadError, setDownloadError] = useState("");
+  const downloadedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  useEffect(() => {
+    return () => {
+      if (downloadedTimeoutRef.current) {
+        clearTimeout(downloadedTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const categories = useMemo(() => availableCategories(orders), [orders]);
   const merchants = useMemo(() => availableMerchants(orders), [orders]);
@@ -103,6 +114,16 @@ export default function ExpenseReportPage() {
     [orders, filter]
   );
 
+  function scheduleDownloadedReset() {
+    if (downloadedTimeoutRef.current) {
+      clearTimeout(downloadedTimeoutRef.current);
+    }
+    downloadedTimeoutRef.current = setTimeout(() => {
+      setDownloaded(false);
+      downloadedTimeoutRef.current = null;
+    }, 2000);
+  }
+
   function handleDownload() {
     setDownloadError("");
     const filename = expenseReportFilename(report, format);
@@ -115,7 +136,7 @@ export default function ExpenseReportPage() {
       downloadCsv(filename, expenseReportToCsv(report));
     }
     setDownloaded(true);
-    setTimeout(() => setDownloaded(false), 2000);
+    scheduleDownloadedReset();
   }
 
   async function handleDownloadPdf() {
@@ -123,7 +144,7 @@ export default function ExpenseReportPage() {
     try {
       await generateExpenseReportPdf(report);
       setDownloaded(true);
-      setTimeout(() => setDownloaded(false), 2000);
+      scheduleDownloadedReset();
     } catch {
       setDownloadError("Unable to generate the PDF. Please try again.");
     }
