@@ -12,7 +12,7 @@ describe("Button", () => {
   it("renders primary by default with blue background", () => {
     const { container } = render(<Button>Default</Button>);
     const button = container.querySelector("button");
-    expect(button?.style.background).toBe("rgb(37, 99, 235)");
+    expect(button?.style.background).toBe("var(--ui-button-primary-bg, #2563eb)");
   });
 
   it("renders secondary variant with grey background", () => {
@@ -20,7 +20,7 @@ describe("Button", () => {
       <Button variant="secondary">Secondary</Button>,
     );
     const button = container.querySelector("button");
-    expect(button?.style.background).toBe("rgb(229, 231, 235)");
+    expect(button?.style.background).toBe("var(--ui-button-secondary-bg, #e5e7eb)");
   });
 
   it("renders ghost variant with transparent background", () => {
@@ -34,7 +34,7 @@ describe("Button", () => {
       <Button variant="destructive">Reject</Button>,
     );
     const button = container.querySelector("button");
-    expect(button?.style.background).toBe("rgb(220, 38, 38)");
+    expect(button?.style.background).toBe("var(--ui-button-destructive-bg, #dc2626)");
   });
 
   it.each([

@@ -90,7 +90,7 @@ function FilterPills({
       {hasActive && (
         <Button
           variant="ghost"
-          size="small"
+          size="sm"
           onClick={onClearFilters}
           style={{ marginLeft: "0.5rem" }}
         >

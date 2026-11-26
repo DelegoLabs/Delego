@@ -200,10 +200,17 @@ importers:
         version: 5.9.3
 
   packages/sdk:
+    dependencies:
+      '@delegolabs/types':
+        specifier: workspace:*
+        version: link:../types
     devDependencies:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@25.9.3)(jsdom@25.0.1)(msw@2.15.0(@types/node@25.9.3)(typescript@5.9.3))(terser@5.51.2)
 
   packages/types:
     dependencies:
@@ -232,12 +239,33 @@ importers:
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.17
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^7.18.0
+        version: 7.18.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^7.18.0
+        version: 7.18.0(eslint@8.57.1)(typescript@5.9.3)
       '@vitest/coverage-v8':
         specifier: ^2.0.0
         version: 2.1.9(vitest@2.1.9(@types/node@25.9.3)(jsdom@25.0.1)(msw@2.15.0(@types/node@25.9.3)(typescript@5.9.3))(terser@5.51.2))
       axe-core:
         specifier: ^4.13.0
         version: 4.13.0
+      eslint:
+        specifier: ^8.57.0
+        version: 8.57.1
+      eslint-config-prettier:
+        specifier: ^9.1.0
+        version: 9.1.2(eslint@8.57.1)
+      eslint-plugin-jsx-a11y:
+        specifier: ^6.10.2
+        version: 6.10.2(eslint@8.57.1)
+      eslint-plugin-react:
+        specifier: ^7.37.5
+        version: 7.37.5(eslint@8.57.1)
+      eslint-plugin-react-hooks:
+        specifier: ^5.2.0
+        version: 5.2.0(eslint@8.57.1)
       jsdom:
         specifier: ^25.0.0
         version: 25.0.1

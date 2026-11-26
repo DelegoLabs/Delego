@@ -26,8 +26,20 @@ import {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeResponse(body: unknown, status = 200): Response {
+  const statusTexts: Record<number, string> = {
+    200: "OK",
+    201: "Created",
+    204: "No Content",
+    400: "Bad Request",
+    401: "Unauthorized",
+    403: "Forbidden",
+    404: "Not Found",
+    500: "Internal Server Error",
+  };
   return {
     status,
+    ok: status >= 200 && status < 300,
+    statusText: statusTexts[status] ?? "Unknown",
     json: () => Promise.resolve(body),
   } as unknown as Response;
 }
@@ -98,12 +110,12 @@ describe("request helper", () => {
   it("fires onUnauthorized on a 401 response", async () => {
     const onUnauthorized = vi.fn();
     const { client } = makeClient(null, 401, onUnauthorized);
-    await client.request("/me");
+    await expect(client.request("/me")).rejects.toThrow();
     expect(onUnauthorized).toHaveBeenCalledOnce();
   });
 
   it("resolves to null on a 204 response", async () => {
-    const spy = vi.fn().mockResolvedValue({ status: 204 } as Response);
+    const spy = vi.fn().mockResolvedValue({ status: 204, ok: true } as Response);
     const client = new DelegoClient({
       baseUrl: "https://api.delego.test",
       fetch: spy,

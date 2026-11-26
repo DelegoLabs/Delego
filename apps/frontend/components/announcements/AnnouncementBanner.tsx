@@ -37,7 +37,7 @@ const SEVERITY_LABEL: Record<AnnouncementSeverity, string> = {
 export function AnnouncementBanner() {
   const { announcements, dismiss } = useAnnouncements();
   const [closingId, setClosingId] = useState<string | null>(null);
-  const dismissTimer = useRef<ReturnType<typeof window.setTimeout> | null>(
+  const dismissTimer = useRef<number | null>(
     null
   );
 

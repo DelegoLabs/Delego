@@ -34,7 +34,7 @@ export function StorefrontAnnouncementBar({
   const fingerprint = announcementFingerprint(announcement);
   const [dismissed, setDismissed] = useState(false);
   const [closing, setClosing] = useState(false);
-  const dismissTimer = useRef<ReturnType<typeof window.setTimeout> | null>(
+  const dismissTimer = useRef<number | null>(
     null
   );
 
