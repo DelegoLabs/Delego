@@ -13,7 +13,10 @@ export interface MerchantPolicyInfo {
 }
 
 export type DelegationPermissionLevel =
-  "VIEW_ONLY" | "AUTO_APPROVE" | "SIGNER" | "ADMIN";
+  | "VIEW_ONLY"
+  | "AUTO_APPROVE"
+  | "SIGNER"
+  | "ADMIN";
 
 export type ColorTag =
   | "slate"
@@ -25,11 +28,6 @@ export type ColorTag =
   | "violet"
   | "teal";
 
-/**
- * A crop rectangle in the original image's decoded pixel coordinate space.
- * `x` and `y` identify the top-left pixel; width and height are positive
- * pixel lengths. `aspectRatio` is `width / height` for the intended output.
- */
 export interface CropArea {
   x: number;
   y: number;
@@ -102,7 +100,6 @@ export type OrderStatus =
   | "canceled"
   | "cancelled"
   | "disputed"
-  /** Dual-control (#574): first approval recorded, waiting on a second signer. */
   | "awaiting_countersign";
 
 export interface OrderItem {
@@ -111,10 +108,6 @@ export interface OrderItem {
   price?: number;
   unitPriceStroops?: any;
   quantity: number;
-  /**
-   * Product category the line item belongs to (#989). Optional — older
-   * orders and line items don't carry one.
-   */
   category?: string;
 }
 
@@ -141,33 +134,20 @@ export interface PackageTrackingInfo {
   events: TrackingEvent[];
 }
 
-/** A single approve/countersign signature captured for an order (#574). */
 export interface ApprovalSignature {
   approverId: string;
   approverAddress?: string;
-  /** ISO-8601 timestamp, server-issued. */
   timestamp: string;
 }
 
-/**
- * Dual-control approval state for a single order (#574). Absent/`required:
- * false` means the order follows the ordinary single-approval path — the
- * feature flag and per-order threshold check are what decide `required`.
- */
 export interface DualControlState {
   required: boolean;
   status: "single" | "awaiting_countersign" | "completed";
-  /** Wallet/user ids authorized to countersign (the delegation owner list). */
   delegationOwners?: string[];
   firstApproval?: ApprovalSignature;
   secondApproval?: ApprovalSignature;
 }
 
-/**
- * Structured reason recorded when a pending order is rejected (#567), so
- * agents can learn *why* an item was unsuitable instead of an unsuitable
- * item being re-proposed indefinitely.
- */
 export type RejectionReasonCode =
   | "too_expensive"
   | "wrong_item"
@@ -180,38 +160,24 @@ export interface Order {
   userId?: string;
   delegationId: string;
   merchantId?: string;
-  /** @deprecated superseded by merchantId; kept for older call sites. */
   merchantName?: string;
   amount?: any;
   totalStroops?: any;
   currency?: string;
   status: OrderStatus;
   lineItems?: OrderItem[];
-  /** @deprecated superseded by lineItems; kept for older call sites. */
   items?: OrderItem[];
-  /** Independent carrier tracking state for each box in a multi-package order. */
   packages?: PackageTrackingInfo[];
   escrowContractId?: string | null;
-  /** Structured reject reason (#567). Optional for backward compatibility with rejections recorded before this field existed. */
   rejectionReason?: RejectionReasonCode | null;
-  /** Free-text detail accompanying `rejectionReason` (#567). */
   rejectionNote?: string | null;
   dualControl?: DualControlState;
-  /** Optional note attached by the approver at approval time (#573). */
   approvalNote?: string | null;
-  /** Optional gift options attached to the order. */
   giftOptions?: GiftOptions;
-  /** Metadata payload associated with the order. */
   metadata?: {
     giftOptions?: GiftOptions;
     [key: string]: unknown;
   };
-  /**
-   * Product category the order was placed in (#989). Optional — orders
-   * created before the field existed don't carry one, and the buyer
-   * analytics fall back to the first line item's category (see
-   * `orderCategory` in the web app).
-   */
   category?: string | null;
   createdAt: Date | string;
   updatedAt?: Date | string;
@@ -240,57 +206,30 @@ export type EscrowStatus =
   | "Released"
   | "Disputed"
   | "Refunded"
-  /** Cancellation requested; still within the undo grace period (#580). */
   | "cancelling"
   | "cancelled";
 
-/**
- * Server-issued cancellation grace state for an escrow (#580). The
- * expiration must always be read from `graceExpiresAt`/`serverTimestamp` (not
- * a client-computed offset) so the countdown is immune to client clock skew.
- */
 export interface CancellationGrace {
-  /** ISO-8601 timestamp of the cancel request. */
   requestedAt: string;
   gracePeriodSeconds: number;
-  /** ISO-8601 timestamp — the server-authoritative moment the grace period lapses. */
   graceExpiresAt: string;
-  /** ISO-8601 timestamp of "now" as seen by the server when it issued this state. */
   serverTimestamp: string;
   cancelledBy?: string;
 }
 
-/**
- * Server-issued data-erasure request state (#610) — full server-side account
- * erasure, distinct from the immediate/local-only "clear local data" tier
- * (which never touches the server and has no request lifecycle). Modeled on
- * `CancellationGrace`: the client never marks a request cancelled or
- * finalized on its own — `status` always reflects the server's last answer.
- */
 export interface ErasureRequest {
-  /** ISO-8601 timestamp the erasure request was logged. */
   requestedAt: string;
-  /** ISO-8601 timestamp — the server-authoritative date erasure finalizes if not cancelled. */
   finalizesAt: string;
-  /** ISO-8601 timestamp of "now" as seen by the server when it issued this state. */
   serverTimestamp: string;
   status: "pending" | "cancelled" | "finalized";
 }
 
 export interface Escrow {
-  /**
-   * @deprecated most call sites key off `escrowId`, which is what fixtures
-   * and the escrows list/countdown UI actually populate; `id` is kept
-   * optional for older call sites. Use `escrowKey()` (lib/escrows.ts) to
-   * resolve the identifier regardless of which is present.
-   */
   id?: string;
   escrowId: string;
   orderId: string;
-  /** @deprecated superseded by `buyer`; kept for older call sites. */
   buyerId?: string;
   buyer: string;
-  /** @deprecated superseded by `seller`; kept for older call sites. */
   sellerId?: string;
   seller: string;
   amount: any;
@@ -298,17 +237,11 @@ export interface Escrow {
   token?: string;
   timeoutLedger?: number;
   currentLedger?: number;
-  /** ISO-8601 timestamp of the deadline as originally set on the contract (#577). */
   originalDeadline?: string;
-  /** ISO-8601 timestamp of the current effective deadline, after any extensions. */
   deadline?: string;
-  /** Count of extension requests already granted against this escrow. */
   extensionsConsumed?: number;
-  /** Contract-enforced cap on the number of extensions allowed. */
   maxExtensions?: number;
-  /** Contract-enforced cap on total extension time, in seconds. */
   maxExtensionSeconds?: number;
-  /** Present while a cancellation is pending or within its undo window (#580). */
   cancellation?: CancellationGrace | null;
   createdAt: Date | string;
   arbiter?: string;
@@ -329,6 +262,15 @@ export const ESCROW_STATUS_META: Record<
   cancelling: { label: "Cancelling…", tone: "pending" },
   cancelled: { label: "Cancelled", tone: "refunded" },
 };
+
+export interface AssetRevenueBreakdown {
+  assetCode: string;
+  symbol: string;
+  settledVolumeStroops: string;
+  pendingEscrowVolumeStroops: string;
+  refundedVolumeStroops: string;
+  fiatEquivalentUsd: number;
+}
 
 export interface User {
   id: string;
@@ -362,7 +304,6 @@ export interface ApiResponse<T> {
   error: ApiError | null;
 }
 
-/** User agent preference item. */
 export interface UserPreferenceItem {
   key: string;
   value: string | number | boolean;
@@ -370,9 +311,6 @@ export interface UserPreferenceItem {
   updatedAt: string;
 }
 
-/**
- * Connectivity status snapshot surfaced by the frontend's `useOnlineStatus` hook (#773).
- */
 export type OfflineStatus = "online" | "offline" | "reconnecting";
 
 export interface ConnectivityState {
@@ -381,9 +319,6 @@ export interface ConnectivityState {
   lastConnectedTimestamp: number;
 }
 
-/**
- * Active Soroban token allowance granted to an escrow or router contract.
- */
 export interface TokenAllowanceEntry {
   tokenAddress: string;
   tokenSymbol: string;
@@ -425,7 +360,6 @@ export interface LedgerConnectionState {
 }
 
 export * from "./schemas.js";
-
 
 export interface SavedShippingAddress {
   id: string;
