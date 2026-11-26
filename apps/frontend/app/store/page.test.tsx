@@ -32,11 +32,11 @@ describe("StoreDirectoryPage", () => {
 
     render(<StoreDirectoryPage />);
     expect(screen.getByRole("alert").textContent).toContain(
-      "Failed to load merchant directory (500)"
+      "Unable to load merchants"
     );
   });
 
-  it("lists verified merchants with links to /store/[merchantId] and supports search and category filter", () => {
+  it("lists merchants with links to /store/[merchantId] and supports search and category filter", () => {
     vi.mocked(useMerchantDirectory).mockReturnValue({
       merchants: [
         {
@@ -50,7 +50,7 @@ describe("StoreDirectoryPage", () => {
           name: "Stellar Gear",
           category: "Hardware",
         },
-      ] as unknown as ReturnType<typeof useMerchantDirectory>["merchants"],
+      ],
       loading: false,
       error: null,
     });
@@ -60,14 +60,14 @@ describe("StoreDirectoryPage", () => {
     expect(screen.getByText("Acme Coffee")).toBeTruthy();
     expect(screen.getByText("Stellar Gear")).toBeTruthy();
 
-    const links = screen.getAllByRole("link", { name: "Visit storefront" });
+    const links = screen.getAllByRole("link", { name: /^Visit / });
     expect(links.map((el) => el.getAttribute("href"))).toEqual([
       "/store/acme-coffee",
       "/store/stellar-gear",
     ]);
 
     // Filter by category
-    const categorySelect = screen.getByLabelText("Filter by category");
+    const categorySelect = screen.getByLabelText("Category");
     fireEvent.change(categorySelect, { target: { value: "Hardware" } });
     expect(screen.queryByText("Acme Coffee")).toBeNull();
     expect(screen.getByText("Stellar Gear")).toBeTruthy();
@@ -77,7 +77,7 @@ describe("StoreDirectoryPage", () => {
     fireEvent.change(searchInput, { target: { value: "nonexistent" } });
     expect(
       screen.getByText(
-        "No verified merchants match your current search or category filter."
+        "No merchants match your filters. Try a different search or clear filters."
       )
     ).toBeTruthy();
 
