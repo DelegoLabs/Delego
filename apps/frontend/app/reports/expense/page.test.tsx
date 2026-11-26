@@ -141,4 +141,16 @@ describe("ExpenseReportPage", () => {
     expect(generateExpenseReportPdfMock).toHaveBeenCalledOnce();
     expect(generateExpenseReportPdfMock.mock.calls[0][0].orderCount).toBe(2);
   });
+
+  it("clears the download status timeout on unmount", async () => {
+    const user = userEvent.setup();
+    const clearTimeoutSpy = vi.spyOn(window, "clearTimeout");
+    const { unmount } = render(<ExpenseReportPage />);
+
+    await user.click(screen.getByRole("button", { name: /download csv/i }));
+    unmount();
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
+  });
 });
