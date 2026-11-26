@@ -308,5 +308,42 @@
       "title": "Wallet",
       "description": "Verbinde deine Stellar-Wallet."
     }
+  },
+  "tracking": {
+    "title": "Sendungsverfolgung",
+    "subtitle": "Verfolge laufende Bestellungen, während ihr Status in Echtzeit aktualisiert wird",
+    "liveUpdated": "Live · aktualisiert {time}",
+    "refresh": "Aktualisieren",
+    "refreshAriaLabel": "Jetzt aktualisieren",
+    "empty": "Derzeit sind keine Bestellungen unterwegs.",
+    "showCompleted": "Abgeschlossene anzeigen ({count})",
+    "hideCompleted": "Abgeschlossene ausblenden ({count})",
+    "card": {
+      "orderTitle": "Bestellung {orderId}",
+      "orderAriaLabel": "Sendungsverfolgung für Bestellung {orderId}",
+      "orderProgressAriaLabel": "Bestellfortschritt",
+      "merchant": "Händler",
+      "total": "Gesamt",
+      "escrow": "Treuhandkonto",
+      "notYetEscrowed": "Noch nicht hinterlegt",
+      "completed": "Abgeschlossen",
+      "lastUpdate": "Letzte Aktualisierung",
+      "packages": {
+        "sectionAriaLabel": "Paketverfolgung",
+        "heading": "Pakete ({count})",
+        "tablistAriaLabel": "Bestellpakete",
+        "tabLabel": "Paket {number} · {carrier}",
+        "deliveryProgress": "Lieferfortschritt",
+        "progressAriaLabel": "Lieferfortschritt für Paket {number}",
+        "estimatedDeliveryFallback": "Nicht angegeben",
+        "status": {
+          "label_created": "Etikett erstellt",
+          "in_transit": "Unterwegs",
+          "out_for_delivery": "In Zustellung",
+          "delivered": "Zugestellt",
+          "exception": "Ausnahme"
+        }
+      }
+    }
   }
 }
