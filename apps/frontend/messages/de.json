@@ -279,6 +279,33 @@
     "description": "Die gesuchte Seite existiert nicht.",
     "goHome": "Zur Startseite"
   },
+  "escrows": {
+    "pageTitle": "Treuhandkonten",
+    "pageDescription": "Verfolge deine aktiven Treuhandvereinbarungen und überwache den Fondsstatus on-chain.",
+    "filters": {
+      "searchPlaceholder": "Nach Treuhand, Bestellung, Käufer oder Verkäufer suchen",
+      "searchAriaLabel": "Treuhandkonten durchsuchen",
+      "filterByStatus": "Nach Status filtern"
+    },
+    "status": {
+      "Funded": "Finanziert",
+      "Released": "Freigegeben",
+      "Refunded": "Erstattet",
+      "Disputed": "Streitig"
+    },
+    "loading": "Treuhandkonten werden geladen",
+    "error": {
+      "title": "Treuhandkonten konnten nicht geladen werden",
+      "tryAgain": "Erneut versuchen"
+    },
+    "empty": {
+      "noEscrows": "Keine aktiven Treuhandkonten",
+      "noEscrowsDescription": "Treuhandvereinbarungen erscheinen hier, sobald deine Agenten Käufe in deinem Namen initiiert haben.",
+      "noResults": "Keine Treuhandkonten entsprechen den aktuellen Filtern",
+      "noResultsDescription": "Versuche, deine Such- oder Statusfilter anzupassen."
+    },
+    "list": "Treuhandkontenliste"
+  },
   "home": {
     "title": "Delego",
     "subtitle": "KI-gestützter Handel mit Freigaben und Ausgabenkontrollen",

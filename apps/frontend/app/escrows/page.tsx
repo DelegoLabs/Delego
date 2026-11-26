@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import type { Escrow } from "@delegolabs/types";
 import { useEscrows } from "../../hooks/useEscrows";
 import { useQueryParamState } from "../../hooks/useQueryParamState";
@@ -13,6 +14,7 @@ import { Button } from "@delegolabs/ui";
 type EscrowStatus = Escrow["status"];
 
 export default function EscrowsPage() {
+  const t = useTranslations("escrows");
   const { escrows, loading, error } = useEscrows();
   const [search, setSearch] = useQueryParamState<string>({
     key: "q",
@@ -54,11 +56,8 @@ export default function EscrowsPage() {
       <header className="header">
         <div className="header-row">
           <div>
-            <h1>Escrows</h1>
-            <p>
-              Track your active escrow agreements and monitor fund status
-              on-chain.
-            </p>
+            <h1>{t("pageTitle")}</h1>
+            <p>{t("pageDescription")}</p>
           </div>
           <CopyViewLinkButton />
         </div>
@@ -77,7 +76,7 @@ export default function EscrowsPage() {
 
       {/* Loading skeleton */}
       {loading && (
-        <section className="grid" aria-busy="true" aria-label="Loading escrows">
+        <section className="grid" aria-busy="true" aria-label={t("loading")}>
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
@@ -104,7 +103,7 @@ export default function EscrowsPage() {
           }}
         >
           <p style={{ margin: "0 0 1rem", fontWeight: 500 }}>
-            Unable to load escrows
+            {t("error.title")}
           </p>
           <p
             style={{
@@ -116,7 +115,7 @@ export default function EscrowsPage() {
             {error}
           </p>
           <Button variant="secondary" onClick={() => window.location.reload()}>
-            Try again
+            {t("error.tryAgain")}
           </Button>
         </div>
       )}
@@ -133,20 +132,20 @@ export default function EscrowsPage() {
             style={{ margin: "0 0 0.5rem", fontWeight: 500, color: "#374151" }}
           >
             {escrows.length === 0
-              ? "No active escrows"
-              : "No escrows match the current filters"}
+              ? t("empty.noEscrows")
+              : t("empty.noResults")}
           </p>
           <p style={{ margin: 0, fontSize: "0.875rem", color: "#6b7280" }}>
             {escrows.length === 0
-              ? "Escrow agreements will appear here once your agents initiate purchases on your behalf."
-              : "Try adjusting your search or status filters."}
+              ? t("empty.noEscrowsDescription")
+              : t("empty.noResultsDescription")}
           </p>
         </div>
       )}
 
       {/* Escrow list */}
       {!loading && !error && visibleEscrows.length > 0 && (
-        <section className="grid" aria-label="Escrow list">
+        <section className="grid" aria-label={t("list")}>
           {visibleEscrows.map((escrow) => (
             <EscrowCard
               key={escrow.escrowId}
