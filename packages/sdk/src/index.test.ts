@@ -28,6 +28,8 @@ import {
 function makeResponse(body: unknown, status = 200): Response {
   return {
     status,
+    ok: status >= 200 && status < 300,
+    statusText: status === 204 ? "No Content" : "OK",
     json: () => Promise.resolve(body),
   } as unknown as Response;
 }
