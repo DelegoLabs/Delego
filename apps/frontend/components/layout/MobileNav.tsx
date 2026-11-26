@@ -115,6 +115,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
           <ul className="nav-list">
             {navItems.map((item) => {
               const isActive = item.href === activeNavHref(pathname);
+              const NavIcon = item.icon;
               return (
                 <li key={item.href}>
                   <Link
@@ -126,12 +127,12 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                     onClick={onClose}
                     tabIndex={open ? 0 : -1}
                   >
-                  <span className="nav-icon" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  {t(item.labelKey)}
-                  {item.badge === "pendingApprovals" && <NavPendingBadge />}
-                </Link>
+                    <span className="nav-icon" aria-hidden="true">
+                      <NavIcon size={18} />
+                    </span>
+                    {t(item.labelKey)}
+                    {item.badge === "pendingApprovals" && <NavPendingBadge />}
+                  </Link>
                 </li>
               );
             })}

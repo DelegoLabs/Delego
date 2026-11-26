@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Card } from "@delegolabs/ui";
 import { useFocusTrap } from "../hooks/useFocusTrap";
@@ -46,6 +46,17 @@ function KillSwitchModal({
     },
   });
 
+  useEffect(() => {
+    if (revoking) {
+      // All controls are disabled during revocation. Keep focus on the dialog
+      // instead of leaving it on a disabled button (or the document body).
+      modalRef.current?.focus();
+    } else if (error) {
+      // The input is enabled again and describes the error, ready for retry.
+      confirmationInputRef.current?.focus();
+    }
+  }, [revoking, error]);
+
   async function handleConfirm() {
     if (!confirmed || revoking) {
       return;
@@ -71,11 +82,11 @@ function KillSwitchModal({
       aria-labelledby="kill-switch-modal-title"
       tabIndex={-1}
     >
-      <h2 id="kill-switch-modal-title">Revoke all delegations</h2>
+      <h2 id="kill-switch-modal-title">{tModal("title")}</h2>
       <p>
-        This will immediately revoke all {activeDelegationCount} active AI agent
-        spending permission{activeDelegationCount === 1 ? "" : "s"} on-chain.
-        This action cannot be undone.
+        {tModal.rich("description", {
+          count: activeDelegationCount,
+        })}
       </p>
       <label htmlFor="kill-switch-confirmation">
         {tModal.rich("confirmLabel", {

@@ -1,7 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import { TokenAllowancesTable, formatStroopsToDecimal } from "./TokenAllowancesTable";
 import type { TokenAllowanceEntry } from "@delegolabs/types";
+import messages from "../../messages/en.json";
+
+function renderWithIntl(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      {ui}
+    </NextIntlClientProvider>
+  );
+}
 
 describe("TokenAllowancesTable", () => {
   const mockAllowances: TokenAllowanceEntry[] = [
@@ -24,7 +34,7 @@ describe("TokenAllowancesTable", () => {
   ];
 
   it("renders empty state message when allowances list is empty", () => {
-    render(
+    renderWithIntl(
       <TokenAllowancesTable
         allowances={[]}
         onRevoke={vi.fn()}
@@ -37,7 +47,7 @@ describe("TokenAllowancesTable", () => {
   });
 
   it("renders loading skeleton when loading and empty", () => {
-    render(
+    renderWithIntl(
       <TokenAllowancesTable
         allowances={[]}
         loading={true}
@@ -49,7 +59,7 @@ describe("TokenAllowancesTable", () => {
   });
 
   it("renders table with spender address, allowance amount, and expiry ledger", () => {
-    render(
+    renderWithIntl(
       <TokenAllowancesTable
         allowances={mockAllowances}
         onRevoke={vi.fn()}
@@ -76,7 +86,7 @@ describe("TokenAllowancesTable", () => {
 
   it("calls onRevoke when Revoke button is clicked for a row", async () => {
     const handleRevoke = vi.fn().mockResolvedValue(undefined);
-    render(
+    renderWithIntl(
       <TokenAllowancesTable
         allowances={mockAllowances}
         onRevoke={handleRevoke}
@@ -95,7 +105,7 @@ describe("TokenAllowancesTable", () => {
 
   it("disables Revoke button and shows revoking text when row is being revoked", () => {
     const revokingKey = `${mockAllowances[0].tokenAddress}-${mockAllowances[0].spenderAddress}`;
-    render(
+    renderWithIntl(
       <TokenAllowancesTable
         allowances={mockAllowances}
         revokingSpenderKey={revokingKey}
@@ -118,7 +128,7 @@ describe("TokenAllowancesTable", () => {
   });
 
   it("disables all Revoke buttons when disabled prop is true", () => {
-    render(
+    renderWithIntl(
       <TokenAllowancesTable
         allowances={mockAllowances}
         disabled={true}
@@ -143,6 +153,13 @@ describe("TokenAllowancesTable", () => {
       expect(formatStroopsToDecimal("15000000")).toBe("1.5");
       expect(formatStroopsToDecimal("100")).toBe("0.00001");
       expect(formatStroopsToDecimal("0")).toBe("0");
+    });
+
+    it("formats whole part with a fixed en-US grouping locale regardless of environment", () => {
+      expect(formatStroopsToDecimal("12345670000000", "en-US")).toBe("1,234,567");
+      expect(formatStroopsToDecimal("12345670000000", "en-US")).toBe(
+        formatStroopsToDecimal("12345670000000", "en-US")
+      );
     });
   });
 });

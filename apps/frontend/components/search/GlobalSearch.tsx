@@ -13,6 +13,17 @@ import {
 import { useTheme, type ThemeMode } from "../../hooks/useTheme";
 
 const DEBOUNCE_MS = 300;
+const RECENT_SEARCHES_KEY = "delego_global_search_recent_v1";
+const MAX_RECENT_SEARCHES = 5;
+
+const SEARCH_TABS = [
+  { type: "all", label: "All" },
+  { type: "delegation", label: "Delegations" },
+  { type: "order", label: "Orders" },
+  { type: "transaction", label: "Transactions" },
+] as const;
+
+type SearchTab = (typeof SEARCH_TABS)[number]["type"];
 
 interface SearchResultItem {
   id: string;
@@ -31,7 +42,32 @@ function matchesQuery(
   query: string,
   ...fields: (string | null | undefined)[]
 ): boolean {
-  return fields.some((field) => field?.toLowerCase().includes(query));
+  const normalizedQuery = query.toLowerCase();
+  return fields.some((field) => field?.toLowerCase().includes(normalizedQuery));
+}
+
+function loadRecentSearches(): string[] {
+  try {
+    const stored = localStorage.getItem(RECENT_SEARCHES_KEY);
+    if (!stored) return [];
+    const parsed: unknown = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((search): search is string => typeof search === "string")
+      .map((search) => search.trim())
+      .filter(Boolean)
+      .slice(0, MAX_RECENT_SEARCHES);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentSearches(searches: string[]): void {
+  try {
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches));
+  } catch {
+    // Recent searches are best-effort when browser storage is unavailable.
+  }
 }
 
 /**
@@ -68,20 +104,45 @@ export function GlobalSearch() {
   const [filters, setFilters] = useState<EntityTypeFilters>(
     DEFAULT_ENTITY_TYPE_FILTERS
   );
+  const [selectedTab, setSelectedTab] = useState<SearchTab>("all");
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  useEffect(() => {
+    setRecentSearches(loadRecentSearches());
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedQuery(query.trim().toLowerCase());
+      setDebouncedQuery(query.trim());
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
   }, [query]);
 
   useEffect(() => {
+    if (!debouncedQuery) return;
+
+    setRecentSearches((previous) => {
+      return [
+        debouncedQuery,
+        ...previous.filter(
+          (search) => search.toLowerCase() !== debouncedQuery.toLowerCase()
+        ),
+      ].slice(0, MAX_RECENT_SEARCHES);
+    });
+  }, [debouncedQuery]);
+
+  useEffect(() => {
+    saveRecentSearches(recentSearches);
+  }, [recentSearches]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setQuery("");
         setFiltersOpen(false);
+        setSearchFocused(false);
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -92,6 +153,7 @@ export function GlobalSearch() {
     if (e.key === "Escape") {
       setQuery("");
       setFiltersOpen(false);
+      setSearchFocused(false);
     }
   };
 
@@ -168,13 +230,30 @@ export function GlobalSearch() {
         label: ENTITY_TYPE_LABELS[type],
         items: items.filter((item) => item.type === type),
       }))
+      .filter((group) => selectedTab === "all" || group.type === selectedTab)
       .filter((group) => group.items.length > 0);
-  }, [debouncedQuery, delegations, orders, filters]);
+  }, [debouncedQuery, delegations, orders, filters, selectedTab]);
 
   const showResults = debouncedQuery.length > 0;
+  const showRecentSearches =
+    searchFocused &&
+    !query.trim() &&
+    !debouncedQuery &&
+    recentSearches.length > 0;
 
   return (
-    <div className="global-search" onKeyDown={handleKeyDown}>
+    <div
+      className="global-search"
+      onKeyDown={handleKeyDown}
+      onBlur={(event) => {
+        if (
+          !(event.relatedTarget instanceof Node) ||
+          !event.currentTarget.contains(event.relatedTarget)
+        ) {
+          setSearchFocused(false);
+        }
+      }}
+    >
       <div className="global-search-input-wrap">
         <input
           type="search"
@@ -183,6 +262,7 @@ export function GlobalSearch() {
           aria-label="Search delegations, orders, and transactions"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setSearchFocused(true)}
           className="global-search-input focus-visible-ring"
         />
         <button
@@ -209,35 +289,99 @@ export function GlobalSearch() {
       {filtersOpen && <FilterPanel filters={filters} onChange={setFilters} />}
 
       {showResults && (
-        <div
-          className="global-search-results"
-          role="listbox"
-          aria-label="Search results"
-        >
-          {groups.length === 0 ? (
-            <p className="global-search-empty">No results found</p>
-          ) : (
-            groups.map((group) => (
-              <div className="global-search-group focus-visible-ring" key={group.type}>
-                <p className="global-search-group-label">{group.label}</p>
-                {group.items.map((item) => (
+        <div className="global-search-dropdown">
+          <div
+            className="global-search-tabs"
+            role="tablist"
+            aria-label="Search entity type"
+          >
+            {SEARCH_TABS.map((tab) => (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={selectedTab === tab.type}
+                aria-controls="global-search-results"
+                className="global-search-tab"
+                key={tab.type}
+                onClick={() => setSelectedTab(tab.type)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div
+            id="global-search-results"
+            role="tabpanel"
+            aria-label={`${SEARCH_TABS.find((tab) => tab.type === selectedTab)?.label} results`}
+          >
+            <div
+              className="global-search-results"
+              role="listbox"
+              aria-label="Search results"
+            >
+              {groups.length === 0 ? (
+                <p className="global-search-empty">No results found</p>
+              ) : (
+                groups.map((group) => (
                   <div
-                    className="global-search-item"
-                    role="option"
-                    aria-selected={false}
-                    key={`${item.type}-${item.id}`}
+                    className="global-search-group focus-visible-ring"
+                    key={group.type}
                   >
-                    <span className="global-search-item-title">
-                      {item.title}
-                    </span>
-                    <span className="global-search-item-subtitle">
-                      {item.subtitle}
-                    </span>
+                    <p className="global-search-group-label">{group.label}</p>
+                    {group.items.map((item) => (
+                      <div
+                        className="global-search-item"
+                        role="option"
+                        aria-selected={false}
+                        key={`${item.type}-${item.id}`}
+                      >
+                        <span className="global-search-item-title">
+                          {item.title}
+                        </span>
+                        <span className="global-search-item-subtitle">
+                          {item.subtitle}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ))
-          )}
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRecentSearches && (
+        <div className="global-search-dropdown global-search-history">
+          <div className="global-search-history-header">
+            <span>Recent searches</span>
+            <button
+              type="button"
+              className="global-search-clear-history"
+              onClick={() => {
+                setRecentSearches([]);
+              }}
+            >
+              Clear history
+            </button>
+          </div>
+          <ul className="global-search-history-list">
+            {recentSearches.map((search) => (
+              <li key={search}>
+                <button
+                  type="button"
+                  className="global-search-history-item"
+                  aria-label={`Search for ${search}`}
+                  onClick={() => {
+                    setQuery(search);
+                    setSearchFocused(false);
+                  }}
+                >
+                  {search}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

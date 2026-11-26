@@ -67,6 +67,7 @@ describe("MerchantOnboardingWizard", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
     mocks.verifyDomainOwnership.mockResolvedValue({
       valid: true,
       signingKey: "GCEYUZC5MZNB7JYA6ZZ2JNP2LAD23SDUWG52EZKDYAEEIJ2Y6XVWER74",

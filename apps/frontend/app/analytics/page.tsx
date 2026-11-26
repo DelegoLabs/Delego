@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import AnalyticsLoading from "./loading";
 import { AnalyticsDashboard } from "../../components/analytics/AnalyticsDashboard";
 import { parseAnalyticsRange, type AnalyticsRange } from "../../lib/analytics";

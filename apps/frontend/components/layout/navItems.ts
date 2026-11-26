@@ -1,3 +1,17 @@
+import {
+  AnalyticsIcon,
+  ApprovalsHistoryIcon,
+  ApprovalsIcon,
+  ApprovalsPendingIcon,
+  DelegationsIcon,
+  HomeIcon,
+  OrdersIcon,
+  SettingsIcon,
+  TrackingIcon,
+  WalletIcon,
+  type IconComponent,
+} from "@delegolabs/ui";
+
 /** Shared primary navigation items for the sidebar and mobile nav. */
 /** Single navigation entry used by the app shell. */
 export interface NavItem {
@@ -14,8 +28,8 @@ export interface NavItem {
     | "wallet"
     | "settings";
   href: string;
-  /** Emoji icon — TODO: replace with design-system icon set */
-  icon: string;
+  /** Design-system icon rendered beside the label. */
+  icon: IconComponent;
   /**
    * Which live counter to render inside the link (#780). Only one item carries
    * a badge today; the indirection keeps the shells from growing a per-item
@@ -26,21 +40,25 @@ export interface NavItem {
 
 /** Canonical navigation items for the main application shell. */
 export const navItems: NavItem[] = [
-  { labelKey: "dashboard", href: "/", icon: "🏠" },
-  { labelKey: "delegations", href: "/delegations", icon: "🤝" },
-  { labelKey: "orders", href: "/orders", icon: "📦" },
-  { labelKey: "approvals", href: "/approvals", icon: "🛡️" },
+  { labelKey: "dashboard", href: "/", icon: HomeIcon },
+  { labelKey: "delegations", href: "/delegations", icon: DelegationsIcon },
+  { labelKey: "orders", href: "/orders", icon: OrdersIcon },
+  { labelKey: "approvals", href: "/approvals", icon: ApprovalsIcon },
   {
     labelKey: "approvalsPending",
     href: "/approvals/pending",
-    icon: "✍️",
+    icon: ApprovalsPendingIcon,
     badge: "pendingApprovals",
   },
-  { labelKey: "approvalsHistory", href: "/approvals/history", icon: "🗂️" },
-  { labelKey: "tracking", href: "/tracking", icon: "🚚" },
-  { labelKey: "analytics", href: "/analytics", icon: "📊" },
-  { labelKey: "wallet", href: "/wallet", icon: "👛" },
-  { labelKey: "settings", href: "/settings", icon: "⚙️" },
+  {
+    labelKey: "approvalsHistory",
+    href: "/approvals/history",
+    icon: ApprovalsHistoryIcon,
+  },
+  { labelKey: "tracking", href: "/tracking", icon: TrackingIcon },
+  { labelKey: "analytics", href: "/analytics", icon: AnalyticsIcon },
+  { labelKey: "wallet", href: "/wallet", icon: WalletIcon },
+  { labelKey: "settings", href: "/settings", icon: SettingsIcon },
 ];
 
 /**
@@ -84,7 +102,9 @@ export function activeNavHref(
  * "99+" so the badge stays compact on small screens. Returns `null` when there
  * is nothing unread so the badge can be hidden entirely.
  */
-export function formatFabBadgeCount(unreadProposalsCount: number): string | null {
+export function formatFabBadgeCount(
+  unreadProposalsCount: number
+): string | null {
   if (!Number.isFinite(unreadProposalsCount) || unreadProposalsCount <= 0) {
     return null;
   }

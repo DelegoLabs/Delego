@@ -110,7 +110,7 @@ describe("AgentChatDrawer with filter pills (#978)", () => {
     fireEvent.click(clearButton);
   });
 
-it("passes filter params to onSubmit when sending message", () => {
+  it("passes filter params to onSubmit when sending message", () => {
     const onSubmit = vi.fn();
     render(
       <AgentChatDrawer

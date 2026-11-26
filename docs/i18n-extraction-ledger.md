@@ -10,6 +10,10 @@ scaffolding work, and what's still hardcoded English pending follow-up PRs.
 - `common.*` — shared cancel/save/loading/error strings
 - `forms.*` — shared form hint copy
 - `delegations.wizard.*` — the delegation creation form (`DelegationForm`)
+- `escrows.*` — page heading, description, search placeholder + aria-label,
+  filter-by-status legend, status chip labels (Funded / Released / Refunded /
+  Disputed), loading aria-label, error title + try-again, empty-state copy
+  (`app/escrows/page.tsx`, `components/escrows/EscrowFilters.tsx`)
 - `settings.language.*` — the language switcher stub
 
 ## Not yet extracted (hardcoded English)
@@ -23,7 +27,7 @@ and delete the corresponding line.
 - `components/orders/OrderTable.tsx`, `OrderTrackingCard.tsx` — table
   headers, status labels
 - `components/orders/StatusTimeline.tsx`, `OrderFilters.tsx`
-- `components/escrows/EscrowCard.tsx`, `app/escrows/page.tsx`
+- `components/escrows/EscrowCard.tsx` — status badge label, escrow detail strings
 - `components/analytics/SpendingOverview.tsx`, `app/analytics/page.tsx`
 - `components/settings/ProfileForm.tsx`, `PreferencesForm.tsx`
 - `components/delegations/DelegationList.tsx`, `DelegationCard.tsx`,

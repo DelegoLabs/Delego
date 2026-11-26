@@ -4,13 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
+import {
+  AgentIcon,
+  CartIcon,
+  OrdersIcon,
+  StoreIcon,
+  type IconComponent,
+} from "@delegolabs/ui";
 import { useCart } from "../../hooks/useCart";
 import { NavPendingBadge } from "./NavPendingBadge";
 import { activeNavHref } from "./navItems";
 
 export interface MobileNavItem {
   label: string;
-  icon: string;
+  icon: IconComponent;
   route: string;
   badgeCount?: number;
   isActive: boolean;
@@ -32,9 +39,13 @@ export interface MobileNavItem {
 export function MobileBottomNav() {
   const pathname = usePathname();
   const t = useTranslations("mobileBottomNav");
-  const { summary, openDrawer } = useCart();
+  const { summary, openDrawer, drawerOpen } = useCart();
 
   const activeHref = activeNavHref(pathname);
+  const isStoreActive =
+    pathname === "/store" || pathname.startsWith("/store/");
+  const isOrdersActive = activeHref === "/orders";
+  const isCartActive = drawerOpen;
 
   const handleAgentClick = useCallback(() => {
     window.dispatchEvent(new CustomEvent("open-agent"));
@@ -52,12 +63,12 @@ export function MobileBottomNav() {
       <Link
         href="/store"
         prefetch
-        className={`mobile-bottom-nav__item focus-visible-ring${activeHref === "/store" ? " mobile-bottom-nav__item--active" : ""}`}
-        aria-current={activeHref === "/store" ? "page" : undefined}
+        className={`mobile-bottom-nav__item focus-visible-ring${isStoreActive ? " mobile-bottom-nav__item--active" : ""}`}
+        aria-current={isStoreActive ? "page" : undefined}
         data-testid="mobile-bottom-nav-store"
       >
         <span className="mobile-bottom-nav__icon" aria-hidden="true">
-          🏪
+          <StoreIcon size={22} />
         </span>
         <span className="mobile-bottom-nav__label">{t("store")}</span>
       </Link>
@@ -66,12 +77,14 @@ export function MobileBottomNav() {
       <Link
         href="/orders"
         prefetch
-        className={`mobile-bottom-nav__item focus-visible-ring${activeHref === "/orders" ? " mobile-bottom-nav__item--active" : ""}`}
-        aria-current={activeHref === "/orders" ? "page" : undefined}
+        className={`mobile-bottom-nav__item focus-visible-ring${isOrdersActive ? " mobile-bottom-nav__item--active" : ""}`}
+        aria-current={isOrdersActive ? "page" : undefined}
         data-testid="mobile-bottom-nav-orders"
       >
         <span className="mobile-bottom-nav__icon-wrap" aria-hidden="true">
-          <span className="mobile-bottom-nav__icon">📦</span>
+          <span className="mobile-bottom-nav__icon">
+            <OrdersIcon size={22} />
+          </span>
           {/* Re-uses the same live pending-approval count the sidebar badge shows */}
           <NavPendingBadge />
         </span>
@@ -81,17 +94,17 @@ export function MobileBottomNav() {
       {/* Cart — badge shows total item quantity */}
       <button
         type="button"
-        className={`mobile-bottom-nav__item focus-visible-ring${activeHref === "/cart" ? " mobile-bottom-nav__item--active" : ""}`}
+        className={`mobile-bottom-nav__item focus-visible-ring${isCartActive ? " mobile-bottom-nav__item--active" : ""}`}
         onClick={openDrawer}
         aria-label={
-          cartCount > 0
-            ? t("cartWithCount", { count: cartCount })
-            : t("cart")
+          cartCount > 0 ? t("cartWithCount", { count: cartCount }) : t("cart")
         }
         data-testid="mobile-bottom-nav-cart"
       >
         <span className="mobile-bottom-nav__icon-wrap" aria-hidden="true">
-          <span className="mobile-bottom-nav__icon">🛒</span>
+          <span className="mobile-bottom-nav__icon">
+            <CartIcon size={22} />
+          </span>
           {cartCount > 0 && (
             <span
               className="mobile-bottom-nav__badge"
@@ -114,7 +127,7 @@ export function MobileBottomNav() {
         data-testid="mobile-bottom-nav-copilot"
       >
         <span className="mobile-bottom-nav__icon" aria-hidden="true">
-          🤖
+          <AgentIcon size={22} />
         </span>
         <span className="mobile-bottom-nav__label">{t("copilot")}</span>
       </button>

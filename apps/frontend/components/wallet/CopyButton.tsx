@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { copySensitive } from "../../lib/clipboard";
 
 export interface CopyButtonProps {
@@ -23,12 +23,29 @@ export function CopyButton({
   children = "Copy",
 }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resetTimer.current !== null) {
+        clearTimeout(resetTimer.current);
+        resetTimer.current = null;
+      }
+    };
+  }, []);
 
   const handleCopy = async () => {
     try {
       await copySensitive(value);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (resetTimer.current !== null) {
+        clearTimeout(resetTimer.current);
+        resetTimer.current = null;
+      }
+      resetTimer.current = setTimeout(() => {
+        resetTimer.current = null;
+        setCopied(false);
+      }, 2000);
     } catch {
       // Clipboard access denied — silently no-op.
     }

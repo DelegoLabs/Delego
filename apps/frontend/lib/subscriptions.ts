@@ -59,6 +59,28 @@ export function statusAfterAction(action: SubscriptionAction): SubscriptionStatu
   }
 }
 
+/** Apply an optimistic status transition to a single subscription in a list. */
+export function applyOptimisticSubscriptionAction(
+  subscriptions: SubscriptionPlan[],
+  subscriptionId: string,
+  action: SubscriptionAction
+): SubscriptionPlan[] {
+  const nextStatus = statusAfterAction(action);
+  return subscriptions.map((sub) =>
+    sub.subscriptionId === subscriptionId ? { ...sub, status: nextStatus } : sub
+  );
+}
+
+/** Roll back a single subscription in a list to its previous snapshot. */
+export function rollbackSubscription(
+  subscriptions: SubscriptionPlan[],
+  previous: SubscriptionPlan
+): SubscriptionPlan[] {
+  return subscriptions.map((sub) =>
+    sub.subscriptionId === previous.subscriptionId ? previous : sub
+  );
+}
+
 /** Fetch the current user's subscriptions. */
 export async function fetchSubscriptions(): Promise<SubscriptionPlan[]> {
   const res = await apiFetch<SubscriptionPlan[]>("/subscriptions");
