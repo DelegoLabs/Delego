@@ -38,6 +38,16 @@ import {
   classifyWalletError,
   isUserDeclined,
 } from "../../services/wallet";
+import {
+  canNavigateToStep,
+  clearWizardNavigationState,
+  createWizardNavigationState,
+  getNavigationFormData,
+  loadWizardNavigationState,
+  saveWizardNavigationState,
+  type WizardNavigationState,
+} from "../../lib/merchantOnboardingNavigation";
+export type { WizardNavigationState } from "../../lib/merchantOnboardingNavigation";
 
 const STEPS: { id: OnboardingStep; label: string; description: string }[] = [
   { id: "store_details", label: "Store Details", description: "Basic store information" },
@@ -55,7 +65,7 @@ interface MerchantOnboardingWizardProps {
 export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboardingWizardProps) {
   const { address, isConnected, connect } = useWallet();
   const { network } = useNetwork();
-  const [stepIndex, setStepIndex] = useState(0);
+  const [navigation, setNavigation] = useState<WizardNavigationState>(createWizardNavigationState);
   const [formData, setFormData] = useState<MerchantOnboardingData>({
     storeName: "",
     storeSlug: "",
@@ -76,29 +86,59 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [loadingFromStorage, setLoadingFromStorage] = useState(true);
 
-  // Load persisted state on mount
   useEffect(() => {
-    const persisted = loadOnboardingState();
-    if (persisted) {
-      setFormData(persisted);
-      // Determine which step to resume at
-      if (persisted.isDomainVerified) {
-        setStepIndex(3); // Verification complete
-      } else {
-        setStepIndex(2); // Contract binding
-      }
+    const persistedFormData = loadOnboardingState();
+    const persistedNavigation = loadWizardNavigationState();
+
+    if (persistedFormData) setFormData(persistedFormData);
+    if (persistedNavigation) {
+      const navigationFormData = getNavigationFormData(persistedNavigation);
+      if (navigationFormData) setFormData(navigationFormData);
+      setNavigation(persistedNavigation);
     }
     setLoadingFromStorage(false);
   }, []);
 
-  // Save state whenever form changes
   useEffect(() => {
     if (!loadingFromStorage) {
       saveOnboardingState(formData);
+      setNavigation((prev) => ({ ...prev, stepData: { ...prev.stepData, formData } }));
     }
   }, [formData, loadingFromStorage]);
 
+  useEffect(() => {
+    if (!loadingFromStorage) saveWizardNavigationState(navigation);
+  }, [navigation, loadingFromStorage]);
+
+  const stepIndex = navigation.activeStep;
+  const completedSteps = navigation.completedSteps;
   const currentStep = STEPS[stepIndex].id;
+
+  const completeStep = useCallback((step: number) => {
+    setNavigation((prev) => ({
+      ...prev,
+      completedSteps: prev.completedSteps.includes(step)
+        ? prev.completedSteps
+        : [...prev.completedSteps, step].sort((a, b) => a - b),
+      canProceed: true,
+    }));
+  }, []);
+
+  const goToStep = useCallback((targetStep: number, completedStep?: number) => {
+    setNavigation((prev) => {
+      const nextCompletedSteps =
+        completedStep === undefined || prev.completedSteps.includes(completedStep)
+          ? prev.completedSteps
+          : [...prev.completedSteps, completedStep].sort((a, b) => a - b);
+      if (!canNavigateToStep(targetStep, nextCompletedSteps)) return prev;
+      return {
+        ...prev,
+        activeStep: targetStep,
+        completedSteps: nextCompletedSteps,
+        canProceed: false,
+      };
+    });
+  }, []);
 
   // Step validation helpers
   const validateStoreDetails = (): boolean => {
@@ -146,10 +186,10 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
   const handleNext = async () => {
     if (currentStep === "store_details") {
       if (!validateStoreDetails()) return;
-      setStepIndex((prev) => prev + 1);
+      goToStep(1, 0);
     } else if (currentStep === "payout_address") {
       if (!validatePayoutAddress()) return;
-      setStepIndex((prev) => prev + 1);
+      goToStep(2, 1);
     } else if (currentStep === "contract_binding") {
       await handleVerifyWallet();
     } else if (currentStep === "verification") {
@@ -164,18 +204,22 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
 
   const handleBack = () => {
     if (stepIndex > 0) {
-      setStepIndex((prev) => prev - 1);
+      goToStep(stepIndex - 1);
     }
   };
 
   const handleSkip = () => {
-    if (stepIndex < STEPS.length - 1) {
-      setStepIndex((prev) => prev + 1);
+    if (
+      stepIndex < STEPS.length - 1 &&
+      canNavigateToStep(stepIndex + 1, completedSteps)
+    ) {
+      goToStep(stepIndex + 1);
     }
   };
 
   const handleCancel = () => {
     clearOnboardingState();
+    clearWizardNavigationState();
     if (onCancel) onCancel();
   };
 
@@ -208,7 +252,7 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
             : Buffer.from(result.signedMessage).toString("base64"),
       });
       setVerifySuccess("Wallet verified successfully!");
-      setStepIndex((prev) => prev + 1);
+      goToStep(3, 2);
     } catch (err) {
       if (isUserDeclined(err)) {
         setVerifyError(WALLET_CANCELLED_MESSAGE);
@@ -234,7 +278,7 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
       if (result.valid) {
         setFormData((prev) => ({ ...prev, isDomainVerified: true }));
         setVerifySuccess(`Domain verified! SIGNING_KEY: ${result.signingKey}`);
-        setStepIndex((prev) => prev + 1);
+        goToStep(4, 3);
       } else {
         setVerifyError(result.error || "Domain verification failed.");
       }
@@ -266,7 +310,7 @@ export function MerchantOnboardingWizard({ onComplete, onCancel }: MerchantOnboa
       const result = await registerMerchant(registrationPayload, walletProof);
       setTransactionHash(result.transactionHash);
       clearOnboardingState();
-      setStepIndex((prev) => prev + 1);
+      completeStep(4);
     } catch (err) {
       setRegisterError(err instanceof Error ? err.message : "Registration failed.");
     } finally {
