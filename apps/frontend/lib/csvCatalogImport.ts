@@ -18,20 +18,59 @@ export interface CsvImportSummary {
 }
 
 export const CSV_IMPORT_HEADERS = ["sku", "title", "priceStroops", "stock"] as const;
+export type CsvImportColumn = (typeof CSV_IMPORT_HEADERS)[number];
 export const CSV_IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 export const CSV_IMPORT_BATCH_SIZE = 50;
+export const CSV_IMPORT_SAMPLE_FILENAME = "catalog-import-sample.csv";
 
-export function csvImportRowErrors(row: Pick<CsvImportRow, "sku" | "title" | "priceStroops" | "stock">): string[] {
-  const errors: string[] = [];
-  if (!row.sku.trim()) errors.push("sku is required.");
-  if (!row.title.trim()) errors.push("title is required.");
+export interface CsvImportCellError {
+  rowNumber: number;
+  column: CsvImportColumn;
+  message: string;
+}
+
+export function buildSampleCatalogCsv(): string {
+  return [
+    CSV_IMPORT_HEADERS.join(","),
+    "SKU-001,Ceramic Coffee Mug,15000000,25",
+    'SKU-002,"Canvas Tote Bag, Large",24500000,12',
+  ].join("\n");
+}
+
+export function csvImportRowCellErrors(
+  row: Pick<CsvImportRow, "sku" | "title" | "priceStroops" | "stock">,
+  rowNumber = 0
+): CsvImportCellError[] {
+  const errors: CsvImportCellError[] = [];
+  if (!row.sku.trim()) {
+    errors.push({ rowNumber, column: "sku", message: "sku is required." });
+  }
+  if (!row.title.trim()) {
+    errors.push({ rowNumber, column: "title", message: "title is required." });
+  }
   if (!/^\d+$/.test(row.priceStroops.trim())) {
-    errors.push("priceStroops must be a whole number of stroops.");
+    errors.push({
+      rowNumber,
+      column: "priceStroops",
+      message: "priceStroops must be a whole number of stroops.",
+    });
   }
   if (!Number.isInteger(row.stock) || row.stock < 0) {
-    errors.push("stock must be a non-negative whole number.");
+    errors.push({
+      rowNumber,
+      column: "stock",
+      message: "stock must be a non-negative whole number.",
+    });
   }
   return errors;
+}
+
+export function csvImportRowErrors(row: Pick<CsvImportRow, "sku" | "title" | "priceStroops" | "stock">): string[] {
+  return csvImportRowCellErrors(row).map((error) => error.message);
+}
+
+export function collectCsvImportCellErrors(rows: CsvImportRow[]): CsvImportCellError[] {
+  return rows.flatMap((row) => csvImportRowCellErrors(row, row.rowNumber));
 }
 
 export function revalidateCsvImportRow(row: CsvImportRow): CsvImportRow {
