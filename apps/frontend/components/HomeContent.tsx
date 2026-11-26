@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Card } from "@delegolabs/ui";
 import { useFocusTrap } from "../hooks/useFocusTrap";
@@ -45,6 +45,17 @@ function KillSwitchModal({
       if (!revoking) onClose();
     },
   });
+
+  useEffect(() => {
+    if (revoking) {
+      // All controls are disabled during revocation. Keep focus on the dialog
+      // instead of leaving it on a disabled button (or the document body).
+      modalRef.current?.focus();
+    } else if (error) {
+      // The input is enabled again and describes the error, ready for retry.
+      confirmationInputRef.current?.focus();
+    }
+  }, [revoking, error]);
 
   async function handleConfirm() {
     if (!confirmed || revoking) {

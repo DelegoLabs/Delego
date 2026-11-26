@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { HomeContent } from "./HomeContent";
@@ -101,23 +101,33 @@ describe("HomeContent kill switch modal", () => {
 
     await user.tab();
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Revoke all" })).toBeDisabled();
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    await user.tab();
+    expect(input).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(input).toHaveFocus();
+
+    await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
   });
 
-  it("announces revocation errors and stays open while revocation is pending", async () => {
+  it("focuses the dialog and traps both Tab directions while revocation is pending", async () => {
     const user = userEvent.setup();
     let finishRevocation!: () => void;
     const revocation = new Promise<void>((resolve) => {
       finishRevocation = resolve;
     });
-    setup(() => revocation);
+    const revoke = vi.fn(() => revocation);
+    setup(revoke);
 
-    await user.click(
-      screen.getByRole("button", { name: "Revoke all delegations" })
-    );
+    const trigger = screen.getByRole("button", {
+      name: "Revoke all delegations",
+    });
+    await user.click(trigger);
     const input = screen.getByRole("textbox");
     await user.type(input, "REVOKE");
     await user.click(screen.getByRole("button", { name: "Revoke all" }));
@@ -125,32 +135,103 @@ describe("HomeContent kill switch modal", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Revoking…" })).toBeDisabled();
     });
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveFocus();
+    expect(input).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await user.tab();
+    expect(dialog).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(dialog).toHaveFocus();
+    await user.keyboard("{Escape}{Enter}");
+    expect(dialog).toBeInTheDocument();
+    expect(revoke).toHaveBeenCalledTimes(1);
 
     finishRevocation();
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
+    expect(trigger).toHaveFocus();
   });
 
-  it("associates revocation errors with the confirmation field", async () => {
+  it("refocuses the confirmation field after failure and allows Escape dismissal", async () => {
     const user = userEvent.setup();
-    setup(async () => {
-      throw new Error("Unable to revoke");
+    let failRevocation!: () => void;
+    const revocation = new Promise<void>((_resolve, reject) => {
+      failRevocation = () => reject(new Error("Unable to revoke"));
     });
+    setup(() => revocation);
 
-    await user.click(
-      screen.getByRole("button", { name: "Revoke all delegations" })
-    );
+    const trigger = screen.getByRole("button", {
+      name: "Revoke all delegations",
+    });
+    await user.click(trigger);
     const input = screen.getByRole("textbox");
     await user.type(input, "REVOKE");
     await user.click(screen.getByRole("button", { name: "Revoke all" }));
 
+    failRevocation();
     const alert = await screen.findByText("Unable to revoke");
     expect(alert).toHaveTextContent("Unable to revoke");
     expect(alert.closest("p")).toHaveAttribute("role", "alert");
     expect(input).toHaveAttribute("aria-invalid", "true");
     expect(input).toHaveAttribute("aria-describedby", "kill-switch-error");
+    expect(input).toBeEnabled();
+    expect(input).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "Revoke all" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("includes the enabled confirmation button in both directions of the focus cycle", async () => {
+    const user = userEvent.setup();
+    const revoke = vi.fn(async () => {});
+    setup(revoke);
+    await user.click(
+      screen.getByRole("button", { name: "Revoke all delegations" })
+    );
+    const input = screen.getByRole("textbox");
+    await user.type(input, "REVOKE");
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    const confirm = screen.getByRole("button", { name: "Revoke all" });
+
+    await user.tab();
+    expect(cancel).toHaveFocus();
+    await user.tab();
+    expect(confirm).toHaveFocus();
+    await user.tab();
+    expect(input).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(confirm).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(cancel).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(input).toHaveFocus();
+    expect(revoke).not.toHaveBeenCalled();
+  });
+
+  it("restores focus on Cancel and starts a fresh focus cycle when reopened", async () => {
+    const user = userEvent.setup();
+    setup();
+    const trigger = screen.getByRole("button", {
+      name: "Revoke all delegations",
+    });
+    await user.click(trigger);
+    await user.type(screen.getByRole("textbox"), "REVOKE");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue("");
+    await user.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 });
