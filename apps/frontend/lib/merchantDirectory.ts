@@ -15,6 +15,12 @@ import { env } from "./env";
 export interface DirectoryMerchant {
   id: string;
   name: string;
+  description?: string;
+  category?: string;
+  verificationTier?: "verified" | "gold" | "pro";
+  /** Reputation on a 0–100 scale; absent means not published. */
+  reputationScore?: number;
+  totalOrdersCompleted?: number;
   /**
    * Public key the merchant publishes for encrypted delivery instructions
    * (#1005): base64 SPKI (or PEM) RSA-OAEP key, SHA-256, at least 2048 bits.
@@ -47,13 +53,48 @@ export async function fetchMerchantDirectory(
     if (!isDirectoryMerchantArray(data)) {
       return { merchants: [], error: "Invalid merchant directory response" };
     }
-    return { merchants: data, error: null };
+    return { merchants: data.map(parseDirectoryMetadata), error: null };
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       return { merchants: [], error: null };
     }
     return { merchants: [], error: "Failed to load merchant directory" };
   }
+}
+
+/** Optional metadata must never manufacture verification or reputation. */
+function parseDirectoryMetadata(
+  merchant: DirectoryMerchant
+): DirectoryMerchant {
+  const tier = merchant.verificationTier;
+  const score = merchant.reputationScore;
+  const orders = merchant.totalOrdersCompleted;
+  return {
+    ...merchant,
+    description:
+      typeof merchant.description === "string"
+        ? merchant.description.trim()
+        : undefined,
+    category:
+      typeof merchant.category === "string"
+        ? merchant.category.trim() || undefined
+        : undefined,
+    verificationTier:
+      tier === "verified" || tier === "gold" || tier === "pro"
+        ? tier
+        : undefined,
+    reputationScore:
+      typeof score === "number" &&
+      Number.isFinite(score) &&
+      score >= 0 &&
+      score <= 100
+        ? score
+        : undefined,
+    totalOrdersCompleted:
+      typeof orders === "number" && Number.isSafeInteger(orders) && orders >= 0
+        ? orders
+        : undefined,
+  };
 }
 
 function isDirectoryMerchantArray(data: unknown): data is DirectoryMerchant[] {

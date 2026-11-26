@@ -33,7 +33,7 @@ const mockOrders = [
     status: "settled",
     lineItems: [],
     totalStroops: 100n,
-    escrowContractId: null,
+    escrowContractId: "tx-abc123",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -58,6 +58,7 @@ vi.mock("../../hooks/useOrders", () => ({
 describe("GlobalSearch", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    window.localStorage.clear();
   });
 
   afterEach(() => {
@@ -99,10 +100,86 @@ describe("GlobalSearch", () => {
       vi.advanceTimersByTime(DEBOUNCE_WAIT);
     });
 
-    expect(screen.getByText("Delegations")).toBeDefined();
-    expect(screen.getByText("Orders")).toBeDefined();
+    expect(screen.getByRole("tab", { name: "Delegations" })).toBeDefined();
+    expect(screen.getByRole("tab", { name: "Orders" })).toBeDefined();
     expect(screen.getByText(/Delegation deleg-abc123/)).toBeDefined();
-    expect(screen.getByText(/Order order-abc123/)).toBeDefined();
+    expect(
+      screen.getByRole("option", {
+        name: "Order order-abc123 Merchant merchant-1 · settled",
+      })
+    ).toBeDefined();
+    expect(
+      screen.getByRole("option", {
+        name: "Transaction tx-abc123 Order order-abc123 · settled",
+      })
+    ).toBeDefined();
+  });
+
+  it("filters results by the selected entity tab", () => {
+    renderWithTheme(<GlobalSearch />);
+
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "abc123" },
+    });
+    act(() => {
+      vi.advanceTimersByTime(DEBOUNCE_WAIT);
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Orders" }));
+
+    expect(
+      screen.getByRole("option", {
+        name: "Order order-abc123 Merchant merchant-1 · settled",
+      })
+    ).toBeDefined();
+    expect(screen.queryByRole("option", { name: /Delegation deleg-abc123/ })).toBeNull();
+    expect(screen.queryByRole("option", { name: /Transaction tx-abc123/ })).toBeNull();
+  });
+
+  it("persists only the five most recent searches and lets users clear them", () => {
+    const { unmount } = renderWithTheme(<GlobalSearch />);
+    const input = screen.getByRole("searchbox");
+
+    for (const search of ["one", "two", "three", "four", "five", "six", "four"]) {
+      fireEvent.change(input, { target: { value: search } });
+      act(() => {
+        vi.advanceTimersByTime(DEBOUNCE_WAIT);
+      });
+    }
+
+    expect(JSON.parse(window.localStorage.getItem("delego_global_search_recent_v1") ?? "[]")).toEqual([
+      "four",
+      "six",
+      "five",
+      "three",
+      "two",
+    ]);
+
+    unmount();
+    renderWithTheme(<GlobalSearch />);
+    fireEvent.focus(screen.getByRole("searchbox"));
+
+    expect(screen.getByRole("button", { name: "Search for six" })).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Clear history" }));
+    expect(screen.queryByRole("button", { name: "Search for six" })).toBeNull();
+    expect(JSON.parse(window.localStorage.getItem("delego_global_search_recent_v1") ?? "[]")).toEqual([]);
+  });
+
+  it("runs a search selected from recent history", () => {
+    window.localStorage.setItem(
+      "delego_global_search_recent_v1",
+      JSON.stringify(["abc123"])
+    );
+    renderWithTheme(<GlobalSearch />);
+
+    fireEvent.focus(screen.getByRole("searchbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Search for abc123" }));
+    act(() => {
+      vi.advanceTimersByTime(DEBOUNCE_WAIT);
+    });
+
+    expect(screen.getByRole("listbox")).toBeDefined();
+    expect(screen.getByText(/Delegation deleg-abc123/)).toBeDefined();
   });
 
   it("shows an empty state when no results match", () => {

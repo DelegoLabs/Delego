@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { ActivityTimeline, Amount, Card } from "@delegolabs/ui";
 import { ShipmentTracker, type TrackingMilestone } from "@delegolabs/ui";
 import type {
@@ -15,10 +16,10 @@ export interface OrderTrackingCardProps {
   order: Order;
 }
 
-function formatTime(date: Date | string | undefined): string {
+function formatTime(date: Date | string | undefined, locale: string): string {
   if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -26,18 +27,20 @@ function formatTime(date: Date | string | undefined): string {
 
 /** Live-tracking card: lifecycle timeline plus the latest known order details. */
 export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
+  const locale = useLocale();
+  const t = useTranslations("tracking.card");
   const settled = isTerminal(order);
   const { currencyId, rate } = useCurrency();
   const [selectedPackage, setSelectedPackage] = useState(0);
 
   return (
     <Card
-      title={`Order ${order.id}`}
-      ariaLabel={`Tracking for order ${order.id}`}
+      title={t("orderTitle", { orderId: order.id })}
+      ariaLabel={t("orderAriaLabel", { orderId: order.id })}
     >
       <ActivityTimeline
         events={orderToTimelineEvents(order)}
-        ariaLabel="Order progress"
+        ariaLabel={t("orderProgressAriaLabel")}
       />
 
       {order.packages && order.packages.length > 0 && (
@@ -51,11 +54,11 @@ export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
 
       <dl className="wallet-detail-list">
         <div className="wallet-detail-row">
-          <dt>Merchant</dt>
+          <dt>{t("merchant")}</dt>
           <dd>{order.merchantId}</dd>
         </div>
         <div className="wallet-detail-row">
-          <dt>Total</dt>
+          <dt>{t("total")}</dt>
           <dd>
             <Amount
               stroops={order.totalStroops}
@@ -65,12 +68,12 @@ export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
           </dd>
         </div>
         <div className="wallet-detail-row">
-          <dt>Escrow</dt>
-          <dd>{order.escrowContractId ?? "Not yet escrowed"}</dd>
+          <dt>{t("escrow")}</dt>
+          <dd>{order.escrowContractId ?? t("notYetEscrowed")}</dd>
         </div>
         <div className="wallet-detail-row">
-          <dt>{settled ? "Completed" : "Last update"}</dt>
-          <dd>{formatTime(order.updatedAt)}</dd>
+          <dt>{settled ? t("completed") : t("lastUpdate")}</dt>
+          <dd>{formatTime(order.updatedAt, locale)}</dd>
         </div>
       </dl>
     </Card>
@@ -83,12 +86,6 @@ const PACKAGE_STAGES: TrackingStatus[] = [
   "out_for_delivery",
   "delivered",
 ];
-
-function statusLabel(status: TrackingStatus): string {
-  return status
-    .replace(/_/g, " ")
-    .replace(/^./, (letter) => letter.toUpperCase());
-}
 
 interface PackageTrackingTabsProps {
   orderId: string;
@@ -103,6 +100,7 @@ function PackageTrackingTabs({
   selectedIndex,
   onSelect,
 }: PackageTrackingTabsProps) {
+  const t = useTranslations("tracking.card.packages");
   const activeIndex = Math.min(selectedIndex, packages.length - 1);
   const selected = packages[activeIndex];
   const latestKnownStage = [...selected.events]
@@ -123,18 +121,19 @@ function PackageTrackingTabs({
   );
   const tabId = (index: number) => `${orderId}-package-tab-${index}`;
   const panelId = (index: number) => `${orderId}-package-panel-${index}`;
+  const statusLabel = (status: TrackingStatus) => t(`status.${status}`);
 
   return (
     <section
-      aria-label="Package tracking"
+      aria-label={t("sectionAriaLabel")}
       className="mt-6 border-t border-gray-200 pt-5"
     >
       <h3 className="mb-3 text-base font-semibold">
-        Packages ({packages.length})
+        {t("heading", { count: packages.length })}
       </h3>
       <div
         role="tablist"
-        aria-label="Order packages"
+        aria-label={t("tablistAriaLabel")}
         className="mb-4 flex flex-wrap gap-2"
       >
         {packages.map((pkg, index) => (
@@ -166,7 +165,7 @@ function PackageTrackingTabs({
             }}
             className="rounded-md border px-3 py-2 text-sm aria-selected:border-blue-600 aria-selected:bg-blue-50 aria-selected:text-blue-800"
           >
-            Package {index + 1} · {pkg.carrierName}
+            {t("tabLabel", { number: index + 1, carrier: pkg.carrierName })}
           </button>
         ))}
       </div>
@@ -178,12 +177,12 @@ function PackageTrackingTabs({
       >
         <div>
           <div className="mb-2 flex justify-between gap-4 text-sm">
-            <span>Delivery progress</span>
+            <span>{t("deliveryProgress")}</span>
             <span aria-live="polite">{statusLabel(selected.status)}</span>
           </div>
           <div
             role="progressbar"
-            aria-label={`Package ${activeIndex + 1} delivery progress`}
+            aria-label={t("progressAriaLabel", { number: activeIndex + 1 })}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={progress}
@@ -205,7 +204,9 @@ function PackageTrackingTabs({
           carrier={selected.carrierName}
           trackingNumber={selected.trackingNumber}
           milestones={milestones}
-          estimatedDelivery={selected.estimatedDelivery ?? "Not provided"}
+          estimatedDelivery={
+            selected.estimatedDelivery ?? t("estimatedDeliveryFallback")
+          }
         />
       </div>
     </section>

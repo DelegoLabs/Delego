@@ -329,6 +329,33 @@
     "revoking": "Revoking…",
     "revokeAriaLabel": "Revoke allowance for {label}"
   },
+  "escrows": {
+    "pageTitle": "Escrows",
+    "pageDescription": "Track your active escrow agreements and monitor fund status on-chain.",
+    "filters": {
+      "searchPlaceholder": "Search by escrow, order, buyer, or seller",
+      "searchAriaLabel": "Search escrows",
+      "filterByStatus": "Filter by status"
+    },
+    "status": {
+      "Funded": "Funded",
+      "Released": "Released",
+      "Refunded": "Refunded",
+      "Disputed": "Disputed"
+    },
+    "loading": "Loading escrows",
+    "error": {
+      "title": "Unable to load escrows",
+      "tryAgain": "Try again"
+    },
+    "empty": {
+      "noEscrows": "No active escrows",
+      "noEscrowsDescription": "Escrow agreements will appear here once your agents initiate purchases on your behalf.",
+      "noResults": "No escrows match the current filters",
+      "noResultsDescription": "Try adjusting your search or status filters."
+    },
+    "list": "Escrow list"
+  },
   "home": {
     "title": "Delego",
     "subtitle": "AI commerce with approval and spending controls",
@@ -357,6 +384,43 @@
     "wallet": {
       "title": "Wallet",
       "description": "Connect your Stellar wallet."
+    }
+  },
+  "tracking": {
+    "title": "Order Tracking",
+    "subtitle": "Follow in-flight orders as their status updates in real time",
+    "liveUpdated": "Live · updated {time}",
+    "refresh": "Refresh",
+    "refreshAriaLabel": "Refresh now",
+    "empty": "No orders are currently in flight.",
+    "showCompleted": "Show completed ({count})",
+    "hideCompleted": "Hide completed ({count})",
+    "card": {
+      "orderTitle": "Order {orderId}",
+      "orderAriaLabel": "Tracking for order {orderId}",
+      "orderProgressAriaLabel": "Order progress",
+      "merchant": "Merchant",
+      "total": "Total",
+      "escrow": "Escrow",
+      "notYetEscrowed": "Not yet escrowed",
+      "completed": "Completed",
+      "lastUpdate": "Last update",
+      "packages": {
+        "sectionAriaLabel": "Package tracking",
+        "heading": "Packages ({count})",
+        "tablistAriaLabel": "Order packages",
+        "tabLabel": "Package {number} · {carrier}",
+        "deliveryProgress": "Delivery progress",
+        "progressAriaLabel": "Package {number} delivery progress",
+        "estimatedDeliveryFallback": "Not provided",
+        "status": {
+          "label_created": "Label created",
+          "in_transit": "In transit",
+          "out_for_delivery": "Out for delivery",
+          "delivered": "Delivered",
+          "exception": "Exception"
+        }
+      }
     }
   }
 }

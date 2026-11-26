@@ -164,10 +164,6 @@ export default function MerchantRegisterPage() {
     setStepIndex(2);
   }
 
-  function handleCatalogNext() {
-    setStepIndex(2);
-  }
-
   async function handleVerifyWallet() {
     setVerifyError(null);
     setVerifyNotice(null);

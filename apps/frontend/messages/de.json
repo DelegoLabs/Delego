@@ -329,6 +329,33 @@
     "revoking": "Wird widerrufen…",
     "revokeAriaLabel": "Freigabe für {label} widerrufen"
   },
+  "escrows": {
+    "pageTitle": "Treuhandkonten",
+    "pageDescription": "Verfolge deine aktiven Treuhandvereinbarungen und überwache den Fondsstatus on-chain.",
+    "filters": {
+      "searchPlaceholder": "Nach Treuhand, Bestellung, Käufer oder Verkäufer suchen",
+      "searchAriaLabel": "Treuhandkonten durchsuchen",
+      "filterByStatus": "Nach Status filtern"
+    },
+    "status": {
+      "Funded": "Finanziert",
+      "Released": "Freigegeben",
+      "Refunded": "Erstattet",
+      "Disputed": "Streitig"
+    },
+    "loading": "Treuhandkonten werden geladen",
+    "error": {
+      "title": "Treuhandkonten konnten nicht geladen werden",
+      "tryAgain": "Erneut versuchen"
+    },
+    "empty": {
+      "noEscrows": "Keine aktiven Treuhandkonten",
+      "noEscrowsDescription": "Treuhandvereinbarungen erscheinen hier, sobald deine Agenten Käufe in deinem Namen initiiert haben.",
+      "noResults": "Keine Treuhandkonten entsprechen den aktuellen Filtern",
+      "noResultsDescription": "Versuche, deine Such- oder Statusfilter anzupassen."
+    },
+    "list": "Treuhandkontenliste"
+  },
   "home": {
     "title": "Delego",
     "subtitle": "KI-gestützter Handel mit Freigaben und Ausgabenkontrollen",
@@ -357,6 +384,43 @@
     "wallet": {
       "title": "Wallet",
       "description": "Verbinde deine Stellar-Wallet."
+    }
+  },
+  "tracking": {
+    "title": "Sendungsverfolgung",
+    "subtitle": "Verfolge laufende Bestellungen, während ihr Status in Echtzeit aktualisiert wird",
+    "liveUpdated": "Live · aktualisiert {time}",
+    "refresh": "Aktualisieren",
+    "refreshAriaLabel": "Jetzt aktualisieren",
+    "empty": "Derzeit sind keine Bestellungen unterwegs.",
+    "showCompleted": "Abgeschlossene anzeigen ({count})",
+    "hideCompleted": "Abgeschlossene ausblenden ({count})",
+    "card": {
+      "orderTitle": "Bestellung {orderId}",
+      "orderAriaLabel": "Sendungsverfolgung für Bestellung {orderId}",
+      "orderProgressAriaLabel": "Bestellfortschritt",
+      "merchant": "Händler",
+      "total": "Gesamt",
+      "escrow": "Treuhandkonto",
+      "notYetEscrowed": "Noch nicht hinterlegt",
+      "completed": "Abgeschlossen",
+      "lastUpdate": "Letzte Aktualisierung",
+      "packages": {
+        "sectionAriaLabel": "Paketverfolgung",
+        "heading": "Pakete ({count})",
+        "tablistAriaLabel": "Bestellpakete",
+        "tabLabel": "Paket {number} · {carrier}",
+        "deliveryProgress": "Lieferfortschritt",
+        "progressAriaLabel": "Lieferfortschritt für Paket {number}",
+        "estimatedDeliveryFallback": "Nicht angegeben",
+        "status": {
+          "label_created": "Etikett erstellt",
+          "in_transit": "Unterwegs",
+          "out_for_delivery": "In Zustellung",
+          "delivered": "Zugestellt",
+          "exception": "Ausnahme"
+        }
+      }
     }
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
 import { isTerminal } from "../../lib/orders";
@@ -94,8 +94,8 @@ export default function TrackingPage() {
   return (
     <div className="settings-page">
       <header className="header">
-        <h1>Order Tracking</h1>
-        <p>Follow in-flight orders as their status updates in real time</p>
+        <h1>{t("title")}</h1>
+        <p>{t("subtitle")}</p>
       </header>
 
       <div className="tracking-toolbar">
@@ -212,7 +212,9 @@ export default function TrackingPage() {
               onClick={() => setShowCompleted((v) => !v)}
               aria-expanded={showCompleted}
             >
-              {showCompleted ? "Hide" : "Show"} completed ({completed.length})
+              {showCompleted
+                ? t("hideCompleted", { count: completed.length })
+                : t("showCompleted", { count: completed.length })}
             </Button>
           </div>
           {showCompleted && (

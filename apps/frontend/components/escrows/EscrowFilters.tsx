@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { Escrow } from "@delegolabs/types";
 
 type EscrowStatus = Escrow["status"];
@@ -25,20 +26,24 @@ export function EscrowFilters({
   selectedStatuses,
   onToggleStatus,
 }: EscrowFiltersProps) {
+  const t = useTranslations("escrows");
+
   return (
     <div className="order-filters">
       <div className="order-filters-row">
         <input
           type="search"
           className="order-search"
-          placeholder="Search by escrow, order, buyer, or seller"
+          placeholder={t("filters.searchPlaceholder")}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          aria-label="Search escrows"
+          aria-label={t("filters.searchAriaLabel")}
         />
       </div>
       <fieldset className="order-status-filter">
-        <legend className="order-status-filter-legend">Filter by status</legend>
+        <legend className="order-status-filter-legend">
+          {t("filters.filterByStatus")}
+        </legend>
         <div className="order-status-chips">
           {ALL_STATUSES.map((status) => {
             const active = selectedStatuses.includes(status);
@@ -50,7 +55,7 @@ export function EscrowFilters({
                 aria-pressed={active}
                 onClick={() => onToggleStatus(status)}
               >
-                {status}
+                {t(`status.${status}`)}
               </button>
             );
           })}

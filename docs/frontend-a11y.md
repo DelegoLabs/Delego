@@ -39,6 +39,15 @@ Elements removed from the accessibility tree (`[hidden]`, `aria-hidden`,
 `inert`, `visibility: hidden`, disabled form controls) are excluded from the
 cycle, so focus never lands where the user cannot see it.
 
+### Kill switch confirmation
+
+`KillSwitchModal` initially focuses the confirmation input and uses the shared
+trap for Tab/Shift+Tab and Escape. During revocation all controls are disabled,
+so focus moves to the dialog itself and Escape cannot dismiss it. If revocation
+fails, focus returns to the re-enabled confirmation input, which describes the
+error. Cancel, Escape when idle, and successful completion use the trap's normal
+cleanup to return focus to the original trigger when it is still focusable.
+
 ## Announcement vocabulary
 
 Async outcomes (approvals, rejections, notification arrivals, escrow
