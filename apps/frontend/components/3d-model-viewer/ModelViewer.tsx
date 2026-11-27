@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import type { ModelViewerElement } from "@/types/model-viewer";
 
 /** Props for the 3D model viewer component. */
 export interface ModelViewerProps {
@@ -23,7 +24,7 @@ export function ModelViewer({
 }: ModelViewerProps) {
   const [webglError, setWebglError] = useState<boolean | null>(null);
   const [isRotating, setIsRotating] = useState(autoRotate);
-  const modelViewerRef = useRef<Element | null>(null);
+  const modelViewerRef = useRef<ModelViewerElement | null>(null);
 
   useEffect(() => {
     const checkWebglSupport = () => {
@@ -44,7 +45,7 @@ export function ModelViewer({
     if (!webglError && !posterImageUrl) {
       // Wait for model-viewer to be defined
       const timer = setTimeout(() => {
-        const viewer = document.querySelector("model-viewer");
+        const viewer = document.querySelector("model-viewer") as ModelViewerElement | null;
         if (viewer) {
           modelViewerRef.current = viewer;
         }
@@ -99,9 +100,8 @@ export function ModelViewer({
 
       {/* 3D model viewer */}
       {!posterImageUrl && !webglError && (
-        // @ts-ignore - model-viewer web component type not recognized
         <model-viewer
-          ref={(el: Element | null) => {
+          ref={(el: ModelViewerElement | null) => {
             if (el) modelViewerRef.current = el;
           }}
           src={modelUrl}
