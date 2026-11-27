@@ -57,6 +57,18 @@ export function TokenAllowancesCard({
     }
   };
 
+  const handleRevokeSelected = async (entries: TokenAllowanceEntry[]) => {
+    // Revoke entries sequentially; the table drives progress UI.
+    for (const entry of entries) {
+      await revokeAllowance(entry);
+    }
+    notifications.add({
+      type: "success",
+      title: "Allowances Revoked",
+      message: `Successfully revoked ${entries.length} token allowance${entries.length !== 1 ? "s" : ""}.`,
+    });
+  };
+
   return (
     <Card
       title="Token Allowances"
@@ -79,6 +91,7 @@ export function TokenAllowancesCard({
           loading={loading}
           revokingSpenderKey={revokingSpender}
           onRevoke={handleRevoke}
+          onRevokeSelected={handleRevokeSelected}
           networkId={network.id}
           disabled={disabled}
         />

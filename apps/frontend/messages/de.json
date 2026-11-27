@@ -1,4 +1,4 @@
-{
+﻿{
   "app": {
     "brand": "Delego",
     "tagline": "Delegiere Einkäufe an KI-Agenten mit Ausgabenkontrolle"
@@ -328,6 +328,25 @@
     "revoke": "Widerrufen",
     "revoking": "Wird widerrufen…",
     "revokeAriaLabel": "Freigabe für {label} widerrufen"
+ ,
+      "selectAllAriaLabel": "Alle Freigaben auswählen",
+      "selectRowAriaLabel": "{label} auswählen",
+      "batchToolbarAriaLabel": "Stapelaktionen-Werkzeugleiste",
+      "selectedCount": "{count, plural, one {# Freigabe ausgewählt} other {# Freigaben ausgewählt}}",
+      "revokeSelected": "Ausgewählte widerrufen",
+      "revokeSelectedAriaLabel": "Widerrufe {count, plural, one {# ausgewählte Freigabe} other {# ausgewählte Freigaben}}",
+      "confirmTitle": "Ausgewählte Freigaben widerrufen",
+      "confirmDesc": "{count, plural, one {# Freigabe} other {# Freigaben}} werden widerrufen. Dies kann nicht rückgängig gemacht werden.",
+      "confirmListAriaLabel": "Freigaben zum Widerrufen",
+      "confirmRevoke": "{count, plural, one {# Freigabe} other {# Freigaben}} widerrufen",
+      "confirmRevokeAriaLabel": "Widerrufen von {count, plural, one {# Freigabe} other {# Freigaben}} bestätigen",
+      "cancel": "Abbrechen",
+      "close": "Schließen",
+      "closeModalAriaLabel": "Modal schließen",
+      "batchRevoking": "{current} von {total} wird widerrufen…",
+      "progressAriaLabel": "Widerrufsfortschritt",
+      "batchRevokeSuccess": "{count, plural, one {# Freigabe erfolgreich widerrufen.} other {# Freigaben erfolgreich widerrufen.}}",
+      "batchRevokeError": "Beim Stapelwiderruf ist ein Fehler aufgetreten."
   },
   "escrows": {
     "pageTitle": "Treuhandkonten",
