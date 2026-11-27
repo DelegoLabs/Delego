@@ -1,4 +1,4 @@
-{
+﻿{
   "app": {
     "brand": "Delego",
     "tagline": "Delegate shopping to AI agents with spending controls"
@@ -327,7 +327,25 @@
     "viewOnExplorer": "View contract on explorer",
     "revoke": "Revoke",
     "revoking": "Revoking…",
-    "revokeAriaLabel": "Revoke allowance for {label}"
+    "revokeAriaLabel": "Revoke allowance for {label}",
+      "selectAllAriaLabel": "Select all allowances",
+      "selectRowAriaLabel": "Select {label}",
+      "batchToolbarAriaLabel": "Batch actions toolbar",
+      "selectedCount": "{count, plural, one {# allowance selected} other {# allowances selected}}",
+      "revokeSelected": "Revoke selected",
+      "revokeSelectedAriaLabel": "Revoke {count, plural, one {# selected allowance} other {# selected allowances}}",
+      "confirmTitle": "Revoke selected allowances",
+      "confirmDesc": "You are about to revoke {count, plural, one {# allowance} other {# allowances}}. This cannot be undone.",
+      "confirmListAriaLabel": "Allowances to revoke",
+      "confirmRevoke": "Revoke {count, plural, one {# allowance} other {# allowances}}",
+      "confirmRevokeAriaLabel": "Confirm revoke {count, plural, one {# allowance} other {# allowances}}",
+      "cancel": "Cancel",
+      "close": "Close",
+      "closeModalAriaLabel": "Close modal",
+      "batchRevoking": "Revoking {current} of {total}\u2026",
+      "progressAriaLabel": "Revocation progress",
+      "batchRevokeSuccess": "{count, plural, one {# allowance revoked successfully.} other {# allowances revoked successfully.}}",
+      "batchRevokeError": "An error occurred during batch revocation."
   },
   "escrows": {
     "pageTitle": "Escrows",
