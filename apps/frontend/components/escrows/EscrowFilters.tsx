@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import type { Escrow } from "@delegolabs/types";
+import { Button } from "@delegolabs/ui";
 
 type EscrowStatus = Escrow["status"];
 
@@ -17,6 +18,7 @@ export interface EscrowFiltersProps {
   onSearchChange: (value: string) => void;
   selectedStatuses: EscrowStatus[];
   onToggleStatus: (status: EscrowStatus) => void;
+  onClearFilters: () => void;
 }
 
 /** Search box and status chips for the escrows list page (#510). */
@@ -25,8 +27,11 @@ export function EscrowFilters({
   onSearchChange,
   selectedStatuses,
   onToggleStatus,
+  onClearFilters,
 }: EscrowFiltersProps) {
   const t = useTranslations("escrows");
+
+  const hasActiveFilters = search.trim() !== "" || selectedStatuses.length > 0;
 
   return (
     <div className="order-filters">
@@ -61,6 +66,13 @@ export function EscrowFilters({
           })}
         </div>
       </fieldset>
+      {hasActiveFilters && (
+        <div className="form-actions">
+          <Button variant="ghost" onClick={onClearFilters}>
+            {t("filters.clearFilters")}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
