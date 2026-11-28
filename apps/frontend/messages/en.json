@@ -335,7 +335,9 @@
     "filters": {
       "searchPlaceholder": "Search by escrow, order, buyer, or seller",
       "searchAriaLabel": "Search escrows",
-      "filterByStatus": "Filter by status"
+      "filterByStatus": "Filter by status",
+      "clearFilters": "Clear filters",
+      "clearFiltersAriaLabel": "Clear all active filters"
     },
     "status": {
       "Funded": "Funded",

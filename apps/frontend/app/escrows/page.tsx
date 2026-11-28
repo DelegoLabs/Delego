@@ -51,6 +51,11 @@ export default function EscrowsPage() {
     );
   };
 
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedStatuses([]);
+  };
+
   return (
     <main className="container">
       <header className="header">
@@ -71,6 +76,7 @@ export default function EscrowsPage() {
           onSearchChange={setSearch}
           selectedStatuses={selectedStatuses}
           onToggleStatus={toggleStatus}
+          onClearFilters={clearFilters}
         />
       )}
 
@@ -135,11 +141,16 @@ export default function EscrowsPage() {
               ? t("empty.noEscrows")
               : t("empty.noResults")}
           </p>
-          <p style={{ margin: 0, fontSize: "0.875rem", color: "#6b7280" }}>
+          <p style={{ margin: "0 0 1.5rem", fontSize: "0.875rem", color: "#6b7280" }}>
             {escrows.length === 0
               ? t("empty.noEscrowsDescription")
               : t("empty.noResultsDescription")}
           </p>
+          {escrows.length > 0 && (
+            <Button variant="secondary" onClick={clearFilters}>
+              {t("filters.clearFilters")}
+            </Button>
+          )}
         </div>
       )}
 

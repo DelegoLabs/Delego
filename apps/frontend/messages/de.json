@@ -335,7 +335,9 @@
     "filters": {
       "searchPlaceholder": "Nach Treuhand, Bestellung, Käufer oder Verkäufer suchen",
       "searchAriaLabel": "Treuhandkonten durchsuchen",
-      "filterByStatus": "Nach Status filtern"
+      "filterByStatus": "Nach Status filtern",
+      "clearFilters": "Filter zurücksetzen",
+      "clearFiltersAriaLabel": "Alle aktiven Filter zurücksetzen"
     },
     "status": {
       "Funded": "Finanziert",
