@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AnnouncementBanner } from "./AnnouncementBanner";
 
@@ -26,6 +32,7 @@ describe("AnnouncementBanner", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("renders nothing before the feed loads and nothing when empty", async () => {
@@ -70,5 +77,29 @@ describe("AnnouncementBanner", () => {
         screen.queryByText("New: dispute filing is now live")
       ).not.toBeInTheDocument();
     });
+  });
+
+  it("clears the pending dismissal timer on unmount", async () => {
+    const { unmount } = render(<AnnouncementBanner />);
+    await screen.findByText("New: dispute filing is now live");
+    vi.useFakeTimers();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Dismiss announcement" })
+    );
+    expect(vi.getTimerCount()).toBe(1);
+
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(window.localStorage.getItem("delego_dismissed_announcements")).toBe(
+      null
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(window.localStorage.getItem("delego_dismissed_announcements")).toBe(
+      null
+    );
   });
 });

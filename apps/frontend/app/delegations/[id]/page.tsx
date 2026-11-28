@@ -114,7 +114,7 @@ export default function DelegationDetailPage() {
       title: "Delegation Granted",
       description: `Permission ${delegation.permissionLevel ?? "AUTO_APPROVE"} assigned to Agent ${delegation.agentId}`,
       timestamp: new Date(delegation.createdAt),
-      tone: "success",
+      tone: "success" as ActivityTimelineEvent["tone"],
     },
     ...(delegation.updatedAt && new Date(delegation.updatedAt).getTime() !== new Date(delegation.createdAt).getTime()
       ? [

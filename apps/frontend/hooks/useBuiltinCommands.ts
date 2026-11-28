@@ -1,11 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { ApiResponse, Order } from "@delegolabs/types";
 import { useRegisterCommands, type Command } from "./useCommandRegistry";
 import { useNetwork } from "./useNetwork";
+import {
+  ThemeContext,
+  type ResolvedTheme,
+} from "../components/providers/ThemeProvider";
+import { locales, LOCALE_COOKIE, type Locale } from "../i18n/config";
 import { navItems } from "../components/layout/navItems";
 import type { Delegation } from "@delegolabs/types";
 import { api } from "../lib/api";
@@ -63,15 +68,76 @@ async function exportApprovalDecisionsCsv(): Promise<void> {
   );
 }
 
+const THEME_OPTIONS: ReadonlyArray<{
+  mode: ResolvedTheme;
+  label: string;
+  subtitle: string;
+  icon: string;
+  keywords: string[];
+}> = [
+  {
+    mode: "light",
+    label: "Switch to Light theme",
+    subtitle: "Use light appearance",
+    icon: "☀️",
+    keywords: ["theme", "light", "appearance", "mode"],
+  },
+  {
+    mode: "dark",
+    label: "Switch to Dark theme",
+    subtitle: "Use dark appearance",
+    icon: "🌙",
+    keywords: ["theme", "dark", "appearance", "mode"],
+  },
+  {
+    mode: "high-contrast",
+    label: "Switch to High-Contrast theme",
+    subtitle: "Use high-contrast appearance",
+    icon: "◐",
+    keywords: [
+      "theme",
+      "high-contrast",
+      "high contrast",
+      "contrast",
+      "accessibility",
+      "appearance",
+      "mode",
+    ],
+  },
+];
+
+const LOCALE_META: Record<
+  Locale,
+  { label: string; subtitle: string; keywords: string[] }
+> = {
+  en: {
+    label: "Switch language to English (EN)",
+    subtitle: "Change app language to English",
+    keywords: ["language", "locale", "en", "english", "i18n"],
+  },
+  de: {
+    label: "Switch language to Deutsch (DE)",
+    subtitle: "Change app language to German",
+    keywords: ["language", "locale", "de", "deutsch", "german", "i18n"],
+  },
+};
+
+function switchLocale(next: Locale): void {
+  document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; SameSite=Lax`;
+  window.location.reload();
+}
+
 /**
  * Registers the command palette's baseline commands: one "go to" entry per
- * nav route, plus the FE-024 quick actions (toggle network, new delegation,
- * export orders CSV). Other features can add their own via
- * `useRegisterCommands` without touching this file.
+ * nav route, plus quick actions (toggle theme, switch locale, toggle Stellar
+ * network, new delegation, export orders CSV). Other features can add their
+ * own via `useRegisterCommands` without touching this file.
  */
 export function useBuiltinCommands(): void {
   const router = useRouter();
   const t = useTranslations("nav");
+  const locale = useLocale();
+  const themeCtx = useContext(ThemeContext);
   const { networkId, networks, setNetwork } = useNetwork();
 
   const commands = useMemo<Command[]>(() => {
@@ -88,15 +154,52 @@ export function useBuiltinCommands(): void {
       };
     });
 
+    const themeCommands: Command[] = themeCtx
+      ? THEME_OPTIONS.map((option) => ({
+          id: `action:theme-${option.mode}`,
+          label: option.label,
+          subtitle:
+            themeCtx.resolvedTheme === option.mode
+              ? "Current theme"
+              : option.subtitle,
+          icon: option.icon,
+          keywords: option.keywords,
+          group: "actions",
+          perform: () => themeCtx.setTheme(option.mode),
+        }))
+      : [];
+
+    const localeCommands: Command[] = locales.map((code) => {
+      const meta = LOCALE_META[code];
+      return {
+        id: `action:locale-${code}`,
+        label: meta.label,
+        subtitle: locale === code ? "Current language" : meta.subtitle,
+        icon: "🗣️",
+        keywords: meta.keywords,
+        group: "actions",
+        perform: () => switchLocale(code),
+      };
+    });
+
     const otherNetwork = networks.find((network) => network.id !== networkId);
 
     const actionCommands: (Command | undefined)[] = [
+      ...themeCommands,
+      ...localeCommands,
       otherNetwork && {
         id: "action:toggle-network",
         label: `Switch to ${otherNetwork.label}`,
-        subtitle: "Toggle active network",
+        subtitle: "Toggle active Stellar network",
         icon: "🌐",
-        keywords: ["network", otherNetwork.label],
+        keywords: [
+          "network",
+          "stellar",
+          otherNetwork.label,
+          otherNetwork.id,
+          "testnet",
+          "mainnet",
+        ],
         group: "actions",
         perform: () => setNetwork(otherNetwork.id),
       },
@@ -140,7 +243,7 @@ export function useBuiltinCommands(): void {
       ...navigateCommands,
       ...actionCommands.filter((c): c is Command => Boolean(c)),
     ];
-  }, [router, t, networkId, networks, setNetwork]);
+  }, [router, t, locale, themeCtx, networkId, networks, setNetwork]);
 
   useRegisterCommands(commands);
 }

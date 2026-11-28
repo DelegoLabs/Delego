@@ -6,8 +6,10 @@ import { useLocale } from "next-intl";
 import { useOrders } from "../../../hooks/useOrders";
 import { useNow } from "../../../hooks/useNow";
 import { useQueryParamState } from "../../../hooks/useQueryParamState";
-import { buildWeeklyReport, formatReportAsText } from "../../../lib/weeklyReport";
 import { formatXlm } from "../../../lib/orders";
+import { buildWeeklyReport, formatReportAsCsv, formatReportAsText, weeklyReportFilename } from "../../../lib/weeklyReport";
+import { DailySpendSparkline } from "../../../components/analytics/DailySpendSparkline";
+import { downloadCsv } from "../../../lib/csv";
 
 const WEEK_OPTIONS = [1, 2, 4, 8];
 
@@ -29,6 +31,7 @@ export default function WeeklyReportPage() {
     defaultValue: 1,
   });
   const [copied, setCopied] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
 
   const report = useMemo(
     () => buildWeeklyReport(orders, now, weekCount),
@@ -43,6 +46,12 @@ export default function WeeklyReportPage() {
     } catch {
       /* clipboard unavailable — no-op */
     }
+  };
+
+  const handleDownload = () => {
+    downloadCsv(weeklyReportFilename(report), formatReportAsCsv(report));
+    setDownloaded(true);
+    setTimeout(() => setDownloaded(false), 2000);
   };
 
   if (loading) {
@@ -72,9 +81,15 @@ export default function WeeklyReportPage() {
         <Button variant="secondary" onClick={handleCopy}>
           {copied ? "Copied" : "Copy summary as text"}
         </Button>
+        <Button variant="secondary" onClick={handleDownload}>
+          Download CSV
+        </Button>
         <Button variant="primary" onClick={() => window.print()}>
           Print
         </Button>
+        <span role="status" aria-live="polite" className="sr-only">
+          {downloaded ? "Report downloaded." : ""}
+        </span>
       </div>
 
       <div className="report-print-area">
@@ -95,6 +110,10 @@ export default function WeeklyReportPage() {
             <p className="stat-label">{pctLabel(report.orderCount.percentChange)} vs prior period</p>
           </Card>
         </div>
+
+        <Card title="Daily spend">
+          <DailySpendSparkline series={report.dailySpend} />
+        </Card>
 
         <Card title="Top delegations">
           {report.topDelegations.length === 0 ? (

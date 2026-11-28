@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Card, Badge } from "@delegolabs/ui";
 import type { BadgeTone } from "@delegolabs/ui";
 import type { DisputeEvidenceBundle } from "../../types/dispute-evidence";
@@ -10,6 +11,10 @@ import { ResolutionCountdown } from "./ResolutionCountdown";
 
 export interface DisputeEvidenceComparisonProps {
   evidence: DisputeEvidenceBundle;
+  /** Override the resolution deadline displayed in the countdown (defaults to evidence.resolutionDeadline). */
+  resolutionDeadline?: string;
+  /** External handler for the "Request Merchant Response" button; replaces the built-in apiFetch call. */
+  onRequestMoreEvidence?: () => void;
 }
 
 const STATUS_TONE: Record<DisputeEvidenceBundle["status"], BadgeTone> = {
@@ -18,22 +23,19 @@ const STATUS_TONE: Record<DisputeEvidenceBundle["status"], BadgeTone> = {
   settled: "success",
 };
 
-const STATUS_LABELS: Record<DisputeEvidenceBundle["status"], string> = {
-  open: "Open",
-  under_review: "Under Review",
-  settled: "Settled",
-};
-
 /**
  * Side-by-side view comparing buyer claim evidence and merchant shipping
  * counter-proofs. Supports fullscreen lightbox for high-res photo inspection
  * and displays resolution countdown clock.
  */
-export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceComparisonProps) {
+export function DisputeEvidenceComparison({ evidence, resolutionDeadline, onRequestMoreEvidence }: DisputeEvidenceComparisonProps) {
+  const t = useTranslations("disputeEvidence");
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [lightboxTitle, setLightboxTitle] = useState<string>("");
   const [requestStatus, setRequestStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [requestError, setRequestError] = useState<string | null>(null);
+
+  const effectiveDeadline = resolutionDeadline ?? evidence.resolutionDeadline;
 
   const openLightbox = (imageUrl: string, title: string) => {
     setLightboxImage(imageUrl);
@@ -46,6 +48,11 @@ export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceCompariso
   };
 
   async function requestMoreEvidence() {
+    if (onRequestMoreEvidence) {
+      onRequestMoreEvidence();
+      setRequestStatus("sent");
+      return;
+    }
     setRequestStatus("sending");
     setRequestError(null);
 
@@ -56,7 +63,7 @@ export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceCompariso
       if (res.error) throw new Error(res.error.message);
       setRequestStatus("sent");
     } catch (error) {
-      setRequestError(error instanceof Error ? error.message : "Failed to request more evidence.");
+      setRequestError(error instanceof Error ? error.message : t("merchantResponse.requestError"));
       setRequestStatus("error");
     }
   }
@@ -65,32 +72,32 @@ export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceCompariso
     <div className="dispute-evidence-comparison">
       <div className="dispute-evidence-header">
         <div className="dispute-evidence-status">
-          <h2>Dispute Evidence</h2>
+          <h2>{t("heading")}</h2>
           <Badge tone={STATUS_TONE[evidence.status]}>
-            {STATUS_LABELS[evidence.status]}
+            {t(`status.${evidence.status}`)}
           </Badge>
         </div>
-        {evidence.resolutionDeadline && evidence.status !== "settled" && (
-          <ResolutionCountdown deadline={evidence.resolutionDeadline} />
+        {effectiveDeadline && evidence.status !== "settled" && (
+          <ResolutionCountdown deadline={effectiveDeadline} />
         )}
       </div>
 
       <div className="dispute-evidence-grid">
         {/* Buyer Evidence Column */}
         <Card
-          title="Buyer Claim"
-          ariaLabel={`Buyer evidence for dispute ${evidence.disputeId}`}
+          title={t("buyerClaim.cardTitle")}
+          ariaLabel={t("buyerClaim.cardAriaLabel", { disputeId: evidence.disputeId })}
         >
           <div className="dispute-evidence-section">
             <div className="dispute-evidence-statement">
-              <h3 className="dispute-evidence-label">Statement</h3>
+              <h3 className="dispute-evidence-label">{t("buyerClaim.statementLabel")}</h3>
               <p className="dispute-statement-text">{evidence.buyerStatement}</p>
             </div>
 
             {evidence.buyerImages.length > 0 && (
               <div className="dispute-evidence-images">
                 <h3 className="dispute-evidence-label">
-                  Evidence Photos ({evidence.buyerImages.length})
+                  {t("buyerClaim.photosLabel", { count: evidence.buyerImages.length })}
                 </h3>
                 <div className="dispute-image-grid">
                   {evidence.buyerImages.map((imageUrl, index) => (
@@ -98,12 +105,17 @@ export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceCompariso
                       key={`buyer-${index}`}
                       type="button"
                       className="dispute-image-thumbnail"
-                      onClick={() => openLightbox(imageUrl, `Buyer Evidence ${index + 1}`)}
-                      aria-label={`View buyer evidence photo ${index + 1}`}
+                      onClick={() =>
+                        openLightbox(
+                          imageUrl,
+                          t("buyerClaim.photoAriaLabel", { index: index + 1 })
+                        )
+                      }
+                      aria-label={t("buyerClaim.photoAriaLabel", { index: index + 1 })}
                     >
                       <img
                         src={imageUrl}
-                        alt={`Buyer evidence ${index + 1}`}
+                        alt={t("buyerClaim.photoAlt", { index: index + 1 })}
                         loading="lazy"
                       />
                       <div className="dispute-image-overlay">
@@ -119,21 +131,21 @@ export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceCompariso
 
         {/* Merchant Counter-Evidence Column */}
         <Card
-          title="Merchant Response"
-          ariaLabel={`Merchant counter-evidence for dispute ${evidence.disputeId}`}
+          title={t("merchantResponse.cardTitle")}
+          ariaLabel={t("merchantResponse.cardAriaLabel", { disputeId: evidence.disputeId })}
         >
           <div className="dispute-evidence-section">
             {evidence.merchantStatement ? (
               <>
                 <div className="dispute-evidence-statement">
-                  <h3 className="dispute-evidence-label">Counter Statement</h3>
+                  <h3 className="dispute-evidence-label">{t("merchantResponse.counterStatementLabel")}</h3>
                   <p className="dispute-statement-text">{evidence.merchantStatement}</p>
                 </div>
 
                 {evidence.merchantImages && evidence.merchantImages.length > 0 && (
                   <div className="dispute-evidence-images">
                     <h3 className="dispute-evidence-label">
-                      Shipping Proof ({evidence.merchantImages.length})
+                      {t("merchantResponse.shippingProofLabel", { count: evidence.merchantImages.length })}
                     </h3>
                     <div className="dispute-image-grid">
                       {evidence.merchantImages.map((imageUrl, index) => (
@@ -141,12 +153,17 @@ export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceCompariso
                           key={`merchant-${index}`}
                           type="button"
                           className="dispute-image-thumbnail"
-                          onClick={() => openLightbox(imageUrl, `Merchant Proof ${index + 1}`)}
-                          aria-label={`View merchant proof photo ${index + 1}`}
+                          onClick={() =>
+                            openLightbox(
+                              imageUrl,
+                              t("merchantResponse.proofAriaLabel", { index: index + 1 })
+                            )
+                          }
+                          aria-label={t("merchantResponse.proofAriaLabel", { index: index + 1 })}
                         >
                           <img
                             src={imageUrl}
-                            alt={`Merchant proof ${index + 1}`}
+                            alt={t("merchantResponse.proofAlt", { index: index + 1 })}
                             loading="lazy"
                           />
                           <div className="dispute-image-overlay">
@@ -160,11 +177,11 @@ export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceCompariso
               </>
             ) : (
               <div className="dispute-no-response">
-                <p>Merchant has not yet provided a response.</p>
+                <p>{t("merchantResponse.noResponse")}</p>
                 {evidence.status === "open" &&
                   (requestStatus === "sent" ? (
                     <p className="dispute-request-success" role="status">
-                      Merchant response requested.
+                      {t("merchantResponse.requestSuccess")}
                     </p>
                   ) : (
                     <>
@@ -175,8 +192,8 @@ export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceCompariso
                         onClick={requestMoreEvidence}
                       >
                         {requestStatus === "sending"
-                          ? "Requesting..."
-                          : "Request Merchant Response"}
+                          ? t("merchantResponse.requesting")
+                          : t("merchantResponse.requestButton")}
                       </button>
                       {requestError && (
                         <p className="dispute-request-error" role="alert">
@@ -194,8 +211,8 @@ export function DisputeEvidenceComparison({ evidence }: DisputeEvidenceCompariso
       {/* Arbitrator Verdict Section */}
       {evidence.arbitratorVerdict && (
         <Card
-          title="Arbitrator Verdict"
-          ariaLabel={`Arbitrator verdict for dispute ${evidence.disputeId}`}
+          title={t("arbitratorVerdict.cardTitle")}
+          ariaLabel={t("arbitratorVerdict.cardAriaLabel", { disputeId: evidence.disputeId })}
         >
           <div className="dispute-verdict">
             <p className="dispute-statement-text">{evidence.arbitratorVerdict}</p>

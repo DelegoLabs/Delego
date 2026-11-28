@@ -279,6 +279,83 @@
     "description": "The page you're looking for doesn't exist.",
     "goHome": "Go home"
   },
+  "disputeEvidence": {
+    "heading": "Dispute Evidence",
+    "status": {
+      "open": "Open",
+      "under_review": "Under Review",
+      "settled": "Settled"
+    },
+    "buyerClaim": {
+      "cardTitle": "Buyer Claim",
+      "cardAriaLabel": "Buyer evidence for dispute {disputeId}",
+      "statementLabel": "Statement",
+      "photosLabel": "Evidence Photos ({count})",
+      "photoAlt": "Buyer evidence {index}",
+      "photoAriaLabel": "View buyer evidence photo {index}"
+    },
+    "merchantResponse": {
+      "cardTitle": "Merchant Response",
+      "cardAriaLabel": "Merchant counter-evidence for dispute {disputeId}",
+      "counterStatementLabel": "Counter Statement",
+      "shippingProofLabel": "Shipping Proof ({count})",
+      "proofAlt": "Merchant proof {index}",
+      "proofAriaLabel": "View merchant proof photo {index}",
+      "noResponse": "Merchant has not yet provided a response.",
+      "requestButton": "Request Merchant Response",
+      "requesting": "Requesting...",
+      "requestSuccess": "Merchant response requested.",
+      "requestError": "Failed to request more evidence."
+    },
+    "arbitratorVerdict": {
+      "cardTitle": "Arbitrator Verdict",
+      "cardAriaLabel": "Arbitrator verdict for dispute {disputeId}"
+    }
+  },
+  "tokenAllowances": {
+    "empty": "No active Soroban token allowances found for this account.",
+    "tableAriaLabel": "Active token allowances",
+    "columns": {
+      "spender": "Spender",
+      "token": "Token",
+      "allowance": "Allowance",
+      "expiryLedger": "Expiry Ledger",
+      "action": "Action"
+    },
+    "noExpiry": "No expiry",
+    "copyAddressLabel": "Copy {label} address",
+    "viewOnExplorer": "View contract on explorer",
+    "revoke": "Revoke",
+    "revoking": "Revoking…",
+    "revokeAriaLabel": "Revoke allowance for {label}"
+  },
+  "escrows": {
+    "pageTitle": "Escrows",
+    "pageDescription": "Track your active escrow agreements and monitor fund status on-chain.",
+    "filters": {
+      "searchPlaceholder": "Search by escrow, order, buyer, or seller",
+      "searchAriaLabel": "Search escrows",
+      "filterByStatus": "Filter by status"
+    },
+    "status": {
+      "Funded": "Funded",
+      "Released": "Released",
+      "Refunded": "Refunded",
+      "Disputed": "Disputed"
+    },
+    "loading": "Loading escrows",
+    "error": {
+      "title": "Unable to load escrows",
+      "tryAgain": "Try again"
+    },
+    "empty": {
+      "noEscrows": "No active escrows",
+      "noEscrowsDescription": "Escrow agreements will appear here once your agents initiate purchases on your behalf.",
+      "noResults": "No escrows match the current filters",
+      "noResultsDescription": "Try adjusting your search or status filters."
+    },
+    "list": "Escrow list"
+  },
   "home": {
     "title": "Delego",
     "subtitle": "AI commerce with approval and spending controls",
@@ -307,6 +384,43 @@
     "wallet": {
       "title": "Wallet",
       "description": "Connect your Stellar wallet."
+    }
+  },
+  "tracking": {
+    "title": "Order Tracking",
+    "subtitle": "Follow in-flight orders as their status updates in real time",
+    "liveUpdated": "Live · updated {time}",
+    "refresh": "Refresh",
+    "refreshAriaLabel": "Refresh now",
+    "empty": "No orders are currently in flight.",
+    "showCompleted": "Show completed ({count})",
+    "hideCompleted": "Hide completed ({count})",
+    "card": {
+      "orderTitle": "Order {orderId}",
+      "orderAriaLabel": "Tracking for order {orderId}",
+      "orderProgressAriaLabel": "Order progress",
+      "merchant": "Merchant",
+      "total": "Total",
+      "escrow": "Escrow",
+      "notYetEscrowed": "Not yet escrowed",
+      "completed": "Completed",
+      "lastUpdate": "Last update",
+      "packages": {
+        "sectionAriaLabel": "Package tracking",
+        "heading": "Packages ({count})",
+        "tablistAriaLabel": "Order packages",
+        "tabLabel": "Package {number} · {carrier}",
+        "deliveryProgress": "Delivery progress",
+        "progressAriaLabel": "Package {number} delivery progress",
+        "estimatedDeliveryFallback": "Not provided",
+        "status": {
+          "label_created": "Label created",
+          "in_transit": "In transit",
+          "out_for_delivery": "Out for delivery",
+          "delivered": "Delivered",
+          "exception": "Exception"
+        }
+      }
     }
   }
 }

@@ -601,6 +601,48 @@ body.font-sans-system {
   background: var(--color-bg-subtle);
 }
 
+.global-search-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  max-height: 400px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background: var(--color-bg-surface);
+  box-shadow: 0 4px 12px var(--color-shadow);
+  z-index: 25;
+}
+
+.global-search-tabs {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.global-search-tab {
+  flex: 1;
+  padding: 0.625rem 0.5rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.global-search-tab[aria-selected="true"] {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.global-search-tab:hover {
+  background: var(--color-bg-subtle);
+}
+
 .filter-panel {
   position: absolute;
   top: calc(100% + 0.5rem);
@@ -627,17 +669,58 @@ body.font-sans-system {
 }
 
 .global-search-results {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  left: 0;
-  right: 0;
   max-height: 360px;
   overflow-y: auto;
-  border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  background: var(--color-bg-surface);
-  box-shadow: 0 4px 12px var(--color-shadow);
-  z-index: 25;
+}
+
+.global-search-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 0.875rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.global-search-clear-history {
+  padding: 0.25rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+
+.global-search-clear-history:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+.global-search-history-list {
+  margin: 0;
+  padding: 0 0 0.375rem;
+  list-style: none;
+}
+
+.global-search-history-item {
+  width: 100%;
+  padding: 0.5rem 0.875rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.global-search-history-item:hover {
+  background: var(--color-bg-subtle);
 }
 
 .global-search-empty {
@@ -1298,6 +1381,46 @@ body.font-sans-system {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.onboarding-wallet {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.onboarding-limits {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.onboarding-limit-field label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text, #111827);
+}
+
+.onboarding-step-content .onboarding-limit-hint {
+  font-size: 13px;
+  color: var(--color-text-secondary, #6b7280);
+  margin: 4px 0 8px;
+}
+
+.onboarding-limit-field input {
+  width: 100%;
+  padding: 10px 3rem 10px 12px;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: var(--radius-md, 0.5rem);
+  background: var(--color-bg-surface, #fff);
+  color: var(--color-text, #111827);
+}
+
+.onboarding-step-content .onboarding-limit-error {
+  color: var(--color-error-text, #b91c1c);
+  margin: 0;
 }
 
 /* ---------------------------------------------------------------------------
@@ -2293,6 +2416,18 @@ body.font-sans-system {
 
 .demo-banner-exit:hover {
   opacity: 0.8;
+}
+
+.demo-scenario-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.demo-scenario-description {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.4;
+  opacity: 0.82;
 }
 
 /* ---------------------------------------------------------------------------
@@ -3759,6 +3894,12 @@ body.font-sans-system {
   font-size: 1.125rem;
 }
 
+.dispute-draft-saved {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
 .dispute-modal-field {
   margin-bottom: 1rem;
 }
@@ -4360,6 +4501,15 @@ body.font-sans-system {
 }
 
 /* ── Custom expense report builder (#793) ────────────────────────── */
+.expense-report-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.report-controls {
+  flex-wrap: wrap;
+}
 .expense-report-field {
   display: flex;
   flex-direction: column;
@@ -4371,6 +4521,9 @@ body.font-sans-system {
   border-radius: 0.375rem;
   border: 1px solid var(--color-border);
   background: var(--color-bg-surface);
+}
+.expense-report-error {
+  color: var(--color-error-text);
 }
 /* ── Return label barcode (#796) ─────────────────────────────────── */
 .return-label-barcode {
@@ -5136,6 +5289,58 @@ body.font-sans-system {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.pending-approvals-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.pending-approvals-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.pending-approvals-filter-chip-active {
+  border-color: var(--color-error-text);
+  color: var(--color-error-text);
+}
+
+.pending-approvals-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  padding: 0 0.375rem;
+  border-radius: 9999px;
+  background: var(--color-border);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pending-approvals-notify-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.pending-approvals-notify-toggle input:disabled {
+  cursor: not-allowed;
 }
 
 .pending-approvals-empty {

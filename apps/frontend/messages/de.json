@@ -32,6 +32,14 @@
     "primaryNavigation": "Hauptnavigation",
     "skipToContent": "Zum Hauptinhalt springen"
   },
+  "mobileBottomNav": {
+    "ariaLabel": "Mobile Navigation",
+    "store": "Shop",
+    "orders": "Bestellungen",
+    "cart": "Warenkorb",
+    "cartWithCount": "{count, plural, one {Warenkorb, # Artikel} other {Warenkorb, # Artikel}}",
+    "copilot": "Copilot"
+  },
   "footer": {
     "copyright": "© {year} Delego",
     "navigationLabel": "Rechtliche Hinweise und Dienste",
@@ -271,6 +279,83 @@
     "description": "Die gesuchte Seite existiert nicht.",
     "goHome": "Zur Startseite"
   },
+  "disputeEvidence": {
+    "heading": "Streitbeweis",
+    "status": {
+      "open": "Offen",
+      "under_review": "In Prüfung",
+      "settled": "Abgeschlossen"
+    },
+    "buyerClaim": {
+      "cardTitle": "Käuferanspruch",
+      "cardAriaLabel": "Käuferbeweis für Streitfall {disputeId}",
+      "statementLabel": "Aussage",
+      "photosLabel": "Beweisfotos ({count})",
+      "photoAlt": "Käuferbeweis {index}",
+      "photoAriaLabel": "Käuferbeweisfoto {index} anzeigen"
+    },
+    "merchantResponse": {
+      "cardTitle": "Händlerantwort",
+      "cardAriaLabel": "Händler-Gegenbeweis für Streitfall {disputeId}",
+      "counterStatementLabel": "Gegenaussage",
+      "shippingProofLabel": "Versandnachweis ({count})",
+      "proofAlt": "Händlernachweis {index}",
+      "proofAriaLabel": "Händlernachweisfoto {index} anzeigen",
+      "noResponse": "Der Händler hat noch keine Antwort eingereicht.",
+      "requestButton": "Händlerantwort anfordern",
+      "requesting": "Wird angefordert...",
+      "requestSuccess": "Händlerantwort angefordert.",
+      "requestError": "Weitere Beweise konnten nicht angefordert werden."
+    },
+    "arbitratorVerdict": {
+      "cardTitle": "Schiedsspruch",
+      "cardAriaLabel": "Schiedsspruch für Streitfall {disputeId}"
+    }
+  },
+  "tokenAllowances": {
+    "empty": "Keine aktiven Soroban-Token-Freigaben für dieses Konto gefunden.",
+    "tableAriaLabel": "Aktive Token-Freigaben",
+    "columns": {
+      "spender": "Begünstigter",
+      "token": "Token",
+      "allowance": "Freigabe",
+      "expiryLedger": "Ablauf-Ledger",
+      "action": "Aktion"
+    },
+    "noExpiry": "Kein Ablauf",
+    "copyAddressLabel": "{label}-Adresse kopieren",
+    "viewOnExplorer": "Vertrag im Explorer anzeigen",
+    "revoke": "Widerrufen",
+    "revoking": "Wird widerrufen…",
+    "revokeAriaLabel": "Freigabe für {label} widerrufen"
+  },
+  "escrows": {
+    "pageTitle": "Treuhandkonten",
+    "pageDescription": "Verfolge deine aktiven Treuhandvereinbarungen und überwache den Fondsstatus on-chain.",
+    "filters": {
+      "searchPlaceholder": "Nach Treuhand, Bestellung, Käufer oder Verkäufer suchen",
+      "searchAriaLabel": "Treuhandkonten durchsuchen",
+      "filterByStatus": "Nach Status filtern"
+    },
+    "status": {
+      "Funded": "Finanziert",
+      "Released": "Freigegeben",
+      "Refunded": "Erstattet",
+      "Disputed": "Streitig"
+    },
+    "loading": "Treuhandkonten werden geladen",
+    "error": {
+      "title": "Treuhandkonten konnten nicht geladen werden",
+      "tryAgain": "Erneut versuchen"
+    },
+    "empty": {
+      "noEscrows": "Keine aktiven Treuhandkonten",
+      "noEscrowsDescription": "Treuhandvereinbarungen erscheinen hier, sobald deine Agenten Käufe in deinem Namen initiiert haben.",
+      "noResults": "Keine Treuhandkonten entsprechen den aktuellen Filtern",
+      "noResultsDescription": "Versuche, deine Such- oder Statusfilter anzupassen."
+    },
+    "list": "Treuhandkontenliste"
+  },
   "home": {
     "title": "Delego",
     "subtitle": "KI-gestützter Handel mit Freigaben und Ausgabenkontrollen",
@@ -299,6 +384,43 @@
     "wallet": {
       "title": "Wallet",
       "description": "Verbinde deine Stellar-Wallet."
+    }
+  },
+  "tracking": {
+    "title": "Sendungsverfolgung",
+    "subtitle": "Verfolge laufende Bestellungen, während ihr Status in Echtzeit aktualisiert wird",
+    "liveUpdated": "Live · aktualisiert {time}",
+    "refresh": "Aktualisieren",
+    "refreshAriaLabel": "Jetzt aktualisieren",
+    "empty": "Derzeit sind keine Bestellungen unterwegs.",
+    "showCompleted": "Abgeschlossene anzeigen ({count})",
+    "hideCompleted": "Abgeschlossene ausblenden ({count})",
+    "card": {
+      "orderTitle": "Bestellung {orderId}",
+      "orderAriaLabel": "Sendungsverfolgung für Bestellung {orderId}",
+      "orderProgressAriaLabel": "Bestellfortschritt",
+      "merchant": "Händler",
+      "total": "Gesamt",
+      "escrow": "Treuhandkonto",
+      "notYetEscrowed": "Noch nicht hinterlegt",
+      "completed": "Abgeschlossen",
+      "lastUpdate": "Letzte Aktualisierung",
+      "packages": {
+        "sectionAriaLabel": "Paketverfolgung",
+        "heading": "Pakete ({count})",
+        "tablistAriaLabel": "Bestellpakete",
+        "tabLabel": "Paket {number} · {carrier}",
+        "deliveryProgress": "Lieferfortschritt",
+        "progressAriaLabel": "Lieferfortschritt für Paket {number}",
+        "estimatedDeliveryFallback": "Nicht angegeben",
+        "status": {
+          "label_created": "Etikett erstellt",
+          "in_transit": "Unterwegs",
+          "out_for_delivery": "In Zustellung",
+          "delivered": "Zugestellt",
+          "exception": "Ausnahme"
+        }
+      }
     }
   }
 }

@@ -26,25 +26,25 @@ describe("Badge", () => {
   it("renders neutral tone by default", () => {
     const { container } = render(<Badge>Default</Badge>);
     const badge = container.querySelector("span");
-    expect(badge?.style.background).toBe("rgb(229, 231, 235)");
+    expect(badge?.style.background).toBe("var(--ui-badge-neutral-bg, #e5e7eb)");
   });
 
   it("renders info tone", () => {
     const { container } = render(<Badge tone="info">Info</Badge>);
     const badge = container.querySelector("span");
-    expect(badge?.style.background).toBe("rgb(219, 234, 254)");
+    expect(badge?.style.background).toBe("var(--ui-badge-info-bg, #dbeafe)");
   });
 
   it("renders success tone", () => {
     const { container } = render(<Badge tone="success">Success</Badge>);
     const badge = container.querySelector("span");
-    expect(badge?.style.background).toBe("rgb(220, 252, 231)");
+    expect(badge?.style.background).toBe("var(--ui-badge-success-bg, #dcfce7)");
   });
 
   it("renders warning tone", () => {
     const { container } = render(<Badge tone="warning">Warning</Badge>);
     const badge = container.querySelector("span");
-    expect(badge?.style.background).toBe("rgb(254, 243, 199)");
+    expect(badge?.style.background).toBe("var(--ui-badge-warning-bg, #fef3c7)");
   });
 
   it("spreads additional props", () => {

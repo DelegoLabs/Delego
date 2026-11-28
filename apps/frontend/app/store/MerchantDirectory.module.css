@@ -1,0 +1,103 @@
+.directory {
+  color: var(--color-text-primary);
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+}
+.field {
+  display: flex;
+  flex: 1 1 10rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-weight: 600;
+  min-width: 0;
+}
+.filters .search {
+  flex-basis: 16rem;
+}
+.filters input,
+.filters select,
+.filters button {
+  min-height: 2.75rem;
+  padding: 0.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  font: inherit;
+}
+.filters button {
+  cursor: pointer;
+}
+.filters button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.filters input:focus-visible,
+.filters select:focus-visible,
+.filters button:focus-visible,
+.card a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1.25rem;
+  list-style: none;
+  padding: 0;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.5rem;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.card h2,
+.card p {
+  margin: 0;
+}
+.card h2 {
+  font-size: 1.25rem;
+}
+.card a {
+  color: var(--color-accent);
+}
+.category {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+.visit {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  font-weight: 600;
+}
+@media (max-width: 480px) {
+  .field,
+  .filters .search {
+    flex-basis: 100%;
+  }
+  .filters button {
+    width: 100%;
+  }
+}

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties } from "react";
 import Image from "next/image";
 
 /** Product data structure for agent recommendations */
@@ -22,7 +22,7 @@ export interface ProductCardProps {
   /** Optional ARIA label for accessibility */
   ariaLabel?: string;
   /** Optional inline styles */
-  style?: React.CSSProperties;
+  style?: CSSProperties;
 }
 
 /**
@@ -35,7 +35,7 @@ export function ProductCard({
   onSelect,
   onQuickAdd,
   ariaLabel,
-  ...props
+  style,
 }: ProductCardProps) {
   return (
     <div
@@ -49,6 +49,7 @@ export function ProductCard({
         maxWidth: "400px",
         boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
         transition: "box-shadow 0.2s ease-in-out",
+        ...style,
       }}
     >
       {/* Product Image */}

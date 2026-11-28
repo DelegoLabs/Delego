@@ -1,6 +1,6 @@
 import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 
-/** Semantic tone for a badge — maps to a fixed background/text color pair. */
+/** Semantic tone for a badge — maps to a themeable background/text color pair. */
 export type BadgeTone = "info" | "success" | "warning" | "error" | "neutral";
 
 /** Props accepted by the shared badge component. */

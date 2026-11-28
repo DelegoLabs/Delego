@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { useWallet } from "../../hooks/useWallet";
 import {
   fetchProductQuestions,
@@ -12,6 +12,26 @@ import {
 
 const QUESTION_MAX_LENGTH = 500;
 const ANSWER_MAX_LENGTH = 1000;
+
+export type QuestionSortOption = "newest" | "helpful";
+
+function parseTimestamp(value: string): number {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function isMerchantVerifiedAnswer(
+  answer: ProductAnswer,
+  merchantAddress: string
+): boolean {
+  return (
+    answer.isMerchant ||
+    Boolean(
+      merchantAddress &&
+        answer.authorAddress.toUpperCase() === merchantAddress.toUpperCase()
+    )
+  );
+}
 
 export interface ProductQuestionsProps {
   productId: string;
@@ -25,8 +45,10 @@ export function ProductQuestions({
   merchantAddress,
 }: ProductQuestionsProps) {
   const askFormId = useId();
+  const sortSelectId = useId();
   const { address, status, connect } = useWallet();
   const [questions, setQuestions] = useState<ProductQuestion[]>([]);
+  const [sortBy, setSortBy] = useState<QuestionSortOption>("newest");
   const [loading, setLoading] = useState(true);
   const [askOpen, setAskOpen] = useState(false);
   const [questionText, setQuestionText] = useState("");
@@ -128,32 +150,70 @@ export function ProductQuestions({
     }
   }
 
+  const sortedQuestions = useMemo(() => {
+    const items = [...questions];
+    items.sort((a, b) => {
+      if (sortBy === "helpful") {
+        const helpfulDiff = (b.helpfulCount ?? 0) - (a.helpfulCount ?? 0);
+        if (helpfulDiff !== 0) return helpfulDiff;
+
+        const aHasMerchantAnswer = a.answers.some((answer) =>
+          isMerchantVerifiedAnswer(answer, merchantAddress)
+        );
+        const bHasMerchantAnswer = b.answers.some((answer) =>
+          isMerchantVerifiedAnswer(answer, merchantAddress)
+        );
+        if (aHasMerchantAnswer !== bHasMerchantAnswer) {
+          return bHasMerchantAnswer ? 1 : -1;
+        }
+
+        const answerCountDiff = b.answers.length - a.answers.length;
+        if (answerCountDiff !== 0) return answerCountDiff;
+      }
+
+      return parseTimestamp(b.createdAt) - parseTimestamp(a.createdAt);
+    });
+    return items;
+  }, [questions, sortBy, merchantAddress]);
+
   function renderAnswer(answer: ProductAnswer, index: number) {
+    const isVerifiedMerchant = isMerchantVerifiedAnswer(
+      answer,
+      merchantAddress
+    );
+
     return (
       <div
         key={`${answer.authorAddress}-${answer.answeredAt}-${index}`}
         style={{
           marginTop: "0.5rem",
           paddingLeft: "0.75rem",
-          borderLeft: "2px solid #d1d5db",
+          borderLeft: isVerifiedMerchant
+            ? "3px solid #059669"
+            : "2px solid #d1d5db",
         }}
       >
         <p style={{ margin: 0 }}>{answer.answerText}</p>
         <small style={{ color: "#6b7280" }}>
           {answer.authorAddress.slice(0, 6)}…{answer.authorAddress.slice(-4)}
-          {answer.isMerchant && (
+          {isVerifiedMerchant && (
             <span
               aria-label="Merchant verified"
+              data-testid="verified-merchant-badge"
               style={{
-                display: "inline-block",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.25rem",
                 marginLeft: "0.5rem",
-                padding: "0.125rem 0.375rem",
+                padding: "0.125rem 0.5rem",
                 borderRadius: "9999px",
+                border: "1px solid #a7f3d0",
                 background: "#ecfdf5",
                 color: "#047857",
                 fontWeight: 700,
               }}
             >
+              <span aria-hidden="true">✓</span>
               Merchant Verified
             </span>
           )}
@@ -189,24 +249,64 @@ export function ProductQuestions({
           Questions &amp; Answers
           {questions.length > 0 ? ` (${questions.length})` : ""}
         </h3>
-        <button
-          type="button"
-          aria-expanded={askOpen}
-          aria-controls={askFormId}
-          onClick={() => {
-            setAskOpen((open) => !open);
-            setError(null);
-          }}
+        <div
           style={{
-            border: 0,
-            background: "none",
-            color: "#2563eb",
-            cursor: "pointer",
-            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            flexWrap: "wrap",
           }}
         >
-          Ask a question
-        </button>
+          <label
+            htmlFor={sortSelectId}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.375rem",
+              fontSize: "0.85rem",
+              color: "#4b5563",
+            }}
+          >
+            Sort by
+            <select
+              id={sortSelectId}
+              aria-label="Sort questions"
+              value={sortBy}
+              onChange={(event) =>
+                setSortBy(event.target.value as QuestionSortOption)
+              }
+              style={{
+                padding: "0.25rem 0.5rem",
+                borderRadius: "0.375rem",
+                border: "1px solid #d1d5db",
+                background: "#ffffff",
+                color: "#111827",
+                fontSize: "0.85rem",
+              }}
+            >
+              <option value="newest">Newest</option>
+              <option value="helpful">Most Helpful</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            aria-expanded={askOpen}
+            aria-controls={askFormId}
+            onClick={() => {
+              setAskOpen((open) => !open);
+              setError(null);
+            }}
+            style={{
+              border: 0,
+              background: "none",
+              color: "#2563eb",
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            Ask a question
+          </button>
+        </div>
       </div>
 
       {askOpen && (
@@ -278,7 +378,7 @@ export function ProductQuestions({
             padding: 0,
           }}
         >
-          {questions.map((question) => (
+          {sortedQuestions.map((question) => (
             <li
               key={question.id}
               style={{

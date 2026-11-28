@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it } from "vitest";
 import type { Order } from "@delegolabs/types";
 import { CurrencyProvider } from "../../hooks/useCurrency";
+import messages from "../../messages/en.json";
 import { OrderTrackingCard } from "./OrderTrackingCard";
 
 const order: Order = {
@@ -54,9 +56,11 @@ const order: Order = {
 describe("OrderTrackingCard multi-package tracking", () => {
   it("shows separate package tabs, progress, events, and carrier links", () => {
     render(
-      <CurrencyProvider>
-        <OrderTrackingCard order={order} />
-      </CurrencyProvider>
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <CurrencyProvider>
+          <OrderTrackingCard order={order} />
+        </CurrencyProvider>
+      </NextIntlClientProvider>
     );
 
     expect(
